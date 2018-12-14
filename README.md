@@ -4,7 +4,7 @@ AUXLAB consists of three windows: 1) AUdio syntaX console terminal, 2) variable/
 
 AUXLAB was developed C++ with Windows API. Yacc/lex was used for syntax parsing and tokenizing.
 
-Developed with Visual Studio 2017.
+Current release was developed with Visual Studio 2017.
 
 To build the app in your machine, edit auxlab.props and change the two macros, DropDev and BuildDir on lines 5 and 7.
 1) DropDev specifies the path for sources
