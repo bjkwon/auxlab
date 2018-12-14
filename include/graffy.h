@@ -1,3 +1,15 @@
+// AUXLAB 
+//
+// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Licensed under the Academic Free License version 3.0
+//
+// Project: graffy
+// Graphic Library (Windows only)
+// 
+// 
+// Version: 1.495
+// Date: 12/13/2018
+// 
 #pragma once
 
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h

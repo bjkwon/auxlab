@@ -1,5 +1,20 @@
+// AUXLAB 
+//
+// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Licensed under the Academic Free License version 3.0
+//
+// Project: audfret
+// Miscellaneous Support Library
+// 
+// 
+// Version: 1.495
+// Date: 12/13/2018
+// 
 #ifndef BJTOOLS
 #define BJTOOLS
+
+// This must be placed prior to <windows.h> to avoid including winsock.h
+#include "wxx_wincore.h" // For CString used in CWndDlg
 
 #ifndef _MFC_VER // If MFC is not used.
 #include <windows.h>
@@ -74,7 +89,6 @@ AUDFRET_EXP int mod (int big, int divider);
 AUDFRET_EXP int getrand(int x);
 AUDFRET_EXP double getexp(double dB);
 
-AUDFRET_EXP int Registry(int isitget, HKEY reg_key_handle, const char *keyName, const char *ItemName, char *buffer, char *errstr);
 AUDFRET_EXP void GetLastErrorStr(DWORD ecode, char *errstr);
 AUDFRET_EXP void GetLastErrorStr(char *errstr);
 AUDFRET_EXP double compFileTime(const char *fname1, const char *fname2);
@@ -116,14 +130,16 @@ AUDFRET_EXP int mceil(double x);
 #ifndef NO_SOCKET
 AUDFRET_EXP int TransSocket (const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec);
 #endif //NO_SOCKET
-//end of str2array stuff
+
+//Obsolete....for compatibility only
+AUDFRET_EXP int str2intarray(int* out, int maxSize_x, const char * str, const char *deliminators);
 
 
 #else
 double GetDlgItemDouble (HWND hDlg, int id, int* lpTrans);
 #endif
 
-AUDFRET_EXP INT_PTR InputBox(
+INT_PTR InputBox(
     LPCTSTR szTitle, 
     LPCTSTR szPrompt, 
     LPTSTR szResult, 
@@ -131,12 +147,78 @@ AUDFRET_EXP INT_PTR InputBox(
     bool bMultiLine = false,
     HWND hwndParent = 0);
 
-//Obsolete....for compatibility only
-AUDFRET_EXP int str2intarray(int* out, int maxSize_x, const char * str, const char *deliminators);
-AUDFRET_EXP int str2strarray(char** out, int maxSize_x, const char * str, const char *deliminators);
-AUDFRET_EXP int str2doublearray(double* out, int maxSize_x, const char * str, const char *deliminators);
-AUDFRET_EXP int readINI2Buffer (char *errstr, const char *fname, const char *heading, char * dynamicBuffer, int length);
-AUDFRET_EXP int strscanfINI (char *errstr, const char *fname, const char *heading, char *strBuffer, size_t strLen);
-AUDFRET_EXP int ReadItemFromINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen);
+class CFileDlg
+{
+public:
+	OPENFILENAME ofn;
+	void InitFileDlg(HWND hwnd, HINSTANCE hInst, const char *initDir);
+	int FileOpenDlg(LPSTR pstrFileName, LPSTR pstrTitleName, LPSTR szFilter, LPSTR lpstrDefExt);
+	int FileSaveDlg(LPSTR pstrFileName, LPSTR pstrTitleName, LPSTR szFilter, LPSTR lpstrDefExt);
+	CFileDlg(void);
+	char LastPath[MAX_PATH];
+	char InitDir[MAX_PATH];
+};
+
+/* A problem noted----
+Control ID (nIDDlgItem) is not recognized in applications, because resource.h showing those IDs are not available in the scope when this is compiled...
+It will not give you an error other than GetDlgItem returns NULL.....
+DO something.... 7/29/2016 bjkwon
+*/
+
+class CWndDlg
+{
+public:
+	HWND GetDlgItem(int idc);
+	void GetLastErrorStr(char *errstr);
+	void GetLastErrorStr(CString &errstr);
+	int SetDlgItemInt(int idc, UINT uValue, BOOL bSigned = 0) const;
+	int GetDlgItemInt(int idc, BOOL* lpTranslated = NULL, int bSigned = 0)  const;
+	int GetDlgItemText(int idc, CString& strOut) const;
+	int GetDlgItemText(int idc, std::string& strOut) const;
+	int SetDlgItemText(int idc, LPCTSTR str) const;
+	int GetDlgItemText(int idc, char *strOut, int len) const;
+	BOOL SetWindowText(const char *text);
+	int GetWindowText(CString& strOut) const;
+	int GetWindowText(char *strOut, int len) const;
+
+	BOOL GetWindowRect(LPRECT lpRect);
+	UINT_PTR SetTimer(UINT_PTR nIDEvent, UINT uElapse, TIMERPROC lpTimerFunc = NULL);
+	BOOL KillTimer(UINT_PTR nIDEvent);
+	BOOL MoveWindow(int x, int y, int nWidth, int nHeight, BOOL bRepaint);
+	BOOL MoveWindow(LPCRECT lpRect, BOOL bRepaint = TRUE);
+	BOOL MoveWindow(HWND hCtrl, LPCRECT lpRect, BOOL bRepaint = TRUE);
+
+	LONG_PTR SetWindowLongPtr(int nIndex, LONG dwNewLong);
+	LONG_PTR GetWindowLongPtr(int nIndex);
+	void OnCommand(int idc, HWND hwndCtl, UINT event);
+	void OnClose();
+	BOOL ShowWindow(int nCmdShow);
+	virtual int OnInitDialog(HWND hwndFocus, LPARAM lParam);
+	BOOL InvalidateRect(CONST RECT *lpRect, BOOL bErase = TRUE);
+	BOOL DestroyWindow();
+
+	int PostMessage(UINT Msg, WPARAM wParam = NULL, LPARAM lParam = NULL);
+	int MessageBox(LPCTSTR lpszText, LPCTSTR lpszCaption = NULL, UINT nType = MB_OK);
+	LRESULT SendMessage(UINT Msg, WPARAM wParam = NULL, LPARAM lParam = NULL);
+	LRESULT SendDlgItemMessage(int nIDDlgItem, UINT Msg, WPARAM wParam = NULL, LPARAM lParam = NULL);
+	HWND ChildWindowFromPoint(POINT Point);
+	int GetDlgItemRect(int IDDlgItem, RECT &rc);
+	int MoveDlgItem(int id, CRect rt, BOOL repaint);
+
+	CWndDlg* hParent;
+	CWndDlg* hActiveChild;
+	HWND hDlg;
+	HINSTANCE hInst;
+	char AppPath[MAX_PATH];
+	char AppName[MAX_PATH]; // without extension
+	char AppRunName[MAX_PATH]; // with extension
+	DWORD dwUser;
+	CWndDlg();
+	virtual ~CWndDlg();
+private:
+	POINT clientPt;
+};
+
+
 
 #endif // BJTOOLS
