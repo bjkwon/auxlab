@@ -1,0 +1,70 @@
+function y=tscale(x, rate, fftLen)
+rate = 1/rate
+if nargin < 3
+  fftLen = 1024;
+end
+overlapFactor=4
+hop = fftLen/overlapFactor;
+len0 = length(x)
+len = ceil(len0/fftLen)*fftLen
+x ++= zeros(len-len0)
+count = (len+fftLen*2)/fftLen
+xx=[]
+for k=1:overlapFactor
+	sub = [zeros((overlapFactor-(k-1))*hop)	x zeros((k-1)*hop+fftLen)]
+	sub = (..).matrix(count).hann.audio
+	xx ++= sub
+end
+xx=xx.matrix(count*overlapFactor).audio
+fx=xx.fft // ST-FFT
+fx=fx(:,1:1+end/2)
+tgrid = 0:rate:count*overlapFactor-2;
+
+pi=3.141592
+N = fftLen;
+dphi = [0 (2*pi*hop)*(1:N/2)/N];
+lent=tgrid.length
+newspec=zeros((N/2+1)*lent).matrix(lent)
+
+ph = angle(fx(1,:));
+ocol = 1;
+for k = 1:lent
+	fxnow = fx(tgrid(k).floor+1,:);
+	fxnext = fx(tgrid(k).floor+2,:);
+  // Grab the two rows of fx
+  tf = tgrid(k) - tgrid(k).floor;
+  intermag = (1-tf)*fxnow.abs + tf*fxnext.abs;
+  // Save the row
+  newspec(k,:) = intermag * exp(sqrt(-1)*ph);
+  // calculate phase advance
+  dp = fxnext.angle - fxnow.angle - dphi';
+  // Reduce to -pi:pi range
+  dp -=  2 * pi * round(dp/(2*pi));
+  // Cumulate phase, ready for next frame
+  ph = ph + dphi' + dp;
+end
+// Inverse STFFT
+container = zeros(N*lent).matrix(lent)
+for rw = 1:lent
+	container(rw,:) = [newspec(rw,:) newspec(rw,end-1:2).conj]
+end
+container = ifft(..).real
+hopms = hop/getfs*1000
+y=[]
+for rw = 1:lent-2
+	y += container(rw,:).audio.hann >> hopms*(rw-1)
+end
+for rw = lent-1:lent
+	y += container(rw,:).audio >> hopms*(rw-1)
+end
+targetLength = round(len0 / rate);
+y=y(fftLen+1:end)
+y=y(1:targetLength)
+//RMS tracking based on the input
+x = x.matrix(2*len/fftLen)
+rmsx=x.rms;
+y = y.matrix(2*len/fftLen)
+rmsy=y.rms;
+y = y @ (rmsx-rmsy)
+y = y @ x @ 0
+y=y(:)

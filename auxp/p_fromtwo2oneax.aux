@@ -1,0 +1,12 @@
+function ax = p_fromtwo2oneax(fig)
+//Make one axes from two axes and delete the existing line
+chax = fig.children
+pos1 = min(chax(1).pos(1),chax(2).pos(1))
+pos2 = min(chax(1).pos(2),chax(2).pos(2))
+pos3 = max(chax(1).pos(3),chax(2).pos(3))
+pos4 = max(chax(1).pos(2)+chax(1).pos(4),chax(2).pos(2)+chax(2).pos(4))
+chax(2).delete
+chax(1).pos = [pos1 pos2 pos3 pos4]
+chax.children.delete
+ax = chax
+
