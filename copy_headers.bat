@@ -1,0 +1,1 @@
+for %%x in (%*) do if not exist .\INCLUDE\%%x.h copy .\%%x\%%x.h .\INCLUDE\
