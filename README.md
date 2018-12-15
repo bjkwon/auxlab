@@ -1,12 +1,18 @@
 # AUXLAB
 
-AUXLAB is as an integrative computing environment, created for scientists, engineers, and technicians who are working with audio signals. It allows you to generate and modify signals and execute computations on them. Its apperarance mimics MATLAB and the syntax, AUX (**AU**ditory synta**X**) was derived from MATLAB; therefore, it is an easy-to-use tool for anyone familiar with MATLAB. However, because AUX dramatically simplifies coding for audio signals and signal processing, prior knowledge of MATLAB shouldn't be a pre-requisite. Any professional or student who studies, plays and deals with sounds, particularly those in the fields that are considered "less quantitative," such as music, psychology, or linguistics, can learn coding easily with AUX.
+AUXLAB is as an integrative computing environment, created for scientists, engineers, and technicians who are working with audio signals. It allows you to generate and modify signals and execute computations on them. Its apperarance mimics MATLAB and the syntax, AUX (**AU**ditory synta**X**) was derived from MATLAB; therefore, it is an easy-to-use tool for anyone familiar with MATLAB. However, because AUX dramatically simplifies coding for audio signals and signal processing, prior knowledge of MATLAB shouldn't be a pre-requisite. Any professional or student who studies, plays and deals with sounds, particularly those in the fields that are considered "less quantitative," such as music, psychology, or linguistics, can learn coding easily with AUX. It is free software.
 
-# Installation
+# For those who want to try it out
+1. Installation
 
 The stand-alone package of AUXLAB is currently available only for Windows OS (Windows 7, 8 and 10). No special installation is required. Download the zip file and run the exe after unzipping it. [Download here](http://auditorypro.com/download/auxlab/auxlab.html)
 
 You might need Microsoft Visual C++ Redistributable for Visual Studio 2015, such as [vc_redist.x86.exe or vc_redist.x64.exe](https://www.microsoft.com/en-us/download/details.aspx?id=48145), depending on your machine, if you don't already have them installed in your system.
+
+2. Documentation and help
+
+Here's the link to [online help](http://auxlab.org/help/AUXLAB.html).
+Here's the repository to the html files and index files to make chm. [link](http://github.com/bjkwon/auxlab-help.git)
 
 # How to compile and link
 
