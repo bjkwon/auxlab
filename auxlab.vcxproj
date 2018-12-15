@@ -136,7 +136,7 @@
       <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse</Command>
+      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -156,7 +156,7 @@
       <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse</Command>
+      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -180,7 +180,7 @@
       <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse</Command>
+      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -204,7 +204,7 @@
       <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse</Command>
+      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
