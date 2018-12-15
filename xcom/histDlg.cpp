@@ -7,13 +7,14 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.4951
+// Date: 12/14/2018
 // 
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h
 #include "histDlg.h"
 #include "resource1.h"
 #include "audfret.h"
+#include "sigproc.h"
 #include "xcom.h"
 
 extern CHistDlg mHistDlg;

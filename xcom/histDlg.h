@@ -7,14 +7,13 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.4951
+// Date: 12/14/2018
 // 
 #include <windows.h>
 #include <commctrl.h>  // includes the common control header
-#include "WndDlg0.h"
 #include "msgCrack.h"
-#include "sigproc.h"
+#include "audfret.h"
 #include "consts.h"
 
 class CHistDlg : public CWndDlg

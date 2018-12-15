@@ -7,16 +7,16 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.4951
+// Date: 12/14/2018
 // 
 #ifndef DEBUG_DLG
 #define DEBUG_DLG
 
 #include <windows.h>
 #include <commctrl.h>  // includes the common control header
-#include "WndDlg0.h"
 #include "msgCrack.h"
+#include "audfret.h"
 #include <set>
 
 #ifndef SIGPROC

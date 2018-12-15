@@ -7,9 +7,9 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.4951
+// Date: 12/14/2018
+// Change from 1.495: FileDlg.h dropped 
 
 // PlotDlg.cpp : implementation file
 //
@@ -28,12 +28,9 @@ if tics1 is not empty, OnPaint will not set tics1.
 */
 
 #include "PlotDlg.h"
-#include "FileDlg.h"
 #include <limits>
 
 #include "wavplay.h"
-
-int sprintfFloat(double f, int max_fp, char *strOut, size_t sizeStrOut);
 
 #define IDM_SPECTRUM_INTERNAL	2222
 #define IDC_LEVEL			7000

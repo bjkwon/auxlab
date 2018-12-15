@@ -7,13 +7,11 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.4951
+// Date: 12/14/2018
 // 
 #include <windows.h>
 #include <commctrl.h>  // includes the common control header
-#include "WndDlg0.h"
-#include "FileDlg.h" // from common/include
 #include "graffy.h"
 #ifndef SIGPROC
 #include "sigproc.h"
@@ -136,7 +134,7 @@ public:
 	void debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry);
 	void AdjustWidths(int redraw=0);
 	int ClearVar(const char *var);
-	void plotvar(CVar *psig, CString title, const char *varname);
+	void plotvar(CVar *psig, string title, const char *varname);
 	void plotvar_update(CFigure *cfig, CVar *psig);
 	void plotvar_update2(CAxes *pax, CTimeSeries *psig, CTimeSeries *psigOld);
 	CFigure * newFigure(CRect rt, string title, const char *varname, GRAFWNDDLGSTRUCT *pin);

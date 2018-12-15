@@ -7,9 +7,9 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.4951
+// Date: 12/14/2018
+// Change from 1.495: std::string used instead of CString 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <process.h>
 #include "showvar.h"
@@ -89,6 +89,13 @@ uintptr_t hDebugThread2(NULL);
 void ValidateFig(const char* scope);
 
 unsigned int WINAPI debugThread2 (PVOID var) ;
+
+int MoveDlgItem(HWND hDlg, int id, CRect rt, BOOL repaint)
+{
+	HWND h = GetDlgItem(hDlg, id);
+	if (!h) return 0;
+	return ::MoveWindow(h, rt.left, rt.top, rt.Width(), rt.Height(), repaint);
+}
 
 BOOL CALLBACK logProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
@@ -252,7 +259,7 @@ CFigure * CShowvarDlg::newFigure(CRect rt, string title, const char *varname, GR
 	return out;
 }
 
-void CShowvarDlg::plotvar(CVar *psig, CString title, const char *varname)
+void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 {
 	static char buf[256];
 	vector<HANDLE> plotlines;
@@ -965,17 +972,17 @@ void CShowvarDlg::ArrangeControlsInit()
 	rt.top = topgap + gap1;
 	rt.bottom = rt.top + list_head_height;
 	rt.right = (rt.left = 0) + rtCl.Width();
-	res = MoveDlgItem(IDC_AUDIO_TITLE, rt, 1);
+	res = MoveDlgItem(hDlg, IDC_AUDIO_TITLE, rt, 1);
 	int list_Height = (rtCl.Height() - topgap - 2 * gap1 - 2 * gap2 - 2 * list_head_height) / 2;
 	rt.top = rt.bottom + gap2;
 	rt.bottom = rt.top + list_Height;
-	res = MoveDlgItem(IDC_LIST1, rt, 1);
+	res = MoveDlgItem(hDlg, IDC_LIST1, rt, 1);
 	rt.top = rt.bottom + gap1;
 	rt.bottom = rt.top + list_head_height;
-	res = MoveDlgItem(IDC_NONAUDIO_TITLE, rt, 1);
+	res = MoveDlgItem(hDlg, IDC_NONAUDIO_TITLE, rt, 1);
 	rt.top = rt.bottom + gap2;
 	rt.bottom = rt.top + list_Height;
-	res = MoveDlgItem(IDC_LIST2, rt, 1);
+	res = MoveDlgItem(hDlg, IDC_LIST2, rt, 1);
 
 	listHeight[0] = listHeight[1] = list_Height;
 
@@ -1043,7 +1050,7 @@ void CShowvarDlg::OnSize(UINT state, int cx, int cy)
 	rt.top = topgap + gap1;
 	rt.bottom = rt.top + list_head_height;
 	rt.right = (rt.left = 0) + rtCl.Width();
-	int res = MoveDlgItem(IDC_AUDIO_TITLE, rt, 1);
+	int res = MoveDlgItem(hDlg, IDC_AUDIO_TITLE, rt, 1);
 	//Now, depending on how many items are there in list1 and list2, the heights of two hList's are adjusted
 
 	WORD height_aprox1 = HIWORD(ListView_ApproximateViewRect(hList1, -1, -1, -1));
@@ -1068,13 +1075,13 @@ void CShowvarDlg::OnSize(UINT state, int cx, int cy)
 	}
 	rt.top = rt.bottom + gap2;
 	rt.bottom = rt.top + listHeight[0];
-	res = MoveDlgItem(IDC_LIST1, rt, 1);
+	res = MoveDlgItem(hDlg, IDC_LIST1, rt, 1);
 	rt.top = rt.bottom + gap1;
 	rt.bottom = rt.top + list_head_height;
-	res = MoveDlgItem(IDC_NONAUDIO_TITLE, rt, 1);
+	res = MoveDlgItem(hDlg, IDC_NONAUDIO_TITLE, rt, 1);
 	rt.top = rt.bottom + gap2;
 	rt.bottom = rt.top + listHeight[1];
-	res = MoveDlgItem(IDC_LIST2, rt, 1);
+	res = MoveDlgItem(hDlg, IDC_LIST2, rt, 1);
 	AdjustWidths();
 }
 
@@ -1270,7 +1277,7 @@ CWndDlg * CShowvarDlg::DoesThisVarViewExist(string varname)
 void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 {
 	int res(0);
-	CString title("");
+	string title("");
 	static char varname[256]; // keep this in the heap (need to survive during _beginthread)
 	char *pvarname;
 	char errstr[256];
@@ -1348,7 +1355,8 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 					CVectorsheetDlg *cvdlg2 = new CVectorsheetDlg(this);
 					cvdlg2->hDlg = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_DISPVECTOR), hDlg, (DLGPROC)vectorsheetDlg, (LPARAM)varname);
 					cvdlg2->psig = psig->next;
-					cvdlg2->name = title + varname + CString(" (R)");
+					cvdlg2->name = title + varname;
+					cvdlg2->name  += " (R)";
 					cvdlg2->Init2(cvdlg2->name.c_str());
 					cvdlg2->FillUp();
 					cvdlg2->ShowWindow(SW_SHOW);

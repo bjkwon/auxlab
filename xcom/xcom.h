@@ -35,8 +35,8 @@ public:
 	virtual ~cfigdlg() {};
 	DWORD threadID;
 	HWND hDlg;
-	string var;
-	string scope;
+	std::string var;
+	std::string scope;
 	CAstSig *pcast;
 };
 
@@ -82,8 +82,8 @@ public:
 
 
 private:
-	int read_axl_block(FILE *fp, string &varname, CVar *pout, char *errstr, bool independent = true);
-	int write_axl_block(FILE *fp, string varname, CVar *pout, char *errstr, bool independent = true);
+	int read_axl_block(FILE *fp, std::string &varname, CVar *pout, char *errstr, bool independent = true);
+	int write_axl_block(FILE *fp, std::string varname, CVar *pout, char *errstr, bool independent = true);
 };
 
 

@@ -17,9 +17,7 @@
 #define WAVPLAY
 
 #include <windows.h>
-//#include <stdio.h>
 #include "sigproc.h"
-
 
 class AUD_PLAYBACK
 {

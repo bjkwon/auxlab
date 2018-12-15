@@ -7,9 +7,9 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.4951
+// Date: 12/14/2018
+// Change from 1.495: audfret.h included instead of WndDlg0.h
 #pragma once
 
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h
@@ -49,7 +49,7 @@
 
 #ifndef GRAFFY // ======== CLASS DEFINITIONS FOR graffy
 #define GRAFFY
-#include "WndDlg0.h"
+#include "audfret.h"
 #ifndef SIGPROC
 #include "sigproc.h"
 #endif

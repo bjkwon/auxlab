@@ -7,13 +7,13 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.4951
+// Date: 12/14/2018
+// Change from 1.495: WndDlg0.h dropped 
+
 #include "graffy.h"	
 #include "resource.h"	
 #include "audfret.h"
-#include "WndDlg0.h"
 #include "fftw3.h"
 #include <math.h>
 

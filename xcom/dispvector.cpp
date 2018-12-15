@@ -31,6 +31,7 @@ map<string, CRect> dlgpos;
 ostringstream outstream_complex(complex<double> cval); 
 
 BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
+int MoveDlgItem(HWND hDlg, int id, CRect rt, BOOL repaint);
 
 BOOL CALLBACK vectorsheetDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
@@ -518,7 +519,7 @@ void CVectorsheetDlg::FillUp()
 	rtList.bottom = rtList.top + listHeight;
 	rtList.left = 0;
 	rtList.right = rtList.left + totalwidth + 5;
-	MoveDlgItem(IDC_LISTVECTOR, rtList, 1);
+	MoveDlgItem(hDlg, IDC_LISTVECTOR, rtList, 1);
 	ReleaseDC(NULL, hdc);
 }
 

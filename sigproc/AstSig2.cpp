@@ -17,7 +17,6 @@
 #include <math.h>
 #include <time.h>
 #include "sigproc.h"
-#include "audfret.h"
 
 #include <algorithm> // for lowercase
 

@@ -156,30 +156,23 @@ int CWndDlg::GetDlgItemText(int idc, std::string &strOut) const
 	return res;
 }
 
-int CWndDlg::GetDlgItemText(int idc, CString &strOut) const
-{
-	UINT res, size=MAX_PATH;
-	res = ::GetDlgItemText (hDlg, idc, strOut.GetBuffer(size), size);
-	while (res>=size-1)
-	{
-		size *=2;
-		res = ::GetDlgItemText (hDlg, idc, strOut.GetBuffer(size), size);
-	}
-	strOut.ReleaseBuffer();
-	return res;
-}
 
-
-int CWndDlg::GetWindowText(CString& strOut) const
+int CWndDlg::GetWindowText(std::string& strOut) const
 {
 	int res, size=MAX_PATH;
-	res = ::GetWindowText (hDlg, strOut.GetBuffer(size), size);
-	while (res>=size-1)
+	char *buf = new char[size];
+	res = ::GetWindowText (hDlg, buf, size);
+	while (res==size)
 	{
-		size *=2;
-		res = ::GetWindowText (hDlg, strOut.GetBuffer(size), size);
+		char *buf2 = new char[size*2];
+		memcpy(buf2, buf, size);
+		size *= 2;
+		delete[] buf;
+		buf = buf2;
+		res = ::GetWindowText (hDlg, buf, size);
 	}
-	strOut.ReleaseBuffer();
+	strOut = buf;
+	delete[] buf;
 	return res;
 }
 
@@ -191,16 +184,6 @@ int CWndDlg::GetWindowText(char *strOut, int len) const
 LRESULT CWndDlg::SendDlgItemMessage(int nIDDlgItem, UINT Msg, WPARAM wParam, LPARAM lParam) 
 {
 	return ::SendDlgItemMessage(hDlg, nIDDlgItem, Msg, wParam, lParam); 
-}
-
-
-void CWndDlg::GetLastErrorStr(CString &errstr)
-{
-	char  string[256];
-
-	GetLastErrorStr(string);
-		errstr = string;
-	return;
 }
 
 void CWndDlg::GetLastErrorStr(char *errstr)
@@ -251,12 +234,4 @@ int CWndDlg::GetDlgItemRect(int ItemID, RECT &rc)
 	rc.right = rc.left + rt2.right;
 	rc.bottom = rc.top + rt2.bottom;
 	return 1;
-}
-
-
-int CWndDlg::MoveDlgItem(int id, CRect rt, BOOL repaint)
-{
-	HWND h = GetDlgItem(id);
-	if (!h) return 0;
-	return ::MoveWindow(h, rt.left, rt.top, rt.Width(), rt.Height(), repaint);
 }

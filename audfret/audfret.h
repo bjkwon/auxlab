@@ -7,14 +7,11 @@
 // Miscellaneous Support Library
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.4951
+// Date: 12/14/2018
+// Change from 1.495: CString, CRect not used-->no need to include wxx_wincore.h
 #ifndef BJTOOLS
 #define BJTOOLS
-
-// This must be placed prior to <windows.h> to avoid including winsock.h
-#include "wxx_wincore.h" // For CString used in CWndDlg
 
 #ifndef _MFC_VER // If MFC is not used.
 #include <windows.h>
@@ -170,15 +167,13 @@ class CWndDlg
 public:
 	HWND GetDlgItem(int idc);
 	void GetLastErrorStr(char *errstr);
-	void GetLastErrorStr(CString &errstr);
 	int SetDlgItemInt(int idc, UINT uValue, BOOL bSigned = 0) const;
 	int GetDlgItemInt(int idc, BOOL* lpTranslated = NULL, int bSigned = 0)  const;
-	int GetDlgItemText(int idc, CString& strOut) const;
 	int GetDlgItemText(int idc, std::string& strOut) const;
 	int SetDlgItemText(int idc, LPCTSTR str) const;
 	int GetDlgItemText(int idc, char *strOut, int len) const;
 	BOOL SetWindowText(const char *text);
-	int GetWindowText(CString& strOut) const;
+	int GetWindowText(std::string& strOut) const;
 	int GetWindowText(char *strOut, int len) const;
 
 	BOOL GetWindowRect(LPRECT lpRect);
@@ -203,7 +198,6 @@ public:
 	LRESULT SendDlgItemMessage(int nIDDlgItem, UINT Msg, WPARAM wParam = NULL, LPARAM lParam = NULL);
 	HWND ChildWindowFromPoint(POINT Point);
 	int GetDlgItemRect(int IDDlgItem, RECT &rc);
-	int MoveDlgItem(int id, CRect rt, BOOL repaint);
 
 	CWndDlg* hParent;
 	CWndDlg* hActiveChild;

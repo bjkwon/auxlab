@@ -4,15 +4,14 @@
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
-// Graphic Library (Windows only)
+// Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.4951
+// Date: 12/14/2018
+// Change from 1.495: FileDlg.h dropped 
 #include <math.h>
 #include "PlotDlg.h"
-#include "FileDlg.h"
 
 #define ROUND(dub) (int)(dub+.5)
 #define PI 3.141592
