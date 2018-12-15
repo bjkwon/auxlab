@@ -5,7 +5,7 @@
     <LocalRepoDir>c:\Users\BJ\Documents\repos\auxlab\</LocalRepoDir>
     <BuildDir>c:\devploy\auxlab\</BuildDir>
     <SrcPath>$(LocalRepoDir)$(RootNamespace)\</SrcPath>
-    <TargetDir>$(OutDir)</TargetDir>
+    <TargetDir>$(BuildDir)</TargetDir>
     <SharedCodePath>$(SrcPath)..\include\</SharedCodePath>
   </PropertyGroup>
   <PropertyGroup>
