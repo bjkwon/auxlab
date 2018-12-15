@@ -17,3 +17,23 @@ This repository has all files necessary for you to build the package with Visual
 6: <BuildDir>_________</BuildDir>
 ```
 Specify the directory of the local repository on line 5 and the directory for the build outputs on line 6. Now you are ready to build the application.
+
+# Projects
+# Internal Projects (projects developed and used for AUXLAB)
+| project name | description                                                               | Win API dependent |
+|--------------|---------------------------------------------------------------------------|---|
+| audfret      | Common functions and classes                                              | Yes |
+| auxlab       | Main application                                                          | Yes |
+| auxp         | Private user-defined functions                                            |Yes |
+| graffy       | Graphic library to display signals                                        |Yes |
+| qlparse      | Line parser to handle file string with full path, with or without a space |No|
+| sigproc      | Signal generation and processing, including parser and tokenizer          |No|
+| wavplay      | Audio playback library                                                    |Yes |
+
+# External Projects (projects developed by others)
+|   | project name | Authors                                                               |Version  |
+|---|--------------|---------------------------------------------------------------------------|---|
+|   | FFTW      | Matteo Frigo and Steven G. Johnson                                              | 3.3.4 |
+|   | libsndfile       | Erik de Castro Lopo                                                        | 1.0.26 |
+|   | libsamplerate         | Erik de Castro Lopo                                            |0.1.8 |
+|   | iir          | IIR filter design, used in sigproc                                        |No|
