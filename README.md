@@ -37,9 +37,17 @@ Specify the directory of the local repository on line 5 and the directory for th
 | wavplay      | Audio playback library                                                    |Yes |
 
 # External Projects (projects developed by others)
-|   | project name | Authors                                                               |Version  |
-|---|--------------|---------------------------------------------------------------------------|---|
-|   | FFTW      | Matteo Frigo and Steven G. Johnson                                              | 3.3.4 |
-|   | libsndfile       | Erik de Castro Lopo                                                        | 1.0.26 |
-|   | libsamplerate         | Erik de Castro Lopo                                            |0.1.8 |
-|   | iir          | IIR filter design, used in sigproc                                        |No|
+| project name | Authors                                                               |Version  |
+|--------------|---------------------------------------------------------------------------|---|
+| FFTW      | Matteo Frigo and Steven G. Johnson                                              | 3.3.4 |
+| libsndfile       | Erik de Castro Lopo                                                        | 1.0.26 |
+| libsamplerate         | Erik de Castro Lopo                                            |0.1.8 |
+| ELLF | Stephen L Moshier (iir.lib; IIR filter design used in sigproc)          |2014-10-03 release|
+
+# Other external libraries used
+| project name | Authors                                                               |Version  |
+|--------------|---------------------------------------------------------------------------|---|
+|Win32++| David Nash | 8.2 |
+|bison| the GNU project; yacc parser| 2.4.1|
+|flex| Vern Paxson; lexical analyzer| 2.5.4a|
+
