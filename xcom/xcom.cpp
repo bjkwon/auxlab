@@ -44,9 +44,6 @@ bool moduleLoop(false);
 typedef void (*PFUN) (const vector<CAstSig*> &);
 
 xcom mainSpace;
-vector<CAstSig*> xcomvecast;
-vector<CAstSig*> CAstSig::vecast = xcomvecast;
-bool CAstSig::graffyPrepared = false;
 
 CWndDlg wnd;
 CShowvarDlg mShowDlg(NULL, NULL);

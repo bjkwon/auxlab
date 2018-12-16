@@ -47,7 +47,7 @@ if tics1 is not empty, OnPaint will not set tics1.
 
 extern HWND hPlotDlgCurrent;
 
-FILE *fp;
+//FILE *fp;
 
 int iabs(int x)
 {
@@ -1029,7 +1029,7 @@ void CPlotDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 void CPlotDlg::SetGCF()
 {
 	CVar *pgcf = (CVar*)FindFigure(hDlg);
-	if (pgcf)
+	if (pctx && pgcf)
 		pctx->SetVar("gcf", pgcf);
 }
 

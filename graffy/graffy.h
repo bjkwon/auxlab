@@ -328,3 +328,4 @@ GRAPHY_EXPORT vector<DWORD> Colormap(char lh, char rc, int nItems);
 
 vector<double> makefixtick(double _x1, double _x2, int count);
 
+GRAPHY_EXPORT void initGraffy(CAstSig *pctx);

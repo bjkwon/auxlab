@@ -7,9 +7,9 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.4952
+// Date: 12/15/2018
+// Revised to make graffy a static library
 // graffy.cpp : Defines the initialization routines for the DLL.
 //
 
@@ -17,12 +17,6 @@
 #include "msgCrack.h"
 #include <string.h>
 #include <algorithm>
-
-#pragma data_seg ("shared")
-vector<CAstSig*> xcomvecast;
-vector<CAstSig*> CAstSig::vecast = xcomvecast;
-bool CAstSig::graffyPrepared = false;
-#pragma data_seg ()
 
 HINSTANCE hInst;
 CPlotDlg* childfig;
@@ -61,7 +55,7 @@ CGraffyDLL theApp;
 
 void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS); //need to initialize during construction of CGraffyDLL object
 
-int getID4hDlg(HWND hDlg)
+int getID4hDlg2(HWND hDlg)
 {
 	/*	FILE *fp=fopen("getID4hDlg.log","at");
 	SYSTEMTIME lt;
@@ -80,7 +74,7 @@ int getID4hDlg(HWND hDlg)
 
 INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
-	int id = getID4hDlg(hDlg);
+	int id = getID4hDlg2(hDlg);
 	if (id<0) // This means theApp.hDlg_fig has not gotten hDlg for the created window, i.e., processing early messages prior to WM_INITDIALOG
 	{
 		//then add hDlg to the vector
@@ -142,7 +136,8 @@ INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	}
 	return TRUE;
 }
-
+EXTERN_C IMAGE_DOS_HEADER __ImageBase;
+#define HINST_THISCOMPONENT ((HINSTANCE)&__ImageBase)
 
 CGraffyDLL::CGraffyDLL()
 {
@@ -157,34 +152,34 @@ CGraffyDLL::CGraffyDLL()
 	sprintf(AppPath, "%s%s", drive, dir);
 	sprintf(moduleName, "%s%s", fname, ext);
 
-	pglobalEnv = new CAstSigEnv(22050);
-	pctx = new CAstSig(pglobalEnv);
-	pctx->u.application = "graffy";
-	pglobalEnv->InitBuiltInFunctionList();
-	pctx->fpmsg.SetGoProperties = SetGOProperties;
+	pglobalEnv = nullptr;// new CAstSigEnv(22050);
+	pctx = nullptr;//new CAstSig(pglobalEnv);
+//	pctx->u.application = "xcom";
+//	pglobalEnv->InitBuiltInFunctionList();
+//	pctx->fpmsg.SetGoProperties = SetGOProperties;
 
-	CAstSig::vecast.push_back(pctx);
-
-#ifndef WIN64
-	sprintf(fname, "%sauxp32.dll", AppPath);
-#else
-	sprintf(fname, "%sauxp64.dll", AppPath);
-#endif
-	HANDLE hLib = LoadLibrary(fname); // fix this.... if the path has been changed in the middle, we are no longer in AppPath
-	if (!hLib)
-		printf("[Warning] Standard private UDF library %s not found\n", fname);
-	else
-	{
-		string res, emsg;
-		int id = 100; // the resource ID in auxp begins with 101 (harded-coded)
-		while (1)
-		{
-			res = pctx->LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
-			if (res.empty())
-				break;
-		}
-		FreeLibrary((HMODULE)hLib);
-	}
+//	CAstSig::vecast.push_back(pctx);
+//
+//#ifndef WIN64
+//	sprintf(fname, "%sauxp32.dll", AppPath);
+//#else
+//	sprintf(fname, "%sauxp64.dll", AppPath);
+//#endif
+//	HANDLE hLib = LoadLibrary(fname); // fix this.... if the path has been changed in the middle, we are no longer in AppPath
+//	if (!hLib)
+//		printf("[Warning] Standard private UDF library %s not found\n", fname);
+//	else
+//	{
+//		string res, emsg;
+//		int id = 100; // the resource ID in auxp begins with 101 (harded-coded)
+//		while (1)
+//		{
+//			res = pctx->LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
+//			if (res.empty())
+//				break;
+//		}
+//		FreeLibrary((HMODULE)hLib);
+//	}
 }
 
 CGraffyDLL::~CGraffyDLL()
@@ -203,6 +198,11 @@ vector<HANDLE> CGraffyDLL::figures()
 	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
 		out.push_back(*it);
 	return out;
+}
+
+GRAPHY_EXPORT void initGraffy(CAstSig *pp)
+{
+	theApp.pctx = pp;
 }
 
 HANDLE  CGraffyDLL::findAxes(HANDLE ax)
@@ -289,10 +289,12 @@ HANDLE CGraffyDLL::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 {
 	CString s;
 	CPlotDlg *newFig;
-	fig.push_back(newFig = new CPlotDlg(hInst, &GraffyRoot)); // this needs before CreateDialogParam
+	HMODULE h = HINST_THISCOMPONENT;
+//	h = GetModuleHandle(0);
+	fig.push_back(newFig = new CPlotDlg(h, &GraffyRoot)); // this needs before CreateDialogParam
 
 	// due to z-order problem in Windows 7, parent is set NULL for win7.
-	if (!(newFig->hDlg = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_PLOT), isWin7() ? NULL : hWndAppl, (DLGPROC)DlgProc, (LPARAM)hWndAppl)))
+	if (!(newFig->hDlg = CreateDialogParam(HINST_THISCOMPONENT, MAKEINTRESOURCE(IDD_PLOT), isWin7() ? NULL : hWndAppl, (DLGPROC)DlgProc, (LPARAM)hWndAppl)))
 	{
 		MessageBox(NULL, "Cannot Create graffy dialog box", "", MB_OK);	fig.pop_back(); delete newFig; return NULL;
 	}
@@ -425,7 +427,7 @@ void thread4Plot(PVOID var)
 			if (msg.message == WM_KEYDOWN)
 				if (msg.message == WM_KEYDOWN && msg.wParam == 17 && GetParent(msg.hwnd) == in->cfig->m_dlg->hDlg) // Left control key for window size adjustment
 					msg.hwnd = in->cfig->m_dlg->hDlg;
-			if (!IsDialogMessage(msg.hwnd, &msg))
+//			if (!IsDialogMessage(msg.hwnd, &msg))
 			{
 				//				SpyGetMessage(msg, "track.txt", wmstr, dum, "Dispatching ");
 				TranslateMessage(&msg);
@@ -451,6 +453,7 @@ GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in)
 	pin->threadCaller = in.threadCaller;
 	pin->caption = in.caption;
 	pin->rt = in.rt;
+	pin->hAccel = in.hAccel;
 	_beginthread(thread4Plot, 0, (void*)pin);
 	//	DWORD dw = WaitForSingleObject(hEvent, INFINITE);
 
@@ -551,8 +554,6 @@ GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID)
 	}
 	return NULL;
 }
-
-
 
 GRAPHY_EXPORT void ShowSpectrum(HANDLE _h)
 {
@@ -980,58 +981,3 @@ vector<DWORD> Colormap(char lh, char rc, int nItems)
 		}
 	return out;
 }
-/*
-CFigure *GetCFigure(CSignalsGO *pgo)
-{
-	if (!pgo || pgo->geneal.empty()) return nullptr;
-	return (CFigure*)pgo->geneal.front();
-}
-
-CFigure *GetAxes(CSignalsGO *pgo)
-{
-	if (!pgo || pgo->geneal.size() < 2 ) return nullptr;
-	return (CFigure*)(pgo->geneal.front()+1);
-}
-
-CGobj * GetGraffyObj(CSignalsGO *pgo)
-{
-	if (pgo->type == "figure")
-	{
-		for (auto figDlg : theApp.fig)
-		{
-			if (GetCFigure(pgo) == &figDlg->gcf)
-				return &figDlg->gcf;
-		}
-		return nullptr;
-	}
-	else if (pgo->type == "axes")
-	{
-		for (auto figDlg : theApp.fig)
-		{
-			if (GetCFigure(pgo) == &figDlg->gcf)
-			{
-				for (auto figDlg : theApp.fig)
-			}
-				return &figDlg->gcf;
-		}
-		return nullptr;
-
-	}
-		CFigure* cfig = &figDlg->gcf;
-		if (cfig->pgo->GetFs() != 2 && (INT_PTR)cfig->pgo->value() == figID) return (HANDLE)cfig;
-		for (vector<CAxes*>::iterator paxit = cfig->ax.begin(); paxit != cfig->ax.end(); paxit++)
-		{
-			if ((INT_PTR)*paxit == figID) return (HANDLE)*paxit;
-			for (size_t q = 0; q < (*paxit)->m_ln.size(); q++)
-			{
-				CLine *ln = (*paxit)->m_ln[q];
-				if ((INT_PTR)ln == figID) return (HANDLE)ln;
-			}
-		}
-		for (vector<CText*>::iterator ptxit = cfig->text.begin(); ptxit != cfig->text.end(); ptxit++)
-			if ((INT_PTR)*ptxit == figID) return (HANDLE)*ptxit;
-	}
-	return NULL;
-
-}
-*/

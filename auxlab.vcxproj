@@ -40,13 +40,14 @@
     <ClInclude Include="$(SrcPath)xcom.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="$(SrcPath)xcom1.rc" />
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="$(SrcPath)STOP.bmp" />
     <Image Include="$(SrcPath)xcom.bmp" />
     <Image Include="$(SrcPath)xcom.ico" />
     <Image Include="$(SrcPath)xcom.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="xcom\graffy.rc" />
+    <ResourceCompile Include="xcom\xcom1.rc" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -124,7 +125,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>LINK_STATIC_SIGPROC;LINK_STATIC_AUDFRET;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GRAFFY_STATIC;LINK_STATIC_SIGPROC;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -166,7 +167,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>LINK_STATIC_SIGPROC;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GRAFFY_STATIC;LINK_STATIC_SIGPROC;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

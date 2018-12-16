@@ -38,7 +38,7 @@ extern void* soundplayPt;
 extern double playbackblock;
 extern vector<CAstSig*> xcomvecast;
 
-HANDLE hEvent;
+//HANDLE hEvent;
 extern CHistDlg mHistDlg;
 extern CDebugBaseDlg debugBase;
 extern CTabControl mTab;
@@ -166,7 +166,7 @@ LRESULT CALLBACK HookProc2(int code, WPARAM wParam, LPARAM lParam)
 	switch(code)
 	{
 	case HC_ACTION:
-		SetEvent(hEvent);
+//		SetEvent(hEvent);
 	break;
 	}
 	return CallNextHookEx(NULL, code, wParam, lParam);
@@ -878,6 +878,7 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 		::SetWindowText(GetDlgItem(IDC_NONAUDIO_TITLE), "Non-Audio Variables");
 
 		hLog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_LOG), GetConsoleWindow(), (DLGPROC)logProc);
+//		hGraffyAccel = LoadAccelerators(HMODULE_THIS, MAKEINTRESOURCE(IDR_ACCELERATOR));
 	}
 	else
 	{

@@ -84,7 +84,10 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="$(SrcPath)xcom1.rc">
+    <ResourceCompile Include="xcom\xcom1.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="xcom\graffy.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>

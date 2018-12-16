@@ -27,6 +27,12 @@
 #include "cipsycon.tab.h"
 #endif
 
+
+vector<CAstSig*> xcomvecast;
+vector<CAstSig*> CAstSig::vecast = xcomvecast;
+bool CAstSig::graffyPrepared = false;
+
+
 /* NOTE 9/23/2017
 Don't use------- throw CAstException(p, this, "error message");
 when p->type is N_XXXXXX, because it will make an error msg like 

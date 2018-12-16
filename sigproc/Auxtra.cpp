@@ -27,7 +27,6 @@
 
 extern HWND hAppl;
 
-
 //HANDLE hEvent;
 uintptr_t hTread;
 bool win7;
