@@ -25,7 +25,7 @@ This repository has all files necessary for you to build the package with Visual
 Specify the directory of the local repository on line 5 and the directory for the build outputs on line 6. Now you are ready to build the application.
 
 # Projects
-# Internal Projects (projects developed and used for AUXLAB)
+# Internal Projects (developed by Bomjun Kwon)
 | project name | description                                                               | Win API dependent |
 |--------------|---------------------------------------------------------------------------|---|
 | audfret      | Common functions and classes                                              | Yes |
@@ -36,7 +36,7 @@ Specify the directory of the local repository on line 5 and the directory for th
 | sigproc      | Signal generation and processing, including parser and tokenizer          |No|
 | wavplay      | Audio playback library                                                    |Yes |
 
-# External Projects (projects developed by others)
+# External Projects (developed by others)
 | project name | Authors                                                               |Version  |
 |--------------|---------------------------------------------------------------------------|---|
 | FFTW      | Matteo Frigo and Steven G. Johnson                                              | 3.3.4 |
