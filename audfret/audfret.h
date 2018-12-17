@@ -91,8 +91,10 @@ AUDFRET_EXP void GetLastErrorStr(char *errstr);
 AUDFRET_EXP double compFileTime(const char *fname1, const char *fname2);
 AUDFRET_EXP int isSameFile(const char *fname1, const char *fname2);
 AUDFRET_EXP int compFileLength(const char *fname1, const char *fname2);
-AUDFRET_EXP int spyWM(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr);
-
+AUDFRET_EXP int spyWindowMessage(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2show, char* const tagstr);
+AUDFRET_EXP int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr);
+AUDFRET_EXP int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr);
+AUDFRET_EXP int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr);
 
 #ifdef __cplusplus
 AUDFRET_EXP double GetDlgItemDouble (HWND hDlg, int id, int* lpTrans=NULL);

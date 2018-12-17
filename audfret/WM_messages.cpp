@@ -98,78 +98,40 @@ AUDFRET_EXP void makewmstr()
 	wmstr[0x0800] = "WM_APP";
 }
 
-AUDFRET_EXP int spyWM(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr)
+AUDFRET_EXP int spyWindowMessage(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2show, char* const tagstr)
+{
+	FILE *fp = fopen(fname, "at");
+	if (!fp) return 0;
+	for (auto it : msg2show)
+	{
+		if (umsg == it)
+		{
+			fprintf(fp, "%shDlg %x: msg: 0x%04x %s, wParam=%x, lParam=%x\n", tagstr, (INT_PTR)hDlg, umsg, wmstr[umsg].c_str(), wParam, lParam);
+			fclose(fp);
+			return 1;
+		}
+	}
+	return -1;
+}
+
+AUDFRET_EXP int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr)
 {
 	if (!wmstr.size()) makewmstr();
 	FILE *fp=fopen(fname,"at");
-	if (fp)
-	{
-		for (size_t k=0; k<msg2excl.size(); k++)
-			if (umsg==msg2excl[k])
-				return -1;
-		fprintf(fp, "%s %x: msg: 0x%04x %s, wParam=%x, lParam=%x\n", tagstr, (INT_PTR)hDlg, umsg, wmstr[umsg].c_str(), wParam, lParam);
-		fclose(fp); 
-		return 1;
-	}
-	return 0;
+	if (!fp) return 0;
+	for (auto it: msg2excl)
+		if (umsg==it)	return -1;
+	fprintf(fp, "%s %x: msg: 0x%04x %s, wParam=%x, lParam=%x\n", tagstr, (INT_PTR)hDlg, umsg, wmstr[umsg].c_str(), wParam, lParam);
+	fclose(fp); 
+	return 1;
 }
 
-AUDFRET_EXP int spyWM2(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, map<unsigned int, string> wmstr, vector<UINT> msg2show, char* const tagstr)
+AUDFRET_EXP int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr)
 {
-	FILE *fp=fopen(fname,"at");
-	if (fp)
-	{
-		for (size_t k=0; k<msg2show.size(); k++)
-		{
-			if (umsg==msg2show[k])
-			{
-				fprintf(fp, "%shDlg %x: msg: 0x%04x %s, wParam=%x, lParam=%x\n", tagstr, (INT_PTR)hDlg, umsg, wmstr[umsg].c_str(), wParam, lParam);
-				break;
-			}
-		}
-		fclose(fp); 
-		return 1;
-	}
-	return 0;
+	return spyWindowMessage(msg.hwnd, msg.message, msg.wParam, msg.lParam, fname, msg2show, tagstr);
 }
 
-AUDFRET_EXP int SpyGetMessage(MSG msg, char* const fname, map<unsigned int, string> wmstr, vector<UINT> msg2excl, char* const tagstr)
+AUDFRET_EXP int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr)
 {
-	bool printthis(true);
-	FILE *fp=fopen(fname,"at");
-	if (fp)
-	{
-		for (size_t k=0; k<msg2excl.size(); k++)
-		{
-			if (msg.message==msg2excl[k])
-			{
-				printthis = false;
-				break;
-			}
-		}
-		if (printthis)
-			fprintf(fp, "%shDlg %x: (%d)msg:0x%04x %s, w=%x, l=%x\n", tagstr, msg.time, (INT_PTR)msg.hwnd, msg.message, wmstr[msg.message].c_str(), msg.wParam, msg.lParam);
-		fclose(fp); 
-		return 1;
-	}
-	return 0;
-}
-
-AUDFRET_EXP int SpyGetMessage2(MSG msg, char* const fname, map<unsigned int, string> wmstr, vector<UINT> msg2excl, char* const tagstr)
-{
-	FILE *fp=fopen(fname,"at");
-	if (fp)
-	{
-		for (size_t k=0; k<msg2excl.size(); k++)
-		{
-			if (msg.message==msg2excl[k])
-			{
-				fprintf(fp, "%shDlg %x: (%d)msg:0x%04x %s, w=%x, l=%x\n", tagstr, msg.time, (INT_PTR)msg.hwnd, msg.message, wmstr[msg.message].c_str(), msg.wParam, msg.lParam);
-				break;
-			}
-		}
-		fclose(fp); 
-		return 1;
-	}
-	return 0;
+	return spyWindowMessageExc(msg.hwnd, msg.message, msg.wParam, msg.lParam, fname, msg2excl, tagstr);
 }

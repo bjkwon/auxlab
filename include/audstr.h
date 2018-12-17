@@ -1,15 +1,3 @@
-// AUXLAB 
-//
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
-// Licensed under the Academic Free License version 3.0
-//
-// Project: auxlab
-// Main Application. Based on Windows API  
-// 
-// 
-// Version: 1.495
-// Date: 12/13/2018
-// 
 #pragma once
 #include <string>
 #include <sstream>

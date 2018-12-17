@@ -303,6 +303,10 @@ unsigned int WINAPI histThread (PVOID var)
 	HWND hhh = GetConsoleWindow();
 	mHistDlg.hDlg = CreateDialog (NULL, MAKEINTRESOURCE(IDD_HISTORY), GetConsoleWindow(), (DLGPROC)historyDlgProc);
 //	if (mHistDlg.hDlg==NULL) {MessageBox(NULL, "History Dlgbox creation failed.","AUXLAB",0); return 0;}
+	FILE *pp = fopen("c:\\temp\\rec-graffy", "at");
+	fprintf(pp, "History Window: %04x\n", mHistDlg.hDlg);
+	fclose(pp);
+
 
 	ShowWindow(mHistDlg.hDlg, SW_SHOW);
 	char buf[256];
@@ -330,11 +334,13 @@ unsigned int WINAPI histThread (PVOID var)
 
 	SetFocus(GetConsoleWindow()); //This seems to work.
 	SetForegroundWindow (GetConsoleWindow());
+	exc.push_back(WM_TIMER);
 
 	MSG         msg ;
 	while (GetMessage (&msg, NULL, 0, 0))
 	{ 
-		if (msg.message==WM__ENDTHREAD) 
+		SpyGetMessageExc(msg, "c:\\temp\\rec-graffy", exc, "MessageLoop histDlg");
+		if (msg.message==WM__ENDTHREAD)
 			_endthreadex(17);
 		TranslateMessage (&msg) ;
 		DispatchMessage (&msg) ;
@@ -358,6 +364,9 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	bool win7 = isWin7() ? true : false;
 	HINSTANCE hModule = GetModuleHandle(NULL);
 	mShowDlg.hDlg = CreateDialogParam (hModule, MAKEINTRESOURCE(IDD_SHOWVAR), win7 ? NULL : GetConsoleWindow(), (DLGPROC)showvarDlgProc, (LPARAM)&mShowDlg);
+	FILE *pp = fopen("c:\\temp\\rec-graffy", "at");
+	fprintf(pp, "Showvar Window: %04x\n", mShowDlg.hDlg);
+	fclose(pp);
 	ShowWindow(mHistDlg.hDlg,SW_SHOW);
 	mShowDlg.hList1 = GetDlgItem(mShowDlg.hDlg , IDC_LIST1);
 	HANDLE h = LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0);
@@ -440,13 +449,12 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	exc.push_back(WM_NCMOUSEMOVE);
 	exc.push_back(WM_ERASEBKGND);
 	exc.push_back(WM_TIMER);
-//	bool printthis;
 
 	while (GetMessage (&msg, NULL, 0, 0))
 	{
 		if (msg.message==WM__ENDTHREAD) 
 			_endthreadex(33);
-//		printthis = spyWM(msg.hwnd, msg.message, msg.wParam, msg.lParam, "c:\\temp\\rec", exc, "showvar MessageLoop")>0;
+		SpyGetMessageExc(msg, "c:\\temp\\rec-graffy", exc, "MessageLoop showvar");
 //		if (printthis) fpp=fopen("c:\\temp\\rec","at"); 
 		if (!TranslateAccelerator(mShowDlg.hDlg, hAcc, &msg))
 		{
@@ -1742,6 +1750,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	SetConsoleOutputCP(437);
 
 	HWND hr = GetConsoleWindow();
+	FILE *pp = fopen("c:\\temp\\rec-graffy", "wt");
+	fprintf(pp, "Console Window: %04x\n", hr);
+	fclose(pp);
 	HMENU hMenu = GetSystemMenu(hr, FALSE);
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	AppendMenu(hMenu, MF_STRING, 1010, "F1 does not work here. Use it in \"Settings & Variables\"");

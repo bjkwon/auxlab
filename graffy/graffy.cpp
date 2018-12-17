@@ -24,6 +24,8 @@ GRAPHY_EXPORT HWND hPlotDlgCurrent;
 
 #define WM_PLOT_DONE	WM_APP+328
 
+vector<unsigned int> exc2;
+
 
 HANDLE mutexPlot;
 HANDLE hEvent;
@@ -83,7 +85,8 @@ INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	}
 	//	char buf[32];
 	//	sprintf(buf, "%d: ", id);
-	//	spyWM(hDlg, umsg, wParam, lParam, "track.txt", wmstr, exc, buf);
+	//	spyWM("track.txt", wmstr, exc, buf);
+	spyWindowMessageExc(hDlg, umsg, wParam, lParam, "c:\\temp\\rec-graffy", exc2, "graffy DlgProc");
 	switch (umsg)
 	{
 		chHANDLE_DLGMSG(hDlg, WM_INITDIALOG, THE_CPLOTDLG->OnInitDialog);
@@ -418,23 +421,37 @@ void thread4Plot(PVOID var)
 	else
 		in->cfig->SetString(buf);
 	PostThreadMessage(in->threadCaller, WM_PLOT_DONE, 0, 0);
+	//exc.push_back(WM_NCHITTEST);
+	//exc.push_back(WM_SETCURSOR);
+	//exc.push_back(WM_MOUSEMOVE);
+	//exc.push_back(WM_NCMOUSEMOVE);
+	//exc.push_back(WM_WINDOWPOSCHANGING);
+	//exc.push_back(WM_WINDOWPOSCHANGED);
+	//exc.push_back(WM_CTLCOLORDLG);
+	//exc.push_back(WM_NCPAINT);
+	//exc.push_back(WM_GETMINMAXINFO);
+	//exc.push_back(WM_MOVE);
+	//exc.push_back(WM_MOVING);
+	//exc.push_back(WM_PAINT);
+	//exc.push_back(WM_NCMOUSEMOVE);
+	//exc.push_back(WM_ERASEBKGND);
+	exc2.push_back(WM_TIMER);
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
-		if (msg.message == WM_DESTROY || !in->cfig->m_dlg)			
+		SpyGetMessageExc(msg, "c:\\temp\\rec-graffy", exc2, "MessageLoop thread4Plot");
+		if (msg.message == WM_DESTROY || !in->cfig->m_dlg)
 			break;
 		if (!TranslateAccelerator(in->cfig->m_dlg->hDlg, in->hAccel, &msg))
 		{
 			if (msg.message == WM_KEYDOWN)
 				if (msg.message == WM_KEYDOWN && msg.wParam == 17 && GetParent(msg.hwnd) == in->cfig->m_dlg->hDlg) // Left control key for window size adjustment
 					msg.hwnd = in->cfig->m_dlg->hDlg;
-//			if (!IsDialogMessage(msg.hwnd, &msg))
+			if (!IsDialogMessage(msg.hwnd, &msg))
 			{
-				//				SpyGetMessage(msg, "track.txt", wmstr, dum, "Dispatching ");
+//				SpyGetMessageExc(msg, "c:\\temp\\rec-graffy_track", exc, "Dispatching");
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
-			//			else
-			//				SpyGetMessage2(msg, "track.txt", wmstr, dum, "Dialog ");
 		}
 	}
 	CloseFigure(in->fig);
