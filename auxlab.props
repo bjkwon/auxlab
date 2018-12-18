@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <DropDev>c:\Users\bjehk\source\repos\auxlab\</DropDev>
+    <SrcPath>$(DropDev)$(RootNamespace)\</SrcPath>
+    <BuildDir>c:\devploy\auxlab\</BuildDir>
+<<<<<<< HEAD
+=======
+    <SrcPath>$(LocalRepoDir)$(RootNamespace)\</SrcPath>
+>>>>>>> a51ec174240bc060c8d55012aecf97ad9445876e
+    <TargetDir>$(BuildDir)</TargetDir>
+    <SharedCodePath>$(SrcPath)..\include\</SharedCodePath>
+  </PropertyGroup>
+  <PropertyGroup>
+  <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+    <SourcePath>$(SourcePath)</SourcePath>
+    <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(DropDev)include;$(DropDev)include\wxx820;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4477;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <ClInclude>
+      <AdditionalIncludeDirectories>$(DropDev)include;$(DropDev)include\wxx820;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClInclude>
+    <Link>
+      <AdditionalLibraryDirectories>$(OutDir);$(DropDev)LIB;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
+    </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Lib>
+      <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="DropDev">
+      <Value>$(DropDev)</Value>
+    </BuildMacro>
+    <BuildMacro Include="SrcPath">
+      <Value>$(SrcPath)</Value>
+    </BuildMacro>
+    <BuildMacro Include="BuildDir">
+      <Value>$(BuildDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="TargetDir">
+      <Value>$(TargetDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="SharedCodePath">
+      <Value>$(SharedCodePath)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>
