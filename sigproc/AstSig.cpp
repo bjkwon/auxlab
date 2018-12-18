@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.496
+// Date: 12/17/2018
 // 
 #include <sstream>
 #include <list>
@@ -1473,7 +1473,6 @@ CVar &CAstSig::ExtractByIndex(const AstNode *pnode, AstNode *p, CVar **psig)
 	char ebuf[256];
 	CVar tsig, isig, isig2;
 	if (!p)	throw CAstException(pnode, this, "A variable index should be provided.");
-	if ((*psig)->GetType() == CSIG_CELL) throw CAstException(p, this, "A cell array cannot be accessed with ( ).");
 	eval_indexing(pnode->child, *psig, isig);
 	Sig = extract(ebuf, psig, isig);
 	if (ebuf[0])
@@ -2148,7 +2147,10 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 						throw CAstException(pn, this, "Invalid index of a graphic object arrary.");
 				}
 				else
+				{
+					if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ndog.root, this, "A cell array cannot be accessed with ( ).");
 					ExtractByIndex(pn, pn->child, &ndog.psigBase); //Sig updated. No change in psig
+				}
 				if (ndog.psigBase->IsGO())
 					pgo = ndog.psigBase;
 			}
@@ -2170,7 +2172,7 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 			{
 				CVar *pres;
 				//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
-				if (!(pres = GetVariable(pn->str, ndog.psigBase)) || pres->IsEmpty())
+				if (!(pres = GetVariable(pn->str, ndog.psigBase)) )
 				{
 					if (ndog.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
 					{
