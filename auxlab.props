@@ -2,13 +2,9 @@
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
-    <DropDev>c:\Users\bjehk\source\repos\auxlab\</DropDev>
-    <SrcPath>$(DropDev)$(RootNamespace)\</SrcPath>
-    <BuildDir>c:\devploy\auxlab\</BuildDir>
-<<<<<<< HEAD
-=======
+    <LocalRepoDir>c:\Users\bjehk\source\repos\auxlab\</LocalRepoDir>
     <SrcPath>$(LocalRepoDir)$(RootNamespace)\</SrcPath>
->>>>>>> a51ec174240bc060c8d55012aecf97ad9445876e
+    <BuildDir>c:\devploy\auxlab\</BuildDir>
     <TargetDir>$(BuildDir)</TargetDir>
     <SharedCodePath>$(SrcPath)..\include\</SharedCodePath>
   </PropertyGroup>
@@ -39,8 +35,8 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <BuildMacro Include="DropDev">
-      <Value>$(DropDev)</Value>
+    <BuildMacro Include="LocalRepoDir">
+      <Value>$(LocalRepoDir)</Value>
     </BuildMacro>
     <BuildMacro Include="SrcPath">
       <Value>$(SrcPath)</Value>
