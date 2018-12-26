@@ -546,6 +546,9 @@ void CPlotDlg::OnPaint()
 			else
 				pax->pos.Set(clientRt, pax->axRect); // do this again
 			pax->rcAx=DrawAxis(&dc, &ps, pax);
+			CAxes * paxFFT;
+			if (paxFFT = (CAxes*)pax->hChild) 
+				ShowSpectrum(paxFFT, pax);
 			//when mouse is moving while clicked
 			if (curRange != NO_SELECTION && pax->hPar->type==GRAFFY_figure ) // this applies only to waveform axis (not FFT axis)
 			{
