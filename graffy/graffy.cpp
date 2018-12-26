@@ -659,6 +659,10 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata
 		hPar->struts["children"].push_back(hAx);
 	hPar->struts.erase("gca");
 	hPar->struts["gca"].push_back(hAx);
+
+	CAxes * paxFFT;
+	if (paxFFT = (CAxes*)ax->hChild)
+		ShowSpectrum(paxFFT);
 	return out;
 }
 

@@ -1,0 +1,177 @@
+$$gcfcontext38475
+Prev gcf was not updated when running inside of a UDF because SetTag was called with "main". Now SetTag for gcf is called with proper context
+$$8233
+#save filenamestring_only_without_path will save it in current directory (AppPath)
+$$3982
+#load string_variable following the current rule
+$$12327
+#clear updates showvarDlg
+$$2934
+#save #load work with logical and complex variables
+$$231109
+DEL key in showvarDlg will delete variables
+$$2816xlim
+when gcf is updated with shorter length, xlim was not updated--this happened since bug for stereo xlim was fixed.
+above is for v1.16=========================4/25/2017
+
+============================8/17/2017
+BE VERY CAREFUL!!!
+Do not cast (CSignals*) to a CSignal* object. Then, it will have junk objects for next and cell
+============================8/17/2017
+
+============================11/7/2017
+plot() now replaces the existing lines in gcf/gca. So when you make multiple figures, do
+figure ([   ]); plot(__,__) 
+============================11/7/2017
+
+============================11/8/2017
+New function: cell (n) : create a cell array with n empty elements, this is equivalent to
+{[],[],[],[],...[]}  
+Feature revision: concatenation of a cell variable
+when I have x={1,noise(30),"bjkwon"} and want to add another item such as b=1:1000
+do x ++= b
+But I still don't allow a direct assignment (which is allowed in MATLAB) such as x{4} = b. It's a bad programming practice.
+============================11/8/2017
+
+============================11/9/2017
+#play x --- non-blocking (returns immediately)
+play(x) --- blocking
+
+Previously, even though that's how it was supposed to be,
+after a command #play x, a blocking, play(x), call returned immediately.
+The bug is now fixed.
+============================11/9/2017
+
+
+============================11/9/2017
+enum_audio_devices()
+setaudiodevice("in",id_from_enum)  or setaudiodevice("out",id_from_enum)
+play(x,2) // play twice
+play(x,n) // play n times back to back
+play(x,0) // playnext
+play(x,-1) // playloop
+============================11/9/2017
+
+
+===11/13/2017
+BUG found!!!!
+Inside of a UDF while debugging, when a wave() call makes a (NOTE)..... the next call will say "Undefined Hook name: ocheck
+
+breakpoint not set inside of a for loop----I just put hold_at_break_point(this, p); inside NODE_BLOCK but this doesn't solve completely.
+
+show()----crashes
+
+==============================================
+9/12/2018.. 1.46 
+* During start up, position data with negative values read in readINI_pos() are forced to be positive.
+* read_node: ReadUDF is the first if--> exception thrown right away if parsing error in udf.
+* T_SEQ display in xcom and showvar. outstream_tseq, outstream_vector added.
+* Breakpoint on T_IF didn't work (or breakpoint line one above T_IF would step on T_IF...fixed by adding p->type == T_IF for son->hold_at_break_point(p);
+* assign: tid assign2this edited
+"If LHS is vector, move the child node (the vector content) to alt...."
+* multiple output args done---both for UDF and regular functions
+9/14/2018
+* zeros() and ones(): allow 0 or negative input...with a null effect
+* ++ for matrix fixed
+* showvar: non-audio display of matrix data. (element_per_group) x (nGroups) 
+* FFT matrix fixed
+9/15/2018
+* angle fixed
+* ramp(x,d) if dur is greater than dur(x) it crashes---fixed
+* complex number display in xcom when im part is negative, it showed 3+-4i --> + removed.
+* audio: x(:,1) = colum vector with the same length---> allowed
+ (in insertreplace(), inout->replace(sec, indsig);  can be called regardless of isContiguous(indsig, id1, id2)
+* InNull fixed. return true --> return false on the last line
+* In body::replace, different bufBlockSize for sec and this are adjusted before going further (either turning it to logical, real or complex)
+* showvar: Complex audio data displayed correctly.
+* iFFT: fixed for multiple groups
+* caret changed to interp and ~ operator used.
+* size output correctly
+9/17/2018
+* y+=6 where y is undefined.--> exception thrown properly 
+* Crashed on sub=xv.matrix(8).hann.audio in HandleAuxFunctions (pnode->alt should be p only if it is NODE_ARGS.. otherwise p should be NULL)--fixed.
+* (BUG) z=[audio1; audio2] was not properly evaluated. Fixed (out.SetFs(Sig.GetFs()); and out.tmark = Sig.tmark; added in NodeVector())
+* (BUG) x=(1:12).matrix(3); [a,b]=x.size; Now working
+* T_SEQ: a*b: if one of them is T_SEQ and the other is audio, it goes through CSignal::Modulate(vector<double> &tpoints, vector<double> &tvals) in csignals.cpp
+* T_SEQ: a*b and a+b: if one of them is T_SEQ and the other is scalar, multiplies or adds the scalar to the t_seq
+9/18/2018
+* @ operator can take t_seq. this is particularly useful when relative t_seq is used: for example: audio_sig @ [0 .5 1;][-80 -20 -6]
+* x.matrix(group).rms bug fixed.
+[MAJOR UPGRADE] group (matrix) operations done on audio shall be t_seq, including RMS, max, FFT, ramp or hann. Exception: if it is a signal modifying function and it can remain as a one chunk after the function, it remains audio.
+[MAJOR UPGRADE] begint, endt, dur
+[MAJOR UPGRADE] two tseqs can be added or multiplied
+[MAJOR UPGRADE] tseqs display OK in showvar
+====================================
+9/18/2018 1.47
+* auxp.dll has private aux functions. ReadUDF registers them on the initial call. Currently tscale and fscale
+* movespect, compresst and compressf added, corresponding to -> <> and # respectively.
+=======================
+9/21/2018 1.48
+* Previously, for + and * operations were not done properly (e.g., the operation 3 by 4 times 3 by 1 was applied only to the first 3 items, as it it were multiplication of 12 elements by 3 elements)
+--> Fixed by improving &body::addmult, CTimeSeries::AddMultChain. Sig.nGroups = tsig.nGroups; removed in case '+''-''*''/' in AstSig.cpp
+* (BUG) a+[3 4 5]': T_TRANSPOSE did not work. It was ok in a=[3 4 5]' --> fixed. exp:exp '\'' changed to exp:tid '\'' in psycon.y
+* (BUG) x=1:10; x(x%2==0)=0 did not work. --> Fixed TID_condition updated.
+* (BUG) audio @ tseq did not work properly. Commutative fixed and max(sampleRate,1) changed to max(sampleRate,0), so that the case of fs=0 could be handled properly.
+============================
+9/25/2018 Bugs found in 1.48
+* x(end~0): end not working. x(1000~0) not going backwards---fixed very simple ..  ReverseTime() to CSignal::ReverseTime()
+
+=============================
+10/4/2018 Bug found in 1.49
+* Bug in graffy.dll
+- gengrid goes into infinity when drawing the spectrum (F4) with fs=44100. -->Fixed by adding a break if there's no change in step0
+=============================
+1.491
+* tic and toc added as built-in functions
+=============================
+1.492
+* In previous versions, when short duration is played (less than the block duration set in .ini), sometimes garbage data block is read for the play buffer and makes an unpleasant noise. Fixed.
+* psycon.y: TSEQ can have nSamples>1 at each time adding '[' vector ']' '[' matrix ']' and '[' matrix ']' '[' matrix ']'
+* The filt function supports dynamic filtering (filter coefficients can be TSEQ)--but beware. Only FIR should be used, it is extremely difficult to maintain IIR in this process.
+============================
+1.493
+* Grammar rules for the replicator added in psycon.y
+a=..(ind1:ind2)
+a=..{cellind}
+a=..{cellind}(ind1:ind2)
+a=..(t1~t2)
+* inFunc function signature changed from CAstSig &ast, const AstNode *pnode, const AstNode *p, string &fnsigs)
+to CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
+* If a temporary context variable is used to protect ast.Sig, like CAstSig tp(past),
+a separate try loop is necessary to catch the exception from the temporary context; otherwise, it may crash during cleanup when used in CallUDF()
+* (Bug fixed) If an error occurs during debugging a UDF, it didn't reset the scope back to the base and still the command prompt was was not set back to "AUX>" ---> Fixed
+This bug must have appeared when succ = false; was added in the catch {} in computeandshow() in xcom.cpp.
+That shouldn't stay any more.
+============================
+1.494
+* (bug fixed) var(:) improperly serialized var. This bug might have existed for a while--since eval_indexing() was made for TID(arg_list)
+* (Bug fixed) length() and size() did not produce the correct results for matrices
+* (Bug fixed) During debugging (F5, F10, etc), if an error occurs from user-typed lines, the exception should cause the error message to appear on the screen without abandoning the debugging process. It used to be working OK, but at some point, I might have messed up the codes doing it. Fixed again. Also pCall updated inside of CheckPrepareCallUDF() for the operation of CallUDF() is restored back to the last one when CallUDF() is completed. 
+* (Bug fixed) Matrix concatenation was not done correctly. Changed tsig.nGroups++ to tsig.nGroups += esig.nGroups; in NodeMatrix() And removed tsig.nGroups = min(k, tsig.nSamples); after the for-loop
+* fft and ifft can specify the fft size with the 2nd argument. CSignal::iFFT() updated with proper fftsize
+* For SetNewScript(), SetNewScriptFromFile(), and others related to them, the error buffer changed from char to string to avoid uninviting occassional crashes  
+* Local udfs are visible to each other: Previously, if a udf "myudf.aux" has localfunction1 and localfunction2 inside the file, the main function body of myudf recognizes localfunction1 and localfunction2, but localfunction1 and localfunction2 do not recognize each other. 
+  if (debug.local) {...} was added
+* Built-in functions atmost and atleat added.
+10/14/2018
+* pCall removed. Instead, the name for the currently called udf is used to check whether this is from user-typed statement or debugging operation.
+* Inside CallUDF(), son now is based on temporary pEnv that has local udfs in addition to other udfs previously read. This is how local udfs have only temporary scope.
+* The temporary pEnv will have udf.clear() at the end of CallUDF() and in the contrisuction of CAstException, so that udfs are not cleaned.
+* (Minor bug, but was hard to catch) "Sometimes" a breakpoint in a local udf was not caught. Why? In CAstSig::baseudfname(AstNode *pUDF), when pEnv->udf is browsed, local udfs are also included and they may be incorrectly caught as the base, depending on the map order of udfs. Now, if the iterator shows line not equal to 1, it skips and we avoid it.
+* (Bug fixed) During debugging, if an error occurs, it correctly sends back to the main scope and properly cleaned up the temporary variables for CallUDF() AND displays correct the traces of lines and cols to from that error location.
+10/16/2018
+* (Bug fixed) sprintf fprintf didn't output %d correctly--it only generated 0 instead of the true value.
+10/20/2018
+* (Bug fixed--critical bug) Len(): for string (fs==2), it shouldn't be nSamples--; it shouldn't change nSamples. Changed to nSamples-1
+
+12:28 AM 10/28/2018============
+Graffy
+* CAxis::plot returns vector<CLine *>
+
+1:12 PM 12/11/2018====================
+[xcom] For blocked statements, only the last one is taken for screen echo. That is, the statements in the middle are not echoed regardless of suppress (;)
+
+12:53 PM 12/26/2018
+* version 1.497
+F5 shortcut added eqivalent to the '*' key
+If a plot with the spectrum updates the signal, the spectrum updates also.
