@@ -435,6 +435,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 						case CSIG_AUDIO:
 							if (psig->next)
 							{ // previously one, now two axes needed
+								mShowDlg.plotvar_update(cfig, psig);
 
 							}
 							else
