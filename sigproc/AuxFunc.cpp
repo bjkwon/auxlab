@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.497
+// Date: 12/26/2018
 // 
 #include <math.h>
 #include <stdlib.h>
@@ -42,19 +42,23 @@
 
 map<double, FILE *> file_ids;
 
-#ifndef AUX_NO_EXTRA
-int LoadGRAFFY();
-void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _pause_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _close(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+#ifdef _WINDOWS
+__declspec (dllimport) void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+__declspec (dllimport) void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+__declspec (dllimport) void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+__declspec (dllimport) void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+__declspec (dllimport) void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+__declspec (dllimport) void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+__declspec (dllimport) void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+#elif
+void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
+void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
+void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
+void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
+void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
+void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
+void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
 #endif
-
 
 /* 10/10/2018
 In all of these pEnv->inFunc, I have been using a temporary variable of CAstSig like
@@ -2352,7 +2356,7 @@ void CAstSigEnv::InitBuiltInFunctionList()
 		built_in_funcs.push_back(pp);
 	}
 
-#ifndef AUX_NO_EXTRA
+#ifdef _WINDOWS
 	pp.alwaysstatic = true;
 	pp.narg1 = 1;	pp.narg2 = 1;
 	pp.name = "figure";
@@ -2387,7 +2391,7 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	pp.funcsignature = "(graphic_handle)";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_delete_graffy;
 	built_in_funcs.push_back(pp);
-#endif // AUX_NO_EXTRA
+#endif // _WINDOWS
 
 	pp.name = "input";
 	pp.alwaysstatic = false;
@@ -2476,9 +2480,6 @@ string dotstring(const AstNode *pnode, AstNode *pRoot)
 
 void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 {
-#ifndef AUX_NO_EXTRA
-	if (!CAstSig::graffyPrepared) if (LoadGRAFFY() == 1) CAstSig::graffyPrepared = true;
-#endif		
 	string fnsigs;
 	int res, nArgs;
 	double(*fn0)(double) = NULL;

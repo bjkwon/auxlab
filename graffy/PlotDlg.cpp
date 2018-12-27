@@ -7,12 +7,9 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.4951
-// Date: 12/14/2018
-// Change from 1.495: FileDlg.h dropped 
-
-// PlotDlg.cpp : implementation file
-//
+// Version: 1.497
+// Date: 12/26/2018
+// 
 
 /* Note on multiple axes situation,
 Check everything with gcf.ax.front() and verify that's what I meant.
@@ -501,7 +498,6 @@ void OnPaint_createpen_with_linestyle(CLine *pln, CDC& dc)
 		break;
 	}
 }
-
 
 void CPlotDlg::OnPaint() 
 {

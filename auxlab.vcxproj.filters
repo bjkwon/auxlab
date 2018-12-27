@@ -82,6 +82,18 @@
     <Image Include="$(SrcPath)xcom.jpg">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="xcom\refresh.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="xcom\debug-bj.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="xcom\axl-open.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="xcom\axl-save.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="$(SrcPath)xcom1.rc">

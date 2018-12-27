@@ -12,6 +12,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="$(SrcPath)Auxtra.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="$(SrcPath)graffy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

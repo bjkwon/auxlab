@@ -198,7 +198,6 @@
     <ClCompile Include="$(SrcPath)AstSig2.cpp" />
     <ClCompile Include="$(SrcPath)AstExceptions.cpp" />
     <ClCompile Include="$(SrcPath)AuxFunc.cpp" />
-    <ClCompile Include="$(SrcPath)Auxtra.cpp" />
     <ClCompile Include="$(SrcPath)csignals.cpp" />
     <ClCompile Include="$(SrcPath)matOperations.cpp" />
     <ClCompile Include="$(SrcPath)psycon.tab.c" />

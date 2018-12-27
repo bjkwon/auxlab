@@ -7,13 +7,11 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.497
+// Date: 12/26/2018
 // 
-#ifndef AUX_NO_EXTRA
 
 #include "graffy.h"
-#include "psycon.tab.h"
 #include "audfret.h"
 #include <process.h>
 
@@ -42,20 +40,6 @@ DWORD colordw;
 double blocksize;
 
 bool isWin7();
-
-typedef  void (_cdecl  *PFUN_DEL) (HANDLE h);
-typedef  HANDLE  (_cdecl *PFUN_OPEN) (RECT*, HWND, int, double);
-typedef  HANDLE  (_cdecl *PFUN_ADDAX) (HANDLE, double, double, double, double);
-typedef  vector<CLine*> (_cdecl *PFUN_PLOTCSIGNALS) (HANDLE, double *, CSignals *, COLORREF, char, LineStyle);
-typedef  HWND	(_cdecl *PFUN_GetHWND_PlotDlg) (HANDLE);
-typedef  int  (_cdecl *PFUN_RESERVED_SEL) (CGobj*, CSignals*);
-
-PFUN_DEL fp_deleteObj(NULL);
-PFUN_OPEN fp_OpenFigure(NULL);
-PFUN_ADDAX fp_AddAxes(NULL);
-PFUN_PLOTCSIGNALS fp_PlotCSignals(NULL);
-PFUN_GetHWND_PlotDlg fp_GetHWND_PlotDlg(NULL);
-PFUN_RESERVED_SEL fp_GetFigSelRange(NULL);
 
 int getmonitorheight (HWND hDlg)
 {
@@ -98,7 +82,7 @@ void graffytype2string(graffytype type, char *outBuf)
 	}
 }
 
-vector<CLine*> plotlines;
+vector<HANDLE> plotlines;
 map<string, LineStyle> linestylelist;
 map<char, int> linemarkerlist;
 map<char, DWORD> linecolorlist;
@@ -269,33 +253,6 @@ DWORD double2RGB(double color[3])
 /*From now on, Make sure to update this function whenever functions are added/removed in graffy.cpp 
 7/15/2016 bjk
 */
-int LoadGRAFFY()
-{
-	char path[MAX_PATH], procname[MAX_PATH];
-	GetCurrentProcInfo(path, procname, NULL);
-#ifndef WIN64
-	hLib = LoadLibrary(strcat(path, "graffy32.dll")); // fix this.... if the path has been changed in the middle, we are no longer in AppPath
-	LOADPF(fp_AddAxes, PFUN_ADDAX, "?AddAxes@@YAPAXPAXNNNN@Z");
-	LOADPF(fp_OpenFigure, PFUN_OPEN, "?OpenFigure@@YAPAXPAVCRect@Win32xx@@PAUHWND__@@HNPAX@Z");
-	LOADPF(fp_PlotCSignals, PFUN_PLOTCSIGNALS, "?PlotCSignals@@YA?AV?$vector@PAXV?$allocator@PAX@std@@@std@@PAXPANPAVCSignals@@KDW4LineStyle@@@Z");
-	LOADPF(fp_deleteObj, PFUN_DEL, "?deleteObj@@YAXPAX@Z");
-	LOADPF(fp_GetHWND_PlotDlg, PFUN_GetHWND_PlotDlg, "?GetHWND_PlotDlg@@YAPAUHWND__@@PAX@Z");
-	LOADPF(fp_GetFigSelRange, PFUN_RESERVED_SEL, "?GetFigSelRange@@YAHPAVCGobj@@PAVCSignals@@@Z");
-#else
-	hLib = LoadLibrary(strcat(path, "graffy64.dll")); // fix this.... if the path has been changed in the middle, we are no longer in AppPath
-	LOADPF(fp_AddAxes, PFUN_ADDAX, "?AddAxes@@YAPEAXPEAXNNNN@Z");
-	LOADPF(fp_OpenFigure, PFUN_OPEN, "?OpenFigure@@YAPEAXPEAVCRect@Win32xx@@PEBDPEAUHWND__@@HNPEAX@Z");
-	LOADPF(fp_PlotCSignals, PFUN_PLOTCSIGNALS, "?PlotCSignals@@YA?AV?$vector@PEAXV?$allocator@PEAX@std@@@std@@PEAXPEANPEAVCSignals@@KDW4LineStyle@@@Z");
-	LOADPF(fp_deleteObj, PFUN_DEL, "?deleteObj@@YAXPEAX@Z");
-	LOADPF(fp_GetHWND_PlotDlg, PFUN_GetHWND_PlotDlg, "?GetHWND_PlotDlg2@@YAPEAUHWND__@@PEAX@Z");
-	LOADPF(fp_GetFigSelRange, PFUN_RESERVED_SEL, "?GetFigSelRange@@YAHPEAVCGobj@@PEAVCSignals@@@Z");
-#endif
-	initLineList();
-	initGraffyProperties();
-	vector<string> out;
-	EnumGraffyProperties('f',out);
-	return 1;
-}
 
 vector<CVar*> toDelete(CAstSig *past, CVar *head)
 {
@@ -347,7 +304,7 @@ void delete_toDelete(CAstSig *past, CVar *delThis)
 	}
 }
 
-void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // Not only the current past, but also all past's from CAstSig::vecast should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
 // 
 	// To delete multiple GO's, delete one by one
@@ -415,7 +372,7 @@ void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 		}
 	}
 
-	fp_deleteObj(hobj);
+	deleteObj(hobj);
 	past->Sig = CVar();
 	past->pgo = NULL;
 	tp = past->dad;
@@ -425,10 +382,10 @@ void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 			delete_toDelete(tp, *it);
 		tp = tp->dad;
 	}
-	InvalidateRect(fp_GetHWND_PlotDlg(hobj), NULL, TRUE);
+	InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
 }
 
-void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	static GRAFWNDDLGSTRUCT in;
 	CRect rt(0, 0, 500, 310);
@@ -486,7 +443,7 @@ void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	past->Sig = *(past->pgo = cfig); 
 }
 
-void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CSignals *pGO(NULL);
 	vector<CSignals> args;
@@ -524,7 +481,7 @@ void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 
 CAstSig *mainast;
 
-void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	mainast = past;
 	CVar *ppos;
@@ -575,13 +532,13 @@ void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	cfig->m_dlg->InvalidateRect(NULL);
 }
 
-int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
+GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
 {
 	//CSignals *pgcf = past->GetVariable("gcf"); 
 	//if (!pgcf) return -1;
 	//out->Reset();
 	//out->UpdateBuffer(2);
-	//int res = fp_GetFigSelRange(pgcf, out);
+	//int res = GetFigSelRange(pgcf, out);
 	//if (res == 0)
 	//	throw CAstException(p, past, "#sel called without selecting a range in a figure window", p->str);
 	//if (res == -1)
@@ -613,7 +570,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 		past->blockScalar(pnode, past->Sig);
 		if (count == nArgs)
 		{
-			plotlines = fp_PlotCSignals(pax, NULL, &past->Sig, col, marker, linestyle);
+			plotlines = PlotCSignals(pax, NULL, &past->Sig, col, marker, linestyle);
 			break;
 		}
 		else
@@ -622,7 +579,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 			{
 				if (past->Sig.nSamples != xdataLen)
 					throw CAstException(pnode, past, fnsigs, "The length of 1st and 2nd arguments must be the same.");
-				plotlines = fp_PlotCSignals(pax, xdata, &past->Sig, col, marker, linestyle);
+				plotlines = PlotCSignals(pax, xdata, &past->Sig, col, marker, linestyle);
 				delete[] xdata;
 				break;
 			}
@@ -635,8 +592,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 	}
 }
 
-
-void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {// add a line object to the specified axes (if not specified, put it to gca)
  // it must follow one of the following formats
  // line (ax, vector1, vector2), line(vector1, vector2), line(ax, audio_sig), or line(audio_sig)
@@ -700,13 +656,13 @@ void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		past->pgo = past->MakeGOContainer(temp); // This is how the figure handle (pointer) is sent back to AstSig
 	}
 	else if (plotlines.size() == 1)
-		past->pgo = plotlines.front(); // This is how the figure handle (pointer) is sent back to AstSig
+		past->pgo = (CVar*)plotlines.front(); // This is how the figure handle (pointer) is sent back to AstSig
 	else
 		throw CAstException(pnode, past, fnsigs, "Internal Error---plot failed.");
-	past->Sig = *plotlines.front(); // Just to show on the screen, not the real output.
+	past->Sig = *(CVar*)plotlines.front(); // Just to show on the screen, not the real output.
 }
 
-void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	static vector<CVar> args;
 	static GRAFWNDDLGSTRUCT in;
@@ -824,7 +780,7 @@ void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	switch (plotlines.size())
 	{
 	case 1:
-		past->Sig = *(past->pgo = plotlines.front());
+		past->Sig = *(past->pgo = (CVar*)plotlines.front());
 		break;
 	case 2:
 		vector<INT_PTR> temp;
@@ -845,7 +801,7 @@ void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 //	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent")); 
 }
 
-void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CVar out;
 	CFigure *cfig;
@@ -939,5 +895,3 @@ void findAndUpdateGO(CAstSig &ast, CVar *pgo)
 	}
 //	past->updateGO(&cfig->hgo, &cax->hgo, &cline->hgo, &ctxt->hgo);
 }
-
-#endif

@@ -350,7 +350,7 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 		totalDur = max(psig->alldur(), totalDur0);
 		plotvar_update2(ax, *it, psigOld);
 		it++;
-	}
+	} 
 	//adjust xlim and ylim of each ax
 	// if x begin pt and end pt are the same, keep the old xlim
 	if (psig->GetType() == CSIG_AUDIO && tmark == tmark0 &&  totalDur == totalDur0)

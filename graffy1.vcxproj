@@ -133,6 +133,7 @@
       <AdditionalDependencies>wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;winmm.lib;sigproc.lib;version.lib;audfret.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
       <IgnoreSpecificDefaultLibraries>LIBCMTD.lib</IgnoreSpecificDefaultLibraries>
+      <AdditionalOptions>/ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
@@ -180,6 +181,7 @@
       <AdditionalDependencies>wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;winmm.lib;sigproc.lib;version.lib;audfret.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
       <IgnoreSpecificDefaultLibraries>LIBCMT.lib</IgnoreSpecificDefaultLibraries>
+      <AdditionalOptions>/ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
@@ -189,6 +191,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="$(SrcPath)Auxtra.cpp" />
     <ClCompile Include="$(SrcPath)axis.cpp" />
     <ClCompile Include="$(SrcPath)Figure.cpp" />
     <ClCompile Include="$(SrcPath)graffy.cpp" />

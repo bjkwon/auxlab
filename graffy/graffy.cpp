@@ -7,11 +7,9 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.497
+// Date: 12/26/2018
 // 
-// graffy.cpp : Defines the initialization routines for the DLL.
-//
 
 #include "PlotDlg.h"
 #include "msgCrack.h"
@@ -21,7 +19,6 @@
 #pragma data_seg ("shared")
 vector<CAstSig*> xcomvecast;
 vector<CAstSig*> CAstSig::vecast = xcomvecast;
-bool CAstSig::graffyPrepared = false;
 #pragma data_seg ()
 
 HINSTANCE hInst;
@@ -34,6 +31,8 @@ GRAPHY_EXPORT HWND hPlotDlgCurrent;
 HANDLE mutexPlot;
 HANDLE hEvent;
 HWND hWndApp(NULL);
+
+void initLineList(); // from Auxtra.cpp
 
 class CGraffyDLL : public CWinApp
 {
@@ -361,6 +360,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	{
 	case DLL_PROCESS_ATTACH:
 		//		makewmstr(wmstr);
+		initLineList();
 		break;
 
 	case DLL_THREAD_ATTACH:

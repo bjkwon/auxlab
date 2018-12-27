@@ -7,9 +7,9 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.4951
-// Date: 12/14/2018
-// Change from 1.495: audfret.h included instead of WndDlg0.h
+// Version: 1.497
+// Date: 12/26/2018
+//
 #pragma once
 
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h
@@ -328,3 +328,11 @@ GRAPHY_EXPORT vector<DWORD> Colormap(char lh, char rc, int nItems);
 
 vector<double> makefixtick(double _x1, double _x2, int count);
 
+GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out);
