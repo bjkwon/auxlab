@@ -1,0 +1,2 @@
+flex -oquickline.yy.c -Pqq quicklinesyn.l
+bison quickline.y --file-preifx=quickline --name-prefix=qq --defines

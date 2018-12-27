@@ -13,7 +13,7 @@
 #include "qlparse.h"
 
 #ifndef LQSYNYACC
-#include "lqsyn.yacc.h"
+#include "quickline.yacc.h"
 #endif
 
 using namespace std;
@@ -28,16 +28,16 @@ AstNode *QLSetNewScript(const char *str, string &Errmsg)
 	if (strlen(str) == 0) return pAst;
 
 	if (fAllocatedAst) {
-		yydeleteAstNode(pAst, 0);
+		qqdeleteAstNode(pAst, 0);
 		fAllocatedAst = false;
 	}
-	if ((res = yysetNewStringToScan(str)))
+	if ((res = qqsetNewStringToScan(str)))
 	{
-		Errmsg = "yysetNewStringToScan() failed!";
+		Errmsg = "qqsetNewStringToScan() failed!";
 	}
 	else
 	{
-		res = yyparse(&pAst, &errmsg);
+		res = qqparse(&pAst, &errmsg);
 		fAllocatedAst = pAst ? true : false;
 		if (!errmsg && res == 2)
 		{
@@ -47,7 +47,7 @@ AstNode *QLSetNewScript(const char *str, string &Errmsg)
 	}
 	if (errmsg || !Errmsg.empty()) {
 		if (fAllocatedAst) {
-			yydeleteAstNode(pAst, 0);
+			qqdeleteAstNode(pAst, 0);
 			fAllocatedAst = false;
 		}
 		return NULL;

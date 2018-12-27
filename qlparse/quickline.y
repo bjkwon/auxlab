@@ -1,4 +1,16 @@
-/* Psycon syntax parser */
+/* AUXLAB 
+//
+// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Licensed under the Academic Free License version 3.0
+//
+// Project: sigproc
+// Signal Generation and Processing Library
+// Platform-independent (hopefully) 
+// 
+// Version: 1.497
+// Date: 12/27/2018
+*/ 
+
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,8 +20,8 @@
 /*#define DEBUG*/
 
 char *qErrorMsg = NULL;
-int yylex (void);
-void yyerror (AstNode **pproot, char **errmsg, char const *s);
+int qqlex (void);
+void qqerror (AstNode **pproot, char **errmsg, char const *s);
 %}
 
 /* Bison declarations. */
@@ -45,7 +57,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 #ifdef DEBUG
     printf("discarding node %s\n", getAstNodeName($$));
 #endif
-  yydeleteAstNode($$, 0);
+  qqdeleteAstNode($$, 0);
 } <pnode>
 %destructor
 {
@@ -93,17 +105,17 @@ one_word: T_STRING
 
 %%
 
-/* Called by yyparse on error. */
-void yyerror (AstNode **pproot, char **errmsg, char const *s)
+/* Called by qqparse on error. */
+void qqerror (AstNode **pproot, char **errmsg, char const *s)
 {
   static size_t errmsg_len = 0;
 #define ERRMSG_MAX 999
   char msgbuf[ERRMSG_MAX], *p;
   size_t msglen;
 
-  sprintf_s(msgbuf, ERRMSG_MAX, "Line %d, Col %d: %s.\n", yylloc.first_line, yylloc.first_column, s + (strncmp(s, "syntax error, ", 14) ? 0 : 14));
+  sprintf_s(msgbuf, ERRMSG_MAX, "Line %d, Col %d: %s.\n", qqlloc.first_line, qqlloc.first_column, s + (strncmp(s, "syntax error, ", 14) ? 0 : 14));
   if ((p=strstr(msgbuf, "$undefined"))) {
-	sprintf_s(p, 10, "'%c'(%d)", yychar, yychar);
+	sprintf_s(p, 10, "'%c'(%d)", qqchar, qqchar);
     strcpy(p+strlen(p), p+10);
   }
   if ((p=strstr(msgbuf, "end of text or ")))

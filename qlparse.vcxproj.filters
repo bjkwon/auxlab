@@ -18,10 +18,10 @@
     <ClInclude Include="$(SrcPath)qlparse.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SrcPath)lqsyn.yacc.h">
+    <ClInclude Include="qlparse\quickline.tab.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SrcPath)lqsyn.tab.h">
+    <ClInclude Include="qlparse\quickline.yacc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -29,10 +29,10 @@
     <ClCompile Include="$(SrcPath)qlparse.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcPath)lqsyn.tab.c">
+    <ClCompile Include="qlparse\quickline.tab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcPath)lqsyn.yy.c">
+    <ClCompile Include="qlparse\quickline.yy.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
