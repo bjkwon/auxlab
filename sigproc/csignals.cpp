@@ -24,13 +24,12 @@
 #include <vector>
 #include <algorithm>
 
+#include "bjcommon.h"
 #include "sigplus_internal.h"
 #include "samplerate.h"
 #include "sndfile.h"
-//#include "common.h"
 
 #include <complex>
-//#include <cmath>
 
 #include <math.h> // ceil
 

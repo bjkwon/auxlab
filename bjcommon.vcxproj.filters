@@ -15,42 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(SrcPath)audfret.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="$(SrcPath)Win32InputBox.h">
+    <ClInclude Include="$(SrcPath)bjcommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(SrcPath)pipecomm.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="$(SrcPath)ReadWriteINI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="$(SrcPath)bjTools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcPath)Win32InputBox.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="$(SrcPath)str2array.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="$(SrcPath)audstr.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="$(SrcPath)filecomp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="$(SrcPath)WM_messages.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="$(SrcPath)WndDlg0.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="$(SrcPath)FileDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

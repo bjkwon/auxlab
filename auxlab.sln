@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27004.2005
+VisualStudioVersion = 15.0.27004.2002
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "auxlab", "auxlab.vcxproj", "{3929F163-CEC0-40EB-B0F9-BFB302611DDC}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -10,11 +10,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "auxlab", "auxlab.vcxproj", 
 		{769713CA-80DC-4EC2-AA45-B5551FE32132} = {769713CA-80DC-4EC2-AA45-B5551FE32132}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "audfret", "audfret3.vcxproj", "{E9095213-F9BB-4EAF-9358-0905EBC3865C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bjcommon_win", "bjcommon_win.vcxproj", "{E9095213-F9BB-4EAF-9358-0905EBC3865C}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sigproc-st", "sigproc3.vcxproj", "{8CF1562D-8918-46EC-B0C2-A41C3A87D448}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E9095213-F9BB-4EAF-9358-0905EBC3865C} = {E9095213-F9BB-4EAF-9358-0905EBC3865C}
+		{3CCD832E-3192-424E-822E-58465B77499D} = {3CCD832E-3192-424E-822E-58465B77499D}
 		{B46F0059-DC4E-447E-8406-36A75E31F16A} = {B46F0059-DC4E-447E-8406-36A75E31F16A}
 	EndProjectSection
 EndProject
@@ -35,6 +36,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qlparse", "qlparse.vcxproj", "{1381643F-62B3-4647-B0FF-D116543ADE54}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "auxp", "auxp.vcxproj", "{DA14DBAE-B8D7-44AE-92A5-6BD55B55DF64}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bjcommon", "bjcommon.vcxproj", "{3CCD832E-3192-424E-822E-58465B77499D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -108,6 +111,14 @@ Global
 		{DA14DBAE-B8D7-44AE-92A5-6BD55B55DF64}.Release|x64.Build.0 = Release|x64
 		{DA14DBAE-B8D7-44AE-92A5-6BD55B55DF64}.Release|x86.ActiveCfg = Release|Win32
 		{DA14DBAE-B8D7-44AE-92A5-6BD55B55DF64}.Release|x86.Build.0 = Release|Win32
+		{3CCD832E-3192-424E-822E-58465B77499D}.Debug|x64.ActiveCfg = Debug|x64
+		{3CCD832E-3192-424E-822E-58465B77499D}.Debug|x64.Build.0 = Debug|x64
+		{3CCD832E-3192-424E-822E-58465B77499D}.Debug|x86.ActiveCfg = Debug|Win32
+		{3CCD832E-3192-424E-822E-58465B77499D}.Debug|x86.Build.0 = Debug|Win32
+		{3CCD832E-3192-424E-822E-58465B77499D}.Release|x64.ActiveCfg = Release|x64
+		{3CCD832E-3192-424E-822E-58465B77499D}.Release|x64.Build.0 = Release|x64
+		{3CCD832E-3192-424E-822E-58465B77499D}.Release|x86.ActiveCfg = Release|Win32
+		{3CCD832E-3192-424E-822E-58465B77499D}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

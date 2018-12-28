@@ -17,7 +17,7 @@
 #define MAX_HEADING_LENGTH		128
 #define MAX_CHAR 29998
 
-AUDFRET_EXP char* deeblank (char* stringarray, char deliminator)
+char* deeblank (char* stringarray, char deliminator)
 {
 	unsigned int i, j, temp=0;
 	char *dump;
@@ -40,7 +40,7 @@ AUDFRET_EXP char* deeblank (char* stringarray, char deliminator)
 	return stringarray;
 }
 
-AUDFRET_EXP int howmanychr(const char* buffer, const char c)
+int howmanychr(const char* buffer, const char c)
 {
 	const char *pt;
 	int res=0;
@@ -55,7 +55,7 @@ AUDFRET_EXP int howmanychr(const char* buffer, const char c)
 	return res;
 }
 
-AUDFRET_EXP int howmanystr(const char* buffer, const char* str)
+int howmanystr(const char* buffer, const char* str)
 {
 	const char *pt;
 	int res=0;
@@ -80,22 +80,20 @@ char firstnonwhitechar(char *str)
 	return pt[0];
 }
 
-AUDFRET_EXP int printfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...)
+int printf_INI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...)
 {
 	static char szBuffer[MAX_CHAR];
-	char *buffer, local_errstr[128], head[MAX_HEADING_LENGTH];
-	char *headingPt, *nextHeadingPt, *restBlock;
-	size_t len;
+	char local_errstr[128], head[MAX_HEADING_LENGTH];
 	int j ;
-	LONG filesize;
-	HANDLE		hFile;
-	DWORD		dw;
+	size_t filesize;
+	FILE *fp;
 	va_list pArgList ;
 
 	sprintf (head, "[%s]", heading);
 	va_start (pArgList, szFormat) ;
 	j=vsprintf (szBuffer, szFormat, pArgList) ;
 	va_end (pArgList) ;
+	string newstring = szBuffer;
 
 	if (strstr(szBuffer, "\n[")) {
 		memmove(szBuffer+5, szBuffer, strlen(szBuffer)+1);
@@ -104,118 +102,50 @@ AUDFRET_EXP int printfINI (char *errstr, const char *fname, const char *heading,
 	}
 	if (errstr == NULL)
 		errstr = local_errstr;
-	if ( (hFile = CreateFile (fname, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL,
-				OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL ))==INVALID_HANDLE_VALUE) {
-		strcpy(errstr,"File cannot be opened for writing.");
+	string readbuffer;
+	filesize = GetFileText(fname, "rt", readbuffer);
+	if (filesize == 0) {
+		strcpy(errstr, "File cannot be inspected for printfINI.");
 		return 0;
 	}
-	filesize = GetFileSize(hFile, &dw);
-	buffer = new char[filesize+1];
-	if (!ReadFile (hFile, buffer, filesize+1, &dw, NULL))
+	size_t headingPos = readbuffer.find(head);
+	size_t writePos(-1);
+	if (headingPos == string::npos) // not found.... append the item to the end
 	{
-		sprintf(errstr, "ReadFile() fails, code=%d", GetLastError()); delete[] buffer; 
-		CloseHandle(hFile); 
-		return 0;
-	}
-	buffer[dw]=0;
-	headingPt = strstr(buffer, head);
-	if (headingPt==NULL) // not found.... append the item
-	{
-		if ((len = strlen(buffer))>0)
-		{
-			trimRight(buffer, " \t\r\n"); 
-			if (strlen(buffer)+2>len)
-			{
-				char *newbuffer = new char[len+3];
-				memcpy((void*)newbuffer, (void*)buffer, strlen(buffer)+1);
-				delete[] buffer;
-				buffer = newbuffer;
-			}
-			strcat(buffer, "\r\n");
-			if (SetFilePointer(hFile, NULL, NULL, FILE_BEGIN)==INVALID_SET_FILE_POINTER)
-			{
-				sprintf(errstr, "SetFilePointer() fails, code=%d", GetLastError()); delete[] buffer; 
-				CloseHandle(hFile);
-				return 0;
-			}
-			if (!WriteFile (hFile, buffer, (DWORD)strlen(buffer), &dw, NULL))
-			{
-				sprintf(errstr, "WriteFile() fails, code=%d", GetLastError()); delete[] buffer; 
-				CloseHandle(hFile);
-				return 0;
-			}
-		}
-		if (!WriteFile (hFile, strcat(head, " "), (DWORD)strlen(head)+1, &dw, NULL))
-		{
-			sprintf(errstr, "WriteFile() fails, code=%d", GetLastError()); delete[] buffer; 
-			CloseHandle(hFile);
-			return 0;
-		}
-		if (!WriteFile (hFile, strcat(szBuffer, "\r\n"), (DWORD)strlen(szBuffer)+2, &dw, NULL))
-		{
-			sprintf(errstr, "WriteFile() fails, code=%d", GetLastError());  delete[] buffer; 
-			CloseHandle(hFile);
-			return 0;
-		}
+		readbuffer += head;
 	}
 	else
-	{ 
-		if (strstr(headingPt+1, head)!=NULL)
+	{ // does the head appear again, then return err
+		if (readbuffer.find(head, headingPos+1)==string::npos)
 		{
-			sprintf(errstr, "The heading %s appears more than once.", head); delete[] buffer; 
-			CloseHandle(hFile);
+			sprintf(errstr, "The heading %s appears more than once.", head);
 			return 0;
 		}
-		nextHeadingPt = strchr(headingPt+1, '[');
-		if (nextHeadingPt!=NULL)
-		{
-			char ch = firstnonwhitechar(nextHeadingPt);
-			while (ch!='\n' && ch!='\r')	
-			{	if ((nextHeadingPt = strchr(nextHeadingPt+1, '['))==NULL) break;
-				ch = firstnonwhitechar(nextHeadingPt); }
-		}
-		if (nextHeadingPt!=NULL)
-		{
-			restBlock = new char[buffer-nextHeadingPt+filesize+1];
-			strcpy(restBlock, nextHeadingPt);
+		// find the next head block
+		size_t nextHeadPos = readbuffer.find('[', headingPos + 1);
+		if (nextHeadPos == string::npos)
+		{ // last head block, just replace the body of the block
+			readbuffer.replace(headingPos + strlen(head) + 1, string::npos, newstring);
 		}
 		else
 		{
-			restBlock = new char[1];
-			restBlock[0]=0;
+			size_t len2Discard = nextHeadPos - (headingPos + strlen(head)); //length of string to replace
+			readbuffer.replace(headingPos + strlen(head) + 1, len2Discard, newstring);
 		}
-		SetFilePointer(hFile, (LONG)(headingPt-buffer), NULL, FILE_BEGIN);
-		
-		if (!WriteFile (hFile, strcat(head, " "), (DWORD)strlen(head)+1, &dw, NULL))
-		{
-			sprintf(errstr, "WriteFile() fails, code=%d", GetLastError()); delete[] buffer; 
-			CloseHandle(hFile); delete[] restBlock;
-			return 0;
-		}
-		if (!WriteFile (hFile, szBuffer, (DWORD)strlen(szBuffer), &dw, NULL))
-		{
-			sprintf(errstr, "WriteFile() fails, code=%d", GetLastError()); delete[] buffer; 
-			CloseHandle(hFile); delete[] restBlock;
-			return 0;
-		}
-		WriteFile (hFile, "\r\n", 2, &dw, NULL);
-		if (!WriteFile (hFile, restBlock, (DWORD)strlen(restBlock), &dw, NULL))
-		{
-			sprintf(errstr, "WriteFile() fails, code=%d", GetLastError()); delete[] buffer; 
-			CloseHandle(hFile); delete[] restBlock;
-			return 0;
-		}
-		SetEndOfFile(hFile);
-		delete[] restBlock;
 	}
-	CloseHandle(hFile);
-	strcpy(errstr, "");
-	delete[] buffer; 
+	fp = fopen(fname, "wt");
+	if (!fp)
+	{
+		strcpy(errstr, "File cannot be opened for printfINI.");
+		return 0;
+	}
+	fprintf(fp, readbuffer.c_str());
+	fclose(fp);
 	return 1;
 }
 
 
-AUDFRET_EXP int sscanfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...)
+int sscanfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...)
 {
 	//This works only for non-string sscanf--for string extraction, use ReadItemFromINI
 	// Returns -1 (EOF) for sscanf error, other negative int for other errors. 0 for unsuccessful sscanf conversion (up to you whether to consider it as an error)
@@ -244,7 +174,7 @@ AUDFRET_EXP int sscanfINI (char *errstr, const char *fname, const char *heading,
 }
 
 
-AUDFRET_EXP int ReadINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen)
+int ReadINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen)
 {
 	string tmpstr;
 	int res = ReadINI(errstr, fname, heading, tmpstr);
@@ -253,7 +183,7 @@ AUDFRET_EXP int ReadINI (char *errstr, const char *fname, const char *heading, c
 	return res;
 }
 
-AUDFRET_EXP int ReadINI(char *errstr, const char *fname, const char *heading, string &strOut)
+int ReadINI(char *errstr, const char *fname, const char *heading, string &strOut)
 {
 	char *buffer, head[MAX_HEADING_LENGTH];
 	LONG filesize;
@@ -329,17 +259,17 @@ AUDFRET_EXP int ReadINI(char *errstr, const char *fname, const char *heading, st
 
 //Obsolete functions... only for backward compatibility purposes
 
-AUDFRET_EXP int readINI2Buffer (char *errstr, const char *fname, const char *heading, char * dynamicBuffer, int length)
+int readINI2Buffer (char *errstr, const char *fname, const char *heading, char * dynamicBuffer, int length)
 {
 	return ReadINI(errstr, fname, heading, dynamicBuffer, length);
 }
 
-AUDFRET_EXP int strscanfINI (char *errstr, const char *fname, const char *heading, char *strBuffer, size_t strLen)
+int strscanfINI (char *errstr, const char *fname, const char *heading, char *strBuffer, size_t strLen)
 {
 	return ReadINI(errstr, fname, heading, strBuffer, strLen);
 }
 
-AUDFRET_EXP int ReadItemFromINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen)
+int ReadItemFromINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen)
 {
 	return ReadINI(errstr, fname, heading, strout, strLen);
 }

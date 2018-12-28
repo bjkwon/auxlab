@@ -17,8 +17,13 @@
 using namespace std;
 #include "audfret.h"
 #include "audstr.h"
+#ifdef _WINDOWS
+#include <windows.h>
+#else
+#include <stdarg.h>
+#endif
 
-AUDFRET_EXP void ReplaceStr(string &str, const string& from, const string& to) {
+void ReplaceStr(string &str, const string& from, const string& to) {
     size_t start_pos = 0;
     while((start_pos = str.find(from, start_pos)) != std::string::npos) {
         str.replace(start_pos, from.length(), to);
@@ -38,7 +43,7 @@ int getQuots(string input, size_t &id1, size_t &id2, char quot)
 	return 1;
 }
 
-AUDFRET_EXP size_t str2vectPlus(vector<string> &out, string input, char delim, char quot)
+size_t str2vectPlus(vector<string> &out, string input, char delim, char quot)
 {//same as str2vect except if it is enclosed by quot, delim is ignored and untouched.
 	out.clear();
 	if (delim==quot) return 0; // Invalid. Don't go any further
@@ -99,7 +104,7 @@ AUDFRET_EXP size_t str2vectPlus(vector<string> &out, string input, char delim, c
 	return out.size();
 }
 
-AUDFRET_EXP size_t str2vect(vector<string> &out, string input, char delim)
+size_t str2vect(vector<string> &out, string input, char delim)
 {
 	int nEst = countchar(input.c_str(), delim);
 	out.clear();
@@ -114,7 +119,7 @@ AUDFRET_EXP size_t str2vect(vector<string> &out, string input, char delim)
 	return out.size();
 }
 
-AUDFRET_EXP size_t str2vect(vector<string> &_out, const char* input, const char *delim, int maxSize_x)
+size_t str2vect(vector<string> &_out, const char* input, const char *delim, int maxSize_x)
 { // Bug found--If delim contains repeating character(s), it goes into an infinite loop. Avoid that. 8/4/2017
 
 	size_t pos;
@@ -144,7 +149,7 @@ AUDFRET_EXP size_t str2vect(vector<string> &_out, const char* input, const char 
 	return out.size();
 }
 
-AUDFRET_EXP string consoldateStr(vector<string> &input, char delim)
+string consoldateStr(vector<string> &input, char delim)
 {
 	string out;
 	for (size_t k=0; k<input.size(); k++)
@@ -155,48 +160,48 @@ AUDFRET_EXP string consoldateStr(vector<string> &input, char delim)
 	return out;
 }
 
-AUDFRET_EXP char* recoverNULL(int *dummy, char *dest, const char *src)
+char* recoverNULL(int *dummy, char *dest, const char *src)
 { return NULL; }
-AUDFRET_EXP char* recoverNULL(float *dummy, char *dest, const char *src)
+char* recoverNULL(float *dummy, char *dest, const char *src)
 { return NULL; }
-AUDFRET_EXP char* recoverNULL(double *dummy, char *dest, const char *src)
+char* recoverNULL(double *dummy, char *dest, const char *src)
 { return NULL; }
 
-AUDFRET_EXP char * copyItem(char * out, char * in)
+char * copyItem(char * out, char * in)
 {
 	return strcpy(out,in);
 }
 
-AUDFRET_EXP int copyItem(int out, char * in)
+int copyItem(int out, char * in)
 {
 	int res = sscanf(in, "%d", &out);
 	if (res==EOF || res==0) return 0;
 	return out;
 }
 
-AUDFRET_EXP double copyItem(double out, char * in)
+double copyItem(double out, char * in)
 {
 	int res = sscanf(in, "%lf", &out);
 	if (res==EOF || res==0) return 0;
 	return out;
 }
 
-AUDFRET_EXP int str2intarray(int* out, int maxSize_x, const char * str, const char *deliminators)
+int str2intarray(int* out, int maxSize_x, const char * str, const char *deliminators)
 {
 	return str2array(out, maxSize_x, str, deliminators);
 }
 
-AUDFRET_EXP int str2strarray(char** out, int maxSize_x, const char * str, const char *deliminators)
+int str2strarray(char** out, int maxSize_x, const char * str, const char *deliminators)
 {
 	return str2array(out, maxSize_x, str, deliminators);
 }
 
-AUDFRET_EXP int str2doublearray(double* out, int maxSize_x, const char * str, const char *deliminators)
+int str2doublearray(double* out, int maxSize_x, const char * str, const char *deliminators)
 {
 	return str2array(out, maxSize_x, str, deliminators);
 }
 
-AUDFRET_EXP void splitevenindices(vector<unsigned int> &out, unsigned int nTotals, unsigned int nGroups)
+void splitevenindices(vector<unsigned int> &out, unsigned int nTotals, unsigned int nGroups)
 {
 	unsigned int nItems = nTotals / nGroups;
 	unsigned int chunkwithnItems = nGroups * nItems;
@@ -220,7 +225,7 @@ AUDFRET_EXP void splitevenindices(vector<unsigned int> &out, unsigned int nTotal
 	}
 }
 
-AUDFRET_EXP int sformat(string& out, size_t nLengthMax, const char* format, ...) 
+int sformat(string& out, size_t nLengthMax, const char* format, ...) 
 {
 	// Obsolete as of 5/2/2017 bjkwon
 	char *buffer = new char[nLengthMax];
@@ -235,7 +240,7 @@ AUDFRET_EXP int sformat(string& out, size_t nLengthMax, const char* format, ...)
 }
 
 
-AUDFRET_EXP int sformat(string& out, const char* format, ...) 
+int sformat(string& out, const char* format, ...) 
 {
 	size_t bufsize(4096);
 	bufsize += strlen(format);

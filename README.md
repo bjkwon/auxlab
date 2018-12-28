@@ -28,7 +28,8 @@ Specify the directory of the local repository on line 5 and the directory for th
 # Internal Projects (developed by Bomjun Kwon)
 | project name | description                                                               | Win API dependent |
 |--------------|---------------------------------------------------------------------------|---|
-| audfret      | Common functions and classes                                              | Yes |
+| bjcommon      | Common functions                                            | No |
+| bjcommon_win      | Common functions and classes specific to Win API                                             | Yes |
 | auxlab       | Main application                                                          | Yes |
 | auxp         | Private user-defined functions                                            |Yes |
 | graffy       | Graphic library to display signals                                        |Yes |

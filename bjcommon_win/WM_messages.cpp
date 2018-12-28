@@ -20,7 +20,7 @@ using namespace std;
 
 map<unsigned int, string> wmstr;
 
-AUDFRET_EXP void makewmstr()
+void makewmstr()
 {
 	wmstr.clear();
 	wmstr[1] = "WM_CREATE";
@@ -98,7 +98,7 @@ AUDFRET_EXP void makewmstr()
 	wmstr[0x0800] = "WM_APP";
 }
 
-AUDFRET_EXP int spyWindowMessage(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2show, char* const tagstr)
+int spyWindowMessage(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2show, char* const tagstr)
 {
 	FILE *fp = fopen(fname, "at");
 	if (!fp) return 0;
@@ -114,7 +114,7 @@ AUDFRET_EXP int spyWindowMessage(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lPa
 	return -1;
 }
 
-AUDFRET_EXP int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr)
+int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr)
 {
 	if (!wmstr.size()) makewmstr();
 	FILE *fp = fopen(fname, "at");
@@ -126,12 +126,12 @@ AUDFRET_EXP int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM 
 	return 1;
 }
 
-AUDFRET_EXP int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr)
+int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr)
 {
 	return spyWindowMessage(msg.hwnd, msg.message, msg.wParam, msg.lParam, fname, msg2show, tagstr);
 }
 
-AUDFRET_EXP int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr)
+int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr)
 {
 	return spyWindowMessageExc(msg.hwnd, msg.message, msg.wParam, msg.lParam, fname, msg2excl, tagstr);
 }

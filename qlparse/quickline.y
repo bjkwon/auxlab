@@ -15,12 +15,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lqsyn.yacc.h"
+#include "quickline.yacc.h"
 #define strdup _strdup
 /*#define DEBUG*/
 
 char *qErrorMsg = NULL;
 int qqlex (void);
+int qqdeleteAstNode(AstNode *p, int fSkipNext);
 void qqerror (AstNode **pproot, char **errmsg, char const *s);
 %}
 

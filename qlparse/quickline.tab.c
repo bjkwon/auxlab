@@ -81,17 +81,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lqsyn.yacc.h"
+#include "quickline.yacc.h"
 #define strdup _strdup
 /*#define DEBUG*/
 
 char *qErrorMsg = NULL;
 int qqlex (void);
+int qqdeleteAstNode(AstNode *p, int fSkipNext);
 void qqerror (AstNode **pproot, char **errmsg, char const *s);
 
 
 /* Line 189 of yacc.c  */
-#line 95 "quickline.tab.c"
+#line 96 "quickline.tab.c"
 
 /* Enabling traces.  */
 #ifndef YYDEBUG
@@ -131,7 +132,7 @@ typedef union YYSTYPE
 {
 
 /* Line 214 of yacc.c  */
-#line 33 "quickline.y"
+#line 34 "quickline.y"
 
 	double dval;
 	char *str;
@@ -140,7 +141,7 @@ typedef union YYSTYPE
 
 
 /* Line 214 of yacc.c  */
-#line 144 "quickline.tab.c"
+#line 145 "quickline.tab.c"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -164,13 +165,13 @@ typedef struct YYLTYPE
 /* Copy the second part of user declarations.  */
 
 /* Line 264 of yacc.c  */
-#line 70 "quickline.y"
+#line 71 "quickline.y"
 
 AstNode *neuAstNode(int type, YYLTYPE loc);
 
 
 /* Line 264 of yacc.c  */
-#line 174 "quickline.tab.c"
+#line 175 "quickline.tab.c"
 
 #ifdef short
 # undef short
@@ -455,7 +456,7 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,    76,    76,    77,    81,    83,    92,    98
+       0,    77,    77,    78,    82,    84,    93,    99
 };
 #endif
 
@@ -1071,7 +1072,7 @@ yydestruct (yymsg, yytype, yyvaluep, yylocationp, pproot, errmsg)
       case 4: /* "\"string\"" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "quickline.y"
+#line 64 "quickline.y"
 	{
 #ifdef DEBUG
     printf("discarding string \"%s\"\n", (yyvaluep->str));
@@ -1080,12 +1081,12 @@ yydestruct (yymsg, yytype, yyvaluep, yylocationp, pproot, errmsg)
 };
 
 /* Line 1000 of yacc.c  */
-#line 1084 "quickline.tab.c"
+#line 1085 "quickline.tab.c"
 	break;
       case 5: /* "\"identifier\"" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "quickline.y"
+#line 64 "quickline.y"
 	{
 #ifdef DEBUG
     printf("discarding string \"%s\"\n", (yyvaluep->str));
@@ -1094,12 +1095,12 @@ yydestruct (yymsg, yytype, yyvaluep, yylocationp, pproot, errmsg)
 };
 
 /* Line 1000 of yacc.c  */
-#line 1098 "quickline.tab.c"
+#line 1099 "quickline.tab.c"
 	break;
       case 8: /* "block_string" */
 
 /* Line 1000 of yacc.c  */
-#line 56 "quickline.y"
+#line 57 "quickline.y"
 	{
 #ifdef DEBUG
     printf("discarding node %s\n", getAstNodeName((yyvaluep->pnode)));
@@ -1108,12 +1109,12 @@ yydestruct (yymsg, yytype, yyvaluep, yylocationp, pproot, errmsg)
 };
 
 /* Line 1000 of yacc.c  */
-#line 1112 "quickline.tab.c"
+#line 1113 "quickline.tab.c"
 	break;
       case 9: /* "one_word" */
 
 /* Line 1000 of yacc.c  */
-#line 56 "quickline.y"
+#line 57 "quickline.y"
 	{
 #ifdef DEBUG
     printf("discarding node %s\n", getAstNodeName((yyvaluep->pnode)));
@@ -1122,7 +1123,7 @@ yydestruct (yymsg, yytype, yyvaluep, yylocationp, pproot, errmsg)
 };
 
 /* Line 1000 of yacc.c  */
-#line 1126 "quickline.tab.c"
+#line 1127 "quickline.tab.c"
 	break;
 
       default:
@@ -1273,7 +1274,7 @@ yyparse (pproot, errmsg)
 /* User initialization code.  */
 
 /* Line 1242 of yacc.c  */
-#line 47 "quickline.y"
+#line 48 "quickline.y"
 {
   if (qErrorMsg) {
 	free(qErrorMsg);
@@ -1283,7 +1284,7 @@ yyparse (pproot, errmsg)
 }
 
 /* Line 1242 of yacc.c  */
-#line 1287 "quickline.tab.c"
+#line 1288 "quickline.tab.c"
 
   goto yysetstate;
 
@@ -1470,28 +1471,28 @@ yyreduce:
         case 2:
 
 /* Line 1455 of yacc.c  */
-#line 76 "quickline.y"
+#line 77 "quickline.y"
     { *pproot = NULL;;}
     break;
 
   case 3:
 
 /* Line 1455 of yacc.c  */
-#line 78 "quickline.y"
+#line 79 "quickline.y"
     { *pproot = (yyvsp[(1) - (1)].pnode);;}
     break;
 
   case 4:
 
 /* Line 1455 of yacc.c  */
-#line 82 "quickline.y"
+#line 83 "quickline.y"
     { (yyval.pnode) = (yyvsp[(1) - (1)].pnode); ;}
     break;
 
   case 5:
 
 /* Line 1455 of yacc.c  */
-#line 84 "quickline.y"
+#line 85 "quickline.y"
     { 
 		if ((yyval.pnode)->tail)
 			(yyval.pnode)->tail->next = (yyvsp[(2) - (2)].pnode);
@@ -1504,7 +1505,7 @@ yyreduce:
   case 6:
 
 /* Line 1455 of yacc.c  */
-#line 93 "quickline.y"
+#line 94 "quickline.y"
     {
 		(yyval.pnode) = neuAstNode(T_STRING, (yyloc));
 		(yyval.pnode)->str = malloc(strlen((yyvsp[(1) - (1)].str))+1);
@@ -1515,7 +1516,7 @@ yyreduce:
   case 7:
 
 /* Line 1455 of yacc.c  */
-#line 99 "quickline.y"
+#line 100 "quickline.y"
     {
 		(yyval.pnode) = neuAstNode(T_ID, (yyloc));
 		(yyval.pnode)->str = malloc(strlen((yyvsp[(1) - (1)].str))+1);
@@ -1526,7 +1527,7 @@ yyreduce:
 
 
 /* Line 1455 of yacc.c  */
-#line 1530 "quickline.tab.c"
+#line 1531 "quickline.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -1745,7 +1746,7 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 106 "quickline.y"
+#line 107 "quickline.y"
 
 
 /* Called by qqparse on error. */
