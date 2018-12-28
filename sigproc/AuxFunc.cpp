@@ -23,7 +23,7 @@
 
 #ifdef _WINDOWS
 #include <io.h>
-#include "audfret.h"
+#include "bjcommon.h"
 #include "wavplay.h"
 #elif
 #include <sys/types.h>
@@ -724,6 +724,10 @@ void aux_input(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	past->Sig.SetString(user_input.c_str());
 }
 
+#ifdef _WINDOWS
+#include "bjcommon_win.h"
+#endif
+
 void _inputdlg(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	ostringstream caption;
@@ -735,13 +739,16 @@ void _inputdlg(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	caption << past->Sig.string();
 	_sprintf(past, pnode, p, fnsigs);
 
-	char buf[64];
-	buf[0] = 0;
+	char buf[64] = {};
+#ifdef _WINDOWS
 	INT_PTR res = InputBox(caption.str().c_str(), past->Sig.string().c_str(), buf, sizeof(buf));
 	if (res == 1)
 		past->Sig.SetString(buf);
 	else
 		past->Sig.SetString("");
+#elif
+	printf("[NOTE] inputdlg is in a pre-release condition in non-Windows version.\n%s", past->Sig.string().c_str());
+#endif
 }
 
 void _msgbox(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -755,82 +762,17 @@ void _msgbox(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		_sprintf(past, pnode, p, fnsigs);
 	}
 	past->fpmsg.ShowVariables(past);
+#ifdef _WINDOWS
 	MessageBox(NULL, past->Sig.string().c_str(), caption.str().c_str(), MB_OK);
 	past->Sig.Reset();
+#elif
+	printf("[NOTE] inputdlg is in a pre-release condition in non-Windows version.\n%s", past->Sig.string().c_str());
+#endif
 }
 
 
 #include "audstr.h"
 
-void aux_HOOK(CAstSig *past, const AstNode *pnode, const AstNode *p, int nArgs, string &fnsigs)
-{// any "hook command" in the application, which begins with # goes through here
-	string HookName;
-	const AstNode *args;
-	HookName = p->str;
-	args = p->child;
-
-	CSignals first;
-	char buf[512];
-
-	if (past->u.CallbackHook && past->u.CallbackHook(past, p, p->alt)==0)
-		;
-
-	else if (HookName == "INPUT") {
-		string fnsigs = "(message_string [, title_string])";
-		past->checkNumArgs(pnode, args, fnsigs, 1, 2);
-		string msg, title;
-		msg = past->ComputeString(args);
-		if (args->next)
-			title = past->ComputeString(args->next);
-		else {
-			ostringstream caption;
-			caption << "Line " << pnode->line;
-			title = caption.str();
-		}
-		buf[0] = '\0';
-		InputBox(title.c_str(), msg.c_str(), buf, sizeof(buf));
-		past->Sig.UpdateBuffer((int)strlen(buf));
-		for (int i=0; buf[i]; ++i)
-			past->Sig.buf[i] = buf[i];
-	} else if (HookName == "PIPE") {
-		string fnsigs = "(message_string [, N_name_string [, pipe_name_string]])";
-		past->checkNumArgs(pnode, args, fnsigs, 1, 3);
-#define SIGNAL_INTERFACE_PIPENAME  "CochlearAudioSignalInterfacePipe"
-		string pipemsg = past->ComputeString(args);
-		string nodename = ".";
-		string pipename = SIGNAL_INTERFACE_PIPENAME;
-		if (args->next) {
-			nodename = past->ComputeString(args->next);
-			if (args->next->next)
-				pipename = past->ComputeString(args->next->next);
-		}
-		pipename = "\\\\" + nodename + "\\pipe\\" + pipename;
-		char reply[50000] = "";
-		unsigned long nRead;
-		if (!CallNamedPipe(pipename.c_str(), (LPVOID)pipemsg.c_str(), (DWORD)pipemsg.size()+1, reply, (DWORD)sizeof(reply), &nRead, NMPWAIT_WAIT_FOREVER)) {
-			char *errstr = buf;
-			GetLastErrorStr(errstr);
-			throw CAstException(pnode, past, "CallNamedPipe(" + pipename + ") failed:", errstr);
-		}
-		reply[nRead]='\0';
-		past->Sig.UpdateBuffer((int)nRead);
-		for (int i=0; reply[i]; ++i)
-			past->Sig.buf[i] = reply[i];
-	} else if (HookName == "ELAPSE") {
-		string fnsigs = "";
-		past->checkNumArgs(pnode, args, fnsigs, 0, 0);
-		past->Sig.SetValue(GetTickCount() - past->Tick0);
-	} 
-	else if (HookName == "SLEEP") {
-		string fnsigs = "(millisecond)";
-		past->checkNumArgs(pnode, args, fnsigs, 1, 1);
-		past->Compute(args);
-		if (!past->Sig.IsScalar())
-			throw CAstException(pnode, past, fnsigs, "argument must be a scalar.");
-		Sleep((int)round(past->Sig.value()));
-	} else
-		throw past; // to be caught by the application (xcom, auxconDlg, etc)
-}
 
 #endif //_WINDOWS this
 

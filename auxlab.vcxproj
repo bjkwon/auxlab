@@ -110,18 +110,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(BuildDir)$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)$(ProjectName)\</IntDir>
+    <TargetName>auxlab$(PlatformArchitecture)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(BuildDir)$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)$(ProjectName)\</IntDir>
+    <TargetName>auxlab$(PlatformArchitecture)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(BuildDir)$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)$(ProjectName)\</IntDir>
-  </PropertyGroup>
+     <TargetName>auxlab$(PlatformArchitecture)</TargetName>
+ </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(BuildDir)$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(OutDir)$(ProjectName)\</IntDir>
+    <TargetName>auxlab$(PlatformArchitecture)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -131,17 +135,17 @@
       <PreprocessorDefinitions>LINK_STATIC_SIGPROC;LINK_STATIC_AUDFRET;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ignore:4099 /LTCG %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -152,18 +156,18 @@
       <PreprocessorDefinitions>LINK_STATIC_SIGPROC;WIN64;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libcmtd;libcmt</IgnoreSpecificDefaultLibraries>
-      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/ignore:4099 /LTCG %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -178,17 +182,17 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/ignore:4099 /LTCG %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -203,18 +207,18 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;audfret.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libcmtd;libcmt</IgnoreSpecificDefaultLibraries>
-      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/ignore:4099 /LTCG %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>copy_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat audfret graffy wavplay qlparse sigproc</Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

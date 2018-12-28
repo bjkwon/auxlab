@@ -25,13 +25,12 @@
 
 extern HWND hAppl;
 
-
 //HANDLE hEvent;
 uintptr_t hTread;
 bool win7;
 
 
-AUDFRET_EXP void ReplaceStr(string &str, const char *from, const char *to) { ReplaceStr(str, string(from), string(to)); }
+void ReplaceStr(string &str, const char *from, const char *to) { ReplaceStr(str, string(from), string(to)); }
 
 HMODULE hLib(NULL);
 

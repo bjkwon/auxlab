@@ -19,10 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{E9095213-F9BB-4EAF-9358-0905EBC3865C}</ProjectGuid>
+    <ProjectGuid>{3CCD832E-3192-424E-822E-58465B77499D}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>audfret</RootNamespace>
-    <ProjectName>audfret</ProjectName>
+    <RootNamespace>bjcommon</RootNamespace>
+    <ProjectName>bjcommon</ProjectName>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -98,7 +98,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;AUDFRET_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;BJCOMMON_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -114,7 +114,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;AUDFRET_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;BJCOMMON_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -135,7 +135,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;AUDFRET_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;BJCOMMON_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -155,7 +155,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;AUDFRET_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;BJCOMMON_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -173,18 +173,11 @@
   <ItemGroup>
     <ClCompile Include="$(SrcPath)audstr.cpp" />
     <ClCompile Include="$(SrcPath)bjTools.cpp" />
-    <ClCompile Include="$(SrcPath)pipecomm.cpp" />
-    <ClCompile Include="$(SrcPath)filecomp.cpp" />
     <ClCompile Include="$(SrcPath)ReadWriteINI.cpp" />
     <ClCompile Include="$(SrcPath)str2array.cpp" />
-    <ClCompile Include="$(SrcPath)Win32InputBox.cpp" />
-    <ClCompile Include="$(SrcPath)WM_messages.cpp" />
-    <ClCompile Include="$(SrcPath)FileDlg.cpp" />
-    <ClCompile Include="$(SrcPath)WndDlg0.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(SrcPath)audfret.h" />
-    <ClInclude Include="$(SrcPath)Win32InputBox.h" />
+    <ClInclude Include="$(SrcPath)bjcommon.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

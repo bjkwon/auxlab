@@ -16,23 +16,13 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(DropDev)include;$(DropDev)include\wxx820;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(LocalRepoDir)include;$(LocalRepoDir)include\wxx820;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4477;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
-    <ClInclude>
-      <AdditionalIncludeDirectories>$(DropDev)include;$(DropDev)include\wxx820;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-    </ClInclude>
     <Link>
-      <AdditionalLibraryDirectories>$(OutDir);$(DropDev)LIB;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);$(LocalRepoDir)LIB;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
     </Link>
-    <ResourceCompile>
-      <AdditionalIncludeDirectories>
-      </AdditionalIncludeDirectories>
-    </ResourceCompile>
-    <Lib>
-      <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
     <BuildMacro Include="LocalRepoDir">

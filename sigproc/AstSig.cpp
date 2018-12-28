@@ -17,7 +17,7 @@
 #include <math.h>
 #include <time.h>
 #include "sigproc.h"
-#include "audfret.h"
+#include "bjcommon.h"
 
 #include <algorithm> // for lowercase
 
@@ -1574,8 +1574,6 @@ CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 	}
 	return Sig;
 }
-
-void aux_HOOK(CAstSig *past, const AstNode *pnode, const AstNode *p, int nArgs, string &fnsigs);
 
 CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 {

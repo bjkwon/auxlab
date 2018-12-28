@@ -13,7 +13,7 @@
 #include "audfret.h"
 
 
-AUDFRET_EXP HANDLE InitPipe (char *PipeName, char *errStr)
+HANDLE InitPipe (char *PipeName, char *errStr)
 {
 	// This waits for a pipe initiation (blocks till a pipe connection or an error occurs).
 	// Run this inside of a second thread.
@@ -78,14 +78,14 @@ int __callPipe (HWND hDlg, char *Pipename, const char *PipeMsg2Send, char *PipeM
 	return res;
 }
 
-AUDFRET_EXP int CallPipe2 (HWND hDlg, char *remotePC, char *pipenode, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec, char *errstr)
+int CallPipe2 (HWND hDlg, char *remotePC, char *pipenode, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec, char *errstr)
 {
 	char Pipename[MAX_PATH];
 	wsprintf(Pipename, "\\\\%s\\pipe\\%s", remotePC, pipenode);
 	return __callPipe(hDlg, Pipename, PipeMsg2Send, PipeMsg2Rec, LenRec, errstr);
 }
 
-AUDFRET_EXP int CallPipe (HWND hDlg, char *pipenode, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec, char *errstr)
+int CallPipe (HWND hDlg, char *pipenode, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec, char *errstr)
 {
 	char Pipename[MAX_PATH];
 	wsprintf(Pipename, "\\\\.\\pipe\\%s", pipenode);
@@ -102,39 +102,3 @@ Therefore, in this situation, PC name cannot be used. Instead, the IP address of
 02/22/2017 bjk
 */
 
-AUDFRET_EXP int TransSocket (const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec)
-{
-	// returns the number of bytes successfully received (including the null char)
-	// if error occurs, a negative value returns (error code with a negative sign)
-	char RemoteAddress[64];
-	int res;
-	SOCKET sock;
-	struct sockaddr_in sa;
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(port);
-	sa.sin_addr.S_un.S_addr = inet_addr(ipa);
-try {
-	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if ( sock == INVALID_SOCKET ) throw -1;
-	if (connect (sock, (SOCKADDR *)&sa, sizeof(sa)))
-	{
-		HOSTENT *hont = gethostbyname(ipa);
-		if (hont==NULL) throw -2; // HOST_NAME_CANNOT_RESOLVE;
-		struct in_addr hostAddress;
-		hostAddress.S_un.S_addr = *(u_long*)(hont->h_addr_list[0]);
-		strcpy(RemoteAddress, inet_ntoa(hostAddress));
-		sa.sin_addr.S_un.S_addr = inet_addr(RemoteAddress);
-		if (connect (sock, (SOCKADDR *)&sa, sizeof(sa))) throw -3;
-	}
-	if ((res = send(sock, PipeMsg2Send, (int)strlen(PipeMsg2Send)+1, 0))==SOCKET_ERROR) throw -999;
-	if ((res = recv(sock, PipeMsg2Rec, LenRec, 0))==SOCKET_ERROR) throw -999;
-	if ((res = closesocket(sock))==SOCKET_ERROR) throw -999;
-	return (int)strlen(PipeMsg2Rec)+1;
-} 
-catch (int ecode)
-{
-	res = WSAGetLastError();
-	if (ecode<-1) closesocket(sock);
-	return -res;
-}
-}
