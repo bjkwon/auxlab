@@ -2440,9 +2440,14 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		else if (pnode->alt->type == N_HOOK)
 			p = pnode->alt;
 	}
-	bool compl = Sig.IsComplex(); // Sig was prepared prior to this call.
-	if (!structCall)
+	bool compl;
+	if (structCall)
+		compl = Sig.IsComplex(); // Sig was prepared prior to this call.
+	else
+	{
 		Compute(p);
+		compl = Sig.IsComplex();
+	}
 	res = HandleMathFunc(compl, fname, &fn0, &fn1, &fn2, &cfn0, &cfn1, &cfn2);
 	//HandleMathFunc returns 1 for sqrt, log and log10, 2 for ^ and mode, -1 for functions for complex numbers (fn2 available), 10 for any other math functions; 0 otherwise (not a math function on my list)
 	

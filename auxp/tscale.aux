@@ -37,11 +37,11 @@ for k = 1:lent
   // Save the row
   newspec(k,:) = intermag * exp(sqrt(-1)*ph);
   // calculate phase advance
-  dp = fxnext.angle - fxnow.angle - dphi';
+  dp = fxnext.angle - fxnow.angle - dphi;
   // Reduce to -pi:pi range
   dp -=  2 * pi * round(dp/(2*pi));
   // Cumulate phase, ready for next frame
-  ph = ph + dphi' + dp;
+  ph += dphi + dp;
 end
 // Inverse STFFT
 container = zeros(N*lent).matrix(lent)

@@ -86,7 +86,7 @@ typedef union YYSTYPE
 {
 
 /* Line 1676 of yacc.c  */
-#line 22 "psycon.y"
+#line 35 "psycon.y"
 
 	double dval;
 	char *str;
