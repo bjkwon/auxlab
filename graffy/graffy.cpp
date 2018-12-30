@@ -489,11 +489,6 @@ GRAPHY_EXPORT int CloseFigure(HANDLE h)
 	return theApp.closeFigure(h);
 }
 
-GRAPHY_EXPORT CFigure *FindFigure(CSignals *xFig)
-{
-	return theApp.findFigure(xFig);
-}
-
 GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent)
 {
 	return theApp.findGObj(xGO, hGOParent);
@@ -505,16 +500,16 @@ GRAPHY_EXPORT vector<HANDLE> graffy_Figures()
 }
 
 /*New 1*/
-GRAPHY_EXPORT HANDLE FindFigure(CSignals figsig)
+GRAPHY_EXPORT HANDLE FindFigure(CSignals *pfigsig)
 {
 	for (auto fig : theApp.fig)
 	{
 		int fs = fig->gcf.GetFs();
-		if (fs == figsig.GetFs())
+		if (fs == pfigsig->GetFs())
 		{
-			if (fs == 2 && fig->gcf.string() == figsig.string())
+			if (fs == 2 && fig->gcf.string() == pfigsig->string())
 				return &fig->gcf;
-			if (fs == 1 && fig->gcf.value() == figsig.value())
+			if (fs == 1 && fig->gcf.value() == pfigsig->value())
 				return &fig->gcf;
 		}
 	}
@@ -943,11 +938,12 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 	}
 }
 
-vector<DWORD> Colormap(char lh, char rc, int nItems)
+GRAPHY_EXPORT vector<DWORD> Colormap(BYTE head, char lh, char rc, int nItems)
 {
 	// lh : Left or Right
 	// rc : Real or Complex
 	vector<DWORD> out;
+	DWORD dw;
 	vector<double> t;
 	t.resize(nItems);
 	double r, g, b;
@@ -969,7 +965,8 @@ vector<DWORD> Colormap(char lh, char rc, int nItems)
 			ir = (int)round(r * 255);
 			ig = (int)round(g * 255);
 			ib = (int)round(b * 255);
-			out.push_back(RGB(ir, ig, ib));
+			dw = RGB(ir, ig, ib) + (head<<24);
+			out.push_back(dw);
 		}
 	else if (lh == 'L')
 		for (auto p : t)
@@ -980,7 +977,8 @@ vector<DWORD> Colormap(char lh, char rc, int nItems)
 			ir = (int)round(r * 255);
 			ig = (int)round(g * 255);
 			ib = (int)round(b * 255);
-			out.push_back(RGB(ir, ig, ib));
+			dw = RGB(ir, ig, ib) + (head << 24);
+			out.push_back(dw);
 		}
 	return out;
 }

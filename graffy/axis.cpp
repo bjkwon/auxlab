@@ -458,7 +458,7 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	CSignals sig_color;
 	vector<DWORD> cmap;
 	if (hi) // color not specified, L or R specified.
-		cmap = Colormap(hi, 'r', pydata->nGroups);
+		cmap = Colormap(hi, hi, 'r', pydata->nGroups);
 	else
 		cmap.push_back(col);
 	in->strut["color"] = COLORREF2CSignals(cmap, sig_color);

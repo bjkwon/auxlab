@@ -1474,6 +1474,7 @@ CVar &CAstSig::ExtractByIndex(const AstNode *pnode, AstNode *p, CVar **psig)
 	CVar tsig, isig, isig2;
 	if (!p)	throw CAstException(pnode, this, "A variable index should be provided.");
 	eval_indexing(pnode->child, *psig, isig);
+	if (isig._max()>Sig.nSamples) throw CAstException(pnode, this, "Index exceeds the length of variable.");
 	Sig = extract(ebuf, psig, isig);
 	if (ebuf[0])
 	{

@@ -576,9 +576,9 @@ void CPlotDlg::OnPaint()
 					vector<DWORD> kolor;
 					clcode = HIBYTE(HIWORD(lyne->color));
 					if (clcode=='L' || clcode=='R') 
-						kolor = Colormap(clcode, 'r', atuck);
+						kolor = Colormap(clcode, clcode, 'r', atuck);
 					if (clcode == 'l' || clcode == 'r')
-						kolor = Colormap(clcode+'R'-'r', 'c', atuck);
+						kolor = Colormap(clcode, clcode+'R'-'r', 'c', atuck);
 					else if (clcode == 'M')
 					{
 						CVar cmap = lyne->strut["color"];
@@ -645,6 +645,7 @@ void CPlotDlg::OnPaint()
 							memcpy(p->buf, abuf, p->Len() * sizeof(double));
 						}
 					}
+					delete[] abuf;
 				}
 			} 
 //			dc.SetBkColor(pax->color);

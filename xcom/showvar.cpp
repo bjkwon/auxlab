@@ -267,7 +267,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 	int type = psig->GetType();
 	CVar thisitem;
 	thisitem.SetString(title.c_str());
-	hobj = (CGobj *)FindFigure(thisitem);
+	hobj = (CGobj *)FindFigure(&thisitem);
 	if (!hobj)
 	{
 		if (psig->IsGO())
@@ -1469,7 +1469,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 					psig->SetString(fullvarname);
 				}
 				//psig must be full name ---do it again
-				hobj = (CGobj *)FindFigure(*psig);
+				hobj = (CGobj *)FindFigure(psig);
 				if (hobj)
 				{
 					CFigure *cfig = (CFigure *)hobj;

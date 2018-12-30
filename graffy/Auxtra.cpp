@@ -408,7 +408,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 		}
 		else
 		{
-			HANDLE h = FindFigure(param);
+			HANDLE h = FindFigure(&param);
 			if (h)
 			{
 				past->Sig = *static_cast<CFigure *>(h);
@@ -470,7 +470,7 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		_figure(past, pnode, NULL, fnsigs);
 		pgcf = past->GetVariable("gcf");
 	}
-	CFigure *cfig = FindFigure(pgcf);
+	CFigure *cfig = (CFigure *)FindFigure(pgcf);
 	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back().string().c_str(), args.front().value(), args[1].value(), 0, 0));
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
@@ -512,7 +512,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		else 
 			throw CAstException(pnode, past, "Only figure handle can create axes or handle axes");
 	}
-	CFigure *cfig = FindFigure(pgcf);
+	CFigure *cfig = (CFigure *)FindFigure(pgcf);
 	CAxes * cax;
 	cax = static_cast<CAxes *>(AddAxes(cfig, ppos->buf[0], ppos->buf[1], ppos->buf[2], ppos->buf[3]));
 
@@ -697,7 +697,7 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			{ // gcf found AND it is not a named plot
 				if (past->GOvars["gcf"].front()->struts["gca"].empty())
 				{// no axes present; create one.
-					cfig = FindFigure(past->GOvars["gcf"].front());
+					cfig = (CFigure *)FindFigure(past->GOvars["gcf"].front());
 					cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 				}
 				else

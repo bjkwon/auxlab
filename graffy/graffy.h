@@ -280,10 +280,9 @@ struct GRAFWNDDLGSTRUCT
 };
 
 
-GRAPHY_EXPORT CFigure *FindFigure(CSignals *xFig);
 GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent = NULL);
 
-GRAPHY_EXPORT HANDLE FindFigure(CSignals figsig);
+GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
 
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures();
@@ -324,7 +323,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B);
 GRAPHY_EXPORT DWORD CSignals2COLORREF(CSignals col);
 GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig);
-GRAPHY_EXPORT vector<DWORD> Colormap(char lh, char rc, int nItems);
+GRAPHY_EXPORT vector<DWORD> Colormap(BYTE head, char lh, char rc, int nItems);
 
 vector<double> makefixtick(double _x1, double _x2, int count);
 
