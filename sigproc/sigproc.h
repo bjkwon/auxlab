@@ -579,6 +579,7 @@ public:
 	map<string, UDF> udf;
 	int Fs;
 	int curLine; // used for control F10
+	map<string, vector<CVar *>> glovar;
 	string AppPath;
 	string AuxPath;
 	bool shutdown;
@@ -717,7 +718,7 @@ public:
 
 private:
 	void HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot = NULL);
-	void HandlePseudoVar(const AstNode *pnode);
+	bool HandlePseudoVar(const AstNode *pnode);
 	int HandleMathFunc(bool compl, string &fname, double(**)(double), double(**)(double), double(**)(double, double), double(**)(complex<double>), complex<double>(**)(complex<double>), complex<double>(**)(complex<double>, complex<double>));
 	bool IsValidBuiltin(string funcname);
 	CAstSig &insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &sec, CVar &indsig);

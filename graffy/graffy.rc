@@ -61,7 +61,7 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,4,9,7
+ FILEVERSION 2,4,9,8
  PRODUCTVERSION 1,0,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
@@ -78,7 +78,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "Auditory Professional, Inc"
-            VALUE "FileVersion", "2.4.9.7"
+            VALUE "FileVersion", "2.4.9.8"
             VALUE "InternalName", "graffy"
             VALUE "LegalCopyright", "Copyright (C) 2018"
             VALUE "ProductName", "graffy Dynamic Link Library"

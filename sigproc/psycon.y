@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.497
+// Date: 1/30/2019
 */ 
 
 /* Psycon syntax parser */
@@ -445,7 +445,7 @@ matrix: /* empty */
 		$$->tail = $$->child = newAstNode(N_VECTOR, @$);
 	}
 	| vector
-	{ //yyn=62
+	{ //yyn=61
 		$$ = newAstNode(N_MATRIX, @$);
 		$$->child = $$->tail = $1;
 	}
@@ -458,7 +458,7 @@ matrix: /* empty */
 ;
 
 vector: exp_range
-	{ //yyn=65
+	{ //yyn=64
 		$$ = newAstNode(N_VECTOR, @$);
 		$$->child = $$->tail = $1;
 	}
@@ -479,7 +479,7 @@ range: exp ':' exp
 		$$ = makeFunctionCall(":", $1, $3, @$);
 	}
 	| exp ':' exp ':' exp
-	{//69
+	{//68
 		$$ = makeFunctionCall(":", $1, $5, @$);
 		$5->next = $3;
 	}
@@ -519,7 +519,7 @@ compop: "+="
 ;
 
 assign2this: '=' exp_range
-	{ //82
+	{ //81
 		$$ = $2;
 	}
 	| '=' condition
@@ -543,12 +543,12 @@ assign2this: '=' exp_range
 ;
 
 varblock:	 T_ID
-	{ //85
+	{ //84
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 	}
 	|	tid '.' T_ID
-	{//86
+	{//85
 		$$ = $1;
 		AstNode *p = newAstNode(N_STRUCT, @$);
 		p->str = $3;
@@ -583,7 +583,7 @@ varblock:	 T_ID
 		$$->tail = p;
 	}
 	| varblock '{' exp '}'
-	{//88
+	{//87
 		$$ = $1;
 		$$->tail = $$->alt->alt = newAstNode(N_CELL, @$);
 		$$->tail->child = $3;
@@ -596,8 +596,14 @@ varblock:	 T_ID
 		$$->tail->child->next = $5;
 	}
 	| '[' vector ']'
-	{//tid-vector 90
+	{//tid-vector 89
 		$$ = $2;
+	}
+	| '$' varblock
+	{
+		$$ = newAstNode(N_HOOK, @$);
+		$$->str = strdup($2->str);
+		$$->alt = $2->alt;
 	}
 ; 
 
@@ -609,14 +615,14 @@ tid: varblock
 		$$->tail = $$->alt = $3;
 	}
 	| T_ID '{' exp '}'
-	{ //92
+	{ //93
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 		$$->tail = $$->alt = newAstNode(N_CELL, @$);
 		$$->alt->child = $3;
 	}
 	| T_ID '{' exp '}' '(' arg_list ')'
-	{ //93
+	{ //94
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 		$$->alt = newAstNode(N_CELL, @$);
@@ -640,7 +646,7 @@ tid: varblock
 			$$->tail = $$->alt = $3;
 	}
 	| varblock '(' ')'
-	{ // 95
+	{ // 97
 		if ($$->alt != NULL  && $$->alt->type==N_STRUCT)
 		{ // dot notation with a blank parentheses, e.g., a.sqrt() or (1:2:5).sqrt()
 			$$ = $1;
@@ -686,12 +692,6 @@ tid: varblock
 		$$ = newAstNode(T_TRANSPOSE, @$);
  		$$->child = $1;
 	}
-//	| T_ID '(' condition ')'
-//	{
-//		$$ = newAstNode(T_ID, @$);
-//		$$->str = $1;
-//		$$->tail = $$->alt = $3;
-//	} 
 	| '[' vector ']' '[' ']'
 	{
 		$$ = newAstNode(N_TSEQ, @$);
@@ -728,11 +728,6 @@ tid: varblock
 	| '[' matrix ']'
 	{
 		$$ = $2;
-	}
-	| '$' tid
-	{
-		$$ = newAstNode(N_HOOK, @$);
-		$$->str = strdup($2->str);
 	}
 	| '(' exp_range ')'
 	{

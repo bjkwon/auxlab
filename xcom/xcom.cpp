@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.497
+// Date: 1/30/2019
 // 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <windows.h>
@@ -78,7 +78,6 @@ extern unordered_map<string, CDebugDlg*> dbmap;
 extern CDebugBaseDlg debugBase;
 extern vector<CWndDlg*> cellviewdlg;
 
-extern map<DWORD, string> plotDlgScope;
 unsigned int WINAPI debugThread2 (PVOID var) ;
 
 HANDLE hStdin, hStdout; 

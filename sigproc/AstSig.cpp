@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.496
-// Date: 12/17/2018
+// Version: 1.497
+// Date: 1/30/2019
 // 
 #include <sstream>
 #include <list>
@@ -1585,7 +1585,6 @@ CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 		HandlePseudoVar(pnode);
 	else
 	{
-
 		//{
 		//	aux_HOOK(this, pnode, p, 0, dummy);
 		//	return Sig;
@@ -2041,6 +2040,14 @@ CVar &CAstSig::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, C
 	case N_TIME_EXTRACT: // T-Y-4 
 		tsig = TID_time_extract(pnode, pLHS, pRHS, psigBase);
 		break;
+	case N_HOOK:
+		if (pEnv->pseudo_vars.find(pnode->str) == pEnv->pseudo_vars.end())
+		{
+			tsig = TID_tag(pnode, pLHS, pRHS, psig, psigBase);
+		}
+		else
+			throw CAstException(pLHS, this, "Pseudo variable cannot be modified.");
+		break;
 	default:  // T-Y-5
 		return Compute(pRHS); // check... this may not happen.. if so, inspect.
 	}
@@ -2192,9 +2199,7 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 				if (pn->alt)
 				{
 					p = pn->alt;
-					if (p->type == N_HOOK)
-						pseudoVar(pn, p);
-					else if (p->type == N_CELL)
+					if (p->type == N_CELL)
 						//either x{2} or x{2}(3). x or x(2) doesn't come here.
 						// I.E., p->child should be non-NULL
 					{
@@ -2349,7 +2354,8 @@ try {
 	case T_ID:
 		return TID((AstNode*)pnode, p);
 	case N_HOOK:
-		return pseudoVar(pnode, p);
+		TID((AstNode*)pnode, p);
+		return TID(pnode->child, NULL, &Sig);
 	case N_TSEQ:
 		return TSeq(pnode, p);
 	case N_IDLIST:
@@ -3154,6 +3160,7 @@ CAstSigEnv& CAstSigEnv::operator=(const CAstSigEnv& rhs)
 		udf = rhs.udf;
 		shutdown = rhs.shutdown;
 		inFunc = rhs.inFunc;
+		glovar = rhs.glovar;
 	}
 	return *this;
 }

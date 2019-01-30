@@ -8,7 +8,7 @@
 // Platform-independent (hopefully) 
 // 
 // Version: 1.497
-// Date: 12/26/2018
+// Date: 1/30/2019
 // 
 #include <math.h>
 #include <stdlib.h>
@@ -1803,6 +1803,20 @@ void _natural_log_base(CAstSig *past, const AstNode *pnode, const AstNode *p, st
 	past->Sig.SetValue(exp(1));
 }
 
+void _tempgcf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	//temporary solution for global variables. For now, tempgcf is created as a global variable
+	//to use for f3_channel_stereo_mono from showvar.cpp.
+	//Internal use only until a permanent solution is in place. 1/28/2019
+	map<string, vector<CVar*>> tempVars = CAstSig::vecast.front()->pEnv->glovar;
+	if (!tempVars.empty())
+	{
+		past->Sig = *(past->pgo = CAstSig::vecast.front()->pEnv->glovar["tempgcf"].front());
+	}
+	else
+		throw CAstException(pnode, past, fnsigs, "global variables not prepared.");
+}
+
 void _gcf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (CAstSig::vecast.front()->GOvars.find("gcf") != CAstSig::vecast.front()->GOvars.end())
@@ -2353,6 +2367,9 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	pp.name = "pi";
 	inFunc[pp.name] = &_pi;
 	pseudo_vars[pp.name] = pp;
+	pp.name = "tempgcf";
+	inFunc[pp.name] = &_tempgcf;
+	pseudo_vars[pp.name] = pp;
 	pp.name = "gcf";
 	inFunc[pp.name] = &_gcf;
 	pseudo_vars[pp.name] = pp;
@@ -2394,7 +2411,7 @@ bool isgraphicfunc(string fname)
 	return false;
 }
 
-void CAstSig::HandlePseudoVar(const AstNode *pnode)
+bool CAstSig::HandlePseudoVar(const AstNode *pnode)
 {
 	string fname = pnode->str;
 	string dummy;
@@ -2403,7 +2420,8 @@ void CAstSig::HandlePseudoVar(const AstNode *pnode)
 		pEnv->inFunc[fname](this, pnode, NULL, dummy);
 	}
 	else
-		throw CAstException(pnode, this, fname, "Not a valid pseudo variable.");
+		return false;
+	return true;
 }
 
 string dotstring(const AstNode *pnode, AstNode *pRoot)

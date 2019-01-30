@@ -138,6 +138,7 @@ public:
 	void plotvar_update(CFigure *cfig, CVar *psig);
 	void plotvar_update2(CAxes *pax, CTimeSeries *psig, CTimeSeries *psigOld);
 	CFigure * newFigure(CRect rt, string title, const char *varname, GRAFWNDDLGSTRUCT *pin);
+	HWND varname2HWND(const char *varname);
 
 	HACCEL hAccel;
 	HANDLE curFig;

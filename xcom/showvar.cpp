@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.4951
-// Date: 12/14/2018
+// Version: 1.497
+// Date: 1/30/2019
 // Change from 1.495: std::string used instead of CString 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <process.h>
@@ -64,8 +64,6 @@ int CShowvarDlg::nPlaybackCount = 0;
 FILE *fp;
 
 CFileDlg fileDlg;
-multimap<string, DWORD> plotDlgThread; // varname to threadID map
-map<DWORD, string> plotDlgScope; // threadID to scope map--scope: the name of udf
 multimap<string, string> plotsVS;
 map<HWND, pair<string, string>> varPlotsHWND;
 CFileDlg fileOpenSaveDlg;
@@ -263,11 +261,9 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 {
 	static char buf[256];
 	vector<HANDLE> plotlines;
-	CGobj * hobj;
 	int type = psig->GetType();
-	CVar thisitem;
-	thisitem.SetString(title.c_str());
-	hobj = (CGobj *)FindFigure(&thisitem);
+	HWND hPlot = varname2HWND(varname);
+	CGobj * hobj = (CGobj *)FindFigure(hPlot);
 	if (!hobj)
 	{
 		if (psig->IsGO())
@@ -279,27 +275,27 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			static GRAFWNDDLGSTRUCT in;
 			CFigure * cfig = newFigure(CRect(0, 0, 500, 310), title.c_str(), varname, &in);
 			plotlines = PlotCSignals(AddAxes(cfig, .08, .18, .86, .72), NULL, psig, -1);
-			pcast->SetVar("gcf", cfig);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
-
 			if (psig->next)
 			{
 				try {
 					string emsg;
 					CAstSig f2sig(pcast);
+					CAstSig::vecast.front()->pEnv->glovar["tempgcf"].push_back((CVar*)cfig);
 					f2sig.SetNewScript(emsg, "f3_channel_stereo_mono");
 					f2sig.Compute();
+					CAstSig::vecast.front()->pEnv->glovar["tempgcf"].clear();
 				}
 				catch (const char *_errmsg) {
 					bool gotobase = false;
 					if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
-						gotobase = true;
+					gotobase = true;
 					char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
 					// cleanup_nodes was called with CAstException
 					if (strncmp(errmsg, "Invalid", strlen("Invalid")))
-						MessageBox(errmsg, "ERROR");
+					MessageBox(errmsg, "ERROR");
 					else
-						MessageBox(errmsg, "Syntax Error");
+					MessageBox(errmsg, "Syntax Error");
 				}
 			}
 			else
@@ -316,14 +312,13 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 	{ //essentially the same as CPlotDlg::SetGCF()
 		if (hobj->m_dlg->hDlg != GetForegroundWindow())
 			SetForegroundWindow(hobj->m_dlg->hDlg);
-		PostMessage(WM_GCF_UPDATED, (WPARAM)hobj);
 	}
 }
 
 void CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig, CTimeSeries *psigOld)
 {
 	//Update sig
-	while (pax->m_ln.size()>0)
+	while (pax->m_ln.size() > 0)
 		deleteObj(pax->m_ln[0]);
 	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
 }
@@ -345,15 +340,15 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	{
 		CTimeSeries *psigOld = &(ax->m_ln.front()->sig);
 		tmark0 = min(psigOld->tmark, tmark0);
-		tmark = min(psig->tmark, tmark0);
+		tmark = min((*it)->tmark, tmark0);
 		totalDur0 = max(psigOld->alldur(), totalDur0);
-		totalDur = max(psig->alldur(), totalDur0);
+		totalDur = max((*it)->alldur(), totalDur);
 		plotvar_update2(ax, *it, psigOld);
 		it++;
-	} 
+	}
 	//adjust xlim and ylim of each ax
 	// if x begin pt and end pt are the same, keep the old xlim
-	if (psig->GetType() == CSIG_AUDIO && tmark == tmark0 &&  totalDur == totalDur0)
+	if (psig->GetType() == CSIG_AUDIO && tmark == tmark0 && totalDur == totalDur0)
 	{
 		for (auto ax : cfig->ax)
 			memcpy(ax->xlim, xlim0, 2 * sizeof(double));
@@ -362,6 +357,8 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	{
 		for (auto ax : cfig->ax)
 		{
+			ax->xlim[0] = tmark;
+			ax->xlim[1] = totalDur / 1000.;
 			ax->xtick.tics1.clear();
 			if (psig->GetType() == CSIG_VECTOR) ax->ytick.tics1.clear();
 		}
@@ -373,23 +370,26 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 {
 	static char varname[256];
-	CVar *pgcf, *psig;
+	CVar *pgcfNew, *psig;
 	MSG *pmsg = (MSG*)lParam;
-	switch(code)
+	switch (code)
 	{
 	case HC_ACTION:
-		if ((pmsg->message>=WM_NCLBUTTONDOWN && pmsg->message<=WM_NCMBUTTONDBLCLK) || ((pmsg->message>=WM_LBUTTONDOWN && pmsg->message<=WM_MBUTTONDBLCLK)) )
+		if ((pmsg->message >= WM_NCLBUTTONDOWN && pmsg->message <= WM_NCMBUTTONDBLCLK) || ((pmsg->message >= WM_LBUTTONDOWN && pmsg->message <= WM_MBUTTONDBLCLK)))
 		{
 			//Things about how to consolidate this with case WM_GCF_UPDATED: in showvarDlg()
 			//Seems like this is better approach because it checks the scope and update gcf accordingly... 
 			//But in fact gcf should be a global, environmental variable for AUXLAB, so maybe it's better not to think about the scope... 8/17/2017 bjk
-			pgcf = (CVar*)FindFigure(pmsg->hwnd);
+			pgcfNew = (CVar*)FindFigure(pmsg->hwnd);
 			//what is the current workspace? Let's find out from IDC_DEBUGSCOPE
 			LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
-			if (pgcf && pgcf->GetFs()!=2 && CAstSig::vecast.at(res)->GetVariable("gcf") != pgcf)
+			if (pgcfNew)
 			{
-				CAstSig::vecast.at(res)->SetVar("gcf", pgcf);
-				mShowDlg.Fillup();
+				if (pgcfNew->GetFs() != 2 && CAstSig::vecast.at(res)->GetVariable("gcf") != pgcfNew)
+				{
+					CAstSig::vecast.at(res)->SetVar("gcf", pgcfNew);
+					mShowDlg.Fillup();
+				}
 			}
 		} 
 		else if (pmsg->message==WM__VAR_CHANGED)
@@ -1274,6 +1274,24 @@ CWndDlg * CShowvarDlg::DoesThisVarViewExist(string varname)
 	return NULL;
 }
 
+HWND CShowvarDlg::varname2HWND(const char *varname)
+{
+	// Just a quick patch. varname is a local variable and pcast is not.
+	// Not so elegant a way to code. 1/28/2019
+	string title;
+	if (pcast->u.title.empty())
+		title += "base workspace";
+	else
+		title += pcast->u.title.c_str();
+	for (auto figdlg = plots.begin(); figdlg != plots.end(); figdlg++)
+	{
+		if ((*figdlg)->scope == title && (*figdlg)->var == varname)
+		{
+			return (*figdlg)->hDlg;
+		}
+	}
+	return nullptr;
+}
 
 void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 {
@@ -1291,9 +1309,11 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	LPNMITEMACTIVATE lpnmitem;
 	static int clickedRow;
 	CWndDlg * arrayview;
+	CVar sigVarname;
 	CVar *psig(NULL);
 	if (changed) Fillup(); 
 	int type(0);
+	HWND hWndPlot = NULL;
 	bool multiGO(false);
 	vector<int> selectState;// This is the placeholder for select state used exclusively for mShowDlg, to use to get non-consecutively selected rows. Probably there are easier features already available if I was using .NET or C# 7/11/2016
 	map<string, CVar> *pvars(NULL);
@@ -1451,34 +1471,21 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 			if (pVars->find(pvarname) == pVars->end())
 			{
 				ClearVar(pvarname);
-				Fillup(); // wjy is this needed? 11/23/2018
+				Fillup(); // why is this needed? 11/23/2018
 				break;
 			}
 			psig = &(*pVars)[pvarname];
 			type = psig->GetType();
+			hWndPlot = varname2HWND(varname);
+			hobj = (CGobj *)FindFigure(hWndPlot);
 			switch(lvnkeydown->wVKey)
 			{
 				CWndDlg *dlg;
 			case VK_DELETE: // $$231109 4/25/2017
-				if (this == &mShowDlg) 
-					psig->SetString(pvarname);
-				else
-				{
-					char fullvarname[256];
-					sprintf(fullvarname, "%s%s", name.c_str(), varname);
-					psig->SetString(fullvarname);
-				}
-				//psig must be full name ---do it again
-				hobj = (CGobj *)FindFigure(psig);
 				if (hobj)
 				{
-					CFigure *cfig = (CFigure *)hobj;
+					OnPlotDlgDestroyed(varname, hWndPlot);
 					deleteObj(hobj);
-					//Update plotDlgThread and plotDlgScope
-					auto it = plotDlgThread.find(varname);
-					auto jt = plotDlgScope.find((*it).second);
-					plotDlgThread.erase(it);
-					plotDlgScope.erase(jt);
 				}
 				if (this == &mShowDlg)
 					ClearVar(pvarname);
@@ -1528,14 +1535,22 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 				}
 				break;
 			case VK_RETURN:
-				title += varname;
-				strcpy(varname, title.c_str());
-				title += ":";
-				if (pcast->u.title.empty())
-					title += "base workspace";
+				if (hobj)
+				{
+					::SetFocus(hobj->m_dlg->hDlg);
+				}
 				else
-					title += pcast->u.title.c_str();
-				plotvar(psig, title, varname);
+				{
+					title += varname;
+					strcpy(varname, title.c_str());
+					title += ":";
+					if (pcast->u.title.empty())
+						title += "base workspace";
+					else
+						title += pcast->u.title.c_str();
+					plotvar(psig, title, varname);
+				}
+				Fillup();
 				break;
 			}
 		}
