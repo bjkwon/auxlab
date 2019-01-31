@@ -1481,23 +1481,7 @@ void CPlotDlg::OnMenu(UINT nID)
 	{
 	case IDM_CHANNEL_TOGGLE:
 	{
-		try {
-			string emsg;
-			CAstSig f2sig(pctx);
-			f2sig.SetNewScript(emsg, "f3_channel_stereo_mono");
-			f2sig.Compute();
-		}
-		catch (const char *_errmsg) {
-			bool gotobase = false;
-			if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
-				gotobase = true;
-			char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
-			// cleanup_nodes was called with CAstException
-			if (strncmp(errmsg, "Invalid", strlen("Invalid")))
-				MessageBox(errmsg, "ERROR");
-			else
-				MessageBox(errmsg, "Syntax Error");
-		}
+		//moved to HookProc in showvar.cpp 1/31/2019
 	}
 	break;
 

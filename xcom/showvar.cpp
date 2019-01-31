@@ -257,6 +257,26 @@ CFigure * CShowvarDlg::newFigure(CRect rt, string title, const char *varname, GR
 	return out;
 }
 
+void On_F2(HWND hDlg, CAstSig f2sig)
+{
+	try {
+		string emsg;
+		f2sig.SetNewScript(emsg, "f3_channel_stereo_mono");
+		f2sig.Compute();
+	}
+	catch (const char *_errmsg) {
+		bool gotobase = false;
+		if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
+			gotobase = true;
+		char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
+		// cleanup_nodes was called with CAstException
+		if (strncmp(errmsg, "Invalid", strlen("Invalid")))
+			MessageBox(hDlg, errmsg, "ERROR", 0);
+		else
+			MessageBox(hDlg, errmsg, "Syntax Error", 0);
+	}
+}
+
 void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 {
 	static char buf[256];
@@ -276,27 +296,16 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			CFigure * cfig = newFigure(CRect(0, 0, 500, 310), title.c_str(), varname, &in);
 			plotlines = PlotCSignals(AddAxes(cfig, .08, .18, .86, .72), NULL, psig, -1);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
+			//For the global variable $gcf, updated whether or not this is named plot.
+			auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+			if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+			{
+				(*jt).second.clear();
+			}
+			CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back((CVar*)cfig);
 			if (psig->next)
 			{
-				try {
-					string emsg;
-					CAstSig f2sig(pcast);
-					CAstSig::vecast.front()->pEnv->glovar["tempgcf"].push_back((CVar*)cfig);
-					f2sig.SetNewScript(emsg, "f3_channel_stereo_mono");
-					f2sig.Compute();
-					CAstSig::vecast.front()->pEnv->glovar["tempgcf"].clear();
-				}
-				catch (const char *_errmsg) {
-					bool gotobase = false;
-					if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
-					gotobase = true;
-					char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
-					// cleanup_nodes was called with CAstException
-					if (strncmp(errmsg, "Invalid", strlen("Invalid")))
-					MessageBox(errmsg, "ERROR");
-					else
-					MessageBox(errmsg, "Syntax Error");
-				}
+				On_F2(hDlg, pcast);
 			}
 			else
 			{
@@ -385,13 +394,31 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 			if (pgcfNew)
 			{
-				if (pgcfNew->GetFs() != 2 && CAstSig::vecast.at(res)->GetVariable("gcf") != pgcfNew)
+				if (CAstSig::vecast.at(res)->GetVariable("gcf") != pgcfNew)
 				{
-					CAstSig::vecast.at(res)->SetVar("gcf", pgcfNew);
-					mShowDlg.Fillup();
+					//For the global variable $gcf, updated whether or not this is named plot.
+					auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+					if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+					{
+						(*jt).second.clear();
+					}
+					CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(pgcfNew);
+					//For the regular variable gcf, updated only if this is not named plot.
+					if (pgcfNew->GetFs() != 2)
+					{
+						CAstSig::vecast.at(res)->SetVar("gcf", pgcfNew);
+						mShowDlg.Fillup();
+					}
 				}
 			}
 		} 
+		else if (pmsg->message == WM_KEYDOWN)
+		{
+			if (pmsg->wParam == VK_F2)
+			{
+				On_F2(pmsg->hwnd, CAstSig::vecast.front());
+			}
+		}
 		else if (pmsg->message==WM__VAR_CHANGED)
 		{
 			cfigdlg *thisDlg = (cfigdlg*)pmsg->wParam;

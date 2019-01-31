@@ -4614,6 +4614,12 @@ CVar& CVar::operator=(const CVar& rhs)
 	{
 		CSignals::operator=(rhs);
 		cell = rhs.cell;
+		auto it = strut.find("gc");
+		if (it != strut.end())
+		{
+			auto sss = (*it).second;
+			CVar *ptemp = &sss;
+		}
 		strut = rhs.strut;
 		struts = rhs.struts;
 	}

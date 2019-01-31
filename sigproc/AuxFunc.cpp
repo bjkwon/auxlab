@@ -1803,28 +1803,6 @@ void _natural_log_base(CAstSig *past, const AstNode *pnode, const AstNode *p, st
 	past->Sig.SetValue(exp(1));
 }
 
-void _tempgcf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	//temporary solution for global variables. For now, tempgcf is created as a global variable
-	//to use for f3_channel_stereo_mono from showvar.cpp.
-	//Internal use only until a permanent solution is in place. 1/28/2019
-	map<string, vector<CVar*>> tempVars = CAstSig::vecast.front()->pEnv->glovar;
-	if (!tempVars.empty())
-	{
-		past->Sig = *(past->pgo = CAstSig::vecast.front()->pEnv->glovar["tempgcf"].front());
-	}
-	else
-		throw CAstException(pnode, past, fnsigs, "global variables not prepared.");
-}
-
-void _gcf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	if (CAstSig::vecast.front()->GOvars.find("gcf") != CAstSig::vecast.front()->GOvars.end())
-		past->Sig = *(past->pgo = CAstSig::vecast.front()->GOvars["gcf"].front());
-	else
-		throw CAstException(pnode, past, fnsigs, "CUrrent figure must be set.");
-}
-
 void _sel(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 
@@ -2366,12 +2344,6 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	pseudo_vars[pp.name] = pp;
 	pp.name = "pi";
 	inFunc[pp.name] = &_pi;
-	pseudo_vars[pp.name] = pp;
-	pp.name = "tempgcf";
-	inFunc[pp.name] = &_tempgcf;
-	pseudo_vars[pp.name] = pp;
-	pp.name = "gcf";
-	inFunc[pp.name] = &_gcf;
 	pseudo_vars[pp.name] = pp;
 	//pp.name = "gca";
 	//pseudo_vars[pp.name] = pp;

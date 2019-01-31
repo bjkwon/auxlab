@@ -1926,6 +1926,62 @@ CVar *CAstSig::MakeGOContainer(vector<CVar *> GOs)
 	return pout;
 }
 
+CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar)
+{
+	if (!varname)
+		throw CAstException(pAst, this, "Internal error--varname not specified in GetGlobalVariable()");
+	if (pvar)
+	{
+	}
+	else
+	{
+		string dummy;
+		if (pEnv->pseudo_vars.find(varname) != pEnv->pseudo_vars.end())
+		{
+			pEnv->inFunc[varname](this, pnode, NULL, dummy);
+		}
+		else 
+		{
+			map<string, vector<CVar*>>::iterator jt = pEnv->glovar.find(varname);
+			if (jt == pEnv->glovar.end()) 
+				return NULL;
+			if ((*jt).second.front()->IsGO())
+			{
+				return GetGloGOVariable(varname, pvar);
+			}
+			else
+			{
+				Sig = *(*jt).second.front();
+			}
+		}
+	}
+	return &Sig;
+}
+
+CVar *CAstSig::GetGloGOVariable(const char *varname, CVar *pvar)
+{ // To retrieve a GO variable. 
+  // For a single element, returns its pointer
+  // For a array GO, create a container showing the pointers of the elements and return its pointer
+	try {
+		CVar *pout(NULL);
+		vector<CVar *> GOs;
+		if (pvar)
+			GOs = pvar->struts.at(varname); // invalid, this won't work. 1/30/2019
+		else
+			GOs = pEnv->glovar.at(varname);
+		// If the retrieved GOs is a size of 1, return the front element pointer 
+		// OK to return it even if the retrieved GOs is a GO container
+		if (GOs.size() == 1)
+			return GOs.front();
+		//return the newly created container for multiple GOs
+		return MakeGOContainer(GOs);
+	}
+	catch (out_of_range oor)
+	{
+		throw CAstException(pAst, this, "Internal error--GetGloGOVariable() should be called when global variable is sure to exist in pEnv->glovar");
+	}
+}
+
 CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
 { // To retrieve a GO variable. 
   // For a single element, returns its pointer
@@ -2106,6 +2162,7 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 	char estr[256];
 	AstNode *p = pn;
 	int cellind, ind(0);
+	CVar *pres;
 	AstNode *pUDF;
 	if ((pUDF=ReadUDF(emsg, pn->str)))
 	{
@@ -2142,93 +2199,101 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 					pn = pn->alt; // to skip N_ARGS
 			}
 		}
-		else
+		else if (pn->type == N_ARGS)
 		{
-			if (pn->type == N_ARGS)
+			if (ndog.psigBase->IsGO() && ndog.psigBase->GetFs() != 3)
 			{
-				if (ndog.psigBase->IsGO() && ndog.psigBase->GetFs() != 3)
-				{
-					CVar tp = Compute(pn->child);
-					if (tp.GetType()!=CSIG_SCALAR || tp.value()!=1.)
-						throw CAstException(pn, this, "Invalid index of a graphic object arrary.");
-				}
-				else
-				{
-					if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ndog.root, this, "A cell array cannot be accessed with ( ).");
-					ExtractByIndex(pn, pn->child, &ndog.psigBase); //Sig updated. No change in psig
-				}
-				if (ndog.psigBase->IsGO())
-					pgo = ndog.psigBase;
+				CVar tp = Compute(pn->child);
+				if (tp.GetType()!=CSIG_SCALAR || tp.value()!=1.)
+					throw CAstException(pn, this, "Invalid index of a graphic object arrary.");
 			}
-			else if (IsCondition(pn))
-			{
-				if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(pn, this, "A cell a454rray cannot be accessed with ( ).");
-				CVar isig, isig2;
-				eval_indexing(pn, ndog.psigBase, isig);
-				Sig = extract(estr, &ndog.psigBase, isig);
-				if (estr[0]) throw CAstException(pn, this, estr);
-				if (!pn->next) // 1D indexing, unGroup it
-					Sig.nGroups = 1;
-			}
-			else if (pn->type == N_TIME_EXTRACT)
-				TimeExtract(pn, pn->child, ndog.psigBase);
-			else if (pn->type == T_REPLICA || pn->type == T_ENDPOINT)
-				Sig = *ndog.psigBase;
 			else
 			{
-				CVar *pres;
-				//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
-				if (!(pres = GetVariable(pn->str, ndog.psigBase)) )
+				if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ndog.root, this, "A cell array cannot be accessed with ( ).");
+				ExtractByIndex(pn, pn->child, &ndog.psigBase); //Sig updated. No change in psig
+			}
+			if (ndog.psigBase->IsGO())
+				pgo = ndog.psigBase;
+		}
+		else if (IsCondition(pn))
+		{
+			if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(pn, this, "A cell array cannot be accessed with ( ).");
+			CVar isig, isig2;
+			eval_indexing(pn, ndog.psigBase, isig);
+			Sig = extract(estr, &ndog.psigBase, isig);
+			if (estr[0]) throw CAstException(pn, this, estr);
+			if (!pn->next) // 1D indexing, unGroup it
+				Sig.nGroups = 1;
+		}
+		else if (pn->type == N_TIME_EXTRACT)
+			TimeExtract(pn, pn->child, ndog.psigBase);
+		else if (pn->type == T_REPLICA || pn->type == T_ENDPOINT)
+			Sig = *ndog.psigBase;
+		else
+		{
+			if (pn->type == N_HOOK)
+			{
+				pres = GetGlobalVariable(pn, pn->str);
+				if (!pres)
 				{
-					if (ndog.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
-					{
-						if (!pn->alt) return NULL; // if pn is the last node, no exception and continue to check RHS
-						if (pn->alt->type == N_STRUCT) return NULL; // (something_not_existing).var = RHS
-					}
-					throw CAstException(pn, this, "Variable or function not available.");
+					if (ndog.root->child && (!pn->alt || pn->alt->type == N_STRUCT)) 
+						return NULL;
+					throw CAstException(pn, this, "Gloval variable not available.");
 				}
-				if (pres->IsGO())
-				{ // the variable pn->str is a GO
-					Sig = *(ndog.psigBase = pgo = pres);
-					if (pn->child) setgo.type = pn->str;
-				}
-				/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
-				// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
-				else if (pgo && !ndog.root->child && !setgo.frozen)
-					pgo = NULL;
-				if (pn->alt)
+				ndog.psigBase = pres;
+			}
+			//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
+			else if (!(pres = GetVariable(pn->str, ndog.psigBase)) )
+			{
+				if (ndog.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
 				{
-					p = pn->alt;
-					if (p->type == N_CELL)
-						//either x{2} or x{2}(3). x or x(2) doesn't come here.
-						// I.E., p->child should be non-NULL
+					if (!pn->alt) return NULL; // if pn is the last node, no exception and continue to check RHS
+					if (pn->alt->type == N_STRUCT) return NULL; // (something_not_existing).var = RHS
+				}
+				throw CAstException(pn, this, "Variable or function not available.");
+			}
+			if (pres->IsGO())
+			{ // the variable pn->str is a GO
+				Sig = *(ndog.psigBase = pgo = pres);
+				if (pn->child) setgo.type = pn->str;
+			}
+			/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
+			// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
+			else if (pgo && !ndog.root->child && !setgo.frozen)
+				pgo = NULL;
+			if (pn->alt)
+			{
+				p = pn->alt;
+				if (p->type == N_CELL)
+					//either x{2} or x{2}(3). x or x(2) doesn't come here.
+					// I.E., p->child should be non-NULL
+				{
+					cellind = (int)Compute(p->child).value(); // check the validity of ind...probably it will be longer than this.
+					Sig = *(ndog.psigBase = &pres->cell.at(cellind - 1)); // check the validity
+				}
+				else if (p->type == N_STRUCT)
+				{
+					if (!pres->cell.empty() || (!pres->IsStruct() && !pres->IsEmpty()))
 					{
-						cellind = (int)Compute(p->child).value(); // check the validity of ind...probably it will be longer than this.
-						Sig = *(ndog.psigBase = &pres->cell.at(cellind - 1)); // check the validity
+						if (p->str[0] != '#' && !IsValidBuiltin(p->str))
+							if (!ReadUDF(emsg, p->str))
+								if (!emsg.empty())
+									throw CAstException(NULL, this, emsg);
+								else
+									throw CAstException(pn, this, "Unknown variable, function or keyword identifier.", p->str);
 					}
-					else if (p->type == N_STRUCT)
-					{
-						if (!pres->cell.empty() || (!pres->IsStruct() && !pres->IsEmpty()))
-						{
-							if (p->str[0] != '#' && !IsValidBuiltin(p->str))
-								if (!ReadUDF(emsg, p->str))
-									if (!emsg.empty())
-										throw CAstException(NULL, this, emsg);
-									else
-										throw CAstException(pn, this, "Unknown variable, function or keyword identifier.", p->str);
-						}
-						Sig = *(ndog.psigBase = pres);
-					}
-					else
-						Sig = *(ndog.psigBase = pres);
+					Sig = *(ndog.psigBase = pres);
 				}
 				else
 					Sig = *(ndog.psigBase = pres);
 			}
+			else
+				Sig = *(ndog.psigBase = pres);
 		}
 	}
 	return get_next_parsible_node(pn);
 }
+
 
 AstNode *CAstSig::read_nodes(NODEDIGGER &ndog)
 {
@@ -2354,8 +2419,7 @@ try {
 	case T_ID:
 		return TID((AstNode*)pnode, p);
 	case N_HOOK:
-		TID((AstNode*)pnode, p);
-		return TID(pnode->child, NULL, &Sig);
+		return TID((AstNode*)pnode, p);
 	case N_TSEQ:
 		return TSeq(pnode, p);
 	case N_IDLIST:
@@ -2704,6 +2768,55 @@ CAstSig &CAstSig::Reset(const int fs, const char* path)
 	return *this;
 }
 
+CAstSig &CAstSig::SetGloVar(const char *name, CVar *psig, CVar *pBase)
+{
+	if (!pBase) // top scope
+	{
+		map<string, vector<CVar*>>::iterator jt = pEnv->glovar.find(name);
+		if (jt != pEnv->glovar.end())  pEnv->glovar.erase(jt);
+		if (psig->IsGO())
+		{
+			if (!strcmp(name, "gca") || !strcmp(name, "gcf"))
+				pEnv->glovar[name].clear();
+			if (psig->GetFs() == 3)
+			{
+				if (psig->nSamples == 1)
+				{
+					psig = (CVar*)(INT_PTR)psig->value();
+					pEnv->glovar[name].push_back(psig);
+				}
+				else
+					for (unsigned int k = 0; k < psig->nSamples; k++)
+						pEnv->glovar[name].push_back((CVar*)(INT_PTR)psig->buf[k]);
+			}
+			else
+				pEnv->glovar[name].push_back(psig);
+		}
+		else // name and psig should be fed to Var
+		{
+			CVar *pTemp = new CVar;
+			*pTemp = *psig;
+			pEnv->glovar[name].push_back(pTemp);
+		}
+	}
+	else
+	{
+		if (psig->IsGO()) // name and psig should be fed to struts
+		{
+			pBase->struts[name].push_back(psig);
+			auto it = pBase->strut.find(name);
+			if (it != pBase->strut.end()) pBase->strut.clear();
+		}
+		else // name and psig should be fed to strut
+		{
+			pBase->strut[name] = *psig;
+			auto jt = pBase->struts.find(name);
+			if (jt != pBase->struts.end())  pBase->struts[name].clear();
+		}
+	}
+	return *this;
+}
+
 CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
 {// NULL pBase --> name will be the variable in the workspace.
  //non-NULL pBase --> pBase is a class variable. name will be a member variable under pBase.
@@ -2926,14 +3039,6 @@ void godeep(CVar *var, CVar *pref)
 			godeep(var, *kt);
 	}
 }
-
-class ercarrier
-{
-	int layer;
-	CVar *pp;
-	ercarrier() { layer = 0;  pp = NULL; };
-	virtual ~ercarrier() {};
-};
 
 void godeep2(CVar *var, CVar *pref)
 {

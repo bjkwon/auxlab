@@ -163,10 +163,12 @@
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

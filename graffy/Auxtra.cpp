@@ -739,6 +739,13 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			cfig = (CFigure *)OpenGraffy(in);
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 			past->SetVar("gcf", cfig);
+			//For the global variable $gcf, updated whether or not this is named plot.
+			auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+			if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+			{
+				(*jt).second.clear();
+			}
+			CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back((CVar*)cfig);
 		}
 		//if there's existing line in the specified axes
 		if (!cfig && cax->strut["nextplot"] == string("replace"))

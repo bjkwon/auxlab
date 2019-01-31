@@ -30,10 +30,10 @@ CVar &CAstSig::define_new_variable(const AstNode *pnode, AstNode *pRHS)
 {
 	if (pRHS)
 	{ 
-// evaluate RHS and setvar RHS 
-// if it's top level, Setvar(pnode->str, compute(RHS))
-// if it's not, pvarLast[pnode->str] = compute(RHS) .... pvarLast should be either empty or struct'ed with other variable(s).... if not throw exception 
-// 
+	// evaluate RHS and setvar RHS 
+	// if it's top level, Setvar(pnode->str, compute(RHS))
+	// if it's not, pvarLast[pnode->str] = compute(RHS) .... pvarLast should be either empty or struct'ed with other variable(s).... if not throw exception 
+	// 
 		//Before evaluating RHS, if replica is referred under this node, it should throw, because LHS was unknown and replica is not ready. 9/17/2018
 		if (searchtree(pRHS, T_REPLICA))
 			throw CAstException(pnode, this, "LHS not ready and cannot evaluate based on the LHS.");
@@ -52,20 +52,45 @@ CVar &CAstSig::define_new_variable(const AstNode *pnode, AstNode *pRHS)
 					throw CAstException(pnode, this, "specified class member not available.");
 			}
 			tstr = pnode->alt->str;
-			// SetVar takes a blank sigClass and fills in the strut contents 
-			SetVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
-			tstr0 = pnode->str;
+			if (pnode->type == N_HOOK)
+			{
+				SetGloVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
+				tstr0 = pnode->str;
+			}
+			else
+			{
+				// SetVar takes a blank sigClass and fills in the strut contents 
+				SetVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
+				tstr0 = pnode->str;
+			}
 		}
 		else
 			tstr = pnode->str;
-		if (Sig.GetType()==CSIG_HDLARRAY)
-			SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
-		else if (pgo)
-			SetVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
+		if (pnode->type == N_HOOK)
+		{
+			if (Sig.GetType() == CSIG_HDLARRAY)
+				SetGloVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+			else if (pgo)
+				SetGloVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
+			else if (!pnode->alt)
+				SetGloVar(tstr, &Sig);
+		}
 		else
-			SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+		{
+			if (Sig.GetType() == CSIG_HDLARRAY)
+				SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+			else if (pgo)
+				SetVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
+			else
+				SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+		}
 		if (tstr0) // For struct variable, the base name is set here.
-			SetVar(tstr0, &sigClass);
+		{
+			if (pnode->type == N_HOOK)
+				SetGloVar(tstr0, &sigClass);
+			else
+				SetVar(tstr0, &sigClass);
+		}
 		return Sig;
 	}
 	throw CAstException(pnode, this, "Internal error--define_new_variable()");
@@ -255,26 +280,26 @@ bool CAstSig::builtin_func_call(NODEDIGGER &ndog, AstNode *p)
 	N_STRUCT --> struct call --> pvar must be ready
 	T_ID --> can be both struct call or not --> let's make sure it is non-struct call
 	*/
-	if (p->type == N_HOOK)
-	{
-		if (HandlePseudoVar(p))
-		{
-			if (ndog.root->type == N_HOOK && ndog.root->child) // if and only if LHS is a function call
-				throw CAstException(ndog.root, this, p->str, "A valid pseudo variable cannot be modified.");
-			ndog.psigBase = &Sig;
-			return true;
-		}
-		else
-		{ // if this is RHS, throw exception; otherwise, set a new global variable as a pseudo variable
-			if (ndog.root->type == N_HOOK && !ndog.root->child) // if and only if LHS is a function call
-				throw CAstException(ndog.root, this, p->str, "Not a valid pseudo variable or global variable not defined.");
-			else
-			{
-				//set the global variable 
-			}
-		}
-	}
-	else if (p->type == T_ID || p->type == N_STRUCT)
+	//if (p->type == N_HOOK)
+	//{
+	//	if (HandlePseudoVar(p))
+	//	{
+	//		if (ndog.root->type == N_HOOK && ndog.root->child) // if and only if LHS is a function call
+	//			throw CAstException(ndog.root, this, p->str, "A valid pseudo variable cannot be modified.");
+	//		ndog.psigBase = &Sig;
+	//		return true;
+	//	}
+	//	else
+	//	{ // if this is RHS, throw exception; otherwise, set a new global variable as a pseudo variable
+	//		if (ndog.root->type == N_HOOK && !ndog.root->child) // if and only if LHS is a function call
+	//			throw CAstException(ndog.root, this, p->str, "Not a valid pseudo variable or global variable not defined.");
+	//		else
+	//		{
+	//			//set the global variable 
+	//		}
+	//	}
+	//}
+	if (p->type == T_ID || p->type == N_STRUCT)
 	{
 		if (p->str[0] == '$' || IsValidBuiltin(p->str)) // hook bypasses IsValidBuiltin
 		{

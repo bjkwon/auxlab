@@ -786,8 +786,10 @@ public:
 	CVar &NodeVector(const AstNode *pnode, AstNode *p);
 	CVar &NodeMatrix(const AstNode *pnode, AstNode *p);
 	CVar &define_new_variable(const AstNode *pnode, AstNode *pRHS);
-	CVar *GetVariable(const char *varname, CVar *pvar=NULL);
+	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
+	CVar *GetVariable(const char *varname, CVar *pvar = NULL);
 	CVar *GetGOVariable(const char *varname, CVar *pvar = NULL);
+	CVar *GetGloGOVariable(const char *varname, CVar *pvar);
 	CVar *MakeGOContainer(vector<CVar *> GOs);
 	CVar *MakeGOContainer(vector<INT_PTR> GOs);
 	CVar &TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
@@ -796,7 +798,8 @@ public:
 	CVar &Eval(AstNode *pnode);
 	CVar &Transpose(const AstNode *pnode, AstNode *p);
 	CAstSig &Reset(const int fs = 0, const char* path=NULL);
-	CAstSig &SetVar(const char *name, CVar *psig, CVar *pBase=NULL);
+	CAstSig &SetVar(const char *name, CVar *psig, CVar *pBase = NULL);
+	CAstSig &SetGloVar(const char *name, CVar *psig, CVar *pBase = NULL);
 	const char *GetPath() {return pEnv->AuxPath.c_str();}
 	int GetFs(void) {return pEnv->Fs;}
 	string ComputeString(const AstNode *p);
