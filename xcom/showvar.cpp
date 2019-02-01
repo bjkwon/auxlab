@@ -169,6 +169,16 @@ LRESULT CALLBACK HookProc2(int code, WPARAM wParam, LPARAM lParam)
 	return CallNextHookEx(NULL, code, wParam, lParam);
 }
 
+void SetGlovar(CVar *cfig)
+{
+	auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+	if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+	{
+		(*jt).second.clear();
+	}
+	CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(cfig);
+}
+
 int isSameCSignals_for_GCF_purpose(CSignals *p1, CSignals *p2)
 {
 	if (p1->GetType()!=p2->GetType()) return 0;
@@ -296,12 +306,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			plotlines = PlotCSignals(AddAxes(cfig, .08, .18, .86, .72), NULL, psig, -1);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 			//For the global variable $gcf, updated whether or not this is named plot.
-			auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-			if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
-			{
-				(*jt).second.clear();
-			}
-			CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back((CVar*)cfig);
+			SetGlovar((CVar*)cfig);
 			if (psig->next)
 			{
 				On_F2(hDlg, pcast);
@@ -394,12 +399,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			if (pgcfNew)
 			{
 				//For the global variable $gcf, updated whether or not this is named plot.
-				auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-				if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
-				{
-					(*jt).second.clear();
-				}
-				CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(pgcfNew);
+				SetGlovar(pgcfNew);
 				if (CAstSig::vecast.at(res)->GetVariable("gcf") != pgcfNew)
 				{
 					//For the regular variable gcf, updated only if this is not named plot.
@@ -787,9 +787,12 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 
 void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
+	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
+	SetGlovar(CAstSig::vecast.at(res)->GetVariable("gcf"));
 	//It's better to update gcf before WM__PLOTDLG_CREATED is posted
 	//that way, environment context can be set properly (e.g., main or inside CallSub)
 	//4/24/2017 bjkwon
+	//2/1/2019 don't understand the comment
 	if (strncmp(varname, "Figure ", 7))
 		Fillup();
 	HHOOK hh = SetWindowsHookEx (WH_GETMESSAGE, HookProc, NULL, pin->threadPlot);

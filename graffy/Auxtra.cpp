@@ -423,11 +423,9 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	in.hWndAppl = win7 ? NULL : GetHWND_WAVPLAY();
 	CFigure * cfig = (CFigure *)OpenGraffy(in);
 	past->SetVar("gcf", cfig);
-	HWND h = GetHWND_WAVPLAY();
 	static char buf[64];
 	cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 	PostMessage(hWndApp, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
-
 	cfig->strut["name"] = string(buf);
 	BYTE r = GetRValue(cfig->color);
 	BYTE b = GetBValue(cfig->color);
@@ -439,7 +437,6 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["pos"].buf[1] = rt.top;
 	cfig->strut["pos"].buf[2] = rt.Width();
 	cfig->strut["pos"].buf[3] = rt.Height();
-	PostMessage(h, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 	past->Sig = *(past->pgo = cfig); 
 }
 
