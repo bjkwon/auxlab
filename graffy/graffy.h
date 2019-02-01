@@ -49,7 +49,8 @@
 
 #ifndef GRAFFY // ======== CLASS DEFINITIONS FOR graffy
 #define GRAFFY
-#include "audfret.h"
+#include "bjcommon_win.h"
+#include "bjcommon.h"
 #ifndef SIGPROC
 #include "sigproc.h"
 #endif

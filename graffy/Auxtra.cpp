@@ -12,7 +12,6 @@
 // 
 
 #include "graffy.h"
-#include "audfret.h"
 #include <process.h>
 
 #include "wavplay.h"
@@ -23,7 +22,7 @@
 #define MARKERSTR	"o+*.xsd^v<>ph"
 #define COLORSTR	"ymcrgbwk"
 
-extern HWND hAppl;
+extern HWND hWndApp;
 
 //HANDLE hEvent;
 uintptr_t hTread;
@@ -427,6 +426,8 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	HWND h = GetHWND_WAVPLAY();
 	static char buf[64];
 	cfig->m_dlg->GetWindowText(buf, sizeof(buf));
+	PostMessage(hWndApp, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
+
 	cfig->strut["name"] = string(buf);
 	BYTE r = GetRValue(cfig->color);
 	BYTE b = GetBValue(cfig->color);
@@ -735,18 +736,18 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			in.rt = CRect(0, 0, 500, 310);
 			in.threadCaller = GetCurrentThreadId();
 			in.hWndAppl = win7 ? NULL : GetHWND_WAVPLAY();
-			in.hWndAppl = GetHWND_WAVPLAY();
 			cfig = (CFigure *)OpenGraffy(in);
+
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 			past->SetVar("gcf", cfig);
-			//For the global variable $gcf, updated whether or not this is named plot.
-			auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-			if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
-			{
-				(*jt).second.clear();
-			}
-			CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back((CVar*)cfig);
 		}
+		//For the global variable $gcf, updated whether or not this is named plot.
+		auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+		if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+		{
+			(*jt).second.clear();
+		}
+		CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back((CVar*)cfig);
 		//if there's existing line in the specified axes
 		if (!cfig && cax->strut["nextplot"] == string("replace"))
 		{
@@ -765,7 +766,7 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		if (newFig)
 		{
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
-			PostMessage(GetHWND_WAVPLAY(), WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
+			PostMessage(hWndApp, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 			//Why is this necessary? 12/6
 			//int figIDint;
 			//if (!strncmp(buf, "Figure ", 7))

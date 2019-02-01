@@ -10,7 +10,8 @@
 // Version: 1.495
 // Date: 12/13/2018
 // 
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 #ifndef SIGPROC
 #include "sigproc.h"
 #endif

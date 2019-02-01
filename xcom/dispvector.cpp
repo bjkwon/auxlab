@@ -15,7 +15,8 @@
 #include <process.h>
 #include "showvar.h"
 #include "resource1.h"
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 #include "audstr.h"
 #include "xcom.h"
 

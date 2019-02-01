@@ -12,7 +12,8 @@
 // 
 // Parts of this code are from http://stackoverflow.com/questions/7784975/c-win32-add-a-hyperlink-to-a-dialog Author: SSpoke
 // 
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 #include "resource1.h"
 #include <commctrl.h>  // includes the common control header
 

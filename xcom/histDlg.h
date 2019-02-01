@@ -13,7 +13,8 @@
 #include <windows.h>
 #include <commctrl.h>  // includes the common control header
 #include "msgCrack.h"
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 #include "consts.h"
 
 class CHistDlg : public CWndDlg

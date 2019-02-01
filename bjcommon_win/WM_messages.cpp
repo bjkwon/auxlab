@@ -10,7 +10,8 @@
 // Version: 1.4961
 // Date: 12/17/2018
 // 
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 
 #include <map>
 #include <vector>

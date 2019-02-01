@@ -30,7 +30,7 @@ GRAPHY_EXPORT HWND hPlotDlgCurrent;
 
 HANDLE mutexPlot;
 HANDLE hEvent;
-HWND hWndApp(NULL);
+HWND hWndApp(NULL); // Settings and variables window
 
 void initLineList(); // from Auxtra.cpp
 
@@ -143,6 +143,26 @@ INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 }
 
 
+BOOL CALLBACK enumproc(HWND hDlg, LPARAM lParam)
+{
+	HWND h = hDlg;
+	HMODULE hAppInstance = GetModuleHandle(0);
+#ifndef WIN64
+	sprintf(fname, "%sauxp32.dll", AppPath);
+#else
+	LONG_PTR out = GetWindowLongPtr(h, GWLP_HINSTANCE);
+	char buf[256];
+	GetWindowText(hDlg, buf, 256);
+	if ((HMODULE)out == hAppInstance)
+	{
+		//Searching for Settings & Variables windows created within the current instance.
+		if (strstr(buf, "Settings & Variables"))
+			hWndApp = h;
+	}
+#endif
+	return 1;
+}
+
 CGraffyDLL::CGraffyDLL()
 {
 	//	if (!mutexPlot) mutexPlot = CreateMutex(0, 0, 0);
@@ -164,6 +184,7 @@ CGraffyDLL::CGraffyDLL()
 
 	CAstSig::vecast.push_back(pctx);
 
+
 #ifndef WIN64
 	sprintf(fname, "%sauxp32.dll", AppPath);
 #else
@@ -184,6 +205,7 @@ CGraffyDLL::CGraffyDLL()
 		}
 		FreeLibrary((HMODULE)hLib);
 	}
+
 }
 
 CGraffyDLL::~CGraffyDLL()
@@ -288,6 +310,7 @@ HANDLE CGraffyDLL::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 {
 	CString s;
 	CPlotDlg *newFig;
+	EnumWindows(enumproc, 0);
 	fig.push_back(newFig = new CPlotDlg(hInst, &GraffyRoot)); // this needs before CreateDialogParam
 
 	// due to z-order problem in Windows 7, parent is set NULL for win7.
@@ -745,12 +768,13 @@ GRAPHY_EXPORT void SetHWND_GRAFFY(HWND h)
 {
 	// Register it, so that we can communicate between graffy and the application about the status of gcf.
 	// To notify the application of gcf status change, call PostMessage/SendMessage
-	hWndApp = h;
+//	hWndApp = h;
 }
 
 GRAPHY_EXPORT HWND GetHWND_GRAFFY()
 {
-	return hWndApp;
+	return nullptr;
+//	return hWndApp;
 }
 
 GRAPHY_EXPORT DWORD CSignals2COLORREF(CSignals col)

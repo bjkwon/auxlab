@@ -11,7 +11,8 @@
 // Date: 12/13/2018
 // 
 #include <math.h>
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 
 #define MAX_HEADING_LENGTH		128
 #define MAX_CHAR 29998

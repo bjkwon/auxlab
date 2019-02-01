@@ -13,7 +13,8 @@
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h
 #include "debugDlg.h"
 #include "resource1.h"
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 #include "showvar.h"
 #include "audstr.h"
 #include "Objbase.h"

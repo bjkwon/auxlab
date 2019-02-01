@@ -12,7 +12,6 @@
 // 
 #include <math.h>
 #include "graffy.h"	
-#include "audfret.h"
 
 #include "PlotDlg.h"	
 

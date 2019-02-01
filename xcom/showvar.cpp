@@ -14,7 +14,6 @@
 #include <process.h>
 #include "showvar.h"
 #include "resource1.h"
-#include "audfret.h"
 #include "xcom.h"
 #include "histDlg.h"
 #include "TabCtrl.h"
@@ -394,15 +393,15 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 			if (pgcfNew)
 			{
+				//For the global variable $gcf, updated whether or not this is named plot.
+				auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+				if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+				{
+					(*jt).second.clear();
+				}
+				CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(pgcfNew);
 				if (CAstSig::vecast.at(res)->GetVariable("gcf") != pgcfNew)
 				{
-					//For the global variable $gcf, updated whether or not this is named plot.
-					auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-					if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
-					{
-						(*jt).second.clear();
-					}
-					CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(pgcfNew);
 					//For the regular variable gcf, updated only if this is not named plot.
 					if (pgcfNew->GetFs() != 2)
 					{
@@ -489,9 +488,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 		else if (pmsg->message==WM_QUIT)
 		{
 			GetWindowText(pmsg->hwnd, varname, sizeof(varname));
-			HWND hp = find_showvarDlg(pmsg->hwnd); // works with win7 and later
-			hp = GetParent(pmsg->hwnd); // this line will not work with win7
-			SendMessage(hp, WM__PLOTDLG_DESTROYED, (WPARAM)varname, (LPARAM)pmsg->hwnd);
+			SendMessage(mShowDlg.hDlg, WM__PLOTDLG_DESTROYED, (WPARAM)varname, (LPARAM)pmsg->hwnd);
 		}
 		break;
 	}

@@ -11,7 +11,8 @@
 // Date: 12/13/2018
 // 
 
-#include "audfret.h"
+#include "bjcommon.h"
+#include "bjcommon_win.h"
 
 CWndDlg::CWndDlg()
 : hDlg(NULL), dwUser(0)

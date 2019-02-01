@@ -13,7 +13,6 @@
 
 #include "graffy.h"	
 #include "resource.h"	
-#include "audfret.h"
 #include "fftw3.h"
 #include <math.h>
 

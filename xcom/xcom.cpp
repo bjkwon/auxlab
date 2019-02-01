@@ -17,7 +17,6 @@
 #include <process.h>
 #include <vector>
 #include "sigproc.h"
-#include "audfret.h"
 #include "audstr.h"
 #include "resource1.h"
 #include "showvar.h"
