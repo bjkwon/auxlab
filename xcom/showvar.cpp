@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.497
-// Date: 1/30/2019
+// Version: 1.498
+// Date: 2/1/2019
 // Change from 1.495: std::string used instead of CString 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <process.h>

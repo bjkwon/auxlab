@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.497
-// Date: 12/26/2018
+// Version: 1.498
+// Date: 2/1/2019
 // 
 
 #include "graffy.h"
@@ -396,7 +396,6 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	}
 	if (nArgs == 1)
 	{
-		past->Sig.strut.clear();
 		CSignals param = past->Compute(p);
 		if (param.GetType() == CSIG_VECTOR || param.nSamples == 4)
 		{
@@ -417,10 +416,11 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 			throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
 		}
 	}
+	past->Sig.strut.clear();
 	in.block = past->audio_block_ms;
 	in.rt = rt;
 	in.threadCaller = GetCurrentThreadId();
-	in.hWndAppl = win7 ? NULL : GetHWND_WAVPLAY();
+	in.hWndAppl = hWndApp;
 	CFigure * cfig = (CFigure *)OpenGraffy(in);
 	past->SetVar("gcf", cfig);
 	static char buf[64];
@@ -728,23 +728,14 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		}
 		if (newFig)
 		{
-			in.block = past->audio_block_ms;
-			in.lineSpecifer = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
-			in.rt = CRect(0, 0, 500, 310);
-			in.threadCaller = GetCurrentThreadId();
-			in.hWndAppl = win7 ? NULL : GetHWND_WAVPLAY();
-			cfig = (CFigure *)OpenGraffy(in);
-
+			CVar temp = past->Sig;
+			_figure(past, pnode, NULL, fnsigs);
+			auto itgcf = past->GOvars.find("gcf");
+			past->Sig = temp;
+			past->pgo = NULL;
+			cfig = (CFigure *)itgcf->second.front();
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			past->SetVar("gcf", cfig);
 		}
-		//For the global variable $gcf, updated whether or not this is named plot.
-		auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-		if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
-		{
-			(*jt).second.clear();
-		}
-		CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back((CVar*)cfig);
 		//if there's existing line in the specified axes
 		if (!cfig && cax->strut["nextplot"] == string("replace"))
 		{
@@ -758,12 +749,9 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		//Finally cax and cfig ready. Time to inspect input data
 		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
 		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
-
 		static char buf[256];
 		if (newFig)
 		{
-			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
-			PostMessage(hWndApp, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 			//Why is this necessary? 12/6
 			//int figIDint;
 			//if (!strncmp(buf, "Figure ", 7))
@@ -837,8 +825,9 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 			newstr += string();
 			((CVar*)cfig)->SetString(newstr.c_str());
 		}
-		PostMessage(GetHWND_WAVPLAY(), WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 		*cfig = *(CFigure*)(past->pgo);
+		in.cfig = cfig;
+		PostMessage(GetHWND_WAVPLAY(), WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 		past->Sig = *(past->pgo = cfig);
 	}
 	else if (past->Sig.strut["type"].string() == "axes")

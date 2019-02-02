@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.497
-// Date: 1/30/2019
+// Version: 1.498
+// Date: 2/1/2019
 // 
 #include <sstream>
 #include <list>

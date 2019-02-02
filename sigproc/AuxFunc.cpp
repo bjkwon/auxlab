@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.497
-// Date: 1/30/2019
+// Version: 1.498
+// Date: 2/1/2019
 // 
 #include <math.h>
 #include <stdlib.h>
@@ -2292,7 +2292,7 @@ void CAstSigEnv::InitBuiltInFunctionList()
 
 #ifdef _WINDOWS
 	pp.alwaysstatic = true;
-	pp.narg1 = 1;	pp.narg2 = 1;
+	pp.narg1 = 0;	pp.narg2 = 1;
 	pp.name = "figure";
 	pp.funcsignature = "([position(screen_coordinate)]) or (existing_Figure_ID)";
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_figure;

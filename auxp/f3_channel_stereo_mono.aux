@@ -27,6 +27,11 @@ if ax.length==1
 elseif ax.length==2
 	ax(1).pos(4) *=2
 	ax(1).pos(2)=.18
+	if ax(1).children.length==0
+		estr = sprintf("ax1 has no children.");
+		msgbox(estr);
+		return
+	end
 	l1 = ax(1).children.ydata
 	if ax(1).children.length!=1
 		estr = sprintf("ax1 has %d lines.", l1.length);
