@@ -145,21 +145,17 @@ INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 
 BOOL CALLBACK enumproc(HWND hDlg, LPARAM lParam)
 {
-	HWND h = hDlg;
-	HMODULE hAppInstance = GetModuleHandle(0);
-#ifndef WIN64
-	sprintf(fname, "%sauxp32.dll", AppPath);
-#else
-	LONG_PTR out = GetWindowLongPtr(h, GWLP_HINSTANCE);
 	char buf[256];
 	GetWindowText(hDlg, buf, 256);
+	HWND h = hDlg;
+	HMODULE hAppInstance = GetModuleHandle(0);
+	LONG_PTR out = GetWindowLongPtr(h, GWLP_HINSTANCE);
 	if ((HMODULE)out == hAppInstance)
 	{
 		//Searching for Settings & Variables windows created within the current instance.
 		if (strstr(buf, "Settings & Variables"))
 			hWndApp = h;
 	}
-#endif
 	return 1;
 }
 

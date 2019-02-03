@@ -765,7 +765,7 @@ void CPlotDlg::OnPaint()
 	if (!sbinfo.initialshow) 
 	{
 		sbinfo.initialshow=true; ShowStatusBar();
-		SetGCF();
+	//	SetGCF();
 	}
 	// vector gcf.ax is pushed in AddAxis() called in showvar.cpp 
 	// find out why sometimes gcf.ax[k] is pointing something already deleted and causing a crash here. 8/216/2017 bjk

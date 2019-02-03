@@ -172,6 +172,7 @@ CVar &CAstSig::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *ps
 			replica_prep(psigBase);
 			CVar *pgo_org = pgo;
 			CVar tsig = Compute(pRHS);
+			CVar *pp = (CVar*)(INT_PTR)tsig.buf[0];
 //			pgo = pgo_org; // if this is uncommented, a = var_go; won't assign the var_go to a if a is already a go. I forgot when/why I had to add this line. 11/29/2018. 
 			//I'm trying this to see if it solves the problem. THis may not be bullet-proof. 11/29/2018
 			if (!tsig.IsGO()) pgo = pgo_org;
@@ -280,25 +281,6 @@ bool CAstSig::builtin_func_call(NODEDIGGER &ndog, AstNode *p)
 	N_STRUCT --> struct call --> pvar must be ready
 	T_ID --> can be both struct call or not --> let's make sure it is non-struct call
 	*/
-	//if (p->type == N_HOOK)
-	//{
-	//	if (HandlePseudoVar(p))
-	//	{
-	//		if (ndog.root->type == N_HOOK && ndog.root->child) // if and only if LHS is a function call
-	//			throw CAstException(ndog.root, this, p->str, "A valid pseudo variable cannot be modified.");
-	//		ndog.psigBase = &Sig;
-	//		return true;
-	//	}
-	//	else
-	//	{ // if this is RHS, throw exception; otherwise, set a new global variable as a pseudo variable
-	//		if (ndog.root->type == N_HOOK && !ndog.root->child) // if and only if LHS is a function call
-	//			throw CAstException(ndog.root, this, p->str, "Not a valid pseudo variable or global variable not defined.");
-	//		else
-	//		{
-	//			//set the global variable 
-	//		}
-	//	}
-	//}
 	if (p->type == T_ID || p->type == N_STRUCT)
 	{
 		if (p->str[0] == '$' || IsValidBuiltin(p->str)) // hook bypasses IsValidBuiltin

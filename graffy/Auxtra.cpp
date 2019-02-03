@@ -407,24 +407,38 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 		else
 		{
 			HANDLE h = FindFigure(&param);
-			if (h)
-			{
-				past->Sig = *static_cast<CFigure *>(h);
-				past->pgo = static_cast<CFigure *>(h); // This is how the figure handle (pointer) is sent back to AstSig
-				return;
-			}
-			throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
+			if (!h)
+				throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
+			past->Sig = *(past->pgo = static_cast<CFigure *>(h));
+			return;
 		}
 	}
 	past->Sig.strut.clear();
+	CVar *ttp = NULL;
+	ttp = past->GetVariable("namedplot");
 	in.block = past->audio_block_ms;
 	in.rt = rt;
 	in.threadCaller = GetCurrentThreadId();
 	in.hWndAppl = hWndApp;
+	if (ttp)
+	{
+		in.scope = past->u.title.empty() ? "base workspace" : past->u.title;
+		in.caption = ttp->string();
+	}
+	else
+	{
+		in.scope.clear();
+		in.caption.clear();
+	}
 	CFigure * cfig = (CFigure *)OpenGraffy(in);
-	past->SetVar("gcf", cfig);
+	if (!ttp)
+		past->SetVar("gcf", cfig);
 	static char buf[64];
 	cfig->m_dlg->GetWindowText(buf, sizeof(buf));
+	auto jt = past->pEnv->glovar.find("gcf");
+	if (jt != past->pEnv->glovar.end())
+		(*jt).second.clear();
+	past->pEnv->glovar["gcf"].push_back(cfig);
 	PostMessage(hWndApp, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 	cfig->strut["name"] = string(buf);
 	BYTE r = GetRValue(cfig->color);
@@ -438,6 +452,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["pos"].buf[2] = rt.Width();
 	cfig->strut["pos"].buf[3] = rt.Height();
 	past->Sig = *(past->pgo = cfig); 
+	past->ClearVar("namedplot");
 }
 
 GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -662,7 +677,6 @@ GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	static vector<CVar> args;
-	static GRAFWNDDLGSTRUCT in;
 	//args is the argument list not including the graphic handle.
 	mainast = past;
 	CAxes *cax = NULL;
@@ -730,14 +744,13 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		{
 			CVar temp = past->Sig;
 			_figure(past, pnode, NULL, fnsigs);
-			auto itgcf = past->GOvars.find("gcf");
 			past->Sig = temp;
+			cfig = (CFigure *)past->pgo;
 			past->pgo = NULL;
-			cfig = (CFigure *)itgcf->second.front();
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 		}
 		//if there's existing line in the specified axes
-		if (!cfig && cax->strut["nextplot"] == string("replace"))
+//		if (!cfig && cax->strut["nextplot"] == string("replace"))
 		{
 			cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
 			cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
@@ -745,6 +758,7 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			cax->ytick.tics1.clear();
 			while (!cax->child.empty() )
 				deleteObj(cax->child.front());
+			((CVar*)cax)->struts["children"].clear();
 		}
 		//Finally cax and cfig ready. Time to inspect input data
 		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
@@ -780,6 +794,31 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			temp.push_back((INT_PTR)item);
 		past->Sig = *(past->pgo = past->MakeGOContainer(temp)); // This is how the figure handle (pointer) is sent back to AstSig
 		break;
+	}
+	FILE *fpa = fopen("c:\\temp\\log.txt", "at");
+	fprintf(fpa, "past %x\n", past);
+	fclose(fpa);
+	for (auto it = past->GOvars.begin(); it != past->GOvars.end(); it++)
+	{
+		FILE *fpa = fopen("c:\\temp\\log.txt", "at");
+		string sss = (*it).second.front()->strut["type"].string();
+		fprintf(fpa, "%x: %s, type=%s\n", (*it).second.front(), (*it).first.c_str(), (*it).second.front()->strut["type"].string().c_str());
+		fclose(fpa);
+		if ((*it).second.front()->strut["type"] == string("figure") || (*it).second.front()->strut["type"] == string("axes"))
+		{
+			for (auto jt = (*it).second.front()->struts["children"].begin(); jt != (*it).second.front()->struts["children"].end(); jt++)
+			{
+				FILE *fpa = fopen("c:\\temp\\log.txt", "at");
+				fprintf(fpa, "\t[%s] %x:\n", (*jt)->strut["type"].string().c_str(), &(*jt));
+				fclose(fpa);
+				for (auto kt = (*jt)->struts["children"].begin(); kt != (*jt)->struts["children"].end(); kt++)
+				{
+					FILE *fpa = fopen("c:\\temp\\log.txt", "at");
+					fprintf(fpa, "\t\t[children] %x: \n", *kt);
+					fclose(fpa);
+				}
+			}
+		}
 	}
 	//x.plot(___) ==> x needs updating here (a break from the convention where aux calls don't update the variable when applied to it) 3/13/2018
 	//Update gcf if it is not showvar-enter figure handle

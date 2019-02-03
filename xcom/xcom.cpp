@@ -7,7 +7,7 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.497
+// Version: 1.498
 // Date: 1/30/2019
 // 
 #include "graffy.h" // this should come before the rest because of wxx820

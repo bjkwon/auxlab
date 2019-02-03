@@ -262,7 +262,6 @@ CFigure * CShowvarDlg::newFigure(CRect rt, string title, const char *varname, GR
 	CFigure *out = (CFigure *)OpenGraffy(*pin);
 	//update gcf
 	OnPlotDlgCreated(varname, pin);
-	out->SetString(varname);
 	return out;
 }
 
@@ -301,23 +300,28 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 		}
 		else if (type == CSIG_AUDIO || type == CSIG_TSERIES || type == CSIG_VECTOR)
 		{
-			static GRAFWNDDLGSTRUCT in;
-			CFigure * cfig = newFigure(CRect(0, 0, 500, 310), title.c_str(), varname, &in);
-			plotlines = PlotCSignals(AddAxes(cfig, .08, .18, .86, .72), NULL, psig, -1);
-			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
-			//For the global variable $gcf, updated whether or not this is named plot.
-			SetGlovar((CVar*)cfig);
-			if (psig->next)
-			{
-				On_F2(hDlg, pcast);
+			try {
+
+
+				string emsg;
+				string plotcommand = "plot(";
+				plotcommand += varname;
+				plotcommand += ");";
+				pcast->SetNewScript(emsg, plotcommand.c_str());
+				pcast->SetVar("namedplot", &CVar(string(varname)));
+				pcast->Compute();
 			}
-			else
-			{
-				CRect rt;
-				plotDlgList.push_back(cfig->m_dlg->hDlg);
-				::GetWindowRect(cfig->m_dlg->hDlg, rt);
-				rt.MoveToXY(10, 40);
-				::MoveWindow(cfig->m_dlg->hDlg, rt.left, rt.top, rt.Width(), rt.Height(), 1);
+			catch (const char *_errmsg) {
+				bool gotobase = false;
+				if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
+					gotobase = true;
+				char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
+				// cleanup_nodes was called with CAstException
+				if (strncmp(errmsg, "Invalid", strlen("Invalid")))
+					MessageBox(errmsg, "ERROR", 0);
+				else
+					MessageBox(errmsg, "Syntax Error", 0);
+				return;
 			}
 		}
 	}
@@ -788,7 +792,8 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
 	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
-	SetGlovar(CAstSig::vecast.at(res)->GetVariable("gcf"));
+	auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+	CVar *pgcf = (*jt).second.front();
 	//It's better to update gcf before WM__PLOTDLG_CREATED is posted
 	//that way, environment context can be set properly (e.g., main or inside CallSub)
 	//4/24/2017 bjkwon
@@ -804,6 +809,8 @@ void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 	newItem->var = varname;
 	newItem->pcast = pcast;
 	plots.push_back(newItem);
+	if (strncmp(varname, "Figure ", 7))
+		On_F2(hDlg, pcast);
 }
 
 void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
