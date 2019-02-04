@@ -2322,34 +2322,6 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// a = sqrt(2) --> inside psigAtNode, without knowing whether this call is part of RHS handling or not, there's no way to know whether a string is something new to fill in later or just throw an exception.
 		// by default the 3rd arg of psigAtNode is false, but if this call is made during RHS handling (where pRHS is NULL), it tells psigAtNode to try builtin_func_call first. 8/28/2018
 
-		if (pnode->str && !strcmp(pnode->str, "a"))
-		{
-			FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-			fprintf(fpa, "this %x\n", this);
-			fclose(fpa);
-			for (auto it = GOvars.begin(); it != GOvars.end(); it++)
-			{
-				FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-				string sss = (*it).second.front()->strut["type"].string();
-				fprintf(fpa, "%x: %s, type=%s\n", (*it).second.front(), (*it).first.c_str(), (*it).second.front()->strut["type"].string().c_str());
-				fclose(fpa);
-				if ((*it).second.front()->strut["type"] == string("figure") || (*it).second.front()->strut["type"] == string("axes"))
-				{
-					for (auto jt = (*it).second.front()->struts["children"].begin(); jt != (*it).second.front()->struts["children"].end(); jt++)
-					{
-						FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-						fprintf(fpa, "\t[%s] %x:\n", (*jt)->strut["type"].string().c_str(), &(*jt));
-						fclose(fpa);
-						for (auto kt = (*jt)->struts["children"].begin(); kt != (*jt)->struts["children"].end(); kt++)
-						{
-							FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-							fprintf(fpa, "\t\t[children] %x: \n", *kt);
-							fclose(fpa);
-						}
-					}
-				}
-			}
-		}
 		AstNode *pLast = read_nodes(ndog); // that's all about LHS.
 		if (!ndog.psigBase)
 		{
@@ -2904,6 +2876,19 @@ CAstSigEnv &CAstSigEnv::SetPath(const char *path)
 	if (len && path[len-1] != '\\')	strPath += '\\';
 	AuxPath = strPath;
 	return *this;
+}
+
+void CAstSigEnv::RemoveGlovar(const char *varname)
+{
+	auto jt = glovar.find(varname);
+	if (jt != glovar.end())
+		(*jt).second.clear();
+}
+
+void CAstSigEnv::SetGlovar(const char *varname, CVar *psig)
+{
+	RemoveGlovar(varname);
+	glovar[varname].push_back(psig);
 }
 
 CAstSigEnv &CAstSigEnv::AddPath(const char *path)

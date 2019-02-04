@@ -388,25 +388,14 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	static GRAFWNDDLGSTRUCT in;
 	CRect rt(0, 0, 500, 310);
 	int nArgs(0);
-	const AstNode *pp(p);
-	while (pp)
+	if (p)
 	{
-		++nArgs;
-		pp = pp->next;
-	}
-	if (nArgs == 1)
-	{
-		CSignals param = past->Compute(p);
-		if (param.GetType() == CSIG_VECTOR || param.nSamples == 4)
-		{
-			rt.left = (LONG)param.buf[0];
-			rt.top = (LONG)param.buf[1];
-			rt.right = (LONG)(rt.left + param.buf[2]);
-			rt.bottom = (LONG)(rt.top + param.buf[3]);
-		}
+		past->Compute(p);
+		if (past->Sig.GetType() == CSIG_VECTOR && past->Sig.nSamples == 4)
+			CRect2doubleArray(rt, past->Sig.buf);
 		else
 		{
-			HANDLE h = FindFigure(&param);
+			HANDLE h = FindFigure(&past->Sig);
 			if (!h)
 				throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
 			past->Sig = *(past->pgo = static_cast<CFigure *>(h));
@@ -441,19 +430,146 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	past->pEnv->glovar["gcf"].push_back(cfig);
 	PostMessage(hWndApp, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 	cfig->strut["name"] = string(buf);
-	BYTE r = GetRValue(cfig->color);
-	BYTE b = GetBValue(cfig->color);
-	BYTE g = GetGValue(cfig->color);
-	cfig->strut["color"].buf[0] = (double)r / 256;
-	cfig->strut["color"].buf[1] = (double)g / 256;
-	cfig->strut["color"].buf[2] = (double)b / 256;
-	cfig->strut["pos"].buf[0] = rt.left;
-	cfig->strut["pos"].buf[1] = rt.top;
-	cfig->strut["pos"].buf[2] = rt.Width();
-	cfig->strut["pos"].buf[3] = rt.Height();
+	vector<DWORD> col(cfig->color);
+	COLORREF2CSignals(col, cfig->strut["color"]);
+	CRect2doubleArray(rt, cfig->strut["pos"].buf);
 	past->Sig = *(past->pgo = cfig); 
 	past->ClearVar("namedplot");
 }
+void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, string plotOptions, int nArgs);
+
+GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	static vector<CVar> args;
+	//args is the argument list not including the graphic handle.
+	CAxes *cax = NULL;
+	CFigure *cfig = NULL;
+	CVar *pgo = past->pgo;
+	bool sigStructCall = pnode->type == N_STRUCT;
+	try {
+		CAstSig tp(past);
+		//Find gcf if pgo is NULL; if no gcf. create a figure
+		string plotOptions;
+		int nArgs = 1;
+		for (const AstNode *pp(p); pp; pp = pp->next)
+		{
+			nArgs++;
+			if (!pp->next) // the last one
+			{
+				tp.Compute(pp);
+				if (tp.Sig.GetType() == CSIG_STRING)
+				{
+					plotOptions = tp.Sig.string();
+					nArgs--;
+				}
+			}
+		}
+		bool newFig = false;
+		if (!pgo)
+		{
+			auto itgcf = past->GOvars.find("gcf");
+			if (itgcf != past->GOvars.end() && past->GOvars["gcf"].front()->GetFs() != 2)
+			{ // gcf found AND it is not a named plot
+				if (past->GOvars["gcf"].front()->struts["gca"].empty())
+				{// no axes present; create one.
+					cfig = (CFigure *)FindFigure(past->GOvars["gcf"].front());
+					cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+				}
+				else
+				{
+					cax = (CAxes *)FindGObj(past->GOvars["gcf"].front()->struts["gca"].front());
+				}
+			}
+			else
+				newFig = true;
+		}
+		else
+		{
+			if (pgo->strut["type"].string() == "figure")
+			{ // pgo is figure; check if it is named plot, if so mark it and go down; otherwise, set cax
+				if (pgo->GetFs() == 2)
+					newFig = true;
+				else if (pgo->struts.find("gca") == pgo->struts.end())
+					cax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
+				else
+					cax = (CAxes *)FindGObj(pgo->struts["gca"].front());
+			}
+			else if (pgo->strut["type"].string() == "axes")
+			{
+				cax = (CAxes *)FindGObj(pgo);
+			}
+			else
+			{
+				throw CAstException(p, past, fnsigs, "A non-graphic object nor a data array is given as the first argument.");
+			}
+		}
+		if (newFig)
+		{
+			CVar temp = past->Sig;
+			_figure(past, pnode, NULL, fnsigs);
+			past->Sig = temp;
+			cfig = (CFigure *)past->pgo;
+			past->pgo = NULL;
+			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+		}
+		//if there's existing line in the specified axes
+//		if (!cfig && cax->strut["nextplot"] == string("replace"))
+		{
+			cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
+			cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
+			cax->xtick.tics1.clear();
+			cax->ytick.tics1.clear();
+			while (!cax->child.empty())
+				deleteObj(cax->child.front());
+			((CVar*)cax)->struts["children"].clear();
+		}
+		//Finally cax and cfig ready. Time to inspect input data
+		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
+		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
+		static char buf[256];
+		if (newFig)
+		{
+			//Why is this necessary? 12/6
+			//int figIDint;
+			//if (!strncmp(buf, "Figure ", 7))
+			//{
+			//	sscanf(buf + 7, "%d", &figIDint);
+			//	cfig->SetValue((double)figIDint);
+			//}
+			//else
+			//	cfig->SetString(buf);
+			// end of //Why is this necessary? 12/6
+		}
+		else
+			cfig = (CFigure*)cax->struts["parent"].front();
+	}
+	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+
+	//past->pgo carries the pointer, past->Sig is sent only for console display
+	switch (plotlines.size())
+	{
+	case 1:
+		past->Sig = *(past->pgo = (CVar*)plotlines.front());
+		break;
+	case 2:
+		vector<INT_PTR> temp;
+		for (auto item : plotlines)
+			temp.push_back((INT_PTR)item);
+		past->Sig = *(past->pgo = past->MakeGOContainer(temp)); // This is how the figure handle (pointer) is sent back to AstSig
+		break;
+	}
+	//x.plot(___) ==> x needs updating here (a break from the convention where aux calls don't update the variable when applied to it) 3/13/2018
+	//Update gcf if it is not showvar-enter figure handle
+	//allow pgo NULL (then go with gcf)
+
+	// plot(audio), plot(x,y), plot(x,y,"specifiers") such as plot(x,y,"co:") (cyan, marker o, dotted line)
+	// plot(nonaudio, "*") : x axis is just the index of the array
+
+
+//	if (mutex==NULL) mutex = CreateMutex(0, 0, 0);
+//	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent")); 
+}
+
 
 GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -672,164 +788,6 @@ GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	else
 		throw CAstException(pnode, past, fnsigs, "Internal Error---plot failed.");
 	past->Sig = *(CVar*)plotlines.front(); // Just to show on the screen, not the real output.
-}
-
-GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	static vector<CVar> args;
-	//args is the argument list not including the graphic handle.
-	mainast = past;
-	CAxes *cax = NULL;
-	CFigure *cfig = NULL;
-	CVar *pgo = past->pgo;
-	bool sigStructCall = pnode->type == N_STRUCT;
-	try {
-		CAstSig tp(past);
-		//Find gcf if pgo is NULL; if no gcf. create a figure
-		string plotOptions;
-		int nArgs = 1;
-		for (const AstNode *pp(p); pp; pp = pp->next)
-		{
-			nArgs++;
-			if (!pp->next) // the last one
-			{
-				tp.Compute(pp);
-				if (tp.Sig.GetType() == CSIG_STRING)
-				{
-					plotOptions = tp.Sig.string();
-					nArgs--;
-				}
-			}
-		}
-		bool newFig = false;
-		if (!pgo)
-		{
-			auto itgcf = past->GOvars.find("gcf");
-			if (itgcf != past->GOvars.end() && past->GOvars["gcf"].front()->GetFs() != 2)
-			{ // gcf found AND it is not a named plot
-				if (past->GOvars["gcf"].front()->struts["gca"].empty())
-				{// no axes present; create one.
-					cfig = (CFigure *)FindFigure(past->GOvars["gcf"].front());
-					cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-				}
-				else
-				{
-					cax = (CAxes *)FindGObj(past->GOvars["gcf"].front()->struts["gca"].front());
-				}
-			}
-			else
-				newFig = true;
-		}
-		else
-		{
-			if (pgo->strut["type"].string() == "figure")
-			{ // pgo is figure; check if it is named plot, if so mark it and go down; otherwise, set cax
-				if (pgo->GetFs()==2)
-					newFig = true;
-				else if (pgo->struts.find("gca") == pgo->struts.end())
-					cax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
-				else
-					cax = (CAxes *)FindGObj(pgo->struts["gca"].front());
-			}
-			else if (pgo->strut["type"].string() == "axes")
-			{
-				cax = (CAxes *)FindGObj(pgo);
-			}
-			else
-			{
-				throw CAstException(p, past, fnsigs, "A non-graphic object nor a data array is given as the first argument.");
-			}
-		}
-		if (newFig)
-		{
-			CVar temp = past->Sig;
-			_figure(past, pnode, NULL, fnsigs);
-			past->Sig = temp;
-			cfig = (CFigure *)past->pgo;
-			past->pgo = NULL;
-			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-		}
-		//if there's existing line in the specified axes
-//		if (!cfig && cax->strut["nextplot"] == string("replace"))
-		{
-			cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
-			cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
-			cax->xtick.tics1.clear();
-			cax->ytick.tics1.clear();
-			while (!cax->child.empty() )
-				deleteObj(cax->child.front());
-			((CVar*)cax)->struts["children"].clear();
-		}
-		//Finally cax and cfig ready. Time to inspect input data
-		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
-		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
-		static char buf[256];
-		if (newFig)
-		{
-			//Why is this necessary? 12/6
-			//int figIDint;
-			//if (!strncmp(buf, "Figure ", 7))
-			//{
-			//	sscanf(buf + 7, "%d", &figIDint);
-			//	cfig->SetValue((double)figIDint);
-			//}
-			//else
-			//	cfig->SetString(buf);
-			// end of //Why is this necessary? 12/6
-		}
-		else
-			cfig = (CFigure*)cax->struts["parent"].front();
-	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
-
-	//past->pgo carries the pointer, past->Sig is sent only for console display
-	switch (plotlines.size())
-	{
-	case 1:
-		past->Sig = *(past->pgo = (CVar*)plotlines.front());
-		break;
-	case 2:
-		vector<INT_PTR> temp;
-		for (auto item : plotlines)
-			temp.push_back((INT_PTR)item);
-		past->Sig = *(past->pgo = past->MakeGOContainer(temp)); // This is how the figure handle (pointer) is sent back to AstSig
-		break;
-	}
-	FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-	fprintf(fpa, "past %x\n", past);
-	fclose(fpa);
-	for (auto it = past->GOvars.begin(); it != past->GOvars.end(); it++)
-	{
-		FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-		string sss = (*it).second.front()->strut["type"].string();
-		fprintf(fpa, "%x: %s, type=%s\n", (*it).second.front(), (*it).first.c_str(), (*it).second.front()->strut["type"].string().c_str());
-		fclose(fpa);
-		if ((*it).second.front()->strut["type"] == string("figure") || (*it).second.front()->strut["type"] == string("axes"))
-		{
-			for (auto jt = (*it).second.front()->struts["children"].begin(); jt != (*it).second.front()->struts["children"].end(); jt++)
-			{
-				FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-				fprintf(fpa, "\t[%s] %x:\n", (*jt)->strut["type"].string().c_str(), &(*jt));
-				fclose(fpa);
-				for (auto kt = (*jt)->struts["children"].begin(); kt != (*jt)->struts["children"].end(); kt++)
-				{
-					FILE *fpa = fopen("c:\\temp\\log.txt", "at");
-					fprintf(fpa, "\t\t[children] %x: \n", *kt);
-					fclose(fpa);
-				}
-			}
-		}
-	}
-	//x.plot(___) ==> x needs updating here (a break from the convention where aux calls don't update the variable when applied to it) 3/13/2018
-	//Update gcf if it is not showvar-enter figure handle
-	//allow pgo NULL (then go with gcf)
-
-	// plot(audio), plot(x,y), plot(x,y,"specifiers") such as plot(x,y,"co:") (cyan, marker o, dotted line)
-	// plot(nonaudio, "*") : x axis is just the index of the array
-
-
-//	if (mutex==NULL) mutex = CreateMutex(0, 0, 0);
-//	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent")); 
 }
 
 GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)

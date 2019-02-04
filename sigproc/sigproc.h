@@ -594,6 +594,8 @@ public:
 	CAstSigEnv& operator=(const CAstSigEnv& rhs);
 	CAstSigEnv &SetPath(const char *path);
 	CAstSigEnv &AddPath(const char *path);
+	void RemoveGlovar(const char *varname);
+	void SetGlovar(const char *varname, CVar *cfig);
 };
 
 class CDebugStatus

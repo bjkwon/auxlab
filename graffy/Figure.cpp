@@ -122,23 +122,12 @@ void CPosition::Set(CRect windRect, CRect axRect)
 }
 
 GRAPHY_EXPORT CFigure::CFigure()
-{
+{ // CFigure is instantiated by CPlotDlg construction
 	type = GRAFFY_figure;
 	inScope = true;
 	initGO(NULL);
-	vector<DWORD> cl(1, color=RGB(230, 230, 210)); // color can disppear later 12/5
+	vector<DWORD> cl(1, color = RGB(230, 230, 210)); // color can disppear later 12/5
 	strut["color"] = COLORREF2CSignals(cl, CSignals());
-}
-
-CFigure::CFigure(CWndDlg * base, CGobj* pParent)
-{ // should not be used. 12/5/2018
-	inScope = true;
-	initGO(pParent);
-	color = RGB(230, 230, 210);
-	type = GRAFFY_figure;
-	m_dlg = base;
-	hPar = pParent;
-	hPar->child.push_back(this);
 }
 
 CFigure::~CFigure()

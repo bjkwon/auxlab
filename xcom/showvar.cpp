@@ -169,16 +169,6 @@ LRESULT CALLBACK HookProc2(int code, WPARAM wParam, LPARAM lParam)
 	return CallNextHookEx(NULL, code, wParam, lParam);
 }
 
-void SetGlovar(CVar *cfig)
-{
-	auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-	if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
-	{
-		(*jt).second.clear();
-	}
-	CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(cfig);
-}
-
 int isSameCSignals_for_GCF_purpose(CSignals *p1, CSignals *p2)
 {
 	if (p1->GetType()!=p2->GetType()) return 0;
@@ -304,9 +294,9 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 
 
 				string emsg;
-				string plotcommand = "plot(";
+				string plotcommand = "";// "figure;";
 				plotcommand += varname;
-				plotcommand += ");";
+				plotcommand += ".plot;";
 				pcast->SetNewScript(emsg, plotcommand.c_str());
 				pcast->SetVar("namedplot", &CVar(string(varname)));
 				pcast->Compute();
@@ -335,8 +325,9 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 void CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig, CTimeSeries *psigOld)
 {
 	//Update sig
-	while (pax->m_ln.size() > 0)
-		deleteObj(pax->m_ln[0]);
+	while (!pax->m_ln.empty())
+		deleteObj(pax->m_ln.front());
+	((CVar*)pax)->struts["children"].clear();
 	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
 }
 
@@ -403,7 +394,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			if (pgcfNew)
 			{
 				//For the global variable $gcf, updated whether or not this is named plot.
-				SetGlovar(pgcfNew);
+				CAstSig::vecast.at(res)->pEnv->SetGlovar("gcf", pgcfNew);
 				if (CAstSig::vecast.at(res)->GetVariable("gcf") != pgcfNew)
 				{
 					//For the regular variable gcf, updated only if this is not named plot.
@@ -810,7 +801,14 @@ void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 	newItem->pcast = pcast;
 	plots.push_back(newItem);
 	if (strncmp(varname, "Figure ", 7))
-		On_F2(hDlg, pcast);
+	{
+		auto jt = pcast->pEnv->glovar.find("gcf");
+		if (jt != pcast->pEnv->glovar.end())
+		{
+			if (!(*jt).second.front()->struts["children"].empty())
+				On_F2(hDlg, pcast);
+		}
+	}
 }
 
 void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)

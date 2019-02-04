@@ -248,7 +248,6 @@ public:
 	void initGO(void * _hpar);
 	GRAPHY_EXPORT CFigure& operator=(const CFigure& rhs);
 	GRAPHY_EXPORT	CFigure();
-	CFigure(CWndDlg * base, CGobj* pParent = NULL);   // standard constructor
 	~CFigure();
 };
 
@@ -336,3 +335,5 @@ GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out);
+GRAPHY_EXPORT CRect CRect2doubleArray(double *in, CRect &CrOut);
+GRAPHY_EXPORT double * CRect2doubleArray(CRect rt, double *pout);

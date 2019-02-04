@@ -815,6 +815,24 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 	return sig;
 }
 
+GRAPHY_EXPORT CRect CRect2doubleArray(double *in, CRect &CrOut)
+{
+	CrOut.left = (LONG)in[0];
+	CrOut.top = (LONG)in[1];
+	CrOut.right = (LONG)(CrOut.left + in[2]);
+	CrOut.bottom = (LONG)(CrOut.top + in[3]);
+	return CrOut;
+}
+
+GRAPHY_EXPORT double * CRect2doubleArray(CRect rt, double *pout)
+{
+	pout[0] = rt.left;
+	pout[1] = rt.top;
+	pout[2] = rt.Width();
+	pout[3] = rt.Height();
+	return pout;
+}
+
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS)
 {
 	HANDLE h = FindGObj(pctx->pgo);
