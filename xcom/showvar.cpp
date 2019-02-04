@@ -331,8 +331,9 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 void CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig, CTimeSeries *psigOld)
 {
 	//Update sig
-	while (pax->m_ln.size() > 0)
-		deleteObj(pax->m_ln[0]);
+	while (!pax->m_ln.empty())
+		deleteObj(pax->m_ln.front());
+	((CVar*)pax)->struts["children"].clear();
 	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
 }
 
