@@ -7,8 +7,8 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.498
+// Date: 2/4/2019
 // 
 #include <math.h>
 #include "graffy.h"	
@@ -490,8 +490,6 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	strut["pos"].buf[1] = pos.y0;
 	strut["pos"].buf[2] = pos.width;
 	strut["pos"].buf[3] = pos.height;
-	struts["x"].front()->struts["parent"].push_back(this);
-	struts["y"].front()->struts["parent"].push_back(this);
 	struts["x"].front()->strut["fontsize"] = CSignals(999.); // ???? where can I find this?
 	struts["x"].front()->strut["tick"] = CSignals(CSignal(xtick.tics1));
 	struts["y"].front()->strut["tick"] = CSignals(CSignal(ytick.tics1));

@@ -7,8 +7,8 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.498
+// Date: 2/4/2019
 // 
 #include "graffy.h"	
 #include "PlotDlg.h"	
@@ -128,17 +128,6 @@ GRAPHY_EXPORT CFigure::CFigure()
 	initGO(NULL);
 	vector<DWORD> cl(1, color=RGB(230, 230, 210)); // color can disppear later 12/5
 	strut["color"] = COLORREF2CSignals(cl, CSignals());
-}
-
-CFigure::CFigure(CWndDlg * base, CGobj* pParent)
-{ // should not be used. 12/5/2018
-	inScope = true;
-	initGO(pParent);
-	color = RGB(230, 230, 210);
-	type = GRAFFY_figure;
-	m_dlg = base;
-	hPar = pParent;
-	hPar->child.push_back(this);
 }
 
 CFigure::~CFigure()

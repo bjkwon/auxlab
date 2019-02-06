@@ -19,36 +19,43 @@ if ax.length==1
 		begints = [data1.begint data2.begint]
 		endts = [data1.endt data2.endt]
 		delete(lynes(2))
-		ax2.plot(data2)
-		ax2.x.lim = ax.x.lim
+		if data2.length>0
+			ax2.plot(data2)
+		end
+		// Add error check --- if x.lim is updated, it crashes 2/5/2019
+		if ax.x.lim(2)>ax2.x.lim(2)
+			ax2.x.tick = ax.x.tick
+		else
+			ax.x.tick = ax2.x.tick
+		end
+		ax.x.lim = [begints.min endts.max]/1000
+		ax2.x.lim = [begints.min endts.max]/1000
 	else
 		return
 	end
 elseif ax.length==2
 	ax(1).pos(4) *=2
 	ax(1).pos(2)=.18
-	if ax(1).children.length==0
-		estr = sprintf("ax1 has no children.");
-		msgbox(estr);
-		return
+	if ax(1).children.length>0 && ax(2).children.length>0
+		z = [ax(1).children.ydata; ; ax(2).children.ydata;]
+	elseif ax(1).children.length==0 && ax(2).children.length>0
+		z = [[0 0].audio; ax(2).children.ydata]
+	elseif ax(1).children.length>0 && ax(2).children.length==0
+		z = [ax(1).children.ydata; [0 0].audio]
+	else
+		z =[[0 0].audio; [0 0].audio]
 	end
-	l1 = ax(1).children.ydata
-	if ax(1).children.length!=1
-		estr = sprintf("ax1 has %d lines.", l1.length);
-		msgbox(estr);
-		return
+	xtic=[]
+	if ax(2).x.lim(2)>=ax(1).x.lim(2)
+		xtic = ax(2).x.tick;
+	else
+		xtic = ax(1).x.tick;
 	end
-	l2 = ax(2).children.ydata
-	if ax(2).children.length!=1
-		estr = sprintf("ax2 has %d lines.", l2.length);
-		msgbox(estr);
-		return
-	end
-	z = [l1; l2]
 	ax(2).delete
 	ax.children.delete
 	ax.line(z)
+	ax.x.tick = xtic
 else
-//    msgbox("Error--Figure window has multiple axes");
+    msgbox("Error--Figure window has multiple axes");
 	return;
 end

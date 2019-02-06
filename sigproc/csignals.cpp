@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.498
+// Date: 2/4/2019
 // 
 #ifdef _WINDOWS
 #ifndef _MFC_VER // If MFC is used.

@@ -28,6 +28,11 @@
 
 CVar &CAstSig::define_new_variable(const AstNode *pnode, AstNode *pRHS)
 {
+	if (pnode->type == T_ID && !strcmp(pnode->str, "l1"))
+	{
+		int jj = 400;
+		jj++;
+	}
 	if (pRHS)
 	{ 
 	// evaluate RHS and setvar RHS 

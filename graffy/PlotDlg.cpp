@@ -7,8 +7,8 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.497
-// Date: 12/26/2018
+// Version: 1.498
+// Date: 2/4/2019
 // 
 
 /* Note on multiple axes situation,
@@ -648,7 +648,12 @@ void CPlotDlg::OnPaint()
 					delete[] abuf;
 				}
 			} 
-//			dc.SetBkColor(pax->color);
+			if (draw.empty())
+			{ // Need this to bypass axes without line object
+				k++;
+				continue;
+			}
+			//			dc.SetBkColor(pax->color);
 			// add ticks and ticklabels
 			dc.SetBkColor(gcf.color);
 			// For the very first call to onPaint, axRect is not known so settics is skipped, and need to set it here
@@ -704,19 +709,19 @@ void CPlotDlg::OnPaint()
 				paxready=true, pax = (CAxes*)pax->hChild;
 			else
 				k++;
-		}
-		CAxes *paxx(gcf.ax.front()); 
-		if (playCursor > 0) // if cursor for playback was set
-		{
-			dc.CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
-			dc.MoveTo(playCursor, paxx->axRect.bottom);
-			dc.LineTo(playCursor, paxx->axRect.top);
-		}
-		if (LRrange(&paxx->rcAx, playLoc, 'x')==0)
-		{
-			dc.CreatePen(PS_SOLID, 1, RGB(204,77,0));
-			dc.MoveTo(playLoc, paxx->axRect.bottom);
-			dc.LineTo(playLoc, paxx->axRect.top);
+			//CAxes *paxx(gcf.ax.front());
+			if (playCursor > 0) // if cursor for playback was set
+			{
+				dc.CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
+				dc.MoveTo(playCursor, pax->axRect.bottom);
+				dc.LineTo(playCursor, pax->axRect.top);
+			}
+			if (LRrange(&pax->rcAx, playLoc, 'x') == 0)
+			{
+				dc.CreatePen(PS_SOLID, 1, RGB(204, 77, 0));
+				dc.MoveTo(playLoc, pax->axRect.bottom);
+				dc.LineTo(playLoc, pax->axRect.top);
+			}
 		}
 		if (pax0->m_ln.size()>0 || (gcf.ax.size()>1 && gcf.ax[1]->m_ln.size()>0) )
 		{
@@ -1473,6 +1478,7 @@ void CPlotDlg::OnMenu(UINT nID)
 	int k(0), deltapixel;
 	vector<CLine*> swappy;
 	double shift, newlimit1,  newlimit2, deltaxlim, dval, _block;
+	double xlim[2];
 	INT_PTR res;
 
 	errstr[0]=0;
@@ -1504,10 +1510,17 @@ void CPlotDlg::OnMenu(UINT nID)
 
 	case IDM_FULLVIEW:
 		zoom=0;
+		xlim[0] = 1.e100; xlim[1] = -1.e100;
+		for (auto ax : gcf.ax)
+		{
+			xlim[0] = min(xlim[0], ax->xlimFull[0]);
+			xlim[1] = max(xlim[1], ax->xlimFull[1]);
+		}
 		for (vector<CAxes*>::iterator axt=gcf.ax.begin(); axt!=gcf.ax.end(); axt++)
 		{
 			cax = *axt;
-			memcpy(cax->xlim, cax->xlimFull, sizeof(double)*2);
+			memcpy(cax->xlim, xlim, sizeof(double) * 2);
+			memcpy(cax->xlimFull, xlim, sizeof(double)*2);
 			cax->xtick.tics1.clear(); cax->xtick.automatic = true;
 			cax->ytick.tics1.clear(); cax->ytick.automatic = true;
 			cax->struts["x"].front()->strut["auto"] = CSignals(true);

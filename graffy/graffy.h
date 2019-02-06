@@ -248,7 +248,6 @@ public:
 	void initGO(void * _hpar);
 	GRAPHY_EXPORT CFigure& operator=(const CFigure& rhs);
 	GRAPHY_EXPORT	CFigure();
-	CFigure(CWndDlg * base, CGobj* pParent = NULL);   // standard constructor
 	~CFigure();
 };
 

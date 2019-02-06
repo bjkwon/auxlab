@@ -2344,7 +2344,12 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// Need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
 		// 11/4/2018
 		if (setgo.type)
-			fpmsg.SetGoProperties(this, setgo.type, *ndog.psigBase);
+		{ // It works now but check this later. 2/5/2019
+			if (res.IsGO())
+				fpmsg.SetGoProperties(this, setgo.type, *ndog.psigBase);
+			else
+				fpmsg.SetGoProperties(this, setgo.type, res);
+		}
 		ndog.psigBase = NULL;
 	}
 	return Sig;
@@ -2352,7 +2357,12 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 
 CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 {
-//	if (pnode->type==T_ID) return Compute(pnode);
+//	why pgo = NULL; ? 
+// pgo should be reset right after all Compute calls so upon exiting ConditionalOperation
+// it shouldn't have any lingering pgo.
+// pgo is supposed to be used only temporarily-- to relay go to the next step and it shouldn't linger too long.
+// then at some point it may incorrectly try to process the GO when it is not about GO.
+// 2/5/2019
 	CVar rsig;
 	switch (pnode->type)
 	{
@@ -2365,6 +2375,7 @@ CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 		rsig = Compute(p->next);
 		blockCell(pnode, rsig);
 		Compute(p);
+		pgo = NULL;
 		blockCell(pnode, Sig);
 		Sig.LogOp(rsig, pnode->type);
 		if (Sig.IsString())
@@ -2378,6 +2389,7 @@ CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 		rsig.Reset();
 		rsig.MakeLogical();
 		Sig = Compute(p);
+		pgo = NULL;
 		if (!Sig.IsLogical() || !rsig.IsLogical())
 			throw CAstException(p, this, "Logical operation is only for logical arrays.");
 		Sig.LogOp(rsig, pnode->type); // rsig is a dummy for func signature.

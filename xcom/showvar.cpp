@@ -328,53 +328,78 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 	}
 }
 
-void CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig, CTimeSeries *psigOld)
+double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 {
 	//Update sig
 	while (!pax->m_ln.empty())
 		deleteObj(pax->m_ln.front());
 	((CVar*)pax)->struts["children"].clear();
 	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
+	double lower = 1.e100;
+	for (auto lnObj : plotlines)
+	{
+		CLine *pp = (CLine *)lnObj;
+		lower = min(lower, pp->sig.tmark);
+	}
+	return lower;
 }
 
 void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 {
-	vector<CTimeSeries *> input;
-	CTimeSeries *pChan = psig;
-	CTimeSeries *pChan2 = psig->next;
-	psig->next = NULL;
+	// If current xlim can display any part of psig (in either channel)
+	// and the variable named  stays mono-to-mono or stereo-to-stereo,
+	// keep xlim
+	// otherwise
+
+	CSignals *pChan = psig;
+	CSignals *pChan2 = (CSignals*)psig->next;
+	pChan2->next = NULL;
+	double  lowestTmark = 1.e100;
+	vector<CSignals *> input;
 	input.push_back(pChan);
 	input.push_back(pChan2);
+	double xlimOld[2];
+	memcpy(xlimOld, cfig->ax.front()->xlim, 2 * sizeof(double));
+	if (cfig->ax.size()>1) // for now, assume only ax.size is 2 at the most 2/5/2019
+	{
+		xlimOld[0] = min(xlimOld[0], cfig->ax[1]->xlim[0]);
+		xlimOld[1] = max(xlimOld[1], cfig->ax[1]->xlim[1]);
+	}
 	auto it = input.begin();
-	double tmark(std::numeric_limits<double>::infinity()), tmark0(std::numeric_limits<double>::infinity());
-	double totalDur(0), totalDur0(0);
-	double xlim0[2];
-	memcpy(xlim0, cfig->ax.front()->xlim, 2 * sizeof(double));
 	for (auto ax : cfig->ax)
 	{
-		CTimeSeries *psigOld = &(ax->m_ln.front()->sig);
-		tmark0 = min(psigOld->tmark, tmark0);
-		tmark = min((*it)->tmark, tmark0);
-		totalDur0 = max(psigOld->alldur(), totalDur0);
-		totalDur = max((*it)->alldur(), totalDur);
-		plotvar_update2(ax, *it, psigOld);
+		if (it == input.end())		break;
+		lowestTmark = plotvar_update2(ax, *it);
 		it++;
-	}
-	//adjust xlim and ylim of each ax
-	// if x begin pt and end pt are the same, keep the old xlim
-	if (psig->GetType() == CSIG_AUDIO && tmark == tmark0 && totalDur == totalDur0)
+	}	
+	double xlim[2] = { 1.e100 , -1.e100, };
+	if (pChan && pChan->nSamples > 1)
 	{
-		for (auto ax : cfig->ax)
-			memcpy(ax->xlim, xlim0, 2 * sizeof(double));
+		xlim[0] = min(xlim[0], pChan->tmark);
+		xlim[1] = max(xlim[1], pChan->alldur());
 	}
-	else
+	if (pChan2 && pChan2->nSamples > 1)
 	{
+		xlim[0] = min(xlim[0], pChan2->tmark);
+		xlim[1] = max(xlim[1], pChan2->alldur());
+	}
+	xlim[0] /= 1.e3; xlim[1] /= 1.e3;
+	if (lowestTmark > xlimOld[1] || cfig->ax.front()->xlim[1] < xlimOld[0])
+	{ // update xlim
 		for (auto ax : cfig->ax)
 		{
-			ax->xlim[0] = tmark;
-			ax->xlim[1] = totalDur / 1000.;
 			ax->xtick.tics1.clear();
 			if (psig->GetType() == CSIG_VECTOR) ax->ytick.tics1.clear();
+			ax->xlim[1] = xlim[1]; // keep ax->xlim[0]
+		}
+	}
+	else
+	{ // keep xlim
+		for (auto ax : cfig->ax)
+		{
+			ax->xtick.tics1.clear();
+			if (psig->GetType() == CSIG_VECTOR) ax->ytick.tics1.clear();
+			memcpy(ax->xlim, xlimOld, 2 * sizeof(double));
 		}
 	}
 	psig->next = pChan2;
@@ -416,7 +441,15 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 		{
 			if (pmsg->wParam == VK_F2)
 			{
-				On_F2(pmsg->hwnd, CAstSig::vecast.front());
+				map<string, vector<CVar*>>::iterator jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
+				if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+				{ // ax must be dual; else ax must have two line objects
+					if ((*jt).second.front()->struts["children"].size()==2 || 
+						((*jt).second.front()->struts["children"].size()==1 && 
+						(*jt).second.front()->struts["children"].front()->struts["children"].size()==2) )
+					On_F2(pmsg->hwnd, CAstSig::vecast.front());
+
+				}
 			}
 		}
 		else if (pmsg->message==WM__VAR_CHANGED)
@@ -462,8 +495,9 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 						case CSIG_AUDIO:
 							if (psig->next)
 							{ // previously one, now two axes needed
-								mShowDlg.plotvar_update(cfig, psig);
-
+							  //Update the line objects and call OnF2
+								mShowDlg.plotvar_update2(cfig->ax.front(), psig);
+								On_F2(pmsg->hwnd, mShowDlg.pcast);
 							}
 							else
 							{

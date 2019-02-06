@@ -1467,7 +1467,7 @@ void _size(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	else if (arg.value() == 2.)
 		past->Sig.SetValue(tp2);
 	else
-		throw CAstException(p, past, fnsigs, "Invalid parameter: should be either 1 or 2.");
+		throw CAstException(pnode, past, fnsigs, "Invalid parameter: should be either 1 or 2.");
 }
 
 void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1479,7 +1479,7 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 	else if (fname == "length")
 	{
 		if (past->Sig.next) 
-			throw CAstException(p, past, "Cannot be a stereo audio signal.");
+			throw CAstException(pnode, past, "Cannot be a stereo audio signal.");
 		if (past->Sig.IsGO())
 			past->Sig = past->Sig.length();
 		else
@@ -1487,7 +1487,14 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 	}
 	else
 	{
-		past->checkAudioSig(p, past->Sig);
+		if (past->Sig.IsEmpty()) {
+			if (fname == "begint" || fname == "endt" || fname == "dur")
+				past->Sig = CVar(0.);
+			else
+				past->Sig = CVar(-std::numeric_limits<double>::infinity());
+			return;
+		}
+		past->checkAudioSig(pnode, past->Sig);
 		if (fname == "begint") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::begint);
 		else if (fname == "endt") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::endt);
 		else if (fname == "dur") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::dur);
