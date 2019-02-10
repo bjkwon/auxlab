@@ -208,6 +208,7 @@ void CPlotDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	int res(0);
 	switch (idc)
 	{
+	case IDM_ADJUSTWINDOWSIZE:
 	case IDM_CHANNEL_TOGGLE:
 	case IDM_FULLVIEW:
 	case IDM_ZOOM_IN:
@@ -1455,17 +1456,71 @@ int CPlotDlg::IsSpectrumAxis(CAxes* pax)
 	else return 0;
 }
 
+void CPlotDlg::WindowSizeAdjusting()
+{
+	char buf1[256], buf2[256], buf3[256];
+	if (ClickOn) ClickOn = 0, OnLButtonUp(0, CPoint(-1, -1));
+	if (playing) OnMenu(IDM_STOP);
+	if (axis_expanding)
+		strcpy(buf1, ""), strcpy(buf2, ""), strcpy(buf3, "");
+	else
+		strcpy(buf1, "Adjust"), strcpy(buf2, "Window Size with"), strcpy(buf3, "Mouse");
+	axis_expanding = !axis_expanding;
+	::SendMessage(hStatusbar, SB_SETTEXT, 7, (LPARAM)buf1);
+	::SendMessage(hStatusbar, SB_SETTEXT, 8, (LPARAM)buf2);
+	::SendMessage(hStatusbar, SB_SETTEXT, 10, (LPARAM)buf3);
+	InvalidateRect(NULL);
+}
+
+int CPlotDlg::ViewSpectrum()
+{
+	CAxes *paxFFT;
+	CPosition SpecAxPos(.75, .6, .22, .35);
+	if (gcf.ax.size() > 1) SpecAxPos.height -= .02;
+	int nOuts = 0;
+	for (auto Ax : gcf.ax)
+	{
+		if (Ax->m_ln.size() == 0) continue;
+		if (!Ax->m_ln.front()->sig.IsTimeSignal()) break;
+		if (Ax->hChild)
+		{ // deleting the fft window
+			CRect rt, rt2;
+			GetClientRect(hDlg, &rt);
+			paxFFT = (CAxes*)Ax->hChild;
+			rt2 = paxFFT->pos.GetRect(rt);
+			rt2 = paxFFT->axRect;
+			rt2.InflateRect(40, 30);
+			InvalidateRect(rt2);
+			delete paxFFT; // do not call deleteObj(paxFFT); --> that is to clean up vectors and assumes CAxes object is a child (vector) of CFigure
+			auto it = find(Ax->struts["children"].begin(), Ax->struts["children"].end(), paxFFT);
+			if (it != Ax->struts["children"].end())
+				Ax->struts["children"].erase(it);
+			Ax->struts["gca"].clear();
+			Ax->hChild = NULL;
+		}
+		else
+		{ // adding the fft window
+			if (Ax != gcf.ax.front()) //if second channel (stereo)
+				SpecAxPos.y0 = .1;
+			Ax->hChild = paxFFT = Ax->create_child_axis(SpecAxPos);
+			paxFFT->color = RGB(220, 220, 150);
+			paxFFT->visible = true;
+			ShowSpectrum(paxFFT, Ax);
+			nOuts++;
+		}
+	}
+	return nOuts;
+}
 
 void CPlotDlg::OnMenu(UINT nID)
 {
-	if (axis_expanding) return;
+	CAxes* paxFFT;
 	char fullfname[MAX_PATH];
 	char fname[MAX_PATH];
 	CFileDlg fileDlg;
 	CAxes *cax=NULL;
 	if (!gcf.ax.empty())
 		cax=gcf.ax.front(); // Following the convention
-	CAxes *paxFFT;
 	CRect rt;
 	CSize sz;
 	CFont editFont;
@@ -1482,15 +1537,11 @@ void CPlotDlg::OnMenu(UINT nID)
 	INT_PTR res;
 
 	errstr[0]=0;
-	CPosition SpecAxPos(.75, .6, .22, .35);
 	switch (nID)
 	{
-	case IDM_CHANNEL_TOGGLE:
-	{
-		//moved to HookProc in showvar.cpp 1/31/2019
-	}
-	break;
-
+	case IDM_ADJUSTWINDOWSIZE:
+		WindowSizeAdjusting();
+		break;
 	case IDM_TRANSPARENCY:
 		dval = (double)opacity/255.*100.;
 		sprintf(buf,"%d",(int)(dval+.5));
@@ -1708,40 +1759,12 @@ void CPlotDlg::OnMenu(UINT nID)
 		res = StopPlay(hAudio, true); // quick stop
 		playLoc = -1;
 #endif
+		if (axis_expanding)
+			WindowSizeAdjusting();
 		return;
 	case IDM_SPECTRUM:
 		// at this point, sbinfo.vax can be used
-		k = 0;
-		if (gcf.ax.size()>1) SpecAxPos.height -= .02;
-		for (auto Ax : gcf.ax)
-		{
-			if (Ax->m_ln.size() == 0) continue;
-			if (!Ax->m_ln.front()->sig.IsTimeSignal()) break;
-			if (!Ax->hChild)
-			{
-				if (k>0) //if second channel (stereo)
-				{ SpecAxPos.y0 = .1; }
-				Ax->hChild = paxFFT = Ax->create_child_axis(SpecAxPos);
-				paxFFT->color = RGB(220, 220, 150);
-				paxFFT->visible = true;
-				ShowSpectrum(paxFFT,Ax);
-			}
-			else
-			{
-				CRect rt, rt2;
-				GetClientRect(hDlg, &rt);
-				paxFFT = (CAxes*)Ax->hChild;
-				rt2=paxFFT->pos.GetRect(rt);
-				rt2 =paxFFT->axRect;
-				rt2.InflateRect(40,30);
-				InvalidateRect(rt2);
-				delete paxFFT; // do not call deleteObj(paxFFT); --> that is to clean up vectors and assumes CAxes object is a child (vector) of CFigure
-				Ax->hChild=NULL;
-			}
-			k++;
-		}
-		return;
-	case IDM_SPECTRUM_INTERNAL:
+		ViewSpectrum();
 		return;
 	case IDM_WAVWRITE:
 #ifndef NO_PLAYSND
@@ -1884,23 +1907,6 @@ CAxes * CPlotDlg::CurrentPoint2CurrentAxis(CPoint *point)
 
 void CPlotDlg::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags) 
 {
-	char buf1[64], buf2[64], buf3[64];
-	switch(nChar)
-	{
-	case VK_CONTROL:
-		if (ClickOn) ClickOn=0, OnLButtonUp(0, CPoint(-1,-1));
-		if (playing) OnMenu(IDM_STOP);
-		if (axis_expanding)
-			strcpy(buf1,""), strcpy(buf2,""), strcpy(buf3,""); 
-		else
-			strcpy(buf1,"Adjust"), strcpy(buf2,"Window Size with"), strcpy(buf3,"Mouse"); 
-		axis_expanding = !axis_expanding;
-		::SendMessage (hStatusbar, SB_SETTEXT, 7, (LPARAM)buf1);
-		::SendMessage (hStatusbar, SB_SETTEXT, 8, (LPARAM)buf2);
-		::SendMessage (hStatusbar, SB_SETTEXT, 10, (LPARAM)buf3);
-		InvalidateRect(NULL);
-		break;
-	}
 }
 
 void CPlotDlg::UpdateRects(CAxes *ax)

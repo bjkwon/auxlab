@@ -310,7 +310,7 @@ GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CTimeSeries *pda
 GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);
-GRAPHY_EXPORT void		ShowSpectrum(HANDLE _fig);
+GRAPHY_EXPORT void		ViewSpectrum(HANDLE _fig);
 
 
 GRAPHY_EXPORT HACCEL GetAccel(HANDLE hFig);

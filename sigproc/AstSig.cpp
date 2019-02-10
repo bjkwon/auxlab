@@ -8,7 +8,7 @@
 // Platform-independent (hopefully) 
 // 
 // Version: 1.498
-// Date: 2/1/2019
+// Date: 2/10/2019
 // 
 #include <sstream>
 #include <list>
@@ -648,7 +648,8 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 			{
 				SetVar(pp->str, &son->Vars[arg]);
 				if (count++ == 0) 
-					Sig = son->Vars[arg]; //why is this needed?
+					Sig = son->Vars[arg]; //why is this needed? -- so update go Sig with non-go Sig 2/9/2019
+				pgo = NULL;
 				if (--nArgout == 0) break;
 			}
 			else if (son->GOvars.find(arg) != son->GOvars.end())
@@ -2323,6 +2324,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// by default the 3rd arg of psigAtNode is false, but if this call is made during RHS handling (where pRHS is NULL), it tells psigAtNode to try builtin_func_call first. 8/28/2018
 
 		AstNode *pLast = read_nodes(ndog); // that's all about LHS.
+		lhs = pLast;
 		if (!ndog.psigBase)
 		{
 			ndog.side = 'L';
@@ -2338,7 +2340,6 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		}
 		setgo.frozen = true;
 		ndog.side = 'R';
-		lhs = pLast;
 		CVar res = TID_RHS2LHS(pnode, pLast, pRHS, &Sig, ndog.psigBase);
 		// Do this again....  f.pos(2) = 200
 		// Need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
@@ -2626,6 +2627,8 @@ try {
 			pLast = p;
 			hold_at_break_point(p);
 			Compute(p);
+			pgo = NULL; // without this, go lingers on the next line 2/9/2019
+			Sig.Reset(1); // without this, fs=3 lingers on the next line 2/9/2019
 		}
 		break;
 	case T_IF:

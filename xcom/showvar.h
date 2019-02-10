@@ -137,6 +137,7 @@ public:
 	void plotvar(CVar *psig, string title, const char *varname);
 	void plotvar_update(CFigure *cfig, CVar *psig);
 	double plotvar_update2(CAxes *pax, CSignals *psig);
+	double plotvar_update2(CAxes *pax, CTimeSeries *psig);
 	CFigure * newFigure(CRect rt, string title, const char *varname, GRAFWNDDLGSTRUCT *pin);
 	HWND varname2HWND(const char *varname);
 

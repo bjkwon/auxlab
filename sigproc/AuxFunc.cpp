@@ -1481,7 +1481,12 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		if (past->Sig.next) 
 			throw CAstException(pnode, past, "Cannot be a stereo audio signal.");
 		if (past->Sig.IsGO())
-			past->Sig = past->Sig.length();
+		{
+			double out = past->Sig.length().buf[0];
+			past->Sig.Reset();
+			past->pgo = NULL;
+			past->Sig.SetValue(out);
+		}
 		else
 			past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::length);
 	}

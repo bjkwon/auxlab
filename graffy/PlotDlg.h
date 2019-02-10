@@ -19,6 +19,7 @@
 #define	CLOSE_FIGURE	1024
 #define	CUR_MOUSE_POS	3030
 #define	MOUSE_CURSOR_SETTING	3034
+#define	WINDOW_SIZE_ADJUSTING	3035
 #define WM__AUDIOEVENT	WM_APP + WOM_OPEN
 
 #define  RC_SPECTRUM			0x0f00
@@ -183,6 +184,8 @@ public:
 	void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 	void OnMenu(UINT nId);
 	void OnTimer(UINT id);
+	void WindowSizeAdjusting();
+	int ViewSpectrum();
 	void OnCommand(int idc, HWND hwndCtl, UINT event);
 	BOOL OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam);
 	void OnActivate(UINT state, HWND hwndActDeact, BOOL fMinimized);

@@ -12,13 +12,20 @@ if ax.length==1
 	ax.pos(4) /=2
 	ax2 = fig.axes(ax.pos)
 	ax.pos(2) += .4
-	lynes = ax.children
-	if lynes.length==2
-		data1=lynes(1).ydata;
-		data2=lynes(2).ydata;
+	axch = ax.children
+	id4line = []
+	for k = 1:axch.length
+		booleval = ax.children(k).type=="line"
+		if booleval.and
+			id4line ++= k
+		end
+	end
+	if id4line.length==2
+		data1=axch(id4line(1)).ydata;
+		data2=axch(id4line(2)).ydata;
 		begints = [data1.begint data2.begint]
 		endts = [data1.endt data2.endt]
-		delete(lynes(2))
+		delete(axch(id4line(2)))
 		if data2.length>0
 			ax2.plot(data2)
 		end

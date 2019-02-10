@@ -441,9 +441,9 @@ void thread4Plot(PVOID var)
 			break;
 		if (!TranslateAccelerator(in->cfig->m_dlg->hDlg, in->hAccel, &msg))
 		{
-			if (msg.message == WM_KEYDOWN)
-				if (msg.message == WM_KEYDOWN && msg.wParam == 17 && GetParent(msg.hwnd) == in->cfig->m_dlg->hDlg) // Left control key for window size adjustment
-					msg.hwnd = in->cfig->m_dlg->hDlg;
+			//if (msg.message == WM_KEYDOWN)
+			//	if (msg.message == WM_KEYDOWN && msg.wParam == 17 && GetParent(msg.hwnd) == in->cfig->m_dlg->hDlg) // Left control key for window size adjustment
+			//		msg.hwnd = in->cfig->m_dlg->hDlg;
 			if (!IsDialogMessage(msg.hwnd, &msg))
 			{
 				//				SpyGetMessage(msg, "track.txt", wmstr, dum, "Dispatching ");
@@ -566,18 +566,10 @@ GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID)
 	return NULL;
 }
 
-
-
-GRAPHY_EXPORT void ShowSpectrum(HANDLE _h)
+GRAPHY_EXPORT void ViewSpectrum(HANDLE _h)
 {
-	CFigure *pfig = static_cast<CFigure *>(_h);
-	CPlotDlg *tp = (CPlotDlg *)pfig->m_dlg;
-	CAxes* paxFFT;
-	for (vector<CAxes*>::iterator axt = tp->gcf.ax.begin(); axt != tp->gcf.ax.end(); axt++)
-	{
-		if (paxFFT = (CAxes*)(*axt)->hChild)
-			tp->ShowSpectrum(paxFFT, *axt);
-	}
+	CFigure *pfig = (CFigure *)_h;
+	((CPlotDlg *)pfig->m_dlg)->ViewSpectrum();
 }
 
 GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, CPosition pos)
@@ -676,7 +668,7 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata
 
 	CAxes * paxFFT;
 	if (paxFFT = (CAxes*)ax->hChild)
-		ShowSpectrum(paxFFT);
+		ViewSpectrum(paxFFT);
 	return out;
 }
 

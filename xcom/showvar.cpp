@@ -8,8 +8,9 @@
 // 
 // 
 // Version: 1.498
-// Date: 2/1/2019
-// Change from 1.495: std::string used instead of CString 
+// Date: 2/10/2019
+
+
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <process.h>
 #include "showvar.h"
@@ -328,6 +329,22 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 	}
 }
 
+double CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig)
+{
+	//Update sig
+	while (!pax->m_ln.empty())
+		deleteObj(pax->m_ln.front());
+	((CVar*)pax)->struts["children"].clear();
+	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
+	double lower = 1.e100;
+	for (auto lnObj : plotlines)
+	{
+		CLine *pp = (CLine *)lnObj;
+		lower = min(lower, pp->sig.tmark);
+	}
+	return lower;
+}
+
 double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 {
 	//Update sig
@@ -351,11 +368,11 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	// keep xlim
 	// otherwise
 
-	CSignals *pChan = psig;
-	CSignals *pChan2 = (CSignals*)psig->next;
-	pChan2->next = NULL;
+	CTimeSeries *pChan = psig;
+	CTimeSeries *pChan2 = psig->next;
+	if (pChan2) psig->next = NULL;
 	double  lowestTmark = 1.e100;
-	vector<CSignals *> input;
+	vector<CTimeSeries *> input;
 	input.push_back(pChan);
 	input.push_back(pChan2);
 	double xlimOld[2];
@@ -444,11 +461,24 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 				map<string, vector<CVar*>>::iterator jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
 				if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
 				{ // ax must be dual; else ax must have two line objects
-					if ((*jt).second.front()->struts["children"].size()==2 || 
-						((*jt).second.front()->struts["children"].size()==1 && 
-						(*jt).second.front()->struts["children"].front()->struts["children"].size()==2) )
-					On_F2(pmsg->hwnd, CAstSig::vecast.front());
-
+					auto chvector = (*jt).second.front()->struts["children"];
+					size_t nAxes = chvector.size();
+					size_t nLines=0;
+					bool FFTpaxExists = false;
+					for (auto it : chvector.front()->struts["children"])
+					{
+						if ((*it).strut["type"].string() == "line")
+							nLines++;
+						else if ((*it).strut["type"].string() == "axes")
+							FFTpaxExists = true;
+					}
+					if (FFTpaxExists) 
+						ViewSpectrum((*jt).second.front());
+					if (nAxes ==2 ||
+						(nAxes == 1 && nLines ==2) )
+						On_F2(pmsg->hwnd, CAstSig::vecast.front());
+					if (FFTpaxExists) 
+						ViewSpectrum((*jt).second.front());
 				}
 			}
 		}
@@ -497,7 +527,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 							{ // previously one, now two axes needed
 							  //Update the line objects and call OnF2
 								mShowDlg.plotvar_update2(cfig->ax.front(), psig);
-								On_F2(pmsg->hwnd, mShowDlg.pcast);
+	//							On_F2(pmsg->hwnd, mShowDlg.pcast);
 							}
 							else
 							{
