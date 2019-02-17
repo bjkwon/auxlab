@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.4951
-// Date: 12/14/2018
+// Version: 1.499
+// Date: 2/16/2019
 // 
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h
 #include "debugDlg.h"
@@ -628,13 +628,20 @@ LRESULT CDebugDlg::ProcessCustomDraw (NMHDR *lParam, bool tick)
 		{
 			if (CDebugDlg::pAstSig->u.debug.inPurgatory)
 				lplvcd->clrTextBk = RGB(180, 180, 180);
-			else if (iRow == line2Highlight - 1)
+			else
 			{
-				if (udfname == CDebugDlg::pAstSig->u.title)
-					lplvcd->clrTextBk = RGB(100, 200, 40);
-				else
-					lplvcd->clrTextBk = RGB(115, 235, 130);
 				SelectObject(lplvcd->nmcd.hdc, eFont2);
+				if (iRow == line2Highlight - 1)
+				{//on the line where the udf is called or the current line (no subudf)
+					if (udfname == CDebugDlg::pAstSig->u.title)
+						lplvcd->clrTextBk = RGB(100, 200, 40);
+					else
+						lplvcd->clrTextBk = RGB(115, 235, 130);
+				}
+				else if (iRow == CDebugDlg::pAstSig->u.currentLine - 1)
+				{// on the current line (inside the subudf)
+					lplvcd->clrTextBk = RGB(100, 200, 40);
+				}
 			}
 		}
 		return CDRF_NEWFONT;

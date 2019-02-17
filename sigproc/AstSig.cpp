@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.498
-// Date: 2/10/2019
+// Version: 1.499
+// Date: 2/16/2019
 // 
 #include <sstream>
 #include <list>
@@ -785,7 +785,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 			fpmsg.UpdateDebuggerGUI(this, exiting, -1);
 		}
 		if (CAstSig::vecast.size()>2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
-		{//why is this necessary? 10/19/2018
+		{//why is this necessary? 10/19/2018----yes this is...2/16/2019
 			if (u.debug.status==stepping && fpmsg.IsCurrentUDFOnDebuggerDeck && !fpmsg.IsCurrentUDFOnDebuggerDeck(Script.c_str()))
 				fpmsg.UpdateDebuggerGUI(this, entering, -1);
 		}

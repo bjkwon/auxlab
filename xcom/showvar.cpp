@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.498
-// Date: 2/10/2019
+// Version: 1.499
+// Date: 2/16/2019
 
 
 #include "graffy.h" // this should come before the rest because of wxx820
@@ -839,13 +839,17 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 		}
 		//now updated debugAstSig
 		if (debugAstSig) // if called from xcom::cleanup_debug() skip here
-			if (debugAstSig && debugAstSig->u.debug.status == stepping)
+			if (debugAstSig->u.debug.status == stepping)
+			{
 				if (mTab.SetCurrentTab(debugAstSig->Script.c_str()) >= 0)
 				{
 					it = dbmap.find(debugAstSig->Script);
 					if (it != dbmap.end())
 						lastDebug = it->second;
 				}
+			} 
+			else if (debugAstSig->u.debug.status == stepping_in)
+				debugAstSig->u.debug.status = stepping;
 		break;
 	}
 }
