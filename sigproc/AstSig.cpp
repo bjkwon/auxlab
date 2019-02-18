@@ -2324,9 +2324,9 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// by default the 3rd arg of psigAtNode is false, but if this call is made during RHS handling (where pRHS is NULL), it tells psigAtNode to try builtin_func_call first. 8/28/2018
 
 		AstNode *pLast = read_nodes(ndog); // that's all about LHS.
-		lhs = pLast;
 		if (!ndog.psigBase)
 		{
+			lhs = pLast;
 			ndog.side = 'L';
 			return define_new_variable(pnode, pRHS);
 		}
@@ -2340,6 +2340,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		}
 		setgo.frozen = true;
 		ndog.side = 'R';
+		lhs = pLast;
 		CVar res = TID_RHS2LHS(pnode, pLast, pRHS, &Sig, ndog.psigBase);
 		// Do this again....  f.pos(2) = 200
 		// Need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
