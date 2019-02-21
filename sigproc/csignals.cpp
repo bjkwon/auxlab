@@ -4539,8 +4539,10 @@ bool CVar::IsAudioObj()
 	if (strut.empty()) return false;
 	if (strut.find("type") == strut.end()) return false;
 	CSignals type = strut["type"];
-	if (type.GetType() != CSIG_STRING || type.string() != "audio_playback") return false;
-	return true;
+	if (type.GetType() != CSIG_STRING) return false;
+	//The text content may be audio_playback or audio_playback (inactive)
+	if (type.string().find("audio_playback")!=0) return false;
+	return true; 
 }
 
 CVar::CVar()

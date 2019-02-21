@@ -663,8 +663,9 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			pplayObj->strut["data"] = sig;
 			pplayObj->strut["type"] = string("audio_playback");
 			pplayObj->strut["devID"] = CSignals((double)devID);
-			pplayObj->strut["totalDurMS"] = CSignals(sig.alldur()*nRepeats);
-			pplayObj->strut["remDurMS"] = CSignals(sig.alldur()*nRepeats);
+			pplayObj->strut["durTotal"] = CSignals(sig.alldur()*nRepeats / 1000.);
+			pplayObj->strut["durLeft"] = CSignals(sig.alldur()*nRepeats / 1000.);
+			pplayObj->strut["durPlayed"] = CSignals(0.);
 			p->pvar = pplayObj;
 			past->Sig = *pplayObj; //only to return to xcom
 		}

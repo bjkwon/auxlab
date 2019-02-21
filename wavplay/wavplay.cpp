@@ -7,9 +7,12 @@
 // Library to play audio signals 
 // For Windows only
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.499
+// Date: 12/20/2018
 // 
+// This is version with screening logging during playback and upon (faded) stopping
+// See auxlab1.499_play_stop_verification_logging.wmv for a demo.
+
 #include "wavplay.h"
 #include <process.h>
 #include <vector>
@@ -27,7 +30,7 @@ using namespace std;
 
 #define DISPATCH_PLAYBACK_HANDLE			WM_APP+120
 #define DISPATCH_PLAYBACK_HANDLE_STATUS		WM_APP+121
-#define WM_CUSTOM_QUIT						WM_APP+122
+#define WM__QUICK_STOP						WM_APP+122
 
 HWND hMainAppl(NULL);
 
@@ -146,7 +149,7 @@ CWavePlay::~CWavePlay()
 
 int CWavePlay::cleanUp(int IDcut)
 {
-	PostThreadMessage(threadID, WM_CUSTOM_QUIT, 0, 0);
+	PostThreadMessage(threadID, WM__QUICK_STOP, 0, 0);
 	if (IDcut == 0)
 		threadIDs[len_threadIDs-- - 1] = 0;
 	return FINISHED_PLAYING_CLEANUP;
@@ -157,10 +160,14 @@ void *CWavePlay::FadeOut(DWORD offset)
 	int remaining(0);
 	double val;
 	short *sbuf = (short*)playBuffer;
+	char buf[256];
 //	GetLocalTimeStr(buf);
 	if (offset == totalSamples) {
 		offset = 0;
 	}
+	DWORD nn;
+	sprintf(buf, "TotalBlocks = %d\ntotalSamples = %d\nplayBufferLen = %d\nnFadeOutSamples = %d, nFadingBlocks = %d\n", nTotalBlocks, totalSamples, playBufferLen, nFadeOutSamples, nFadingBlocks);
+	SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 	if (wfx.wBitsPerSample == 16)
 	{
 		DWORD k(0), kr(offset);
@@ -170,22 +177,37 @@ void *CWavePlay::FadeOut(DWORD offset)
 			val *= fadeoutEnv[k];
 			sbuf[kr] = _double_to_24bit(val);
 		}
+		sprintf(buf, "modified from 0x%x playBuffer[%d] to playBuffer[%d] (%d filled)", (INT_PTR)(sbuf+offset), offset, kr-1, k);
+		SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 		if (kr == totalSamples)
 		{ 
-			for (kr = 0; !nextPlay.empty() && k < (DWORD)nFadeOutSamples; kr++, k++)
+			// If nextPlay is not empty, reset k at 0 and that buffer block should be modified. Do it in the future 2/20/2019
+			for (kr = 0; k < (DWORD)nFadeOutSamples; kr++, k++)
 			{
 				val = _24bit_to_double(sbuf[kr]);
 				val *= fadeoutEnv[k];
 				sbuf[kr] = _double_to_24bit(val);
 			}
-			for (; kr < playBufferLen; kr++)
-				sbuf[kr] = 0;
+			sprintf(buf, "modified from 0x%x playBuffer[0] to playBuffer[%d]  (total %d filled)", (INT_PTR)sbuf, kr - 1, k);
+			SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
+			//Need to zero-padd until the end of current playbuffer
+			//Current playbuffer ends  
+			nn = (DWORD)ceil((double)nFadeOutSamples / playBufferLen);
+			memset(sbuf + kr, 0, sizeof(short)*(nn*playBufferLen - kr));
+			sprintf(buf, "zeropadded until playBuffer[%d] (end buffer)", nn*playBufferLen -1);
+			SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 		}
 		else
 		{
-			DWORD nn = (DWORD)ceil((double)(offset + nFadeOutSamples) / playBufferLen);
-			for (; kr < nn*playBufferLen; kr++)
-				sbuf[kr] = 0;
+			// nFadingBlocks was overestimated.
+			// If the call is made during early looping, nFadingBlocks should be reduced by one
+			// Otherwise, OnBlockDone leads to another setPlayPoint, after fading out is over... so it's like faded out then BLIPPED!
+			//2/20/2019
+			nFadingBlocks--;
+			nn = (DWORD)ceil((double)(offset+nFadeOutSamples) / playBufferLen);
+			memset(sbuf + kr, 0, sizeof(short)*(nn*playBufferLen - kr));
+			sprintf(buf, "zeropadded until playBuffer[%d]", nn*playBufferLen -1);
+			SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 		}
 	}
 	return (short*)playBuffer + offset;
@@ -193,14 +215,19 @@ void *CWavePlay::FadeOut(DWORD offset)
 
 int CWavePlay::setPlayPoint(int id)
 {
+
 	// id is waveform header ID; either 0 or 1
 	if (wfx.wBitsPerSample == 8)
 		wh[id].lpData = (char*)playBuffer + lastPt;
 	else if (wfx.wBitsPerSample == 16)
 		wh[id].lpData = (char*)((short*)playBuffer + lastPt);
+	char buf[256];
+	sprintf(buf, "//   loop=%d, setPlayPoint %d at 0x%x (0x%x + %d)", loop,  id, (INT_PTR)wh[id].lpData, (INT_PTR)playBuffer, lastPt);
+	SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 	wh[id].dwFlags = 0;
 	wh[id].dwBufferLength = playBufferLen * wfx.wBitsPerSample / 8;
 	lastPt += playBufferLen;
+
 	return 0;
 }
 
@@ -235,13 +262,15 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh, CVar *pvar)
 		if (lpwh->lpData == doomedPt) 	fading = 1;
 		if (fading)
 		{
-			if (nFadingBlocks > 3)
+			SendMessage(hWnd_calling, WM_APP+2917, (WPARAM)nFadingBlocks, 0);
+			if (nFadingBlocks > 1)
 			{
 				nFadingBlocks--;
 			}
 			else
 			{
 				stopped = true;
+				loop = 0;
 				// waveOutReset is necessary to stop further posting WOM_DONE (i.e., without this call, it may post even after "this" pointer is cleared. 7/23/2018 
 				MMERRTHROW(waveOutReset(hwo), "waveOutReset_WOM_DONE")
 				return cleanUp();
@@ -385,11 +414,9 @@ unsigned int WINAPI Thread4MM(PVOID p)
 
 		//Fade-Out duration = 350 ms for now (12/8/2017). if fs is 10000Hz, this is 3500
 		pWP->nFadeOutSamples = (int)(.35 * pWP->wfx.nSamplesPerSec);
-		pWP->nFadingBlocks = (int)ceil(((double)pWP->nFadeOutSamples / pWP->playBufferLen));
-		if (pWP->nFadeOutSamples - pWP->nFadingBlocks*pWP->playBufferLen > 0) pWP->nFadingBlocks++;
 		pWP->fadeoutEnv = new double[pWP->nFadeOutSamples];
-		for (int k = 0; k < pWP->nFadeOutSamples; ++k)
-			pWP->fadeoutEnv[k] = 0.54 - 0.46*cos(2.0*PI*(k + pWP->nFadeOutSamples) / (2 * pWP->nFadeOutSamples - 1.0));
+		for (int k = 1; k <= pWP->nFadeOutSamples; k++)
+			pWP->fadeoutEnv[k - 1] = (exp((double)(pWP->nFadeOutSamples - k) / pWP->nFadeOutSamples) - 1) / (exp(1.) - 1);
 
 		pAud->pWavePlay = (INT_PTR)pWP;
 		pAud->fs = param.fs;
@@ -405,7 +432,11 @@ unsigned int WINAPI Thread4MM(PVOID p)
 
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
-			if (msg.message == WM_CUSTOM_QUIT) break;
+			if (msg.message == WM__QUICK_STOP)
+			{
+		//		pAud->pvar->strut["durLeft"].SetValue(0.);
+				break;
+			}
 			switch (msg.message)
 			{
 				//WM_APP+WOM_OPEN sent to showvarDlg to notify the beginning and ending of playback
@@ -413,6 +444,11 @@ unsigned int WINAPI Thread4MM(PVOID p)
 				SendMessage(pWP->hWnd_calling, pWP->msgID, 0, WOM_OPEN); // send the opening status to the main application 
 				// if its multi-channel(i.e., stereo), playBufferLen must be multiple of nChan, otherwise left-right channels might be swapped around in the middle
 				pWP->playBufferLen = param.nChan * param.length / pWP->nTotalBlocks;
+				pWP->nFadingBlocks = (int)ceil(((double)pWP->nFadeOutSamples / pWP->playBufferLen));
+//				if (pWP->nFadeOutSamples - pWP->nFadingBlocks*pWP->playBufferLen > 0) pWP->nFadingBlocks++;
+				char buf[256];
+				sprintf(buf, "nFadeOutSamples=%d, playBufferLen=%d, nFadingBlocks=%d\n", pWP->nFadeOutSamples, pWP->playBufferLen, pWP->nFadingBlocks);
+				SendMessage(pWP->hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 				pWP->wh[0].dwLoops = pWP->wh[1].dwLoops = 0;
 				// block 0
 				pWP->setPlayPoint(0);
@@ -437,21 +473,33 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			case WOM_DONE:
 				pWP->nPlayedBlocks++;
 				playedPortionsBlock = (double)pWP->nPlayedBlocks / pWP->nTotalBlocks;
-				pAud->remainingDuration = (INT_PTR)(pAud->blockDuration * (pWP->loop - playedPortionsBlock) );
+				pAud->remainingDuration = (INT_PTR)(pAud->blockDuration * (pWP->loop - playedPortionsBlock));
 				if (pAud->pvar)
 				{
-					pAud->pvar->strut["remDurMS"].SetValue((double)pAud->remainingDuration);
+					if (!pWP->doomedPt)
+	//				{ //After doomedPt is set, WOM_DONE would be posted up to two times
+					  //pWP->loop must be rest only for the second around, or when it becomes naturally.
+		//				if (pAud->pvar->strut["durLeft"].value()==0.)
+		//					pWP->loop = 0;
+//						pAud->pvar->strut["durLeft"].SetValue(0.);
+		//			}
+				//	else
+					{
+						pAud->pvar->strut["durLeft"].SetValue((double)pAud->remainingDuration / 1000.);
+						pAud->pvar->strut["durPlayed"].SetValue((double)(pAud->totalDuration - pAud->remainingDuration) / 1000.);
+					}
 				}
 				pWP->OnBlockDone((WAVEHDR *)msg.lParam, pAud->pvar); // Here, the status (block done playing) is sent to the main application 
 				break;
 			}
 		}
+		pAud->pvar->strut["durLeft"].SetValue(0.);
 		//It exits the message loop when cleanUp is called the second time around (the WOM_DONE message for the block 1 is posted)
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR));
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR));
 		toClose.push_back(pWP->hwo);
 		if (pWP->blockMode)	PostThreadMessage(pWP->callingThreadID, WM__RETURN, OK, 0);
-		for (size_t k = pWP->buffer2Clean.size() - 1; k > 0; k--)
+		for (size_t k = pWP->buffer2Clean.size(); k > 0; k--)
 		{
 			if (pWP->buffer2Clean.back() == pWP->buffer2Clean[k - 1])
 				pWP->buffer2Clean.pop_back();
@@ -617,13 +665,9 @@ bool StopPlay(INT_PTR pHandle, bool quick)
 	}
 	if (!FindCWavePlay(pHandle)) return false;
 	CWavePlay *pWP = (CWavePlay *)((AUD_PLAYBACK *)pHandle)->pWavePlay;
-	pWP->loop = false;
 	if (quick)
 	{
-		pWP->cleanUp();
-		MMRESULT	rc = waveOutReset(pWP->hwo);
-		if (rc == MMSYSERR_NOERROR) return true;
-		MMERRRETURNFALSE("waveOutRestart or waveOutPause")
+		_qstopplay(pWP);
 	}
 	else
 	{

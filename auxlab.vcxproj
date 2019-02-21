@@ -141,7 +141,7 @@
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>
+      <Command>copy_headers.bat qlparse
       </Command>
     </PreBuildEvent>
     <PostBuildEvent>
@@ -165,7 +165,7 @@
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>
+      <Command>copy_headers.bat qlparse
       </Command>
     </PreBuildEvent>
     <PostBuildEvent>

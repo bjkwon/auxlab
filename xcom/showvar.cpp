@@ -601,7 +601,13 @@ BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	chHANDLE_DLGMSG (hDlg, WM_COMMAND, cvDlg->OnCommand);
 	chHANDLE_DLGMSG (hDlg, WM_SYSCOMMAND, cvDlg->OnSysCommand);
 	chHANDLE_DLGMSG (hDlg, WM_CLOSE_FIG, cvDlg->OnCloseFig);
-	chHANDLE_DLGMSG (hDlg, WM__AUDIOEVENT, cvDlg->OnSoundEvent);
+	chHANDLE_DLGMSG(hDlg, WM__AUDIOEVENT, cvDlg->OnSoundEvent);
+	case WM_APP + 2917:
+		if (!lParam)
+			printf("nFadingBlocks=%d;\n", (int)wParam);
+		else
+			printf("%s\n", (char*)lParam);
+		break;
 
 	case WM_APP + PROPCHANGED:
 	{
@@ -1310,6 +1316,15 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 		for (vector<HANDLE>::iterator it=figs.begin(); it!=figs.end(); it++)
 			::SendMessage(GetHWND_PlotDlg2(*it), WM_COMMAND, 32799, 0); 
 		StopPlay(0, false);
+		//Reset durLeft and durPlayed
+		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
+		{
+			if ((*it).second.IsAudioObj())
+			{
+				(*it).second.strut["durLeft"].SetValue(0.);
+				UpdateProp((*it).first, &(*it).second, "durLeft");
+			}
+		}
 		break;
 
 	case IDC_OPEN:
@@ -1623,8 +1638,8 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 							pplayObj->strut["data"] = *psig;
 							pplayObj->strut["type"] = string("audio_playback");
 							pplayObj->strut["devID"] = CSignals((double)devID);
-							pplayObj->strut["totalDurMS"] = CSignals(psig->alldur());
-							pplayObj->strut["remDurMS"] = CSignals(psig->alldur());
+							pplayObj->strut["durTotal"] = CSignals(psig->alldur() / 1000.);
+							pplayObj->strut["durLeft"] = CSignals(psig->alldur() / 1000.);
 							p->pvar = pplayObj;
 						}
 					}
@@ -1713,6 +1728,8 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 			{
 				(*it).second.strut["type"].SetString((pvar->strut["type"].string() + " (inactive)").c_str());
 				UpdateProp((*it).first, &(*it).second, "type");
+				(*it).second.strut["durLeft"].SetValue(0.);
+				UpdateProp((*it).first, &(*it).second, "durLeft");
 			}
 		}
 		break;
@@ -1724,9 +1741,10 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 		{
 			if ((*it).second == pvar->value())
 			{
-				(*it).second.strut["remDurMS"].SetValue(pvar->strut["remDurMS"].value());
-				UpdateProp((*it).first, &(*it).second, "remDurMS");
-				break;
+				(*it).second.strut["durLeft"].SetValue(pvar->strut["durLeft"].value());
+				UpdateProp((*it).first, &(*it).second, "durLeft");
+				(*it).second.strut["durPlayed"].SetValue(pvar->strut["durPlayed"].value());
+				UpdateProp((*it).first, &(*it).second, "durPlayed");
 			}
 		}
 		break;
@@ -1970,7 +1988,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 				sprintf(outbuf, "%.0lf [Graphic]", pvar->value());
 		}
 		else if (pvar->IsAudioObj())
-			sprintf(outbuf, "[Audioplay]");
+			sprintf(outbuf, "%.0lf [Audioplay]", pvar->value());
 		else
 			sprintf(outbuf, "Handle");
 		break;
