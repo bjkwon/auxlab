@@ -10,8 +10,6 @@
 // Version: 1.499
 // Date: 12/20/2018
 // 
-// This is version with screening logging during playback and upon (faded) stopping
-// See auxlab1.499_play_stop_verification_logging.wmv for a demo.
 
 #include "wavplay.h"
 #include <process.h>
@@ -156,18 +154,14 @@ int CWavePlay::cleanUp(int IDcut)
 }
 
 void *CWavePlay::FadeOut(DWORD offset)
-{ // 
+{
 	int remaining(0);
 	double val;
 	short *sbuf = (short*)playBuffer;
-	char buf[256];
-//	GetLocalTimeStr(buf);
 	if (offset == totalSamples) {
 		offset = 0;
 	}
 	DWORD nn;
-	sprintf(buf, "TotalBlocks = %d\ntotalSamples = %d\nplayBufferLen = %d\nnFadeOutSamples = %d, nFadingBlocks = %d\n", nTotalBlocks, totalSamples, playBufferLen, nFadeOutSamples, nFadingBlocks);
-	SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 	if (wfx.wBitsPerSample == 16)
 	{
 		DWORD k(0), kr(offset);
@@ -177,8 +171,6 @@ void *CWavePlay::FadeOut(DWORD offset)
 			val *= fadeoutEnv[k];
 			sbuf[kr] = _double_to_24bit(val);
 		}
-		sprintf(buf, "modified from 0x%x playBuffer[%d] to playBuffer[%d] (%d filled)", (INT_PTR)(sbuf+offset), offset, kr-1, k);
-		SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 		if (kr == totalSamples)
 		{ 
 			// If nextPlay is not empty, reset k at 0 and that buffer block should be modified. Do it in the future 2/20/2019
@@ -188,14 +180,10 @@ void *CWavePlay::FadeOut(DWORD offset)
 				val *= fadeoutEnv[k];
 				sbuf[kr] = _double_to_24bit(val);
 			}
-			sprintf(buf, "modified from 0x%x playBuffer[0] to playBuffer[%d]  (total %d filled)", (INT_PTR)sbuf, kr - 1, k);
-			SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 			//Need to zero-padd until the end of current playbuffer
 			//Current playbuffer ends  
 			nn = (DWORD)ceil((double)nFadeOutSamples / playBufferLen);
 			memset(sbuf + kr, 0, sizeof(short)*(nn*playBufferLen - kr));
-			sprintf(buf, "zeropadded until playBuffer[%d] (end buffer)", nn*playBufferLen -1);
-			SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 		}
 		else
 		{
@@ -206,8 +194,6 @@ void *CWavePlay::FadeOut(DWORD offset)
 			nFadingBlocks--;
 			nn = (DWORD)ceil((double)(offset+nFadeOutSamples) / playBufferLen);
 			memset(sbuf + kr, 0, sizeof(short)*(nn*playBufferLen - kr));
-			sprintf(buf, "zeropadded until playBuffer[%d]", nn*playBufferLen -1);
-			SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 		}
 	}
 	return (short*)playBuffer + offset;
@@ -215,15 +201,11 @@ void *CWavePlay::FadeOut(DWORD offset)
 
 int CWavePlay::setPlayPoint(int id)
 {
-
 	// id is waveform header ID; either 0 or 1
 	if (wfx.wBitsPerSample == 8)
 		wh[id].lpData = (char*)playBuffer + lastPt;
 	else if (wfx.wBitsPerSample == 16)
 		wh[id].lpData = (char*)((short*)playBuffer + lastPt);
-	char buf[256];
-	sprintf(buf, "//   loop=%d, setPlayPoint %d at 0x%x (0x%x + %d)", loop,  id, (INT_PTR)wh[id].lpData, (INT_PTR)playBuffer, lastPt);
-	SendMessage(hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 	wh[id].dwFlags = 0;
 	wh[id].dwBufferLength = playBufferLen * wfx.wBitsPerSample / 8;
 	lastPt += playBufferLen;
@@ -262,11 +244,8 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh, CVar *pvar)
 		if (lpwh->lpData == doomedPt) 	fading = 1;
 		if (fading)
 		{
-			SendMessage(hWnd_calling, WM_APP+2917, (WPARAM)nFadingBlocks, 0);
 			if (nFadingBlocks > 1)
-			{
 				nFadingBlocks--;
-			}
 			else
 			{
 				stopped = true;
@@ -445,10 +424,6 @@ unsigned int WINAPI Thread4MM(PVOID p)
 				// if its multi-channel(i.e., stereo), playBufferLen must be multiple of nChan, otherwise left-right channels might be swapped around in the middle
 				pWP->playBufferLen = param.nChan * param.length / pWP->nTotalBlocks;
 				pWP->nFadingBlocks = (int)ceil(((double)pWP->nFadeOutSamples / pWP->playBufferLen));
-//				if (pWP->nFadeOutSamples - pWP->nFadingBlocks*pWP->playBufferLen > 0) pWP->nFadingBlocks++;
-				char buf[256];
-				sprintf(buf, "nFadeOutSamples=%d, playBufferLen=%d, nFadingBlocks=%d\n", pWP->nFadeOutSamples, pWP->playBufferLen, pWP->nFadingBlocks);
-				SendMessage(pWP->hWnd_calling, WM_APP + 2917, (WPARAM)"", (LPARAM)buf);
 				pWP->wh[0].dwLoops = pWP->wh[1].dwLoops = 0;
 				// block 0
 				pWP->setPlayPoint(0);

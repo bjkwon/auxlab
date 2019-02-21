@@ -602,18 +602,11 @@ BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	chHANDLE_DLGMSG (hDlg, WM_SYSCOMMAND, cvDlg->OnSysCommand);
 	chHANDLE_DLGMSG (hDlg, WM_CLOSE_FIG, cvDlg->OnCloseFig);
 	chHANDLE_DLGMSG(hDlg, WM__AUDIOEVENT, cvDlg->OnSoundEvent);
-	case WM_APP + 2917:
-		if (!lParam)
-			printf("nFadingBlocks=%d;\n", (int)wParam);
-		else
-			printf("%s\n", (char*)lParam);
-		break;
 
 	case WM_APP + PROPCHANGED:
 	{
 		CGobj *p = (CGobj *)wParam;
 		char *propname = (char*)lParam;
-
 		for (map<string, vector<CVar *>>::iterator it = cvDlg->pGOvars->begin(); it != cvDlg->pGOvars->end(); it++)
 		{
 			if (p->nSamples && (*it).second.front() == p)
@@ -623,9 +616,7 @@ BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 		}
-
 	}
-
 		break;
 
 	case WM__PLOTDLG_CREATED: // Posted by plotThread when the plot dlg is displayed.
