@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.498
-// Date: 2/1/2019
+// Version: 1.499
+// Date: 2/20/2019
 // 
 #include <math.h>
 #include <stdlib.h>
@@ -633,8 +633,17 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			past->Sig.SetValue(-1.);
 		else
 		{
+			//Update the handle with the PlayArrayNext info
+			//don't update sig, which is only a copy. Instead, go for Vars
+			for (map<string, CVar>::iterator it = past->Vars.begin(); it != past->Vars.end(); it++)
+			{
+				if ((*it).second == sig.value())
+				{
+					(*it).second.strut["durTotal"].SetValue(sig.strut["durTotal"].value()+ audio.alldur()*nRepeats / 1000);
+				}
+			}
 			AUD_PLAYBACK * p = (AUD_PLAYBACK*)h;
-			past->Sig = *p->pvar;
+			past->Sig = p->sig;
 		}
 	}
 	else
@@ -658,16 +667,14 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		else
 		{
 			AUD_PLAYBACK * p = (AUD_PLAYBACK*)h;
-			CVar *pplayObj = new CVar;
-			pplayObj->SetValue((double)(INT_PTR)h);
-			pplayObj->strut["data"] = sig;
-			pplayObj->strut["type"] = string("audio_playback");
-			pplayObj->strut["devID"] = CSignals((double)devID);
-			pplayObj->strut["durTotal"] = CSignals(sig.alldur()*nRepeats / 1000.);
-			pplayObj->strut["durLeft"] = CSignals(sig.alldur()*nRepeats / 1000.);
-			pplayObj->strut["durPlayed"] = CSignals(0.);
-			p->pvar = pplayObj;
-			past->Sig = *pplayObj; //only to return to xcom
+			p->sig.SetValue((double)(INT_PTR)h);
+			p->sig.strut["data"] = sig;
+			p->sig.strut["type"] = string("audio_playback");
+			p->sig.strut["devID"] = CSignals((double)devID);
+			p->sig.strut["durTotal"] = CSignals(sig.alldur()*nRepeats / 1000.);
+			p->sig.strut["durLeft"] = CSignals(sig.alldur()*nRepeats / 1000.);
+			p->sig.strut["durPlayed"] = CSignals(0.);
+			past->Sig = p->sig; //only to return to xcom
 		}
 	}
 }

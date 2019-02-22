@@ -8,7 +8,7 @@
 // 
 // 
 // Version: 1.499
-// Date: 2/16/2019
+// Date: 2/20/2019
 
 
 #include "graffy.h" // this should come before the rest because of wxx820
@@ -1624,14 +1624,13 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 						else
 						{
 							AUD_PLAYBACK * p = (AUD_PLAYBACK*)h;
-							CVar *pplayObj = new CVar;
-							pplayObj->SetValue((double)(INT_PTR)h);
-							pplayObj->strut["data"] = *psig;
-							pplayObj->strut["type"] = string("audio_playback");
-							pplayObj->strut["devID"] = CSignals((double)devID);
-							pplayObj->strut["durTotal"] = CSignals(psig->alldur() / 1000.);
-							pplayObj->strut["durLeft"] = CSignals(psig->alldur() / 1000.);
-							p->pvar = pplayObj;
+							p->sig.SetValue((double)(INT_PTR)h);
+							p->sig.strut["data"] = *psig;
+							p->sig.strut["type"] = string("audio_playback");
+							p->sig.strut["devID"] = CSignals((double)devID);
+							p->sig.strut["durTotal"] = CSignals(psig->alldur() / 1000.);
+							p->sig.strut["durLeft"] = CSignals(psig->alldur() / 1000.);
+							p->sig.strut["durPlayed"] = CSignals(0.);
 						}
 					}
 				}

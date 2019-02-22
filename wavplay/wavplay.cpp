@@ -110,12 +110,13 @@ public:
 	WAVEFORMATEX	wfx;
 	vector<short*>	buffer2Clean;
 	double *fadeoutEnv;
+	AUD_PLAYBACK hPlayStruct;
 
 	CWavePlay();
 	~CWavePlay();
 	int setPlayPoint(int id);
 	void *FadeOut(DWORD offset);
-	int OnBlockDone(WAVEHDR* lpwh, CVar *pvar);
+	int OnBlockDone(WAVEHDR* lpwh);
 	int playnextchunk(char *errstr);
 	int	cleanUp(int threadIDalreadycut = 0);
 };
@@ -213,18 +214,26 @@ int CWavePlay::setPlayPoint(int id)
 	return 0;
 }
 
-int CWavePlay::OnBlockDone(WAVEHDR* lpwh, CVar *pvar)
+int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 {
 	MMRESULT	rc;
 	char errmsg[256], errstr[256];
 	unsigned int remainingSamples;
+
+	double lastPlayedDuration = (double)playBufferLen / hPlayStruct.fs / wfx.nChannels;
+	//Assume that hPlayStruct.sig.strut["durLeft"] is CSIG_SCALAR
+	double *buf = hPlayStruct.sig.strut["durLeft"].buf;
+	//Directly update the content of the buffer
+	*buf -= lastPlayedDuration;
+	buf = hPlayStruct.sig.strut["durPlayed"].buf;
+	*buf += lastPlayedDuration;
 
 	/* lastPt is the point where the buffer preparation is completed for the next block of play.	*/
 	if (stopped) {
 		return cleanUp(1);
 	}
 	if (!blockMode)
-		SendMessage(hWnd_calling, msgID, (WPARAM)pvar, nPlayedBlocks);
+		SendMessage(hWnd_calling, msgID, (WPARAM)&hPlayStruct.sig, nPlayedBlocks);
 	if (nPlayedBlocks == nTotalBlocks)
 		remainingSamples = 0;
 	else
@@ -375,8 +384,6 @@ unsigned int WINAPI Thread4MM(PVOID p)
 	pWP->wfx.nAvgBytesPerSec = pWP->wfx.nSamplesPerSec * pWP->wfx.nBlockAlign;
 	pWP->loop = param.loop;
 
-	AUD_PLAYBACK *pAud = new AUD_PLAYBACK;
-
 	try
 	{
 		rc = waveOutOpen(&pWP->hwo, param.DevID, &pWP->wfx, (DWORD_PTR)pWP->threadID, (DWORD_PTR)0, CALLBACK_THREAD);
@@ -400,15 +407,15 @@ unsigned int WINAPI Thread4MM(PVOID p)
 		for (int k = 1; k <= pWP->nFadeOutSamples; k++)
 			pWP->fadeoutEnv[k - 1] = (exp((double)(pWP->nFadeOutSamples - k) / pWP->nFadeOutSamples) - 1) / (exp(1.) - 1);
 
-		pAud->pWavePlay = (INT_PTR)pWP;
-		pAud->fs = param.fs;
-		pAud->DevID = param.DevID;
-		pAud->blockDuration = (INT_PTR)((double)param.length / param.fs * 1000.);
-		pAud->totalDuration = pAud->blockDuration * param.loop;
+		pWP->hPlayStruct.pWavePlay = (INT_PTR)pWP;
+		pWP->hPlayStruct.fs = param.fs;
+		pWP->hPlayStruct.DevID = param.DevID;
+		pWP->hPlayStruct.blockDuration = (INT_PTR)((double)param.length / param.fs * 1000.);
+		pWP->hPlayStruct.totalDuration = pWP->hPlayStruct.blockDuration * param.loop;
 		double playedPortionsBlock = 0.;
 		int originalLoopCounts = param.loop;
-		pAud->remainingDuration = pAud->totalDuration;
-		PostThreadMessage(pWP->callingThreadID, DISPATCH_PLAYBACK_HANDLE, (WPARAM)pAud, (LPARAM)"");
+		pWP->hPlayStruct.remainingDuration = pWP->hPlayStruct.totalDuration;
+		PostThreadMessage(pWP->callingThreadID, DISPATCH_PLAYBACK_HANDLE, (WPARAM)&pWP->hPlayStruct, (LPARAM)"");
 
 		// Insert LOGGING4
 
@@ -447,20 +454,12 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			case WOM_DONE:
 				pWP->nPlayedBlocks++;
 				playedPortionsBlock = (double)pWP->nPlayedBlocks / pWP->nTotalBlocks;
-				pAud->remainingDuration = (INT_PTR)(pAud->blockDuration * (pWP->loop - playedPortionsBlock));
-				if (pAud->pvar)
-				{
-					if (!pWP->doomedPt)
-					{
-						pAud->pvar->strut["durLeft"].SetValue((double)pAud->remainingDuration / 1000.);
-						pAud->pvar->strut["durPlayed"].SetValue((double)(pAud->totalDuration - pAud->remainingDuration) / 1000.);
-					}
-				}
-				pWP->OnBlockDone((WAVEHDR *)msg.lParam, pAud->pvar); // Here, the status (block done playing) is sent to the main application 
+				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->loop - playedPortionsBlock));
+				pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 
 				break;
 			}
 		}
-		pAud->pvar->strut["durLeft"].SetValue(0.);
+		pWP->hPlayStruct.sig.strut["durLeft"].SetValue(0.);
 		//It exits the message loop when cleanUp is called the second time around (the WOM_DONE message for the block 1 is posted)
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR));
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR));
@@ -479,12 +478,11 @@ unsigned int WINAPI Thread4MM(PVOID p)
 															   //But, in fact, if MM_DONE is posted after the thread message handler is no longer available (because the call PlayArray() already returned), 
 															   //it lurks around and when the message handler is available again for a subsequent PlayArray() call, it picks up right away...
 															   //causing a blocking PlayArray() call to return right away... 11/9/2017 bjk
-		SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)pAud->pvar, WOM_CLOSE); // send the closing status to the main application 
+		SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&pWP->hPlayStruct.sig, WOM_CLOSE); // send the closing status to the main application 
 		it = find(pWlist.begin(), pWlist.end(), pWP);
 		if (it != pWlist.end())
 			pWlist.erase(it);
 		delete pWP;
-		delete pAud;
 		return (unsigned int)msg.wParam;
 	}
 	catch (const char * emsg)
@@ -495,7 +493,6 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			pWlist.erase(it);
 		threadIDs[len_threadIDs-- - 1] = 0;
 		delete pWP;
-		delete pAud;
 		return 0;
 	}
 }
@@ -575,7 +572,13 @@ INT_PTR QueuePlay(INT_PTR pHandle, UINT DevID, SHORT *dataBuffer, int length, in
 	if (!pWP)
 		return (INT_PTR)wavBuffer2snd(DevID, dataBuffer, length, nChan, pWP->wfx.nSamplesPerSec, userDefinedMsgID, pWP->hWnd_calling, nProgReport, loop, errstr);
 	else
+	{
 		pWP->nextPlay.push_back(thisnp);
+		//Assume that pWP->hPlayStruct.sig.strut["durLeft"] is CSIG_SCALAR
+		double *buf = pWP->hPlayStruct.sig.strut["durLeft"].buf;
+		//Directly update the content of the buffer
+		*buf += (double)length / pWP->wfx.nSamplesPerSec * loop;
+	}
 	return (INT_PTR)pHandle;
 }
 

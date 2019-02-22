@@ -28,9 +28,9 @@ public:
 	INT_PTR blockDuration; // milliseconds
 	INT_PTR totalDuration; // milliseconds
 	INT_PTR remainingDuration; // milliseconds
-	CVar *pvar=NULL;
-	AUD_PLAYBACK() {};
-	~AUD_PLAYBACK() { if (pvar) delete pvar; };
+	CVar sig;
+	AUD_PLAYBACK() { };
+	~AUD_PLAYBACK() {};
 } ;
 
 void TerminatePlay(int quick=1);

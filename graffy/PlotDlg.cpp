@@ -7,8 +7,8 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.498
-// Date: 2/4/2019
+// Version: 1.499
+// Date: 2/20/2019
 // 
 
 /* Note on multiple axes situation,
@@ -1730,14 +1730,13 @@ void CPlotDlg::OnMenu(UINT nID)
 				else
 				{
 					AUD_PLAYBACK * p = (AUD_PLAYBACK*)hAudio;
-					CVar *pplayObj = new CVar;
-					pplayObj->SetValue((double)(INT_PTR)hAudio);
-					pplayObj->strut["data"] = _sig;
-					pplayObj->strut["type"] = string("audio_playback");
-					pplayObj->strut["devID"] = CSignals((double)devID);
-					pplayObj->strut["totalDurMS"] = CSignals(_sig.alldur());
-					pplayObj->strut["remDurMS"] = CSignals(_sig.alldur());
-					p->pvar = pplayObj;
+					p->sig.SetValue((double)(INT_PTR)hAudio);
+					p->sig.strut["data"] = _sig;
+					p->sig.strut["type"] = string("audio_playback");
+					p->sig.strut["devID"] = CSignals((double)devID);
+					p->sig.strut["durTotal"] = CSignals(_sig.alldur());
+					p->sig.strut["durLeft"] = CSignals(_sig.alldur());
+					p->sig.strut["durPlayed"] = CSignals(0.);
 				}
 			}
 			else
