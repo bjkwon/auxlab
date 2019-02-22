@@ -301,30 +301,33 @@ int CWavePlay::playnextchunk(char *errstr)
 	char errmsg[256];
 	int nSamplesInBlock; // this is per each channel
 	NP thisnp = nextPlay.at(nextPlay.size() - 1);
-
-	bool openclose(thisnp.nChan != wfx.nChannels);
-
 	playBuffer = thisnp.playBuffer;
-	// then 
-	wfx.nChannels = thisnp.nChan;
-	wfx.nBlockAlign = 2 * wfx.nChannels;
-	wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
-	totalSamples = thisnp.length * wfx.nChannels;
-	nTotalBlocks = max(thisnp.nProgReport, 1);
-	nSamplesInBlock = thisnp.length / nTotalBlocks;
-	loop = thisnp.loop;
-	playBufferLen = nSamplesInBlock * wfx.nChannels;
-
-	if (openclose)
+	if (thisnp.nChan != wfx.nChannels)
+	{
+		wfx.nChannels = thisnp.nChan;
+		wfx.nBlockAlign = 2 * wfx.nChannels;
+		wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
+		totalSamples = thisnp.length * wfx.nChannels;
+		nTotalBlocks = max(thisnp.nProgReport, 1);
 		if ((rc = waveOutClose(hwo)) != MMSYSERR_NOERROR)
-			MMERRTHROW(waveOutOpen(&hwo, thisnp.DevID, &wfx, (DWORD_PTR)threadID, (DWORD_PTR)545, CALLBACK_THREAD),"waveOutOpen_playnext")
+			MMERRTHROW(waveOutOpen(&hwo, thisnp.DevID, &wfx, (DWORD_PTR)threadID, (DWORD_PTR)545, CALLBACK_THREAD), "waveOutOpen_playnext")
+	}
+	loop = thisnp.loop;
+	nSamplesInBlock = thisnp.length / nTotalBlocks;
+	playBufferLen = nSamplesInBlock * wfx.nChannels;
 
 	//initiate playing 
 	lastPt = 0;
 	setPlayPoint(0);
 	nextPlay.pop_back();
-	MMERRTHROW(waveOutPrepareHeader(hwo, wh, sizeof(WAVEHDR)),"waveOutPrepareHeader_playnext")
-	MMERRTHROW(waveOutWrite(hwo, wh, sizeof(WAVEHDR)), "waveOutWrite_playnext")
+	MMERRTHROW(waveOutPrepareHeader(hwo, &wh[0], sizeof(WAVEHDR)),"waveOutPrepareHeader_playnext")
+	MMERRTHROW(waveOutPause(hwo), "waveOutPause")
+	MMERRTHROW(waveOutWrite(hwo, &wh[0], sizeof(WAVEHDR)), "waveOutWrite_playnext")
+	setPlayPoint(1);
+	MMERRTHROW(waveOutPrepareHeader(hwo, &wh[1], sizeof(WAVEHDR)), "waveOutPrepareHeader_1")
+	MMERRTHROW(waveOutWrite(hwo, &wh[1], sizeof(WAVEHDR)), "waveOutWrite_1")
+	MMERRTHROW(waveOutRestart(hwo), "waveOutRestart")
+
 	buffer2Clean.push_back((short*)playBuffer);
 	return rc;
 }
@@ -411,11 +414,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
-			if (msg.message == WM__QUICK_STOP)
-			{
-		//		pAud->pvar->strut["durLeft"].SetValue(0.);
-				break;
-			}
+			if (msg.message == WM__QUICK_STOP) break;
 			switch (msg.message)
 			{
 				//WM_APP+WOM_OPEN sent to showvarDlg to notify the beginning and ending of playback
@@ -452,13 +451,6 @@ unsigned int WINAPI Thread4MM(PVOID p)
 				if (pAud->pvar)
 				{
 					if (!pWP->doomedPt)
-	//				{ //After doomedPt is set, WOM_DONE would be posted up to two times
-					  //pWP->loop must be rest only for the second around, or when it becomes naturally.
-		//				if (pAud->pvar->strut["durLeft"].value()==0.)
-		//					pWP->loop = 0;
-//						pAud->pvar->strut["durLeft"].SetValue(0.);
-		//			}
-				//	else
 					{
 						pAud->pvar->strut["durLeft"].SetValue((double)pAud->remainingDuration / 1000.);
 						pAud->pvar->strut["durPlayed"].SetValue((double)(pAud->totalDuration - pAud->remainingDuration) / 1000.);
