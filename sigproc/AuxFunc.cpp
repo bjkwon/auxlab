@@ -939,8 +939,9 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	if (!past->Sig.IsString())
 		throw CAstException(p, past, fnsigs, "argument must be a string.");
 	string arg = past->Sig.string();
-	char drive[MAX_PATH], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH];
+	char drive[MAX_PATH], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH], pathonly[MAX_PATH] = {};
 	_splitpath(arg.c_str(), drive, dir, fname, ext);
+	sprintf(pathonly, "%s%s", drive, dir);
 	if (strlen(fname)==0 && strlen(ext)==0)
 		arg += "\\*.*";
 #ifdef _WINDOWS
@@ -953,30 +954,33 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	{
 		past->Sig.Reset();
 		do {
-			_splitpath(ls.cFileName, drive, dir, fname, ext);
+			if (!pathonly[0])
+				_splitpath(ls.cFileName, drive, dir, fname, ext);
+			else
+				strcpy(fname, ls.cFileName);
 			char fullname[256];
 			CVar tp;
 			tp.strut["name"] = CSignals(CSignal(string(fname)));
 			tp.strut["ext"] = CSignals(CSignal(string(ext)));
-			char **lppPart = { NULL };
-			DWORD dw = GetFullPathName(fname, 256, fullname, lppPart);
-			if (dw)
+			if (fname[0] != '.' || fname[1] != '\0')
 			{
-				if (fname[0] != '.' || fname[1] != '\0')
+				if (pathonly[0])
+					tp.strut["path"] = CSignals(CSignal(string(pathonly)));
+				else
 				{
 					char *pt = strstr(fullname, fname);
 					if (pt) *pt = 0;
 					tp.strut["path"] = CSignals(CSignal(string(fullname)));
-					tp.strut["bytes"] = CSignals((double)((unsigned __int64)(ls.nFileSizeHigh * (MAXDWORD + 1)) + ls.nFileSizeLow));
-					FILETIME ft = ls.ftLastWriteTime;
-					SYSTEMTIME lt;
-					FileTimeToSystemTime(&ft, &lt);
-					sprintf(fullname, "%02d/%02d/%4d, %02d:%02d:%02d", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond);
-					tp.strut["date"] = CSignals(CSignal(string(fullname)));
-					bool b = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
-					tp.strut["isdir"] = CSignals(b);
-					past->Sig.appendcell(tp);
 				}
+				tp.strut["bytes"] = CSignals((double)((unsigned __int64)(ls.nFileSizeHigh * (MAXDWORD + 1)) + ls.nFileSizeLow));
+				FILETIME ft = ls.ftLastWriteTime;
+				SYSTEMTIME lt;
+				FileTimeToSystemTime(&ft, &lt);
+				sprintf(fullname, "%02d/%02d/%4d, %02d:%02d:%02d", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond);
+				tp.strut["date"] = CSignals(CSignal(string(fullname)));
+				bool b = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+				tp.strut["isdir"] = CSignals(b);
+				past->Sig.appendcell(tp);
 			}
 		} while (FindNextFile(hFind, &ls));
 	}

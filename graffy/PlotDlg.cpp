@@ -1364,8 +1364,9 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 	case -1: // error
 		break;
 	default: // status updates
-		gara = pvar->strut["remDurMS"].value();
-		dara = pvar->strut["totalDurMS"].value();
+		//Not used for now, but leaving just for the future use. 2/22/2019
+//		gara = pvar->strut["durLeft"].value();
+//		dara = pvar->strut["durTotal"].value();
 		playingIndex++;
 		if (playCursor > 0)
 			playLoc = playCursor + pax->timepoint2pix(block*+playingIndex / 1000);
