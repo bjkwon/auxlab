@@ -1703,6 +1703,8 @@ void CShowvarDlg::UpdateProp(string varname, CVar *pvar, string propname)
 
 void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 {
+	// Note: Audioplayback handle pvar is not a pointer like a graphic handle.
+	// The variables in Vars are only copies. So, we need to update the values here for WOM_DOWN and WOM_CLOSE
 	switch (code)
 	{
 	case WOM_OPEN:
@@ -1718,8 +1720,10 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 			{
 				(*it).second.strut["type"].SetString((pvar->strut["type"].string() + " (inactive)").c_str());
 				UpdateProp((*it).first, &(*it).second, "type");
-				(*it).second.strut["durLeft"].SetValue(0.);
+				(*it).second.strut["durLeft"].buf[0] = 0.;
+				(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durTotal"].value();
 				UpdateProp((*it).first, &(*it).second, "durLeft");
+				UpdateProp((*it).first, &(*it).second, "durPlayed");
 			}
 		}
 		break;
@@ -1731,9 +1735,9 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 		{
 			if ((*it).second == pvar->value())
 			{
-				(*it).second.strut["durLeft"].SetValue(pvar->strut["durLeft"].value());
+				(*it).second.strut["durLeft"].buf[0] = pvar->strut["durLeft"].value();
+				(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durPlayed"].value();
 				UpdateProp((*it).first, &(*it).second, "durLeft");
-				(*it).second.strut["durPlayed"].SetValue(pvar->strut["durPlayed"].value());
 				UpdateProp((*it).first, &(*it).second, "durPlayed");
 			}
 		}
