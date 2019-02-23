@@ -639,6 +639,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			{
 				if ((*it).second == sig.value())
 				{
+					(*it).second.strut["durLeft"].SetValue(sig.strut["durLeft"].value() + audio.alldur()*nRepeats / 1000);
 					(*it).second.strut["durTotal"].SetValue(sig.strut["durTotal"].value()+ audio.alldur()*nRepeats / 1000);
 					past->Sig = (*it).second;
 				}

@@ -288,12 +288,27 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 					return cleanUp();
 				}
 				else
+				{
+					printf("\n");
 					return 0;
+				}
 			}
 			else
 			{
+				// If playing with no reoeating (looping), 
+				// remainingSamples is already zero when nPlayedBlocks is nTotalBlocks - 1,
+				// So, the first time (while nPlayedBlocks == nTotalBlocks - 1), preparenextchunk is called and call waveOutPrepareHeader for nextPlay buffer 0
+				// and the next time (while nPlayedBlocks == nTotalBlocks1), just call waveOutPrepareHeader for nextPlay buffer 1
+				// But playing with repeating, or if this playing is done via nextPlay
+				// remainingSamples is not zero when nPlayedBlocks is nTotalBlocks - 1,
+				// i.e., when remainingSamples is zero, nPlayedBlocks is nTotalBlocks 
+				// so it shouldn't to nPlayedBlocks check the double-buffering timing
+				// instead this judgment should be done based on lastPt
+				//I'm about to change now.... 4:26 PM 2/23/2019
 				if (nPlayedBlocks < nTotalBlocks)
-					preparenextchunk(errstr); // initiate nextplay 
+					nPlayedBlocks = 0, preparenextchunk(errstr); // initiate nextplay 
+				else // nPlayedBlocks == nTotalBlocks, the last OnDone
+					nPlayedBlocks = 0;
 			}
 		}
 		else
@@ -303,7 +318,7 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 			playBufferLen = totalSamples / nTotalBlocks * wfx.nChannels;
 		}
 	}
-	printf(" setPlayPoint(%d) ", (lpwh == wh));
+	printf(" setPlayPoint(%d) ", !(lpwh == wh));
 	setPlayPoint((lpwh == wh) ? 0 : 1);
 	MMERRTHROW(waveOutPrepareHeader(hwo, lpwh, sizeof(WAVEHDR)), "waveOutPrepareHeader_WOM_DONE")
 	MMERRTHROW(waveOutWrite(hwo, lpwh, sizeof(WAVEHDR)), "waveOutWrite_WOM_DONE")
