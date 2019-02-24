@@ -118,6 +118,8 @@ public:
 	int OnBlockDone(WAVEHDR* lpwh);
 	int preparenextchunk(char *errstr);
 	int	cleanUp(int threadIDalreadycut = 0);
+private:
+	bool passing;
 };
 
 vector<CWavePlay*> pWlist;
@@ -126,7 +128,7 @@ vector<CWavePlay*> pWlist;
 	SetFilePointer(hf, NULL,NULL, FILE_END); WriteFile(hf, fout, strlen(fout), &dw, NULL); CloseHandle(hf);}
 
 CWavePlay::CWavePlay()
-	: playBuffer(NULL), hThread(NULL), playcount(1), fading(0), lastPt(0), nPlayedBlocks(0), doomedPt(NULL), fadeoutEnv(NULL)
+	: playBuffer(NULL), hThread(NULL), playcount(1), fading(0), lastPt(0), nPlayedBlocks(0), doomedPt(NULL), fadeoutEnv(NULL), passing(true)
 {
 	threadID = GetCurrentThreadId();
 	wfx.wFormatTag = WAVE_FORMAT_PCM;
@@ -215,10 +217,10 @@ int CWavePlay::setPlayPoint(int id)
 
 int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 {
+	nPlayedBlocks++;
 	MMRESULT	rc;
 	char errmsg[256], errstr[256];
 	unsigned int remainingSamples;
-
 	double lastPlayedDuration = (double)playBufferLen / hPlayStruct.fs / wfx.nChannels;
 	//Assume that hPlayStruct.sig.strut["durLeft"] is CSIG_SCALAR
 	double *dbuf = hPlayStruct.sig.strut["durLeft"].buf;
@@ -227,25 +229,13 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 	dbuf = hPlayStruct.sig.strut["durPlayed"].buf;
 	*dbuf += lastPlayedDuration;
 
-	printf("//OnBlockDone(0x%x), lastPt=%d, ", lpwh, lastPt);
-
-	/* lastPt is the point where the buffer preparation is completed for the next block of play.	*/
+	printf("//[%x], lastPt=%d, ", lpwh, lastPt);
 	if (!blockMode)
 		SendMessage(hWnd_calling, msgID, (WPARAM)&hPlayStruct.sig, nPlayedBlocks);
-	if (nPlayedBlocks == nTotalBlocks)
-		remainingSamples = 0;
-	else
-	{
-		remainingSamples = totalSamples - lastPt;
-		// 10/9/2018
-		// If setPlayPoint is called with just one point, often a garbage data is sent to the play buffer and makes unpleasant noise, because playBufferLen is not always one.
-		// A quick solution: if remainingSamples is 1, ignore it 
-		// A more graceful way to handle this (or avoid this situation) may be better but, for now, this saves a headache of handling the last point without compromising a lot
-		if (remainingSamples < 2) remainingSamples = 0;
-		if (remainingSamples >= playBufferLen && remainingSamples < 2 * playBufferLen)
-			playBufferLen = remainingSamples;
-	}
-	//determine whether to update lpData because of fading out or nextplay
+	remainingSamples = totalSamples - lastPt;
+	if (remainingSamples < 2) remainingSamples = 0;
+	if (remainingSamples >= playBufferLen && remainingSamples < 2 * playBufferLen)
+		playBufferLen = remainingSamples;
 	if (doomedPt)
 	{
 		if (lpwh->lpData == doomedPt) 	fading = 1;
@@ -263,62 +253,53 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 			}
 		}
 	}
-	printf(" remainingSamples=%d ", remainingSamples);
-	if (remainingSamples == 0)
+	printf(" remaining=%d ", remainingSamples);
+	if (remainingSamples < playBufferLen)
 	{
-		// zero remainingSamples means that all playback buffer has been prepared for the current playcount
-		// But this doesn't mean nPlayedBlocks (how many blocks have been ACTUALLY played) has reached nTotalBlocks
-		// First, if playcount is 1 (no repeating, or "looping")
-		//		if there's no nextPlay, prepare the end of playback
-		//		if there's nextPlay and 
-		//			if this is not the last block (i.e., nPlayedBlocks == nTotalBlocks-1),
-		//					no more waveOutPrepareHeader to call with current playback. initiate preparenextchunk and call waveOutPrepareHeader with the new waveheader 0 
-		//		subsequently, if this is not the last block (i.e., nPlayedBlocks == nTotalBlocks),
-		//					just call waveOutPrepareHeader with the new waveheader 1.
-
+		printf(" %d of %d blocks ", nPlayedBlocks, nTotalBlocks);
 		if (playcount == 1)
 		{
-			printf(" nPlayedBlocks=%d, nTotalBlocks=%d) ", nPlayedBlocks, nTotalBlocks);
 			if (nextPlay.empty())
 			{
-				if (nPlayedBlocks == nTotalBlocks)
+				if (passing)
 				{
-					nPlayedBlocks = lastPt = 0;
-					printf(" nextPlay empty\n");
-					return cleanUp();
+					printf("passing \n");
+					passing = false;
+					return 0;
 				}
 				else
 				{
-					printf("\n");
-					return 0;
+					nPlayedBlocks = lastPt = 0;
+					printf(" nextPlay empty, cleanup\n");
+					return cleanUp();
 				}
 			}
 			else
 			{
-				// If playing with no reoeating (looping), 
-				// remainingSamples is already zero when nPlayedBlocks is nTotalBlocks - 1,
-				// So, the first time (while nPlayedBlocks == nTotalBlocks - 1), preparenextchunk is called and call waveOutPrepareHeader for nextPlay buffer 0
-				// and the next time (while nPlayedBlocks == nTotalBlocks1), just call waveOutPrepareHeader for nextPlay buffer 1
-				// But playing with repeating, or if this playing is done via nextPlay
-				// remainingSamples is not zero when nPlayedBlocks is nTotalBlocks - 1,
-				// i.e., when remainingSamples is zero, nPlayedBlocks is nTotalBlocks 
-				// so it shouldn't to nPlayedBlocks check the double-buffering timing
-				// instead this judgment should be done based on lastPt
-				//I'm about to change now.... 4:26 PM 2/23/2019
-				if (nPlayedBlocks < nTotalBlocks)
-					nPlayedBlocks = 0, preparenextchunk(errstr); // initiate nextplay 
-				else // nPlayedBlocks == nTotalBlocks, the last OnDone
+				if (passing)
+				{
+					passing = false;
+					preparenextchunk(errstr); // initiate nextplay 
+				}
+				//if remainingSamples is not zero, it should pass through and call waveOutPrepareHeader one more time
+				//next time around, remainingSamples should be zero and setPlayPoint is called with the new header
+				if (remainingSamples == 0) //the last OnDone
+				{
 					nPlayedBlocks = 0;
+					lastPt = 0; // Resetting for setPlayPoint
+					passing = true;
+				}
 			}
 		}
 		else
 		{
 			playcount--;
 			nPlayedBlocks = lastPt = 0;
+			passing = true;
 			playBufferLen = totalSamples / nTotalBlocks * wfx.nChannels;
 		}
 	}
-	printf(" setPlayPoint(%d) ", !(lpwh == wh));
+	printf(" bufLen=%d, Header%d", playBufferLen, !(lpwh == wh));
 	setPlayPoint((lpwh == wh) ? 0 : 1);
 	MMERRTHROW(waveOutPrepareHeader(hwo, lpwh, sizeof(WAVEHDR)), "waveOutPrepareHeader_WOM_DONE")
 	MMERRTHROW(waveOutWrite(hwo, lpwh, sizeof(WAVEHDR)), "waveOutWrite_WOM_DONE")
@@ -328,12 +309,11 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 
 int CWavePlay::preparenextchunk(char *errstr)
 {
-	MMRESULT	rc;
+	MMRESULT	rc=0;
 	char errmsg[256];
 	int nSamplesInBlock; // this is per each channel
 	NP thisnp = nextPlay.back();
 	playBuffer = thisnp.playBuffer;
-	totalSamples = thisnp.length * wfx.nChannels;
 	if (thisnp.nChan != wfx.nChannels)
 	{
 		wfx.nChannels = thisnp.nChan;
@@ -342,17 +322,19 @@ int CWavePlay::preparenextchunk(char *errstr)
 		if ((rc = waveOutClose(hwo)) != MMSYSERR_NOERROR)
 			MMERRTHROW(waveOutOpen(&hwo, thisnp.DevID, &wfx, (DWORD_PTR)threadID, (DWORD_PTR)545, CALLBACK_THREAD), "waveOutOpen_playnext")
 	}
+	totalSamples = thisnp.length * wfx.nChannels;
 	playcount = thisnp.playcount;
 	nTotalBlocks = max(thisnp.nProgReport, 1);
 	nSamplesInBlock = thisnp.length / nTotalBlocks;
 	playBufferLen = nSamplesInBlock * wfx.nChannels;
 
-	//initiate playing 
-	lastPt = 0;
-	setPlayPoint(0);
 	nextPlay.pop_back();
-	MMERRTHROW(waveOutPrepareHeader(hwo, &wh[0], sizeof(WAVEHDR)),"waveOutPrepareHeader_playnext")
-	MMERRTHROW(waveOutWrite(hwo, &wh[0], sizeof(WAVEHDR)), "waveOutWrite_playnext")
+	//initiate playing 
+	//lastPt = 0;
+	//passing = true;
+	//setPlayPoint(0);
+	//MMERRTHROW(waveOutPrepareHeader(hwo, &wh[0], sizeof(WAVEHDR)),"waveOutPrepareHeader_playnext")
+	//MMERRTHROW(waveOutWrite(hwo, &wh[0], sizeof(WAVEHDR)), "waveOutWrite_playnext")
 	buffer2Clean.push_back((short*)playBuffer);
 	return rc;
 }
@@ -453,13 +435,12 @@ unsigned int WINAPI Thread4MM(PVOID p)
 				// waveOutPause must come before the first waveOutWrite call; otherwise, occassionally a tiny "blip" in the beginning occurs regardless of the play buffer size. 7/23/2018
 				MMERRTHROW(waveOutPause(pWP->hwo), "waveOutPause")
 				MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutWrite_0")
-				printf("//waveOutWrite, wh[0]=0x%x\n", &pWP->wh[0]);
+				printf("//DOUBLE-BUFFERING, waveOutPrepareHeader, wh[0]=%x, wh[1]=%x\n", &pWP->wh[0], &pWP->wh[1]);
 				// block 1
 				pWP->setPlayPoint(1);
 				pWP->wh[1].dwFlags |= WHDR_ENDLOOP;
 				MMERRTHROW(waveOutPrepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutPrepareHeader_1")
 				MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutWrite_1")
-				printf("//waveOutWrite, wh[1]=0x%x\n", &pWP->wh[1]);
 				MMERRTHROW(waveOutRestart(pWP->hwo), "waveOutRestart")
 				// Insert LOGGING5
 				// IMPORTANT--DO NOT ASSUME THAT pWP->playBuffer == param->dataBuffer in a multithread environment.
@@ -469,18 +450,19 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			case WOM_CLOSE: //This is no longer processed because waveOutClose is not called while this message playcount is running (i.e., it is called either before or after the message playcount)
 				break;
 			case WOM_DONE:
-				pWP->nPlayedBlocks++;
 				playedPortionsBlock = (double)pWP->nPlayedBlocks / pWP->nTotalBlocks;
 				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - playedPortionsBlock));
 				pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 
 				break;
-			}
+			} 
 		}
 		pWP->hPlayStruct.sig.strut["durLeft"].SetValue(0.);
 		pWP->hPlayStruct.sig.strut["durPlayed"].SetValue(pWP->hPlayStruct.sig.strut["durTotal"].value());
 		//It exits the message playcount when cleanUp is called the second time around (the WOM_DONE message for the block 1 is posted)
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR));
+		printf("//waveOutUnprepareHeader returns %d\n", rc);
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR));
+		printf("//waveOutUnprepareHeader returns %d\n", rc);
 		toClose.push_back(pWP->hwo);
 		if (pWP->blockMode)	PostThreadMessage(pWP->callingThreadID, WM__RETURN, OK, 0);
 		for (size_t k = pWP->buffer2Clean.size(); k > 0; k--)
@@ -488,8 +470,10 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			if (pWP->buffer2Clean.back() == pWP->buffer2Clean[k - 1])
 				pWP->buffer2Clean.pop_back();
 		}
+		printf("//after pWP->buffer2Clean\n");
 		for (size_t k = 0; k < pWP->buffer2Clean.size(); k++)
 			delete[] pWP->buffer2Clean[k];
+		printf("//after pWP->buffer2Clean\n");
 		if (pWP->blockMode)
 			PostThreadMessage(pWP->callingThreadID, MM_DONE, 0, 0); // This seems redundant with if (blockMode)	PostThreadMessage (callingThreadID, WM__RETURN, OK, 0); above...
 															   //Previously I thought that it was OK to post MM_DONE again just in case and wouldn't do any harm. 
@@ -500,7 +484,9 @@ unsigned int WINAPI Thread4MM(PVOID p)
 		it = find(pWlist.begin(), pWlist.end(), pWP);
 		if (it != pWlist.end())
 			pWlist.erase(it);
+		printf("//after pWlist.erase\n");
 		delete pWP;
+		printf("//after delete pWP;\n");
 		return (unsigned int)msg.wParam;
 	}
 	catch (const char * emsg)
