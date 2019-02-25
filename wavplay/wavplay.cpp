@@ -299,7 +299,7 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 			playBufferLen = totalSamples / nTotalBlocks * wfx.nChannels;
 		}
 	}
-	printf(" bufLen=%d, Header%d", playBufferLen, !(lpwh == wh));
+//	printf(" bufLen=%d, Header%d", playBufferLen, !(lpwh == wh));
 	setPlayPoint((lpwh == wh) ? 0 : 1);
 	MMERRTHROW(waveOutPrepareHeader(hwo, lpwh, sizeof(WAVEHDR)), "waveOutPrepareHeader_WOM_DONE")
 	MMERRTHROW(waveOutWrite(hwo, lpwh, sizeof(WAVEHDR)), "waveOutWrite_WOM_DONE")
@@ -319,8 +319,9 @@ int CWavePlay::preparenextchunk(char *errstr)
 		wfx.nChannels = thisnp.nChan;
 		wfx.nBlockAlign = 2 * wfx.nChannels;
 		wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
-		if ((rc = waveOutClose(hwo)) != MMSYSERR_NOERROR)
-			MMERRTHROW(waveOutOpen(&hwo, thisnp.DevID, &wfx, (DWORD_PTR)threadID, (DWORD_PTR)545, CALLBACK_THREAD), "waveOutOpen_playnext")
+		//waveOutClose is not necessary before calling waveOutOpen; 
+		// a call to waveOutOpen without calling waveOutClose simply updates the content of &hwo and it is harmless. 2/24/2019
+		MMERRTHROW(waveOutOpen(&hwo, thisnp.DevID, &wfx, (DWORD_PTR)threadID, (DWORD_PTR)545, CALLBACK_THREAD), "waveOutOpen_playnext")
 	}
 	totalSamples = thisnp.length * wfx.nChannels;
 	playcount = thisnp.playcount;
@@ -329,12 +330,6 @@ int CWavePlay::preparenextchunk(char *errstr)
 	playBufferLen = nSamplesInBlock * wfx.nChannels;
 
 	nextPlay.pop_back();
-	//initiate playing 
-	//lastPt = 0;
-	//passing = true;
-	//setPlayPoint(0);
-	//MMERRTHROW(waveOutPrepareHeader(hwo, &wh[0], sizeof(WAVEHDR)),"waveOutPrepareHeader_playnext")
-	//MMERRTHROW(waveOutWrite(hwo, &wh[0], sizeof(WAVEHDR)), "waveOutWrite_playnext")
 	buffer2Clean.push_back((short*)playBuffer);
 	return rc;
 }
@@ -415,7 +410,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 		PostThreadMessage(pWP->callingThreadID, DISPATCH_PLAYBACK_HANDLE, (WPARAM)&pWP->hPlayStruct, (LPARAM)"");
 
 		// Insert LOGGING4
-
+		bool already_double_buffered = false;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
 			if (msg.message == WM__QUICK_STOP) break;
@@ -423,29 +418,33 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			{
 				//WM_APP+WOM_OPEN sent to showvarDlg to notify the beginning and ending of playback
 			case WOM_OPEN:
-				SendMessage(pWP->hWnd_calling, pWP->msgID, 0, WOM_OPEN); // send the opening status to the main application 
-				// if its multi-channel(i.e., stereo), playBufferLen must be multiple of nChan, otherwise left-right channels might be swapped around in the middle
-				pWP->playBufferLen = param.nChan * param.length / pWP->nTotalBlocks;
-				pWP->nFadingBlocks = (int)ceil(((double)pWP->nFadeOutSamples / pWP->playBufferLen));
-				pWP->wh[0].dwLoops = pWP->wh[1].dwLoops = 0;
-				// block 0
-				pWP->setPlayPoint(0);
-				pWP->wh[0].dwFlags |= WHDR_BEGINLOOP;
-				MMERRTHROW(waveOutPrepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutPrepareHeader_0")
-				// waveOutPause must come before the first waveOutWrite call; otherwise, occassionally a tiny "blip" in the beginning occurs regardless of the play buffer size. 7/23/2018
-				MMERRTHROW(waveOutPause(pWP->hwo), "waveOutPause")
-				MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutWrite_0")
-				printf("//DOUBLE-BUFFERING, waveOutPrepareHeader, wh[0]=%x, wh[1]=%x\n", &pWP->wh[0], &pWP->wh[1]);
-				// block 1
-				pWP->setPlayPoint(1);
-				pWP->wh[1].dwFlags |= WHDR_ENDLOOP;
-				MMERRTHROW(waveOutPrepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutPrepareHeader_1")
-				MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutWrite_1")
-				MMERRTHROW(waveOutRestart(pWP->hwo), "waveOutRestart")
-				// Insert LOGGING5
-				// IMPORTANT--DO NOT ASSUME THAT pWP->playBuffer == param->dataBuffer in a multithread environment.
-				pWP->buffer2Clean.push_back((SHORT*)pWP->playBuffer);
-				//	pWP->buffer2Clean.push_back(param->dataBuffer); // this will lead to an incorrect pointer and proper buffer is not stored and something else might be stored twice, which will crash the application. 7/11/2016 bjk
+				if (!already_double_buffered)
+				{
+					SendMessage(pWP->hWnd_calling, pWP->msgID, 0, WOM_OPEN); // send the opening status to the main application 
+					// if its multi-channel(i.e., stereo), playBufferLen must be multiple of nChan, otherwise left-right channels might be swapped around in the middle
+					pWP->playBufferLen = pWP->wfx.nChannels * param.length / pWP->nTotalBlocks;
+					pWP->nFadingBlocks = (int)ceil(((double)pWP->nFadeOutSamples / pWP->playBufferLen));
+					pWP->wh[0].dwLoops = pWP->wh[1].dwLoops = 0;
+					// block 0
+					pWP->setPlayPoint(0);
+					pWP->wh[0].dwFlags |= WHDR_BEGINLOOP;
+					MMERRTHROW(waveOutPrepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutPrepareHeader_0")
+						// waveOutPause must come before the first waveOutWrite call; otherwise, occassionally a tiny "blip" in the beginning occurs regardless of the play buffer size. 7/23/2018
+						MMERRTHROW(waveOutPause(pWP->hwo), "waveOutPause")
+						MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutWrite_0")
+						printf("//DOUBLE-BUFFERING, waveOutPrepareHeader, wh[0]=%x, wh[1]=%x\n", &pWP->wh[0], &pWP->wh[1]);
+					// block 1
+					pWP->setPlayPoint(1);
+					pWP->wh[1].dwFlags |= WHDR_ENDLOOP;
+					MMERRTHROW(waveOutPrepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutPrepareHeader_1")
+						MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutWrite_1")
+						MMERRTHROW(waveOutRestart(pWP->hwo), "waveOutRestart")
+						// Insert LOGGING5
+						// IMPORTANT--DO NOT ASSUME THAT pWP->playBuffer == param->dataBuffer in a multithread environment.
+						pWP->buffer2Clean.push_back((SHORT*)pWP->playBuffer);
+					//	pWP->buffer2Clean.push_back(param->dataBuffer); // this will lead to an incorrect pointer and proper buffer is not stored and something else might be stored twice, which will crash the application. 7/11/2016 bjk
+					already_double_buffered = true;
+				}
 				break;
 			case WOM_CLOSE: //This is no longer processed because waveOutClose is not called while this message playcount is running (i.e., it is called either before or after the message playcount)
 				break;
@@ -566,14 +565,14 @@ INT_PTR QueuePlay(INT_PTR pHandle, UINT DevID, SHORT *dataBuffer, int length, in
 	DWORD id = threadIDs[len_threadIDs - 1];
 	if (id == 0) 	return NULL;
 	static NP thisnp;
-	thisnp.length = length;
 	thisnp.nChan = nChan;
+	thisnp.length = length;
 	thisnp.nProgReport = nProgReport;
 	thisnp.playBuffer = dataBuffer;
 	thisnp.DevID = DevID;
 	thisnp.playcount = playcount;
 
-	if (!pWP)
+	if (!pWP) // in AUXLAB, pWP is never null. If the application needs to call pWP with null, check this line again (at least length should be checked again) 2/24/2019
 		return (INT_PTR)wavBuffer2snd(DevID, dataBuffer, length, nChan, pWP->wfx.nSamplesPerSec, userDefinedMsgID, pWP->hWnd_calling, nProgReport, playcount, errstr);
 	else
 	{
