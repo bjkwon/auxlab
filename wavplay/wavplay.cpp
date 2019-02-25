@@ -229,7 +229,6 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 	dbuf = hPlayStruct.sig.strut["durPlayed"].buf;
 	*dbuf += lastPlayedDuration;
 
-	printf("//[%x], lastPt=%d, ", lpwh, lastPt);
 	if (!blockMode)
 		SendMessage(hWnd_calling, msgID, (WPARAM)&hPlayStruct.sig, nPlayedBlocks);
 	remainingSamples = totalSamples - lastPt;
@@ -248,29 +247,24 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 				playcount = 0;
 				// waveOutReset is necessary to stop further posting WOM_DONE (i.e., without this call, it may post even after "this" pointer is cleared. 7/23/2018 
 				MMERRTHROW(waveOutReset(hwo), "waveOutReset_WOM_DONE")
-				printf(" doomedPt, nFadingBlocks=1\n");
 				return cleanUp();
 			}
 		}
 	}
-	printf(" remaining=%d ", remainingSamples);
 	if (remainingSamples < playBufferLen)
 	{
-		printf(" %d of %d blocks ", nPlayedBlocks, nTotalBlocks);
 		if (playcount == 1)
 		{
 			if (nextPlay.empty())
 			{
 				if (passing)
 				{
-					printf("passing \n");
 					passing = false;
 					return 0;
 				}
 				else
 				{
 					nPlayedBlocks = lastPt = 0;
-					printf(" nextPlay empty, cleanup\n");
 					return cleanUp();
 				}
 			}
@@ -299,11 +293,9 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 			playBufferLen = totalSamples / nTotalBlocks * wfx.nChannels;
 		}
 	}
-//	printf(" bufLen=%d, Header%d", playBufferLen, !(lpwh == wh));
 	setPlayPoint((lpwh == wh) ? 0 : 1);
 	MMERRTHROW(waveOutPrepareHeader(hwo, lpwh, sizeof(WAVEHDR)), "waveOutPrepareHeader_WOM_DONE")
 	MMERRTHROW(waveOutWrite(hwo, lpwh, sizeof(WAVEHDR)), "waveOutWrite_WOM_DONE")
-	printf("--> %d, playcount=%d\n", lastPt, playcount);
 	return 0;
 }
 
@@ -429,19 +421,18 @@ unsigned int WINAPI Thread4MM(PVOID p)
 					pWP->setPlayPoint(0);
 					pWP->wh[0].dwFlags |= WHDR_BEGINLOOP;
 					MMERRTHROW(waveOutPrepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutPrepareHeader_0")
-						// waveOutPause must come before the first waveOutWrite call; otherwise, occassionally a tiny "blip" in the beginning occurs regardless of the play buffer size. 7/23/2018
-						MMERRTHROW(waveOutPause(pWP->hwo), "waveOutPause")
-						MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutWrite_0")
-						printf("//DOUBLE-BUFFERING, waveOutPrepareHeader, wh[0]=%x, wh[1]=%x\n", &pWP->wh[0], &pWP->wh[1]);
+					// waveOutPause must come before the first waveOutWrite call; otherwise, occassionally a tiny "blip" in the beginning occurs regardless of the play buffer size. 7/23/2018
+					MMERRTHROW(waveOutPause(pWP->hwo), "waveOutPause")
+					MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR)), "waveOutWrite_0")
 					// block 1
 					pWP->setPlayPoint(1);
 					pWP->wh[1].dwFlags |= WHDR_ENDLOOP;
 					MMERRTHROW(waveOutPrepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutPrepareHeader_1")
-						MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutWrite_1")
-						MMERRTHROW(waveOutRestart(pWP->hwo), "waveOutRestart")
-						// Insert LOGGING5
-						// IMPORTANT--DO NOT ASSUME THAT pWP->playBuffer == param->dataBuffer in a multithread environment.
-						pWP->buffer2Clean.push_back((SHORT*)pWP->playBuffer);
+					MMERRTHROW(waveOutWrite(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR)), "waveOutWrite_1")
+					MMERRTHROW(waveOutRestart(pWP->hwo), "waveOutRestart")
+					// Insert LOGGING5
+					// IMPORTANT--DO NOT ASSUME THAT pWP->playBuffer == param->dataBuffer in a multithread environment.
+					pWP->buffer2Clean.push_back((SHORT*)pWP->playBuffer);
 					//	pWP->buffer2Clean.push_back(param->dataBuffer); // this will lead to an incorrect pointer and proper buffer is not stored and something else might be stored twice, which will crash the application. 7/11/2016 bjk
 					already_double_buffered = true;
 				}
@@ -459,9 +450,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 		pWP->hPlayStruct.sig.strut["durPlayed"].SetValue(pWP->hPlayStruct.sig.strut["durTotal"].value());
 		//It exits the message playcount when cleanUp is called the second time around (the WOM_DONE message for the block 1 is posted)
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR));
-		printf("//waveOutUnprepareHeader returns %d\n", rc);
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR));
-		printf("//waveOutUnprepareHeader returns %d\n", rc);
 		toClose.push_back(pWP->hwo);
 		if (pWP->blockMode)	PostThreadMessage(pWP->callingThreadID, WM__RETURN, OK, 0);
 		for (size_t k = pWP->buffer2Clean.size(); k > 0; k--)
@@ -469,10 +458,8 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			if (pWP->buffer2Clean.back() == pWP->buffer2Clean[k - 1])
 				pWP->buffer2Clean.pop_back();
 		}
-		printf("//after pWP->buffer2Clean\n");
 		for (size_t k = 0; k < pWP->buffer2Clean.size(); k++)
 			delete[] pWP->buffer2Clean[k];
-		printf("//after pWP->buffer2Clean\n");
 		if (pWP->blockMode)
 			PostThreadMessage(pWP->callingThreadID, MM_DONE, 0, 0); // This seems redundant with if (blockMode)	PostThreadMessage (callingThreadID, WM__RETURN, OK, 0); above...
 															   //Previously I thought that it was OK to post MM_DONE again just in case and wouldn't do any harm. 
@@ -483,9 +470,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 		it = find(pWlist.begin(), pWlist.end(), pWP);
 		if (it != pWlist.end())
 			pWlist.erase(it);
-		printf("//after pWlist.erase\n");
 		delete pWP;
-		printf("//after delete pWP;\n");
 		return (unsigned int)msg.wParam;
 	}
 	catch (const char * emsg)
