@@ -1590,8 +1590,12 @@ void CTimeSeries::AddMultChain(char type, CTimeSeries *sec)
 				int id = (int)round(( anc0-p->tmark )/1000.*fs);
 				if (status&1) // type=='+' add the two,  type=='*' multiply
 				{
-					if (type=='+')	for (unsigned int k=0; k<count; k++)	part.buf[k] += p->buf[k+id];
-					else if (type=='*')	
+					if (type=='+')
+					{
+						if (part.IsComplex()) for (unsigned int k = 0; k < count; k++)	part.cbuf[k] += p->cbuf[k + id];
+						else				 for (unsigned int k = 0; k < count; k++)	part.buf[k] += p->buf[k + id];
+					}
+					else if (type=='*')
 					{
 						if (part.IsComplex()) for (unsigned int k=0; k<count; k++)	part.cbuf[k] *= p->cbuf[k+id];
 						else				 for (unsigned int k=0; k<count; k++)	part.buf[k] *= p->buf[k+id];
