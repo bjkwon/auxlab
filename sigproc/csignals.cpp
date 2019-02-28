@@ -2450,8 +2450,7 @@ CSignal& CSignal::ShiftFreq(unsigned int id0, unsigned int len)
 	complex<double> datum;
 	for (unsigned int k = 0; k<nSamples; k++)
 	{
-		datum = copy.buf[k] + buf[k] * j;
-		datum *= exp(j * shift *  2. * PI * t);
+		datum = (copy.buf[k] + buf[k] * j) * exp(j * shift *  2. * PI * t);
 		buf[k] = real(datum);
 		t += grid;
 	}

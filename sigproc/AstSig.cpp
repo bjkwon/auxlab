@@ -1031,7 +1031,7 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 		trueID.UpdateBuffer(indsig.nSamples);
 		int m=0;
 		for (unsigned int k(0); k<indsig.nSamples; k++)
-			if (indsig.logbuf[(int)k]) 
+			if (indsig.logbuf[k]) 
 				trueID.buf[m++]=k+1; // because aux is one-based index
 		trueID.UpdateBuffer(m);
 		indsig = trueID;
@@ -1047,7 +1047,13 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 			{
 				unsigned int id = (unsigned int)round(indsig.value());
 				checkindexrange(pnode, inout, id, "LHS##vsdba2");
-				inout->buf[id - 1] = sec.value();
+				if (sec.IsComplex())
+				{
+					inout->SetComplex();
+					inout->cbuf[id - 1] = sec.cvalue();
+				}
+				else
+					inout->buf[id - 1] = sec.value();
 			}
 		}
 		else
