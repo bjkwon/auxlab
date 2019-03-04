@@ -1021,6 +1021,108 @@ int CAstSig::checkpositiveinteger(const AstNode *pnode, CVar *id)
 	return (int)did;
 }
 
+/* These two replace() member functions can be part of body in csignals.cpp for the point of logic,
+(maybe even simpler if it stayed in csignals.cpp)
+but moved here as a part of CAstSig because of exception handling (i.e., need pnode)
+*/
+CTimeSeries &CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index)
+{
+	//	this is to be used when items are replaced without changing the size.
+	// except when sec is empty... in which case the "index"'ed items are deleted.
+	// in that case index is assumed to be sorted ascending
+	if (index.nSamples == 0) return *pobj;
+	if (sec.bufBlockSize != pobj->bufBlockSize)
+	{
+		if (pobj->bufBlockSize == 1 && sec.bufBlockSize != 1) sec.MakeLogical();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 1) sec.SetReal();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 16) pobj->SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 1) sec.SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 8) sec.SetComplex();
+	}
+	for (unsigned int k = 0; k < index.nSamples; k++)
+	{
+		if (index.buf[k] < 1.)
+			throw CAstException(pnode, this, "index must be greater than 0");
+		unsigned int id = (int)index.buf[k];
+		if (id - index.buf[k] > .25 || index.buf[k] - id > .25)
+			throw CAstException(pnode, this, "index must be integer");
+		if (id > pobj->nSamples)
+			throw CAstException(pnode, this, "replace index exceeds the range.");
+	}
+	if (sec.nSamples == 0)
+	{
+		int trace = (int)(index.buf[0] - 1);
+		for (unsigned int k = 0; k < index.nSamples; k++)
+		{
+			unsigned int diff = (unsigned int)(k < index.nSamples - 1 ? index.buf[k + 1] - index.buf[k] : pobj->nSamples + 1 - index.buf[k]);
+			diff--;
+			memcpy(pobj->logbuf + trace * pobj->bufBlockSize, pobj->logbuf + (int)index.buf[k] * pobj->bufBlockSize, diff*pobj->bufBlockSize);
+			trace += diff;
+		}
+		pobj->nSamples -= index.nSamples;
+	}
+	else
+		for (unsigned int k = 0; k < index.nSamples; k++)
+		{
+			if (index.buf[k] < 1.)
+				throw CAstException(pnode, this, "index must be greater than 0");
+			unsigned int id = (unsigned int)(index.buf[k]);
+			if (id - index.buf[k] > .05 || index.buf[k] - id > .05)
+				throw CAstException(pnode, this, "index must be integer");
+			if (id > pobj->nSamples) 
+				throw CAstException(pnode, this, "replace index exceeds the range.");
+			id--; // zero-based
+			if (sec.nSamples == 1) // items from id1 to id2 are to be replaced with sec.value()
+				memcpy(pobj->logbuf + id * pobj->bufBlockSize, sec.logbuf, pobj->bufBlockSize);
+			else
+				memcpy(pobj->logbuf + id * pobj->bufBlockSize, sec.logbuf + k * pobj->bufBlockSize, pobj->bufBlockSize);
+		}
+	return *pobj;
+}
+
+CTimeSeries &CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
+{ // this replaces the data body between id1 and id2 (including edges) with sec
+	if (id1 < 0 || id2 < 0) throw CAstException(pnode, this, "replace index cannot be negative.");
+	if (sec.bufBlockSize != pobj->bufBlockSize)
+	{
+		if (pobj->bufBlockSize == 1 && sec.bufBlockSize != 1) sec.MakeLogical();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 1) sec.SetReal();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 16) pobj->SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 1) sec.SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 8) sec.SetComplex();
+	}
+	//id1 and id2 are zero-based here.
+	if (id1 > (int)pobj->nSamples - 1) throw CAstException(pnode, this, "replace index1 exceeds the range.");
+	if (id2 > (int)pobj->nSamples - 1) throw CAstException(pnode, this, "replace index2 exceeds the range.");
+	unsigned int secnsamples = sec.nSamples;
+	bool ch = ((CSignal *)&sec)->bufBlockSize == 1;
+	if (ch) secnsamples--;
+	if (secnsamples == 1) // no change in length--items from id1 to id2 are to be replaced with sec.value()
+	{
+		if (ch)
+			for (int k = id1; k <= id2; k++) pobj->strbuf[k] = sec.strbuf[0];
+		else if (((CSignal *)&sec)->bufBlockSize == 16)
+			for (int k = id1; k <= id2; k++) pobj->cbuf[k] = sec.cvalue();
+		else
+			for (int k = id1; k <= id2; k++) pobj->buf[k] = sec.value();
+	}
+	else
+	{
+		unsigned int nAdd = secnsamples;
+		unsigned int nSubtr = id2 - id1 + 1;
+		unsigned int newLen = pobj->nSamples + nAdd - nSubtr;
+		unsigned int nToMove = pobj->nSamples - id2 - 1;
+		if (nAdd > nSubtr) pobj->UpdateBuffer(newLen);
+		bool *temp = new bool[nToMove*pobj->bufBlockSize];
+		memcpy(temp, pobj->logbuf + (id2 + 1)*pobj->bufBlockSize, nToMove*pobj->bufBlockSize);
+		memcpy(pobj->logbuf + id1 * pobj->bufBlockSize, sec.buf, secnsamples*pobj->bufBlockSize);
+		memcpy(pobj->logbuf + (id1 + secnsamples)*pobj->bufBlockSize, temp, nToMove*pobj->bufBlockSize);
+		delete[] temp;
+		pobj->nSamples = newLen;
+	}
+	return *pobj;
+}
+
 CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &sec, CVar &indsig)
 {
 	bool logicalindex = indsig.IsLogical();
@@ -1067,7 +1169,7 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 				inout->cbuf[id - 1] = sec.cvalue();
 			}
 			else
-				inout->replace(sec, id - 1, id - 1);
+				replace(pnode, inout, sec, id - 1, id - 1);
 		}
 	}
 	else // not done yet if sec is complex
@@ -1097,7 +1199,7 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 					{
 	//					if (!sec.IsScalar())
 	//						throw CAstException(pnode, this, "to replace audio signal with a non-scalar object, the indices must be contiguous.");
-						inout->replace(sec, indsig); // if sec is a scalar, just assignment call by index 
+						replace(pnode, inout, sec, indsig); // if sec is a scalar, just assignment call by index 
 					}
 					else
 					{
@@ -1109,7 +1211,7 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 								throw CAstException(pnode, this, "to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
 						}
 						if (sec.IsComplex() && !inout->IsComplex()) inout->SetComplex();
-						inout->replace(sec, id1 - 1, id2 - 1);
+						replace(pnode, inout, sec, id1 - 1, id2 - 1);
 					}
 				}
 			}
@@ -1153,9 +1255,9 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 			bool contig = isContiguous(indsig, id1, id2);
 			if (!sec.IsEmpty() && !contig && sec.nSamples!=1 && sec.nSamples!=indsig.nSamples) throw CAstException(pnode, this, "the number of replaced items must be the same as that of replacing items.");
 			if (contig)
-				inout->replace(sec, id1-1, id2-1);
+				replace(pnode, inout, sec, id1-1, id2-1);
 			else 
-				inout->replace(sec, indsig);
+				replace(pnode, inout, sec, indsig);
 		}
 	}
 	return *this;
@@ -1479,15 +1581,16 @@ CVar &CAstSig::ExtractByIndex(const AstNode *pnode, AstNode *p, CVar **psig)
 { // pnode->type should be N_ARGS
 	char ebuf[256];
 	CVar tsig, isig, isig2;
-	if (!p)	throw CAstException(pnode, this, "A variable index should be provided.");
-	eval_indexing(pnode->child, *psig, isig);
-	if (isig._max()>Sig.nSamples) throw CAstException(pnode, this, "Index exceeds the length of variable.");
-	Sig = extract(ebuf, psig, isig);
-	if (ebuf[0])
+	if (!p->child)	throw CAstException(pnode, this, "A variable index should be provided.");
+	eval_indexing(p->child, *psig, isig);
+	if (isig._max() > Sig.nSamples)
 	{
-//		AstNode *pp = get_parent_node(pAst, (AstNode *)pnode, 2);
+		sprintf(ebuf, "Index %d exceeds the length of variable.", (int)isig._max());
 		throw CAstException(pnode, this, ebuf);
 	}
+	Sig = extract(ebuf, psig, isig);
+	if (ebuf[0])
+		throw CAstException(pnode, this, ebuf);
 	return Sig;
 }
 
@@ -2170,15 +2273,15 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 	AstNode *p = pn;
 	int cellind, ind(0);
 	CVar *pres;
-	AstNode *pUDF;
+	AstNode *pUDF, *ppar;
 	if ((pUDF=ReadUDF(emsg, pn->str)))
 	{
 		if (pn->child)
 		{
 			throw CAstException(pn, this, "Name conflict between the LHS variable and a user-defined function.");
 		}
-		AstNode *higher = get_parent_node(pAst, pn);
-		if (higher)
+		ppar = get_parent_node(pAst, pn);
+		if (ppar)
 		{
 			// See aux-indexing-parsing-plan.doc for more info. The parent node is lhs only if...
 //			if ((higher->child == pn || higher->alt == pn) && (higher->type==T_ID || higher->type == N_CELL || higher->type == N_VECTOR))
@@ -2208,27 +2311,29 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 		}
 		else if (pn->type == N_ARGS)
 		{
+			ppar = get_parent_node(pAst, pn);
 			if (ndog.psigBase->IsGO() && ndog.psigBase->GetFs() != 3)
 			{
 				CVar tp = Compute(pn->child);
 				if (tp.GetType()!=CSIG_SCALAR || tp.value()!=1.)
-					throw CAstException(pn, this, "Invalid index of a graphic object arrary.");
+					throw CAstException(ppar, this, "Invalid index of a graphic object arrary.");
 			}
 			else
 			{
-				if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ndog.root, this, "A cell array cannot be accessed with ( ).");
-				ExtractByIndex(pn, pn->child, &ndog.psigBase); //Sig updated. No change in psig
+				if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ppar, this, "A cell array cannot be accessed with ( ).");
+				ExtractByIndex(ppar, pn, &ndog.psigBase); //Sig updated. No change in psig
 			}
 			if (ndog.psigBase->IsGO())
 				pgo = ndog.psigBase;
 		}
 		else if (IsCondition(pn))
 		{
-			if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(pn, this, "A cell array cannot be accessed with ( ).");
+			ppar = get_parent_node(pAst, pn);
+			if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ppar, this, "A cell array cannot be accessed with ( ).");
 			CVar isig, isig2;
 			eval_indexing(pn, ndog.psigBase, isig);
 			Sig = extract(estr, &ndog.psigBase, isig);
-			if (estr[0]) throw CAstException(pn, this, estr);
+			if (estr[0]) throw CAstException(ppar, this, estr);
 			if (!pn->next) // 1D indexing, unGroup it
 				Sig.nGroups = 1;
 		}

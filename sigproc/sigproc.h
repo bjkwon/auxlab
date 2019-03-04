@@ -147,8 +147,6 @@ public:
 	body& MakeLogical();
 	body& LogOp(body &rhs, int type);
 	body &insert(body &sec, int id);
-	body &replace(body &sec, int id1, int id2);
-	body &replace(body &sec, body &index);
 
 	double _max(unsigned int id0 = 0, unsigned int len = 0);
 	double _min(unsigned int id0 = 0, unsigned int len = 0);
@@ -744,6 +742,9 @@ private:
 	void interweave_indices(CVar &isig, CVar &isig2, unsigned int len);
 	void index_array_satisfying_condition(CVar &isig);
 	void replica_prep(CVar *psig);
+	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2);
+	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
+
 public:
 	CVar &ConditionalOperation(const AstNode *pnode, AstNode *p);
 	int updateGO(CVar &ref);
