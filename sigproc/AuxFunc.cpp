@@ -700,10 +700,6 @@ void _playstop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	}
 }
 
-void _playStatus(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{ // To be done 7/9/2018
-}
-
 void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CVar sig = past->Sig;
@@ -1243,6 +1239,16 @@ void _filtDynamic(CAstSig *past, const AstNode *pnode, const AstNode *p, string 
 	else
 		sig.basic(sig.pf_basic2 = &CSignal::dynaMA, &dynamicfilterparams);
 	past->Sig = sig;
+}
+
+void _conv(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	//For only real (double) arrays 3/4/2019
+	//p should be non NULL
+	CSignals sig = past->Sig;
+	CSignals array2 = past->Compute(p);
+
+	past->Sig = sig.basic(sig.pf_basic2 = &CSignal::conv, &array2);
 }
 
 void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -2205,6 +2211,10 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_fscale;
 	built_in_funcs.push_back(pp);
 
+	pp.name = "conv";
+	pp.funcsignature = "(array1, array2)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_conv;
+	built_in_funcs.push_back(pp);
 #endif
 
 	pp.narg1 = 1;	pp.narg2 = 2;
@@ -2228,9 +2238,6 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_funcs.push_back(pp);
 	pp.name = "qstop";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_playstop;
-	built_in_funcs.push_back(pp);
-	pp.name = "status";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_playStatus;
 	built_in_funcs.push_back(pp);
 
 

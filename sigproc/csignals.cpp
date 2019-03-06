@@ -3072,6 +3072,27 @@ CSignal& CSignal::dynaMA(unsigned int id0, unsigned int len)
 	return *this;
 }
 
+CSignal& CSignal::conv(unsigned int id0, unsigned int len)
+{
+	if (len == 0) len = nSamples;
+	CSignal *parray2 = (CSignal*)parg;
+	CSignal out;
+	out.UpdateBuffer(nSamples + parray2->nSamples - 1);
+	for (unsigned int k = 0; k < out.nSamples; k++)
+	{
+		double tp = 0.;
+		for (int p = 0, q=0; q>=0 ; p++)
+		{
+			q = k - p;
+			if (p < nSamples && q < parray2->nSamples)
+				tp += buf[p] * parray2->buf[q];
+		}
+		out.buf[k] = tp;
+	}
+	return *this = out;
+}
+
+
 CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;

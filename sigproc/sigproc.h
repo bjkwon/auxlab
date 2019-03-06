@@ -237,6 +237,7 @@ public:
 	CSignal &_atmost(unsigned int id, int unsigned len);
 	CSignal &_atleast(unsigned int id, int unsigned len);
 	CSignal& sort(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& conv(unsigned int id0, unsigned int len = 0);
 	CSignal& dramp(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& dynafilter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filter(unsigned int id0 = 0, unsigned int len = 0);
