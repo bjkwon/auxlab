@@ -127,6 +127,7 @@ public:
 
 	bool IsComplex() const  { return (bufBlockSize==2*sizeof(double)); } 
 	void SwapContents1node(body &sec);
+	vector<double> ToVector();
 
 	body &addmult(char type, body &arg, unsigned int id0 = 0, unsigned int len = 0);
 
@@ -150,6 +151,7 @@ public:
 
 	double _max(unsigned int id0 = 0, unsigned int len = 0);
 	double _min(unsigned int id0 = 0, unsigned int len = 0);
+	body & interp1(body &that, body &qp);
 	double sum(unsigned int id0=0, unsigned int len = 0);
 	double mean(unsigned int id0 = 0, unsigned int len = 0) { if (len == 0) len = nSamples; return sum(id0, len) / (double)len; }
 	double stdev(unsigned int id0 = 0, unsigned int len = 0);
@@ -233,12 +235,13 @@ public:
 	double dur(unsigned int id0 = 0, unsigned int len = 0);
 	double begint(unsigned int id0 = 0, unsigned int len = 0);
 	double endt(unsigned int id0 = 0, unsigned int len = 0);
-
+	
 	CSignal &_atmost(unsigned int id, int unsigned len);
 	CSignal &_atleast(unsigned int id, int unsigned len);
 	CSignal& sort(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& conv(unsigned int id0, unsigned int len = 0);
 	CSignal& dramp(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& timestretch(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& dynafilter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filtfilt(unsigned int id0 = 0, unsigned int len = 0);
@@ -280,7 +283,6 @@ public:
 	double (CSignal::*pf_basic)(unsigned int, unsigned int);
 	CSignal& (CSignal::*pf_basic2)(unsigned int, unsigned int);
 	CSignal (CSignal::*pf_basic3)(unsigned int, unsigned int);
-	vector<double> ToVector();
 	CSignal& dynaMA(unsigned int id0, unsigned int len);
 	CSignal& dynaAR(unsigned int id0, unsigned int len);
 

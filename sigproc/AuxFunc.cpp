@@ -543,6 +543,16 @@ bool comp(int a, int b)
 	return (a < b);
 }
 
+
+void _timestretch(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	//check qualifers
+	past->checkAudioSig(pnode, past->Sig);
+	CSignals first = past->Sig;
+	CVar arg = past->Compute(p);
+	first.basic(first.pf_basic2 = &CSignal::timestretch, &arg);
+}
+
 void _interp1(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	//Need to add qualifers at some point.
@@ -2147,6 +2157,11 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_matrix;
 	built_in_funcs.push_back(pp);
 
+	pp.name = "timestretch";
+	pp.funcsignature = "(array, ratio)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_timestretch;
+	built_in_funcs.push_back(pp);
+	
 	pp.narg1 = 3;	pp.narg2 = 3;
 	pp.name = "interp1";
 	pp.funcsignature = "(refX, refY, query_x_points)";

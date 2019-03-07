@@ -790,6 +790,42 @@ double body::_min(unsigned int id, unsigned int len)
 }
 
 
+bool othre(double thr, double subject) {
+	return subject >= thr;
+}
+
+body & body::interp1(body &that, body &qx)
+{
+	vector<double> v1 = ToVector();
+	vector<double> v2 = that.ToVector();
+	vector<double> qv = qx.ToVector();
+	vector<double>::iterator it = v1.begin();
+	int k = 0;
+	body out;
+	out.UpdateBuffer(qx.nSamples);
+	for (auto jt = qv.begin(); jt != qv.end(); jt++)
+	{
+		vector<double> tp(1, *jt);
+		it = find_first_of(it, v1.end(), tp.begin(), tp.end(), othre);
+		if (it != v1.end())
+		{
+			ptrdiff_t pos = it - v1.begin();
+			if (pos > 0)
+				out.buf[k++] = that.buf[pos - 1] + (that.buf[pos] - that.buf[pos - 1]) * (*jt - *(it - 1));
+			else
+			{
+				out.buf[k++] = that.buf[0] + (that.buf[1] - that.buf[0]) / (buf[1] - buf[0]) * (*jt - *it);
+			}
+		}
+		else
+		{
+			out.buf[k++] = that.buf[that.nSamples - 1] + (that.buf[that.nSamples - 1] - that.buf[that.nSamples - 2]) * (*jt - v1.back());
+		}
+	}
+
+	return *this = out;
+}
+
 CSignal::CSignal()
 :fs(1), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
 {
@@ -867,7 +903,7 @@ CSignal::CSignal(double *y, int len)
 	memcpy((void*)buf, (void*)y, sizeof(double)*len);
 }
 
-vector<double> CSignal::ToVector()
+vector<double> body::ToVector()
 {
 	vector<double> out;
 	out.resize((size_t)nSamples);
@@ -2104,6 +2140,73 @@ void CSignal::Dramp(double dur_ms, int beginID)
 	}
 }
 
+CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
+{
+	if (len == 0) len = nSamples;
+	int synHop = 512;
+	int tolerance = 512;
+	CSignal win;
+	win.UpdateBuffer(1024); // hanning window size
+	double hanningparam = 0;
+	win.parg = (void*)&hanningparam;
+	win.Blackman(0, 1024); // hanning because *parg is zero
+	int winLenHalf = (int)(win.nSamples / 2. + .5);
+	CSignal *pratio = (CSignal *)parg;
+	//pratio must be either real constant or T_SEQ then value at each time point is the ratio for that segment
+	double outputLength;
+	vector<double> synWinPos(1);
+	CSignal anaWinPos, anaHop;
+	CSignal out, ow;
+	if (pratio->IsScalar())
+	{
+		outputLength = ceil(pratio->value()*nSamples);
+		while (synWinPos.back() <= outputLength + winLenHalf)
+			synWinPos.push_back(synWinPos.back() + synHop);
+		if (synWinPos.back() > outputLength + winLenHalf)
+			synWinPos.pop_back();
+		body c1(0.), c2(0.);
+		c1.UpdateBuffer(2); c2.UpdateBuffer(2);
+		c1.buf[1] = pratio->value() * nSamples; 
+		c2.buf[1] = (double)nSamples;
+		c1.interp1(c2, CSignal(synWinPos));
+		anaWinPos = c1;
+		anaHop = anaWinPos;
+		anaHop.Diff();
+		for (unsigned int k = 0; k < anaHop.nSamples; k++)
+			anaHop.buf[k] = synHop / anaHop.buf[k];
+		double minFac = anaHop._min();
+		CSignal temp(nSamples + winLenHalf + tolerance + ceil(1 / minFac)*win.nSamples + tolerance);
+		memcpy(temp.buf + sizeof(double)*(nSamples + winLenHalf + tolerance), buf, sizeof(double)*nSamples);
+		(CSignals)anaWinPos += (double)tolerance;
+		out.UpdateBuffer((int)outputLength + 2 * win.nSamples);
+		ow.UpdateBuffer((int)outputLength + 2 * win.nSamples);
+		int del = 0;
+		for (unsigned k = 0, q = 0; k < anaWinPos.nSamples; k++)
+		{
+			int * currSynWinRan = new int[win.nSamples];
+			int * currAnaWinRan = new int[win.nSamples];
+			for (int p = 0; p < win.nSamples; p++)
+			{
+				currSynWinRan[p] = (int)synWinPos.at(k) + p;
+				currAnaWinRan[p] = (int)anaWinPos.buf[k] + del + p;
+
+				int m = (int)synWinPos.at(k) + p;
+				int n = (int)anaWinPos.buf[k] + del + p;
+				out.buf[m] += buf[n] * win.buf[q++];
+			}
+			memcpy((void*)ow.buf, win.buf, sizeof(buf)*win.nSamples);
+			CSignal natProg;
+			natProg.UpdateBuffer(anaWinPos.nSamples);
+			memcpy((void*)natProg.buf, &buf[n+synHop], sizeof(buf)*anaWinPos.nSamples);
+
+
+
+		}
+
+	}
+	return *this;
+}
+
 CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
@@ -3084,7 +3187,7 @@ CSignal& CSignal::conv(unsigned int id0, unsigned int len)
 		for (int p = 0, q=0; q>=0 ; p++)
 		{
 			q = k - p;
-			if (p < nSamples && q < parray2->nSamples)
+			if (p < (int)nSamples && q < (int)parray2->nSamples)
 				tp += buf[p] * parray2->buf[q];
 		}
 		out.buf[k] = tp;
