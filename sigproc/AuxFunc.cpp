@@ -534,6 +534,53 @@ void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		past->Sig.buf[i] = val1 + step*i;
 }
 
+bool overthreshold(double thr, double subject) {
+	return subject >= thr;
+}
+
+bool comp(int a, int b)
+{
+	return (a < b);
+}
+
+void _interp1(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	//Need to add qualifers at some point.
+	// Probably allow only vectors... 
+	// Assume qp is non-decreasing sequence.
+	// 3 / 6 / 2019
+	CSignals rx = past->Sig;
+	CSignals ry = past->Compute(p);
+	CSignals qx = past->Compute(p->next);
+	vector<double> element;
+	vector<double> rv = rx.ToVector();
+	vector<double> qv = qx.ToVector();
+	vector<double>::iterator it = rv.begin();
+	vector<double> tp;
+	past->Sig.UpdateBuffer(qx.nSamples);
+	int k = 0;
+	for (auto jt = qv.begin(); jt!=qv.end(); jt++)
+	{
+		tp.push_back(*jt);
+		it = find_first_of(it, rv.end(), tp.begin(), tp.end(), overthreshold);
+		if (it != rv.end())
+		{
+			ptrdiff_t pos = it - rv.begin();
+			if (pos>0)
+				past->Sig.buf[k++] = ry.buf[pos - 1] + (ry.buf[pos] - ry.buf[pos - 1]) * ( *jt - *(it - 1));
+			else
+			{
+				past->Sig.buf[k++] = ry.buf[0] + (ry.buf[1] - ry.buf[0]) / (rx.buf[1] - rx.buf[0]) * (*jt - *it);
+			}
+		}
+		else
+		{
+			past->Sig.buf[k++] = ry.buf[ry.nSamples-1] + (ry.buf[ry.nSamples - 1] - ry.buf[ry.nSamples - 2]) * (*jt - rv.back());
+		}
+		tp.clear();
+	}
+}
+
 void _fdelete(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	string filename = past->MakeFilename(past->ComputeString(p), "txt");
@@ -1506,7 +1553,10 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 			past->Sig.SetValue(out);
 		}
 		else
+		{
+			past->Sig.SetFs(1); // Don't call Reset because we need to leave the data buffer as is.
 			past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::length);
+		}
 	}
 	else
 	{
@@ -1524,9 +1574,10 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		else if (fname == "rms") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::RMS);
 		else if (fname == "rmsall") past->Sig = past->Sig.RMS(); // overall RMS; scalar or two-element array
 	}
-	if (past->pAst->type == N_VECTOR)
-		if (past->pAst->alt->next)
-			past->SetVar(past->pAst->alt->next->str, &additionalArg);
+	//commenting out 3/6/2019--don't know what this was for. Now causing crash.
+//	if (past->pAst->type == N_VECTOR)
+//		if (past->pAst->alt->next)
+//			past->SetVar(past->pAst->alt->next->str, &additionalArg);
 }
 
 void _mostleast(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -2094,6 +2145,12 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	pp.name = "matrix";
 	pp.funcsignature = "(array, nGroups)";
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_matrix;
+	built_in_funcs.push_back(pp);
+
+	pp.narg1 = 3;	pp.narg2 = 3;
+	pp.name = "interp1";
+	pp.funcsignature = "(refX, refY, query_x_points)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_interp1;
 	built_in_funcs.push_back(pp);
 
 	pp.alwaysstatic = true;

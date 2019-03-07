@@ -991,7 +991,7 @@ void xcom::echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 }
 
 int xcom::computeandshow(const char *in, CAstSig *pTemp)
-{
+{ 
 	CAstSig *pContext;
 	string emsg;
 	bool succ(true);
