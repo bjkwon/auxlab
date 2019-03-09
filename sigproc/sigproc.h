@@ -205,6 +205,7 @@ public:
 	void UpSample(int p);
 	CSignal& Reset(int  fs2set=0);
 #ifndef NO_RESAMPLE
+	CSignal& Resample(unsigned int id0 = 0, unsigned int len = 0);
 	double * Resample(int newfs, char *errstr);
 	double * Resample(vector<unsigned int> newfs, vector<unsigned int> lengths, char *errstr);
 #endif //NO_RESAMPLE
@@ -242,6 +243,7 @@ public:
 	CSignal& conv(unsigned int id0, unsigned int len = 0);
 	CSignal& dramp(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& timestretch(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& pitchscale(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& dynafilter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filtfilt(unsigned int id0 = 0, unsigned int len = 0);
@@ -263,6 +265,7 @@ public:
 
 	CSignal(); // default construct
 	CSignal(int  sampleRate); // construct with a specified sample rate.
+	CSignal(int sampleRate, int len); // construct with a specified sample rate and buffer size
 	CSignal(double value); // construct a scala with the specified value
 	CSignal(const CSignal& src); // copy constructor
 	CSignal(double *y, int  len);
@@ -292,6 +295,11 @@ protected:
 private:
 	CSignal& _filter(vector<double> num, vector<double> den, unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& _dynafilter(CSignal *TSEQ_num, CSignal * TSEQ_den, unsigned int id0 = 0, unsigned int len = 0);
+	const CSignal& operator+(const CSignal& sec);
+	const CSignal& operator*(const CSignal& sec);
+	const CSignal& operator-(const CSignal& sec);
+	const CSignal& operator/(const CSignal& sec);
+	int maxcc(double *x1, int len1, double *x2, int len2);
 };
 
 class CTimeSeries : public CSignal

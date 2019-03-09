@@ -310,27 +310,41 @@ void _caret(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 { // ~ operator
 	// The second arg is compress_ratio.
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals sig = past->Sig;
-	char errstr[256] = "";
-	past->Compute(p);
-	if (past->Sig.IsScalar())
-	{
-		double param = past->Sig.value();
-		int orgfs = sig.GetFs();
-		if (!sig.Resample((int)round(orgfs/param), errstr)) throw CAstException(pnode, past, string(errstr));
-		sig.SetFs(orgfs);
+
+
+	CSignals param;
+	try {
+		CAstSig tp(past);
+		tp.Compute(p);
+		param = tp.Compute(p);
 	}
-	else if (past->Sig.GetType()==CSIG_VECTOR)
-	{
-		CSignal param((CSignal)past->Sig);
-		unsigned int len(past->Sig.nSamples);
-		vector<unsigned int> fsholder, lengthholder;
-		int fs = sig.GetFs();
-		for (size_t k(0); k<param.nSamples; k++) fsholder.push_back((int)(fs/param.buf[k]+.5));
-		splitevenindices(lengthholder, sig.nSamples, len);
-		if (!sig.Resample(fsholder, lengthholder, errstr)) throw CAstException(pnode, past, string(errstr));
-	}
-	past->Sig = sig;
+	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::Resample, &param);
+
+
+
+
+	//CSignals sig = past->Sig;
+	//char errstr[256] = "";
+	//past->Compute(p);
+	//if (past->Sig.IsScalar())
+	//{
+	//	double param = past->Sig.value();
+	//	int orgfs = sig.GetFs();
+	//	if (!sig.Resample((int)round(orgfs/param), errstr)) throw CAstException(pnode, past, string(errstr));
+	//	sig.SetFs(orgfs);
+	//}
+	//else if (past->Sig.GetType()==CSIG_VECTOR)
+	//{
+	//	CSignal param((CSignal)past->Sig);
+	//	unsigned int len(past->Sig.nSamples);
+	//	vector<unsigned int> fsholder, lengthholder;
+	//	int fs = sig.GetFs();
+	//	for (size_t k(0); k<param.nSamples; k++) fsholder.push_back((int)(fs/param.buf[k]+.5));
+	//	splitevenindices(lengthholder, sig.nSamples, len);
+	//	if (!sig.Resample(fsholder, lengthholder, errstr)) throw CAstException(pnode, past, string(errstr));
+	//}
+	//past->Sig = sig;
 }
 
 void _fmm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -543,14 +557,32 @@ bool comp(int a, int b)
 	return (a < b);
 }
 
+void _pitchscale(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	//More qualifers please 
+	past->checkAudioSig(pnode, past->Sig);
+	CSignals param;
+	try {
+		CAstSig tp(past);
+		tp.Compute(p);
+		param = tp.Compute(p);
+	}
+	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::pitchscale, &param);
+}
 
 void _timestretch(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	//check qualifers
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals first = past->Sig;
-	CVar arg = past->Compute(p);
-	first.basic(first.pf_basic2 = &CSignal::timestretch, &arg);
+	CSignals param;
+	try {
+		CAstSig tp(past);
+		tp.Compute(p);
+		param = tp.Compute(p);
+	}
+	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::timestretch, &param);
 }
 
 void _interp1(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -2160,6 +2192,10 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	pp.name = "timestretch";
 	pp.funcsignature = "(array, ratio)";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_timestretch;
+	built_in_funcs.push_back(pp);
+	pp.name = "pitchscale";
+	pp.funcsignature = "(array, ratio)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_pitchscale;
 	built_in_funcs.push_back(pp);
 	
 	pp.narg1 = 3;	pp.narg2 = 3;

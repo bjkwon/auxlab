@@ -842,6 +842,13 @@ CSignal::CSignal(int sampleRate)
 	if (fs==2) bufBlockSize=1;
 }
 
+CSignal::CSignal(int sampleRate, int len)
+: fs(max(sampleRate, 0)), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
+{
+	if (fs == 2) bufBlockSize = 1;
+	UpdateBuffer(len);
+}
+
 CTimeSeries::CTimeSeries(int sampleRate)
 : chain(NULL)
 {
@@ -991,6 +998,98 @@ CSignal& CSignal::operator=(const body& rhs)
 			body::operator=(rhs);
 	}
 	return *this; // return self-reference so cascaded assignment works
+}
+
+const CSignal& CSignal::operator+(const CSignal& sec)
+{ // Exception handling is yet to be done 3/8/2019
+  //Currently only for real arrays. 3/8
+	if (sec.IsScalar())
+	{
+		const double val = sec.value();
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] += val;
+	}
+	else
+	{
+		if (fs != sec.fs) throw "lhs and rhs must have the same fs";
+		if (sec.nSamples > nSamples)
+		{
+			UpdateBuffer(sec.nSamples);
+			memcpy(buf + nSamples, sec.buf + nSamples, sizeof(double)*(sec.nSamples - nSamples));
+		}
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] += sec.buf[k];
+	}
+	return *this;
+}
+
+const CSignal& CSignal::operator*(const CSignal& sec)
+{ // Exception handling is yet to be done 3/8/2019
+  //Currently only for real arrays. 3/8
+	if (sec.IsScalar())
+	{
+		const double val = sec.value();
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] *= val;
+	}
+	else
+	{
+		if (fs != sec.fs) throw "lhs and rhs must have the same fs";
+		if (sec.nSamples > nSamples)
+		{
+			UpdateBuffer(sec.nSamples);
+			memcpy(buf + nSamples, sec.buf + nSamples, sizeof(double)*(sec.nSamples - nSamples));
+		}
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] *= sec.buf[k];
+	}
+	return *this;
+}
+
+const CSignal& CSignal::operator-(const CSignal& sec)
+{ // Exception handling is yet to be done 3/8/2019
+  //Currently only for real arrays. 3/8
+	if (sec.IsScalar())
+	{
+		const double val = sec.value();
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] -= val;
+	}
+	else
+	{
+		if (fs != sec.fs) throw "lhs and rhs must have the same fs";
+		if (sec.nSamples > nSamples)
+		{
+			UpdateBuffer(sec.nSamples);
+			memcpy(buf + nSamples, sec.buf + nSamples, sizeof(double)*(sec.nSamples - nSamples));
+		}
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] -= sec.buf[k];
+	}
+	return *this;
+}
+
+const CSignal& CSignal::operator/(const CSignal& sec)
+{ // Exception handling is yet to be done 3/8/2019
+  //Currently only for real arrays. 3/8
+	if (sec.IsScalar())
+	{
+		const double val = sec.value();
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] /= val;
+	}
+	else
+	{
+		if (fs != sec.fs) throw "lhs and rhs must have the same fs";
+		if (sec.nSamples > nSamples)
+		{
+			UpdateBuffer(sec.nSamples);
+			memcpy(buf + nSamples, sec.buf + nSamples, sizeof(double)*(sec.nSamples - nSamples));
+		}
+		for (unsigned int k = 0; k < nSamples; k++)
+			buf[k] /= sec.buf[k];
+	}
+	return *this;
 }
 
 CSignal& CSignal::operator=(const CSignal& rhs)
@@ -2140,71 +2239,118 @@ void CSignal::Dramp(double dur_ms, int beginID)
 	}
 }
 
+int CSignal::maxcc(double *x1, int len1, double *x2, int len2)
+{
+	const int len = len1 + len2 - 1;
+	double *buffer = new double[len];
+	for (int k = 0; k < len; k++)
+	{
+		double tp = 0.;
+		for (int q, p = 0; p <= k && p < len1; p++)
+		{
+			q = k - p;
+			int p2 = len1 - p - 1;
+			if (p2 < len1 && q < len2)
+				tp += x1[p2] * x2[q];
+		}
+		buffer[k] = tp;
+	}
+	CSignal temp(buffer+len2, len - 2*len2 + 1);
+	CVar maxid(-1.); // need to initialize
+	temp.parg = (void*)&maxid;
+	temp._max();
+	delete[] buffer;
+	return (int)((CVar*)temp.parg)->value();
+}
+
+CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
+{
+	if (len == 0) len = nSamples;
+	timestretch(id0, len);
+
+	CSignal *pratio = (CSignal *)parg;
+	if (pratio->IsScalar())
+	{
+		Resample(id0, len);
+	}
+	return *this;
+}
+
 CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
+	CSignal *pratio = (CSignal *)parg;
 	int synHop = 512;
 	int tolerance = 512;
-	CSignal win;
-	win.UpdateBuffer(1024); // hanning window size
-	double hanningparam = 0;
-	win.parg = (void*)&hanningparam;
-	win.Blackman(0, 1024); // hanning because *parg is zero
-	int winLenHalf = (int)(win.nSamples / 2. + .5);
-	CSignal *pratio = (CSignal *)parg;
+	const int winLen = 1024; // window size
+	const int winLenHalf = (int)(winLen / 2. + .5);
+	double *wind = new double[winLen];
+	for (unsigned int k = 0; k < winLen; k++)
+		wind[id0 + k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
 	//pratio must be either real constant or T_SEQ then value at each time point is the ratio for that segment
-	double outputLength;
-	vector<double> synWinPos(1);
-	CSignal anaWinPos, anaHop;
-	CSignal out, ow;
+	vector<double> synWinPos(1); // initializing one element with zero
+	CSignal anaWinPos(1, 2);
+	CSignal out2;
 	if (pratio->IsScalar())
 	{
-		outputLength = ceil(pratio->value()*nSamples);
-		while (synWinPos.back() <= outputLength + winLenHalf)
-			synWinPos.push_back(synWinPos.back() + synHop);
-		if (synWinPos.back() > outputLength + winLenHalf)
+		const int outputLength = (int)ceil(pratio->value()*nSamples);
+		synWinPos.reserve(outputLength * 2);
+		while ((int)synWinPos.back() <= outputLength + winLenHalf)
+			synWinPos.push_back((int)synWinPos.back() + synHop);
+		if ((int)synWinPos.back() > outputLength + winLenHalf)
 			synWinPos.pop_back();
-		body c1(0.), c2(0.);
-		c1.UpdateBuffer(2); c2.UpdateBuffer(2);
-		c1.buf[1] = pratio->value() * nSamples; 
+		CSignal anaHop, c2(1, 2);
+		anaWinPos.buf[1] = (double)outputLength;
 		c2.buf[1] = (double)nSamples;
-		c1.interp1(c2, CSignal(synWinPos));
-		anaWinPos = c1;
+		anaWinPos.interp1(c2, CSignal(synWinPos));
 		anaHop = anaWinPos;
 		anaHop.Diff();
 		for (unsigned int k = 0; k < anaHop.nSamples; k++)
 			anaHop.buf[k] = synHop / anaHop.buf[k];
 		double minFac = anaHop._min();
-		CSignal temp(nSamples + winLenHalf + tolerance + ceil(1 / minFac)*win.nSamples + tolerance);
-		memcpy(temp.buf + sizeof(double)*(nSamples + winLenHalf + tolerance), buf, sizeof(double)*nSamples);
-		(CSignals)anaWinPos += (double)tolerance;
-		out.UpdateBuffer((int)outputLength + 2 * win.nSamples);
-		ow.UpdateBuffer((int)outputLength + 2 * win.nSamples);
+		int newlen = winLenHalf + 2 * tolerance + (int)ceil(1 / minFac)*winLen;
+		CSignal temp(fs, nSamples + newlen);
+		memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
+		*this = temp;
+		for (unsigned k = 0; k < anaWinPos.nSamples - 1; k++)
+			anaWinPos.buf[k] += (double)tolerance;
+		double *pout = new double[outputLength + 2 * winLen];
+		double *pow = new double[outputLength + 2 * winLen];
+		memset(pout, 0, sizeof(double)*(outputLength + 2 * winLen));
+		memset(pow, 0, sizeof(double)*(outputLength + 2 * winLen));
 		int del = 0;
-		for (unsigned k = 0, q = 0; k < anaWinPos.nSamples; k++)
+		unsigned k = 0;
+		for (auto yid0 : synWinPos)
 		{
-			int * currSynWinRan = new int[win.nSamples];
-			int * currAnaWinRan = new int[win.nSamples];
-			for (int p = 0; p < win.nSamples; p++)
+			int xid0 = (int)anaWinPos.buf[k] + del;
+			for (unsigned int p = 0; p < winLen; p++)
 			{
-				currSynWinRan[p] = (int)synWinPos.at(k) + p;
-				currAnaWinRan[p] = (int)anaWinPos.buf[k] + del + p;
-
-				int m = (int)synWinPos.at(k) + p;
-				int n = (int)anaWinPos.buf[k] + del + p;
-				out.buf[m] += buf[n] * win.buf[q++];
+				pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
+				pow[(int)yid0 + p] += wind[p];
 			}
-			memcpy((void*)ow.buf, win.buf, sizeof(buf)*win.nSamples);
-			CSignal natProg;
-			natProg.UpdateBuffer(anaWinPos.nSamples);
-			memcpy((void*)natProg.buf, &buf[n+synHop], sizeof(buf)*anaWinPos.nSamples);
-
-
-
+			// last frame; no cross correlation
+			if (k < anaWinPos.nSamples - 1)
+			{
+				// Cross correlation between x(nextAnaWinRan) and x(currAnaWinRan + synHop)
+				int maxid = maxcc(buf + (int)anaWinPos.buf[k + 1] - tolerance, winLen + 2 * tolerance, buf + (int)anaWinPos.buf[k] + del + synHop, winLen);
+				del = tolerance - maxid + 1;
+			}
+			k++;
 		}
-
+		for (int p = 0; p < outputLength + 2 * winLen; p++)
+		{
+			if (pow[p] > .001)
+				pout[p] /= pow[p];
+		}
+		// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
+		out2.UpdateBuffer((int)outputLength);
+		memcpy(out2.buf, pout + winLenHalf, sizeof(double)*outputLength);
+		out2.SetFs(fs);
+		delete[] pout;
+		delete[] pow;
 	}
-	return *this;
+	delete[] wind;
+	return *this=out2;
 }
 
 CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
@@ -2871,6 +3017,43 @@ CTimeSeries * CTimeSeries::AtTimePoint(double timept)
 	return NULL;
 }
 
+CSignal& CSignal::Resample(unsigned int id0, unsigned int len)
+{
+	if (len == 0) len = nSamples;
+	CSignal *pratio = (CSignal *)parg;
+	char errstr[256] = {};
+	SRC_DATA conv;
+	vector<float> data_in, data_out;
+	data_in.resize(nSamples);
+	conv.data_in = &data_in[0];
+	conv.src_ratio = 1./pratio->value();
+	conv.input_frames = nSamples;
+	conv.output_frames = (long)(nSamples * (conv.src_ratio) + .5); // conv.src_ratio+1 should be right, but just in case 
+	data_out.resize(conv.output_frames);
+	conv.data_out = &data_out[0];
+	for (unsigned int k = 0; k < nSamples; k++) conv.data_in[k] = (float)buf[k];
+	int res = src_simple(&conv, SRC_SINC_BEST_QUALITY, 1);
+	if (!res)
+	{
+//		if (conv.output_frames_gen != newfs)
+//			strcpy(errstr, "resampled output generated less points than desired, zeros padded at the end.");
+
+		//update nSamples and fs
+		UpdateBuffer(conv.output_frames);
+//		double newfs = fs * pratio->value();
+//		fs = (int)(newfs + .5);
+		long k;
+		for (k = 0; k < conv.output_frames_gen; k++) 			buf[k] = conv.data_out[k];
+		for (k = conv.output_frames_gen; k < conv.output_frames; k++)		buf[k] = 0;
+	}
+	else
+	{
+		strcpy(errstr, src_strerror(res));
+	}
+
+	return *this;
+}
+
 double * CSignal::Resample(int newfs, char *errstr) // Revised in Dec09---noted for JHPARK
 {
 	errstr[0]=0;
@@ -2964,8 +3147,6 @@ int CSignal::DecFir(const CSignal& coeff, int offset, int nChan)
 
 CSignal& CSignal::_dynafilter(CSignal *TSEQ_num, CSignal * TSEQ_den, unsigned int id0, unsigned int len)
 {
-	
-
 	if (len == 0) len = nSamples;
 	if (IsComplex())
 	{
@@ -3720,6 +3901,7 @@ CSignals CSignals::basic(double (CSignal::*pf_basic)(unsigned int, unsigned int)
 			nextout.outarg2.push_back(*it);
 		newout.SetNextChan(&nextout);
 	}
+	parg = nullptr;
 	return newout;
 }
 
@@ -3731,6 +3913,7 @@ CSignals& CSignals::basic(CSignal& (CSignal::*pf_basic2)(unsigned int, unsigned 
 		next->pf_basic2 = pf_basic2;
 		next->basic(pf_basic2, popt);
 	}
+	parg = nullptr;
 	return *this;
 }
 
@@ -3742,6 +3925,7 @@ CSignals CSignals::basic(CSignal(CSignal::*pf_basic3)(unsigned int, unsigned int
 		next->pf_basic3 = pf_basic3;
 		newout.SetNextChan(&next->basic(pf_basic3, popt));
 	}
+	parg = nullptr;
 	return newout;
 }
 

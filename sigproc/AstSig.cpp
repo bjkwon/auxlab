@@ -1804,6 +1804,7 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 	unsigned int ngroups = tsig.nGroups; // final number of rows 
 	unsigned int totalLen = tsig.Len(); // final number of cols
 	bool compl=tsig.IsComplex();
+	int audiofs = 0;
 	for (p = p->next; p; p = p->next)
 	{
 		tsig = Compute(p);
@@ -1816,6 +1817,8 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 		totalLen += Sig.Len();
 		if (!compl) compl = tsig.IsComplex();
 		thisisGO = tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO();
+		if (!audiofs && tsig.GetFs()>3) 
+			audiofs = tsig.GetFs();
 	}
 	CVar out;
 	if (thisisGO)
@@ -1841,13 +1844,13 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 	}
 	out.UpdateBuffer(ngroups*totalLen);
 	out.nGroups = ngroups;
+	if (audiofs) out.SetFs(audiofs);
 	if (compl) out.SetComplex();
 	int col; // column locator
 	for (col = 0, p=pnode->child; p; p=p->next)
 	{
 		Compute(p);
-		out.SetFs(Sig.GetFs());
-		out.tmark = Sig.tmark;
+		out.tmark = Sig.tmark; // is this right? 3/8/2019
 		if (compl && !Sig.IsComplex()) Sig.SetComplex();
 		len = Sig.Len();
 		unsigned int bufsize = Sig.bufBlockSize;
