@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.498
-// Date: 1/30/2019
+// Version: 1.499
+// Date: 3/11/2019
 // 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <windows.h>
@@ -801,7 +801,8 @@ ostringstream xcom::outstream_tseq(CTimeSeries *psig, bool unit)
 	ostringstream out;
 	streamsize org_precision = out.precision();
 	out.setf(ios::fixed);
-	out.precision(1);
+	if (unit) out.precision(1);
+	else out.precision(2);
 	int kk(0), tint(psig->CountChains());
 	for (CTimeSeries *xp = psig; kk < tint; kk++, xp = xp->chain)
 	{
@@ -858,7 +859,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	case CSIG_TSERIES:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;
-		printf_tseries(pvar, 1);
+		printf_tseries(pvar, pvar->GetFs()>0);
 		break;
 	case CSIG_VECTOR:
 		for (int p = 0; p < offset; p++) cout << " ";

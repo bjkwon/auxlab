@@ -113,6 +113,14 @@ void CAstSig::checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg
 	throw CAstException(pnode, this, (msg+addmsg).c_str());
 }
 
+void CAstSig::checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg)
+{
+	if (checkthis.IsTimeSignal()) return;
+	string msg("requires a time_sequence as the base.");
+	throw CAstException(pnode, this, (msg + addmsg).c_str());
+}
+
+
 void CAstSig::checkComplex (const AstNode *pnode, CVar &checkthis)
 {
 	if (checkthis.IsComplex()) return;
@@ -548,15 +556,6 @@ void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		past->Sig.buf[i] = val1 + step*i;
 }
 
-bool overthreshold(double thr, double subject) {
-	return subject >= thr;
-}
-
-bool comp(int a, int b)
-{
-	return (a < b);
-}
-
 void _pitchscale(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	//More qualifers please 
@@ -578,8 +577,24 @@ void _timestretch(CAstSig *past, const AstNode *pnode, const AstNode *p, string 
 	CSignals param;
 	try {
 		CAstSig tp(past);
-		tp.Compute(p);
 		param = tp.Compute(p);
+		if (param.GetType() == CSIG_TSERIES)
+		{
+			double audioDur = past->Sig.dur();
+			if (param.GetFs() == 0) // relative
+				for (CTimeSeries *p = &param; p; p = p->chain)
+				{
+					p->tmark *= audioDur;
+					p->SetFs(past->Sig.GetFs());
+				}
+			//IF tsequence goes beyond the audio duration, cut it out.
+			for (CTimeSeries *p = &param; p; p = p->chain)
+				if (p->chain && p->chain->tmark > audioDur)
+				{
+					delete p->chain;
+					p->chain = NULL;
+				}
+		}
 	}
 	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
 	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::timestretch, &param);
@@ -594,32 +609,28 @@ void _interp1(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 	CSignals rx = past->Sig;
 	CSignals ry = past->Compute(p);
 	CSignals qx = past->Compute(p->next);
-	vector<double> element;
 	vector<double> rv = rx.ToVector();
-	vector<double> qv = qx.ToVector();
 	vector<double>::iterator it = rv.begin();
-	vector<double> tp;
 	past->Sig.UpdateBuffer(qx.nSamples);
 	int k = 0;
-	for (auto jt = qv.begin(); jt!=qv.end(); jt++)
+	for (unsigned q=0;q<qx.nSamples;q++)
 	{
-		tp.push_back(*jt);
-		it = find_first_of(it, rv.end(), tp.begin(), tp.end(), overthreshold);
+		it = upper_bound(it, rv.end(), qx.buf[q]); //because qp is sorted, having the iterator (previous searched result, if any) as the first argument will save time.
+		ptrdiff_t pos;
+		double valueAlready, preVal;
 		if (it != rv.end())
 		{
-			ptrdiff_t pos = it - rv.begin();
-			if (pos>0)
-				past->Sig.buf[k++] = ry.buf[pos - 1] + (ry.buf[pos] - ry.buf[pos - 1]) * ( *jt - *(it - 1));
-			else
-			{
-				past->Sig.buf[k++] = ry.buf[0] + (ry.buf[1] - ry.buf[0]) / (rx.buf[1] - rx.buf[0]) * (*jt - *it);
-			}
+			pos = it - rv.begin();
+			pos = max(1, pos);
+			preVal = *(it - 1);
 		}
 		else
 		{
-			past->Sig.buf[k++] = ry.buf[ry.nSamples-1] + (ry.buf[ry.nSamples - 1] - ry.buf[ry.nSamples - 2]) * (*jt - rv.back());
+			pos = ry.nSamples;
+			preVal = rv.back();
 		}
-		tp.clear();
+		valueAlready = ry.buf[pos - 1];
+		past->Sig.buf[k++] = valueAlready + (ry.buf[pos] - ry.buf[pos - 1]) / (rx.buf[pos] - rx.buf[pos - 1]) * (qx.buf[q] - preVal);
 	}
 }
 
@@ -1073,7 +1084,7 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 #endif
 }
 
-void _isnull(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _isaudioat(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // if the signal is null at specified time_pt
 	past->checkAudioSig(pnode, past->Sig);
 	CAstSig tp(past);
@@ -1081,8 +1092,7 @@ void _isnull(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	if (tp.Sig.GetType() != CSIG_SCALAR)
 		throw CAstException(pnode, past, fnsigs, "argument must be a scalar.");
 	double vv = tp.Sig.value();
-	past->checkAudioSig(pnode, past->Sig);
-	past->Sig.SetValue(past->Sig.IsNull(vv));//this failed CHECK IT------3/3/2018 
+	past->Sig.SetValue(past->Sig.IsAudioOnAt(vv));
 	past->Sig.MakeLogical();
 }
 
@@ -1098,7 +1108,7 @@ void _varcheck(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	else if (fname == "isclass")	past->Sig.SetValue((double)(int)!past->Sig.strut.empty());
 	else if (fname == "isbool")		past->Sig.SetValue(past->Sig.bufBlockSize == 1 && past->Sig.GetFs() != 2);
 	else if (fname == "isstereo")	past->Sig.SetValue(past->Sig.next != NULL ? 1 : 0);
-	else if (fname == "istseq")		past->Sig.SetValue(type == CSIG_TSERIES ? 1 : 0);
+	else if (fname == "istseq")		past->Sig.SetValue((double)(int)past->Sig.IsTimeSignal()); //check...
 	past->Sig.MakeLogical();
 }
 
@@ -1597,7 +1607,14 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		else
 		{
 			past->Sig.SetFs(1); // Don't call Reset because we need to leave the data buffer as is.
-			past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::length);
+			if (past->Sig.IsTimeSignal())
+			{
+				past->Sig.SetValue((double)(past->Sig.CountChains()));
+			}
+			else
+			{
+				past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::length);
+			}
 		}
 	}
 	else
@@ -1910,6 +1927,133 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	}
 }
 
+void _tsq_isrel(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
+{
+	int type = past->Sig.GetType();
+	bool res = (type == CSIG_TSERIES) && (past->Sig.GetFs() == 0);
+	double dres = res ? 1. : 0.;
+	past->Sig.SetValue(dres);
+}
+
+void _tsq_gettimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
+{
+	past->checkTSeq(pnode, past->Sig);
+	//get the item count; i.e., the number of chains
+	int nItems = past->Sig.CountChains();
+	double *dbuf = new double[nItems];
+	int k = 0;
+	int nChains=1;
+	bool relative = past->Sig.GetFs() == 0;
+	for (CTimeSeries *p = &past->Sig; p; p = p->chain)
+		dbuf[k++] = p->tmark;
+	if (p)
+	{
+		past->Compute(p);
+		past->checkAudioSig(pnode, past->Sig);
+		if (past->Sig.next)
+			throw CAstException(pnode, past, "Cannot be a stereo audio signal--just for now...");
+		if (relative)
+		{
+			nChains = past->Sig.CountChains();
+			double *newdbuf = new double[nItems*nChains];
+			for (int k = 0; k < nChains; k++)
+				memcpy(newdbuf + k * nItems, dbuf, sizeof(double)*nItems);
+			delete[] dbuf;
+			dbuf = newdbuf;
+			int id = 0;
+			for (CTimeSeries *p = &past->Sig; p; p = p->chain)
+			{
+				double durseg = p->dur();
+				for (int k = 0; k < nItems; k++)
+				{
+					dbuf[id*nItems + k] *= durseg;
+					dbuf[id*nItems + k] += p->tmark;
+				}
+				id++;
+			}
+		}
+		else
+		{
+			//Now, check the audio is on at each time point.. if not remove the time point
+			double *newdbuf = new double[nItems*nChains];
+			int count = 0;
+			for (int k = 0; k < nItems; k++)
+			{
+				if (past->Sig.IsAudioOnAt(dbuf[k]))
+					newdbuf[count++] = dbuf[k];
+			}
+			delete[] dbuf;
+			dbuf = newdbuf;
+			nItems = count;
+		}
+		past->Sig.Reset(1);
+	}
+	else
+		past->Sig.SetFs(0); // setting fs=0 to indicate relative time points... this is a temporary hack. 3/10/2019
+	past->Sig.UpdateBuffer(nItems*nChains);
+	past->Sig.nGroups = nChains;
+	memcpy(past->Sig.buf, dbuf, sizeof(double)*past->Sig.nSamples);
+	delete[] dbuf;
+}
+
+void _tsq_settimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
+{
+	past->checkTSeq(pnode, past->Sig);
+	int nItems = past->Sig.CountChains();
+	try {
+		CAstSig tp(past);
+		CVar newtime = tp.Compute(p);
+		if (newtime.GetType()!=CSIG_VECTOR)
+			throw CAstException(p, past, fnsigs, "Argument must be a vector of time points.");
+		if (newtime.nSamples!=nItems)
+			throw CAstException(p, past, fnsigs, "Argument vector must have the same number of elements as the TSEQ.");
+		int id = 0;
+		for (CTimeSeries *p = &past->Sig; p; p = p->chain)
+		{
+			p->tmark = newtime.buf[id++];
+			if (newtime.GetFs() == 0) p->SetFs(0);
+		}
+	}
+	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+	past->SetVar(pRoot->str, &past->Sig);
+}
+
+void _tsq_getvalues(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
+{
+	past->checkTSeq(pnode, past->Sig);
+	int k=0, nItems = past->Sig.CountChains();
+	CTimeSeries out(1);
+	out.UpdateBuffer(nItems * past->Sig.nSamples);
+	out.nGroups = nItems;
+	for (CTimeSeries *p = &past->Sig; p; p = p->chain)
+		memcpy(out.buf + k++ * p->nSamples, p->buf, sizeof(double)*p->nSamples); // assuming that p->nSamples is always the same
+	past->Sig = out;
+}
+
+void _tsq_setvalues(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
+{
+	past->checkTSeq(pnode, past->Sig);
+	int nItems = past->Sig.CountChains();
+	try {
+		CAstSig tp(past);
+		CVar newvalues = tp.Compute(p);
+		if (newvalues.GetType() != CSIG_VECTOR)
+			throw CAstException(p, past, fnsigs, "Argument must be a vector.");
+		if (newvalues.nGroups!= nItems)
+			throw CAstException(p, past, fnsigs, "Argument vector must have the same number of groups as the TSEQ length.");
+		int id = 0;
+		for (CTimeSeries *p = &past->Sig; p; p = p->chain)
+		{
+			p->UpdateBuffer(newvalues.Len());
+			memcpy(p->buf, newvalues.buf + id++ * newvalues.Len(), sizeof(double)*newvalues.Len());
+		}
+	}
+	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+	past->SetVar(pRoot->str, &past->Sig);
+}
+
 void _imaginary_unit(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	complex<double> x(0, 1);
@@ -2029,9 +2173,9 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_ramp;
 	built_in_funcs.push_back(pp);
 
-	pp.name = "isnull";
+	pp.name = "isaudioat";
 	pp.funcsignature = "(audio_signal, time_pt)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_isnull;
+	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_isaudioat;
 	built_in_funcs.push_back(pp);
 
 	pp.name = "fmm";
@@ -2260,7 +2404,7 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	pp.alwaysstatic = false;
 	pp.narg1 = 1;	pp.narg2 = 1;
 	pp.funcsignature = "(variable)";
-	const char *f7[] = { "isempty", "isaudio", "isvector", "isstring", "isstereo", "isbool", "iscell", "isclass", 0 };
+	const char *f7[] = { "isempty", "isaudio", "isvector", "isstring", "isstereo", "isbool", "iscell", "isclass", "istseq", 0 };
 	for (int k = 0; f7[k]; k++)
 	{
 		pp.name = f7[k];
@@ -2348,7 +2492,6 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_playstop;
 	built_in_funcs.push_back(pp);
 
-
 	pp.funcsignature = "(audio_signal [, repeat=1]) or (audio_handle, audio_signal [, repeat=1])";
 	pp.narg1 = 1;	pp.narg2 = 3;
 	pp.name = "play";
@@ -2373,6 +2516,37 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_funcs.push_back(pp);
 	pp.name = "rmsall";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_arraybasic;
+	built_in_funcs.push_back(pp);
+
+	pp.alwaysstatic = false;
+	pp.narg1 = 1;	pp.narg2 = 1;
+	pp.name = "tsq_isrel";
+	pp.funcsignature = "(tseq)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_isrel;
+	built_in_funcs.push_back(pp);
+
+	pp.narg1 = 1;	pp.narg2 = 2;
+	pp.name = "tsq_gettimes";
+	pp.funcsignature = "(tseq [, audio_signal])";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_gettimes;//
+	built_in_funcs.push_back(pp);
+
+	pp.narg1 = 2;	pp.narg2 = 2;
+	pp.name = "tsq_settimes";
+	pp.funcsignature = "(tseq, times_vector_or_tseq)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_settimes;
+	built_in_funcs.push_back(pp);
+
+	pp.narg1 = 1;	pp.narg2 = 1;
+	pp.name = "tsq_getvalues";
+	pp.funcsignature = "(tseq)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_getvalues;
+	built_in_funcs.push_back(pp);
+
+	pp.narg1 = 2;	pp.narg2 = 2;
+	pp.name = "tsq_setvalues";
+	pp.funcsignature = "(tseq, values_matrix)";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_setvalues;
 	built_in_funcs.push_back(pp);
 
 	pp.alwaysstatic = true;

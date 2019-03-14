@@ -235,7 +235,6 @@ void body::SetValue(complex<double> v)
 	nSamples=1; cbuf[0]=v; 
 }
 
-
 body& body::UpdateBuffer(unsigned int length)	// Set nSamples. Re-allocate buf if necessary to accommodate new length.
 {
 	unsigned int currentBufsize = bufBlockSize * nSamples; 
@@ -278,7 +277,6 @@ double body::value() const
 	else 
 		throw "value( ) on vector/array.";
 }
-
 
 complex<double> body::cvalue() const 
 {
@@ -328,7 +326,6 @@ void body::Imag()
 		UpdateBuffer(nSamples);
 	}
 }
-
 
 void body::SetComplex() 
 {
@@ -631,8 +628,6 @@ body &body::insert(body &sec, int id)
 	return *this;
 }
 
-
-
 double body::sum(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
@@ -798,31 +793,30 @@ body & body::interp1(body &that, body &qx)
 {
 	vector<double> v1 = ToVector();
 	vector<double> v2 = that.ToVector();
-	vector<double> qv = qx.ToVector();
 	vector<double>::iterator it = v1.begin();
 	int k = 0;
 	body out;
 	out.UpdateBuffer(qx.nSamples);
-	for (auto jt = qv.begin(); jt != qv.end(); jt++)
+	for (unsigned int q = 0; q < qx.nSamples; q++)
 	{
-		vector<double> tp(1, *jt);
-		it = find_first_of(it, v1.end(), tp.begin(), tp.end(), othre);
+		vector<double> tp(1, qx.buf[q]);
+		it = upper_bound(it, v1.end(), qx.buf[q]); //because qp is sorted, having the iterator (previous searched result, if any) as the first argument will save time.
+		ptrdiff_t pos;
+		double valueAlready, preVal;
 		if (it != v1.end())
 		{
-			ptrdiff_t pos = it - v1.begin();
-			if (pos > 0)
-				out.buf[k++] = that.buf[pos - 1] + (that.buf[pos] - that.buf[pos - 1]) * (*jt - *(it - 1));
-			else
-			{
-				out.buf[k++] = that.buf[0] + (that.buf[1] - that.buf[0]) / (buf[1] - buf[0]) * (*jt - *it);
-			}
+			pos = it - v1.begin();
+			pos = max(1, pos);
+			preVal = *(it - 1);
 		}
 		else
 		{
-			out.buf[k++] = that.buf[that.nSamples - 1] + (that.buf[that.nSamples - 1] - that.buf[that.nSamples - 2]) * (*jt - v1.back());
+			pos = that.nSamples;
+			preVal = v1.back();
 		}
+		valueAlready = that.buf[pos - 1];
+		out.buf[k++] = valueAlready + (that.buf[pos] - that.buf[pos - 1]) / (buf[pos] - buf[pos - 1]) * (qx.buf[q] - preVal);
 	}
-
 	return *this = out;
 }
 
@@ -1105,6 +1099,9 @@ CSignal& CSignal::operator=(const CSignal& rhs)
 			tmark = rhs.tmark;
 			SetFs(0);
 		}
+		pf_basic = rhs.pf_basic;
+		pf_basic2 = rhs.pf_basic2;
+		pf_basic3 = rhs.pf_basic3;
 		if (rhs.nSamples>0)
 			body::operator=(rhs); 
 	}
@@ -2267,19 +2264,15 @@ CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	timestretch(id0, len);
-
-	CSignal *pratio = (CSignal *)parg;
-	if (pratio->IsScalar())
-	{
-		Resample(id0, len);
-	}
+	Resample(id0, len);
 	return *this;
 }
 
 CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	CSignal *pratio = (CSignal *)parg;
+	CTimeSeries *pratio = (CTimeSeries *)parg;
+	//pratio is either a constant or time sequence of scalars (not relative time)
 	int synHop = 512;
 	int tolerance = 512;
 	const int winLen = 1024; // window size
@@ -2288,69 +2281,86 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	for (unsigned int k = 0; k < winLen; k++)
 		wind[id0 + k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
 	//pratio must be either real constant or T_SEQ then value at each time point is the ratio for that segment
-	vector<double> synWinPos(1); // initializing one element with zero
-	CSignal anaWinPos(1, 2);
-	CSignal out2;
-	if (pratio->IsScalar())
+	CSignal anaWinPos(1, 2), anchpts(1, 2);
+	CSignal out;
+	out.pf_basic2 = pf_basic2;
+	out.tmark = tmark;
+	int outputLength;
+	if (pratio->GetType()!=CSIG_TSERIES)
 	{
-		const int outputLength = (int)ceil(pratio->value()*nSamples);
-		synWinPos.reserve(outputLength * 2);
-		while ((int)synWinPos.back() <= outputLength + winLenHalf)
-			synWinPos.push_back((int)synWinPos.back() + synHop);
-		if ((int)synWinPos.back() > outputLength + winLenHalf)
-			synWinPos.pop_back();
-		CSignal anaHop, c2(1, 2);
+		outputLength = (int)ceil(pratio->value()*nSamples);
 		anaWinPos.buf[1] = (double)outputLength;
-		c2.buf[1] = (double)nSamples;
-		anaWinPos.interp1(c2, CSignal(synWinPos));
-		anaHop = anaWinPos;
-		anaHop.Diff();
-		for (unsigned int k = 0; k < anaHop.nSamples; k++)
-			anaHop.buf[k] = synHop / anaHop.buf[k];
-		double minFac = anaHop._min();
-		int newlen = winLenHalf + 2 * tolerance + (int)ceil(1 / minFac)*winLen;
-		CSignal temp(fs, nSamples + newlen);
-		memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
-		*this = temp;
-		for (unsigned k = 0; k < anaWinPos.nSamples - 1; k++)
-			anaWinPos.buf[k] += (double)tolerance;
-		double *pout = new double[outputLength + 2 * winLen];
-		double *pow = new double[outputLength + 2 * winLen];
-		memset(pout, 0, sizeof(double)*(outputLength + 2 * winLen));
-		memset(pow, 0, sizeof(double)*(outputLength + 2 * winLen));
-		int del = 0;
-		unsigned k = 0;
-		for (auto yid0 : synWinPos)
-		{
-			int xid0 = (int)anaWinPos.buf[k] + del;
-			for (unsigned int p = 0; p < winLen; p++)
-			{
-				pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
-				pow[(int)yid0 + p] += wind[p];
-			}
-			// last frame; no cross correlation
-			if (k < anaWinPos.nSamples - 1)
-			{
-				// Cross correlation between x(nextAnaWinRan) and x(currAnaWinRan + synHop)
-				int maxid = maxcc(buf + (int)anaWinPos.buf[k + 1] - tolerance, winLen + 2 * tolerance, buf + (int)anaWinPos.buf[k] + del + synHop, winLen);
-				del = tolerance - maxid + 1;
-			}
-			k++;
-		}
-		for (int p = 0; p < outputLength + 2 * winLen; p++)
-		{
-			if (pow[p] > .001)
-				pout[p] /= pow[p];
-		}
-		// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
-		out2.UpdateBuffer((int)outputLength);
-		memcpy(out2.buf, pout + winLenHalf, sizeof(double)*outputLength);
-		out2.SetFs(fs);
-		delete[] pout;
-		delete[] pow;
+		anchpts.buf[1] = (double)nSamples;
 	}
+	else
+	{
+		const unsigned int nTSLayers = pratio->CountChains();
+		anaWinPos.UpdateBuffer(nTSLayers);
+		anchpts.UpdateBuffer(nTSLayers);
+		double cumTpointsY = 0.;
+		CTimeSeries *p = pratio;
+		anaWinPos.buf[0] = 0;
+		for (unsigned int k = 0; k < nTSLayers - 1; k++, p=p->chain)
+		{
+			anchpts.buf[k] = ceil(p->tmark * fs / 1000);
+			anaWinPos.buf[k+1] = ceil(cumTpointsY += .5*(p->chain->value() + p->value()) * (p->chain->tmark - p->tmark) * fs / 1000);
+		}
+		anchpts.buf[nTSLayers - 1] = ceil(p->tmark * fs / 1000);
+		outputLength = (int)ceil(anaWinPos.buf[nTSLayers - 1]);
+	}
+	vector<double> synWinPos(1); // initializing one element with zero
+	synWinPos.reserve(outputLength * 2);
+	while ((int)synWinPos.back() + synHop <= outputLength + winLenHalf)
+		synWinPos.push_back((int)synWinPos.back() + synHop);
+	anaWinPos.interp1(anchpts, CSignal(synWinPos));
+	CSignal anaHop;
+	anaHop = anaWinPos;
+	anaHop.Diff();
+	for (unsigned int k = 0; k < anaHop.nSamples; k++)
+		anaHop.buf[k] = synHop / anaHop.buf[k];
+	double minFac = anaHop._min();
+	int newlen = winLenHalf + 2 * tolerance + (int)ceil(1 / minFac)*winLen;
+	CSignal temp(fs, nSamples + newlen);
+	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
+	*this = temp;
+	for (unsigned k = 0; k < anaWinPos.nSamples - 1; k++)
+		anaWinPos.buf[k] += (double)tolerance;
+	double *pout = new double[outputLength + 2 * winLen];
+	double *pow = new double[outputLength + 2 * winLen];
+	memset(pout, 0, sizeof(double)*(outputLength + 2 * winLen));
+	memset(pow, 0, sizeof(double)*(outputLength + 2 * winLen));
+	int del = 0;
+	unsigned k = 0;
+	for (auto yid0 : synWinPos)
+	{
+		int xid0 = (int)anaWinPos.buf[k] + del;
+		for (unsigned int p = 0; p < winLen; p++)
+		{
+			pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
+			pow[(int)yid0 + p] += wind[p];
+		}
+		// last frame; no cross correlation
+		if (k < anaWinPos.nSamples - 1)
+		{
+			// Cross correlation between x(nextAnaWinRan) and x(currAnaWinRan + synHop)
+			int maxid = maxcc(buf + (int)anaWinPos.buf[k + 1] - tolerance, winLen + 2 * tolerance, buf + (int)anaWinPos.buf[k] + del + synHop, winLen);
+			del = tolerance - maxid + 1;
+		}
+		k++;
+	}
+	for (int p = 0; p < outputLength + 2 * winLen; p++)
+	{
+		if (pow[p] > .001)
+			pout[p] /= pow[p];
+	}
+	// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
+	out.UpdateBuffer((int)outputLength);
+	memcpy(out.buf, pout + winLenHalf, sizeof(double)*outputLength);
+	out.SetFs(fs);
+	delete[] pout;
+	delete[] pow;
 	delete[] wind;
-	return *this=out2;
+	return *this=out;
 }
 
 CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
@@ -2701,7 +2711,6 @@ CTimeSeries& CTimeSeries::NullIn(double tpoint)
 	return *this;
 }
 
-
 CTimeSeries& CTimeSeries::Insert(double timept, CTimeSeries &newchunk)
 {
 	int id ;
@@ -2710,7 +2719,9 @@ CTimeSeries& CTimeSeries::Insert(double timept, CTimeSeries &newchunk)
 	CTimeSeries copy(*this), out(*this);
 	CTimeSeries *p(this);
 	double insertduration = newchunk.GetDeepestChain()->_dur();
-	if (IsNull(timept))
+	// Alert---IsAudioOnAt (formerly known as IsNull) was modified... check if the change didn't mess up Insert()
+	// 3/10/2019
+	if (IsAudioOnAt(timept))
 	{
 		for (; p; p=p->chain)
 		{
@@ -2824,23 +2835,21 @@ double * CSignal::DC(unsigned int nsamples)
 {
 	Reset();
 	UpdateBuffer(nsamples);
-	for (unsigned int i=0; i<nsamples; i++) buf[i] = 1.;
+	for (unsigned int i = 0; i < nsamples; i++) buf[i] = 1.;
 	return buf;
 }
 
-bool CTimeSeries::IsNull(double timept)
+bool CTimeSeries::IsAudioOnAt(double timept)
 {
-	if (GetType()!=CSIG_AUDIO) return false;
+	if (GetType() != CSIG_AUDIO) return false;
 	CTimeSeries *p(this);
-	for (; p; p=p->chain)
-		if (timept >= p->tmark)
-		{
-			if (timept > p->tmark+p->_dur()) return false;
-			else
-				continue;
-		}
-		else 
+	for (; p; p = p->chain)
+	{
+		if (timept < p->tmark)
+			return false;
+		if (timept >= p->tmark && timept <= p->tmark + p->dur())
 			return true;
+	}
 	return false;
 }
 
@@ -3365,9 +3374,9 @@ CSignal& CSignal::conv(unsigned int id0, unsigned int len)
 	for (unsigned int k = 0; k < out.nSamples; k++)
 	{
 		double tp = 0.;
-		for (int p = 0, q=0; q>=0 ; p++)
+		for (int p(0), q(0); p<(int)nSamples; p++)
 		{
-			q = k - p;
+			if ((q = k - p) < 0) continue;
 			if (p < (int)nSamples && q < (int)parray2->nSamples)
 				tp += buf[p] * parray2->buf[q];
 		}

@@ -939,48 +939,11 @@ CVar &CAstSig::extract(char *errstr, CVar **pinout, body &isig)
 			}
 		}
 		out.SetReal();
-		if (Sig.GetType() == CSIG_VECTOR)
+		if (Sig.GetType() == CSIG_VECTOR || Sig.GetType() == CSIG_AUDIO)
 		{
 			int id(0);
-			for (unsigned int i = 0; i < isig.nSamples; i++)
-				out.buf[id++] = (*pinout)->buf[(int)isig.buf[i] - 1];
-		}
-		else if (Sig.GetType() == CSIG_AUDIO)
-		{ // 
-			int cum(0), id(0), lastid = -2;
-			vector<int> size2reserve;
 			for (unsigned int k = 0; k < isig.nSamples; k++)
-			{
-				id = (int)isig.buf[k];
-				if (id - lastid > 1)
-				{
-					if (lastid>0) size2reserve.push_back(lastid);
-					size2reserve.push_back(id);
-				}
-				lastid = id;
-			}
-			size2reserve.push_back((int)isig.buf[isig.nSamples - 1]);
-			auto it = size2reserve.begin();
-			p->UpdateBuffer(*(it + 1) - *it + 1);
-			p->tmark = (double)(isig.buf[0] - 1) / Sig.GetFs() * 1000.;
-			it++; it++;
-			lastid = (int)isig.buf[0] - 1;
-			for (unsigned int i = 0; i < isig.nSamples; i++)
-			{
-				id = (int)isig.buf[i] - 1;
-				if (id - lastid > 1)
-				{
-					cum = 0;
-					CSignals *pchain = new CSignals(Sig.GetFs());
-					pchain->UpdateBuffer(*(it + 1) - *it + 1);
-					pchain->tmark = (double)id / Sig.GetFs() * 1000.;
-					p->chain = pchain;
-					p = pchain;
-					it++; it++;
-				}
-				p->buf[cum++] = (*pinout)->buf[id];
-				lastid = id;
-			}
+				out.buf[id++] = (*pinout)->buf[(int)isig.buf[k] - 1];
 		}
 	}
 	out.nGroups = isig.nGroups;
@@ -2314,7 +2277,7 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 		}
 		else if (pn->type == N_ARGS)
 		{
-			ppar = get_parent_node(pAst, pn);
+			ppar = get_parent_node((AstNode*)pLast, pn);
 			if (ndog.psigBase->IsGO() && ndog.psigBase->GetFs() != 3)
 			{
 				CVar tp = Compute(pn->child);
@@ -2655,70 +2618,7 @@ try {
 		Sig.nGroups = tsig.nGroups;
 		return TID((AstNode*)pnode, NULL, &Sig);
 	case T_OP_CONCAT:
-		tsig = Compute(p->next);
-		if (pgo)
-		{ //special treatment needed to multiple GO's
-			vector<CVar*> tp;
-			tp.push_back(pgo);
-			Compute(p);
-			if (Sig.IsEmpty()) return Sig = *pgo;
-			//Now, Sig can be CSIG_HDLARRAY, then use it as is.
-			if (!pgo)
-				throw CAstException(p, this, "RHS is a graphic handle. LHS is not. Can't concatenate.");
-			if (Sig.GetType() == CSIG_HDLARRAY)
-			{
-				Sig.UpdateBuffer(Sig.nSamples + 1);
-				Sig.buf[Sig.nSamples-1] = (double)(INT_PTR)tp.front();
-			}
-			//else
-			//{
-			//	tp.insert(tp.begin(), pgo);
-			//	pgo = MakeGOContainer(tp);
-			//}
-			//else
-			//	*pgo += tp.front();
-			return Sig;
-		}
-		Compute(p);
-		if (pgo)
-			throw CAstException(p, this, "LHS is a graphic handle. RHS is not. Can't concatenate.");
-		if (Sig.nGroups > 1)
-			if (tsig.nSamples > 0 && tsig.nGroups != Sig.nGroups)
-				throw CAstException(p->next, this, "To concatenate, the second operand must be either empty, the two operands must have the same number of each group (i.e., same row count).");
-		if ( (tsig.GetType()==CSIG_CELL) && (Sig.GetType()!=CSIG_CELL) )
-			throw CAstException(p->next, this, "A cell variable cannot be appended to a non-cell variable.");
-		if (Sig.GetType()==CSIG_CELL)
-		{
-			if (tsig.GetType() == CSIG_CELL)
-			{
-				for (size_t k=0; k<tsig.cell.size(); k++)
-					Sig.cell.push_back(tsig.cell[(int)k]);
-			}
-			else
-				Sig.cell.push_back(tsig);
-		}
-		else
-		{
-			//For matrix, Group-wise (i.e., row-wise) concatenation
-			if (Sig.nGroups > 1)
-			{
-				unsigned int len0 = Sig.Len();
-				Sig.UpdateBuffer(Sig.nSamples+tsig.nSamples);
-				unsigned int len1 = Sig.Len();
-				unsigned int lent = tsig.Len();
-				for (unsigned int k, kk = 0; kk < Sig.nGroups; kk++)
-				{
-					k = Sig.nGroups - kk - 1;
-					memcpy(Sig.buf + len1*k, Sig.buf+len0*k, sizeof(double)*len0);
-					memcpy(Sig.buf + len1*k + len0, tsig.buf + lent*k, sizeof(double)*lent);
-				}
-			}
-			else
-			{
-				Sig += &tsig;
-				Sig.MergeChains();
-			}
-		}
+		Concatenate(pnode, p);
 		return TID((AstNode*)pnode, NULL, &Sig);
 	case T_LOGIC_OR:
 	case T_LOGIC_AND:
@@ -2828,6 +2728,73 @@ try {
 	throw CAstException(pnode, this, string("Internal error! ") + e.what());
 } 
 return Sig;
+}
+
+CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
+{
+	CVar tsig = Compute(p->next);
+	if (pgo)
+	{ //special treatment needed to multiple GO's
+		vector<CVar*> tp;
+		tp.push_back(pgo);
+		Compute(p);
+		if (Sig.IsEmpty()) return Sig = *pgo;
+		//Now, Sig can be CSIG_HDLARRAY, then use it as is.
+		if (!pgo)
+			throw CAstException(p, this, "RHS is a graphic handle. LHS is not. Can't concatenate.");
+		if (Sig.GetType() == CSIG_HDLARRAY)
+		{
+			Sig.UpdateBuffer(Sig.nSamples + 1);
+			Sig.buf[Sig.nSamples - 1] = (double)(INT_PTR)tp.front();
+		}
+		return Sig;
+	}
+	Compute(p);
+	if (pgo)
+		throw CAstException(p, this, "LHS is a graphic handle. RHS is not. Can't concatenate.");
+	if (Sig.nGroups > 1)
+	if ((tsig.GetType() == CSIG_CELL) && (Sig.GetType() != CSIG_CELL))
+		throw CAstException(p->next, this, "A cell variable cannot be appended to a non-cell variable.");
+	if (Sig.GetType() == CSIG_CELL)
+	{
+		if (tsig.GetType() == CSIG_CELL)
+		{
+			for (size_t k = 0; k < tsig.cell.size(); k++)
+				Sig.cell.push_back(tsig.cell[(int)k]);
+		}
+		else
+			Sig.cell.push_back(tsig);
+	}
+	else
+	{
+		//Check rejection conditions
+		if (tsig.nSamples * Sig.nSamples > 0) // if either is empty, no rejection
+		{
+			if (tsig.nGroups!=Sig.nGroups && tsig.Len() !=Sig.Len())
+				throw CAstException(p->next, this, "To concatenate, the second operand must have the same number of elements or the same number of groups (i.e., rows) ");
+		}
+		//For matrix, Group-wise (i.e., row-wise) concatenation
+		if (Sig.nGroups > 1 && Sig.Len()!=tsig.Len())
+		{ //  append row-wise
+			unsigned int len0 = Sig.Len();
+			Sig.UpdateBuffer(Sig.nSamples + tsig.nSamples);
+			unsigned int len1 = Sig.Len();
+			unsigned int lent = tsig.Len();
+			for (unsigned int k, kk = 0; kk < Sig.nGroups; kk++)
+			{
+				k = Sig.nGroups - kk - 1;
+				memcpy(Sig.buf + len1 * k, Sig.buf + len0 * k, sizeof(double)*len0);
+				memcpy(Sig.buf + len1 * k + len0, tsig.buf + lent * k, sizeof(double)*lent);
+			}
+		}
+		else
+		{ // Sig and tsig have both row and column counts, concatenation is done here... at the end of row--making more rows withthe same column counts (not row-wise concatenating)
+			if (Sig.nGroups > 1) Sig.nGroups += tsig.nGroups;
+			Sig += &tsig;
+			Sig.MergeChains();
+		}
+	}
+	return Sig;
 }
 
 CVar *CAstSig::HandleSig(CVar *ptarget, CVar *pGraffyobj)

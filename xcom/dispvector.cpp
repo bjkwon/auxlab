@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.499
+// Date: 3/11/2019
 // 
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h
 
@@ -153,7 +153,7 @@ void CVectorsheetDlg::Init2(const char *windowtitle)
 	char buf[256];
 	LvCol.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
 	if (psig->GetType() == CSIG_TSERIES)
-		strcpy(buf, "time(ms)");
+		strcpy(buf, "time");
 	else if (psig->nGroups > 1)
 		strcpy(buf, "mtx");
 	else
@@ -385,7 +385,8 @@ void CVectorsheetDlg::FillUp()
 		for (unsigned int k = 0; k <= jd2 - jd1; k++)
 		{
 			CSignal *p = psig->ChainOrd(jd2-k);
-			sprintf(buf, "%.1fms", p->tmark);
+			sprintf(buf, "%.1f", p->tmark);
+			if (p->GetFs() > 0) strcat(buf, "ms");
 			maxstrlen = max(maxstrlen, strlen(buf));
 			AppendRow(buf, 0);
 		}

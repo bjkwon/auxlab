@@ -353,7 +353,7 @@ public:
 	CTimeSeries& operator-=(CTimeSeries &sec);
 	CTimeSeries& operator/=(CTimeSeries &scaleArray);
 	CTimeSeries& operator>>=(double delta);
-	bool IsNull(double timept);
+	bool IsAudioOnAt(double timept);
 	int GetType() const;
 	void SwapContents1node(CTimeSeries &sec);
 	CTimeSeries& LogOp(CTimeSeries &rhs, int type);
@@ -746,6 +746,7 @@ private:
 	CVar &TID_cell(AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig, CVar *psigBase);
+	CVar &Concatenate(const AstNode *pnode, AstNode *p);
 	AstNode *read_node(NODEDIGGER &ndog, AstNode *pn);
 	AstNode *read_nodes(NODEDIGGER &ndog);
 	AstNode *read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn);
@@ -765,7 +766,8 @@ public:
 	bool isThisAllowedPropGO(CVar *psig, const char *type, CVar &tsig);
 	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6)(const char*), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar));
 	bool IsThisBreakpoint(const AstNode *pnode);
-	void checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg="");
+	void checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg = "");
+	void checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg="");
 	void checkComplex (const AstNode *pnode, CVar &checkthis);
 	void checkVector(const AstNode *pnode, CVar &checkthis, string addmsg = "");
 	void checkSignal(const AstNode *pnode, CVar &checkthis, string addmsg="");
