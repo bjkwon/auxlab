@@ -885,12 +885,12 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 			if (pctx->pgo->strut["xyz"].string() == string("x"))
 			{
 				cax->xtick.automatic = false;
-				cax->xtick.tics1 = RHS.ToVector();
+				cax->xtick.tics1 = RHS.body::ToVector();
 			}
 			else if (pctx->pgo->strut["xyz"].string() == string("y"))
 			{
 				cax->ytick.automatic = false;
-				cax->ytick.tics1 = RHS.ToVector();
+				cax->ytick.tics1 = RHS.body::ToVector();
 				CSignals onoff(false);
 			}
 		}

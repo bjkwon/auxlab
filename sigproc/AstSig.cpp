@@ -2227,7 +2227,7 @@ AstNode *CAstSig::read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn)
 	return res;
 }
 
-AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
+AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn,  AstNode *ppar)
 {
 	if (pn->type == T_OP_CONCAT || pn->type == '+' || pn->type == '-' || pn->type == T_TRANSPOSE || pn->type == T_MATRIXMULT
 		|| pn->type == '*' || pn->type == '/' || pn->type == T_OP_SHIFT || pn->type == T_NEGATIVE || (pn==ndog.root && IsCondition(pn)))
@@ -2239,14 +2239,14 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 	AstNode *p = pn;
 	int cellind, ind(0);
 	CVar *pres;
-	AstNode *pUDF, *ppar;
+	AstNode *pUDF;
 	if ((pUDF=ReadUDF(emsg, pn->str)))
 	{
 		if (pn->child)
 		{
 			throw CAstException(pn, this, "Name conflict between the LHS variable and a user-defined function.");
 		}
-		ppar = get_parent_node(pAst, pn);
+//		ppar = get_parent_node(pAst, pn);
 		if (ppar)
 		{
 			// See aux-indexing-parsing-plan.doc for more info. The parent node is lhs only if...
@@ -2277,7 +2277,6 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 		}
 		else if (pn->type == N_ARGS)
 		{
-			ppar = get_parent_node((AstNode*)pLast, pn);
 			if (ndog.psigBase->IsGO() && ndog.psigBase->GetFs() != 3)
 			{
 				CVar tp = Compute(pn->child);
@@ -2294,7 +2293,6 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 		}
 		else if (IsCondition(pn))
 		{
-			ppar = get_parent_node(pAst, pn);
 			if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ppar, this, "A cell array cannot be accessed with ( ).");
 			CVar isig, isig2;
 			eval_indexing(pn, ndog.psigBase, isig);
@@ -2376,12 +2374,16 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn)
 AstNode *CAstSig::read_nodes(NODEDIGGER &ndog)
 {
 	AstNode *pn = ndog.root;
-	AstNode *p;
+	AstNode *p, *pPrev=NULL;
 	CVar pvar;
 	while (pn)
 	{
-		p = read_node(ndog, pn);
+		p = read_node(ndog, pn, pPrev);
 		if (!p) return pn;
+		if (p->type == N_ARGS)
+			pPrev = pn;
+		else
+			pPrev = NULL;
 		pn = p;
 	}
 	return NULL; // shouldn't come thru here; only for the formality

@@ -747,7 +747,7 @@ private:
 	CVar &TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig, CVar *psigBase);
 	CVar &Concatenate(const AstNode *pnode, AstNode *p);
-	AstNode *read_node(NODEDIGGER &ndog, AstNode *pn);
+	AstNode *read_node(NODEDIGGER &ndog, AstNode *pn, AstNode *pPrev=NULL);
 	AstNode *read_nodes(NODEDIGGER &ndog);
 	AstNode *read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn);
 	CVar &eval_indexing(const AstNode *pInd, CVar *psig, CVar &indSig);
