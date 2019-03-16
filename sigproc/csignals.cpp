@@ -2238,7 +2238,7 @@ CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	timestretch(id0, len);
-	Resample(id0, len);
+	resample(id0, len);
 	return *this;
 }
 
@@ -2416,42 +2416,6 @@ double * CSignal::Noise2 (unsigned int nsamples)
 	return buf;
 }
 
-#ifndef NO_RESAMPLE
-
-double * CSignal::fm2(CSignal flutter, int multiplier, char *errstr)
-{   // Modulate the entire signal by the array flutter ( > 1, fast-forward, higher-pitched, < 1 slow-down, lower-pitched
-	// the length of flutter should be A LOT shorter than nSamples (e.g., 1 tendth of it), but that is checked and exception is handled in AuxFunc.cpp
-	flutter *= multiplier;
-	for (unsigned int k(0); k<flutter.nSamples; k++) flutter.buf[k] = (double)((int)(flutter.buf[k]+.5));
-	flutter /= multiplier;
-	CSignals newaudio(*this);
-	//First estimate the buffer length at the end of the processing, so we don't call UpdateBuffer multiple times.
-	//assume that chain==NULL
-	unsigned int nSamples0(nSamples);
-	double MeanRate = flutter.mean(0, flutter.nSamples);
-	if (MeanRate<1.03) newaudio.UpdateBuffer((unsigned int)(nSamples/MeanRate*1.1)); // if MeanRate is less than 1, buf should be expanded. 1.03 just as a buffer, add 10% as another shock buffer.
-	if (Resample(multiplier*fs, errstr)==NULL) return NULL;
-	SetFs(fs);
-	vector<unsigned int> chunks;
-	splitevenindices(chunks, nSamples, flutter.nSamples); // check about here....nSamples0 or nSamples.. not sure....
-	int m(0), cum(0);
-	unsigned int id(0), idbig(cum);
-	for (vector<unsigned int>::iterator chit=chunks.begin(); chit!=chunks.end(); chit++, m++)
-	{
-		int bigskip((int)(multiplier*flutter.buf[m]));
-		for (id=idbig=0; idbig<*chit; id++, idbig += bigskip)
-		{
-			newaudio.buf[cum+id] = buf[cum+idbig]; // multiplier*flutter.buf[m] should be an integer.
-		}
-		cum += id;
-	}
-	newaudio.nSamples = cum;
-	*this = newaudio; 
-	return buf;
-}
-
-#endif //NO_RESAMPLE
-
 double * CSignal::fm(double midFreq, double fmWidth, double fmRate, int nsamples, double beginFMPhase)
 {   // beginFMPhase is to be set. (beginPhase is zero here ==> Its not so meaningful to set both of them)
 	double t;
@@ -2580,18 +2544,19 @@ CSignal& CSignal::Hilbert(unsigned int id0, unsigned int len)
 	return *this;
 }
 
-CSignal& CSignal::ShiftFreq(unsigned int id0, unsigned int len)
+CSignal& CSignal::movespec(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	double shift = *(double*)parg;
+	CSignals shift = *(CSignals*)parg;
 	CSignals copy(*this);
 	Hilbert();
 	double t(0), grid(1. / fs);
 	const complex<double> j(0.0, 1.0);
 	complex<double> datum;
+	double val = shift.value();
 	for (unsigned int k = 0; k<nSamples; k++)
 	{
-		datum = (copy.buf[k] + buf[k] * j) * exp(j * shift *  2. * PI * t);
+		datum = (copy.buf[k] + buf[k] * j) * exp(j * val *  2. * PI * t);
 		buf[k] = real(datum);
 		t += grid;
 	}
@@ -2923,72 +2888,6 @@ int CTimeSeries::GetType() const
 	return CSignal::GetType();
 }
 
-#ifndef NO_RESAMPLE
-
-CTimeSeries& CTimeSeries::Resample(vector<unsigned int> newfs, vector<unsigned int> lengths, char *errstr)
-{
-	for (CTimeSeries *p=this; p; p=p->chain)
-		p->Resample(newfs, lengths, errstr);
-	return *this;
-}
-
-double * CSignal::Resample(vector<unsigned int> newfs, vector<unsigned int> lengths, char *errstr)
-{ // This is not really for resampling but only used for the % operator with a vector (variable_ratio)
-	//Therefore, fs is not updated.
-	errstr[0]=0;
-	SRC_DATA sd;
-	vector<float> data_in, data_out;
-	int errcode;
-	//First estimate the buffer length at the end of the processing, so we don't call UpdateBuffer multiple times.
-	double mean(0.);
-	int isum(0), id(0);
-	for (vector<unsigned int>::iterator it=lengths.begin(); it!=lengths.end(); ++it)
-		isum += *it;
-	for (vector<unsigned int>::iterator it=newfs.begin(); it!=newfs.end(); ++it, id++)
-	{
-		double temp = *it*lengths[id]/isum;
-		mean += *it*lengths[id]/isum;
-	}
-	if (mean>fs) UpdateBuffer((int)(nSamples * (mean/fs) + .5));
-
-	SRC_STATE* handle;
-	unsigned int cumid2(0);
-	for (unsigned int k(0), cumid1(0); k<newfs.size(); k++)
-	{
-		handle = src_new (SRC_SINC_MEDIUM_QUALITY, 1, &errcode);
-		data_in.resize(lengths[k]);
-		sd.data_in = &data_in[0]; // data_in[0] doesn't change in the loop, but just keep it here
-		for (unsigned int i(0); i<lengths[k]; i++) sd.data_in[i] = (float)buf[cumid1+i];
-		cumid1 += lengths[k];
-		sd.src_ratio = (double)newfs[k]/fs;
-		sd.input_frames = lengths[k];
-		sd.output_frames =  (long) (lengths[k] * (sd.src_ratio) + .5) ; // sd.src_ratio+1 should be right, but just in case 
-		data_out.resize(sd.output_frames);
-		sd.data_out = &data_out[0];
-		int res = src_process (handle, &sd);
-		if (!res)
-		{
-			for (int i(0); i<sd.output_frames_gen; i++) 			buf[cumid2+i] = sd.data_out[i];
-			cumid2 += sd.output_frames_gen;
-			sd.end_of_input = (int)(k==newfs.size()-1);
-		}
-		else
-		{
-			strcpy(errstr, src_strerror(res));
-			return NULL;
-		}
-	}
-	nSamples = (int)cumid2;
-	return buf;
-}
-
-CTimeSeries& CTimeSeries::Resample(int newfs, char *errstr) // Revised in Dec09---noted for JHPARK
-{
-	for (CTimeSeries *p = this; p; p = p->chain)
-		p->CSignal::Resample(newfs, errstr);
-	return *this;
-}
-
 CTimeSeries * CTimeSeries::AtTimePoint(double timept)
 { // This retrieves CSignal at the specified time point. If no CSignal exists, return NULL.
 	for (CTimeSeries *p = this; p; p = p->chain)
@@ -2999,8 +2898,8 @@ CTimeSeries * CTimeSeries::AtTimePoint(double timept)
 	}
 	return NULL;
 }
-
-CSignal& CSignal::Resample(unsigned int id0, unsigned int len)
+#ifndef NO_RESAMPLE
+CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	CSignal *pratio = (CSignal *)parg;
@@ -3009,7 +2908,7 @@ CSignal& CSignal::Resample(unsigned int id0, unsigned int len)
 	vector<float> data_in, data_out;
 	data_in.resize(nSamples);
 	conv.data_in = &data_in[0];
-	conv.src_ratio = 1./pratio->value();
+	conv.src_ratio = pratio->value();
 	conv.input_frames = nSamples;
 	conv.output_frames = (long)(nSamples * (conv.src_ratio) + .5); // conv.src_ratio+1 should be right, but just in case 
 	data_out.resize(conv.output_frames);
@@ -3030,47 +2929,11 @@ CSignal& CSignal::Resample(unsigned int id0, unsigned int len)
 		for (k = conv.output_frames_gen; k < conv.output_frames; k++)		buf[k] = 0;
 	}
 	else
-	{
-		strcpy(errstr, src_strerror(res));
+	{ // If there's an error, the error message is sent back to the app via pratio.
+		pratio->SetString(src_strerror(res));
 	}
-
 	return *this;
 }
-
-double * CSignal::Resample(int newfs, char *errstr) // Revised in Dec09---noted for JHPARK
-{
-	errstr[0]=0;
-	SRC_DATA conv;
-	vector<float> data_in, data_out;
-	data_in.resize(nSamples);
-	conv.data_in = &data_in[0];
-	conv.src_ratio = (double)newfs/(double)fs;
-	conv.input_frames = nSamples;
-	conv.output_frames =  (long) (nSamples * (conv.src_ratio) + .5) ; // conv.src_ratio+1 should be right, but just in case 
-	data_out.resize(conv.output_frames);
-	conv.data_out = &data_out[0];
-	for (unsigned int i=0; i<nSamples; i++) conv.data_in[i] = (float)buf[i];
-
-	int res = src_simple(&conv, SRC_SINC_BEST_QUALITY, 1);
-	if (!res)
-	{
-		if (conv.output_frames_gen!=newfs) strcpy(errstr, "resampled output generated less points than desired, zeros padded at the end.");
-
-		//update nSamples and fs
-		UpdateBuffer(conv.output_frames);
-		fs = newfs;
-		int i;
-		for (i=0; i<conv.output_frames_gen; i++) 			buf[i] = conv.data_out[i];
-		for (i=conv.output_frames_gen; i<conv.output_frames; i++)		buf[i] = 0;
-	}
-	else
-	{
-		strcpy(errstr, src_strerror(res));
-		return NULL;
-	}
-	return buf;
-}
-
 #endif //NO_RESAMPLE
 
 void CTimeSeries::UpSample(int cc)
@@ -4215,30 +4078,6 @@ CSignals &CSignals::transpose1()
 		next->transpose1(); 
 	return *this; 
 }
-
-#ifndef NO_RESAMPLE
-double * CSignals::Resample(int newfs, char *errstr)
-{
-	CTimeSeries::Resample(newfs, errstr);
-	if (next!=NULL) next->CTimeSeries::Resample(newfs, errstr);
-	return buf;
-}
-
-double * CSignals::Resample(vector<unsigned int> newfs, vector<unsigned int> lengths, char *errstr)
-{
-	CTimeSeries::Resample(newfs, lengths, errstr);
-	if (next!=NULL) next->Resample(newfs, lengths, errstr);
-	return buf;
-}
-
-double * CSignals::fm2(CSignal flutter, int multiplier, char *errstr)
-{
-	CSignal::fm2(flutter, multiplier, errstr);
-	if (next!=NULL) next->fm2(flutter, multiplier, errstr);
-	return buf;
-}
-
-#endif // NO_RESAMPLE
 
 CSignals& CSignals::LogOp(CSignals &rhs, int type)
 {

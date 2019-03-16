@@ -2104,6 +2104,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		{
 			lhs = pLast;
 			diggy.level.side = 'L';
+			Script = pnode->str;
 			return define_new_variable(pnode, pRHS);
 		}
 		// At this point, Sig should be it

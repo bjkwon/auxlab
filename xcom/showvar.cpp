@@ -199,37 +199,44 @@ int isSameCSignals_for_GCF_purpose(CSignals *p1, CSignals *p2)
 
 BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
-	int fs;
+	int newfs;
 	int res;
 	char errstr[256];
 	switch (umsg)
 	{
 	case WM_INITDIALOG:
-		fs = *(int*)lParam;
-		res = SetDlgItemInt(hDlg, IDC_FS, fs, 0);
+		newfs = *(int*)lParam;
+		res = SetDlgItemInt(hDlg, IDC_FS, newfs, 0);
 		break;
 	case WM_COMMAND:
 		if (LOWORD(wParam) == IDOK)
 		{
-			fs = GetDlgItemInt(hDlg, IDC_FS, NULL, 0);
-			if (fs < 500)
+			newfs = GetDlgItemInt(hDlg, IDC_FS, NULL, 0);
+			if (newfs < 500)
 			{
 				MessageBox(hDlg, "Sampling rate must be greater than 500 Hz.", "AUXLAB: Adjust Sample Rate", 0);
 				break;
 			}
 			else
 			{
-				CAstSig::vecast.front()->pEnv->Fs = fs; //Sample rate adjusted
-				for (map<string, CVar>::iterator what = CAstSig::vecast.front()->Vars.begin(); what != CAstSig::vecast.front()->Vars.end(); what++)
+				CSignals ratio(1);
+				CAstSig::vecast.front()->pEnv->Fs = newfs; //Sample rate adjusted
+				for (auto &it : CAstSig::vecast.front()->Vars)
 				{
-					CSignals tpp = what->second;
-					if (tpp.GetType() == CSIG_AUDIO)
+					if (it.second.GetType() == CSIG_AUDIO)
 					{
-						tpp.Resample(fs, errstr); // Sometimes resample generates an array with slightly different length than requested and zeros are padded. If you want to track it down, check errstr here
-						what->second = tpp;
+						CSignals level = it.second.RMS();
+						ratio.SetValue((double)newfs / it.second.GetFs());
+						it.second.basic(it.second.pf_basic2 = &CSignal::resample, &ratio);
+						if (ratio.IsString()) // this means there was an error during resample
+							MessageBox(hDlg, ratio.string().c_str(), "Error in FSDlgProc", 0);
+						it.second.SetFs(newfs);
+						CSignals level2 = it.second.RMS();
+						it.second *= level2.value() / level.value();
 					}
 				}
-				SetDlgItemInt(hDlg, IDC_FS, fs, 0);
+				SetDlgItemInt(hDlg, IDC_FS, newfs, 0);
+				mShowDlg.Fillup();
 			}
 			EndDialog(hDlg, 1);
 		}
@@ -240,10 +247,9 @@ BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 		return FALSE;
 	}
 	return TRUE;
-
 }
 
-/* showvarplot -- plotting a variable with the Enter key 22/29/2018
+/* showvarplot -- plotting a variable with the Enter key 12/29/2018
 1) If there's no precedence, create the figure window, add axes and plot it
 2) If there is a figure window,
 2-1) if it changes audio, non-audio or tseq to one of the other: make a plot as if it was new

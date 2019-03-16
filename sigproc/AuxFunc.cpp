@@ -312,65 +312,54 @@ void _randperm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	}
 }
 
-#ifndef NO_RESAMPLE
-
-void _caret(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{ // ~ operator
-	// The second arg is compress_ratio.
+void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	//check qualifers
 	past->checkAudioSig(pnode, past->Sig);
-
-
 	CSignals param;
 	try {
 		CAstSig tp(past);
-		tp.Compute(p);
 		param = tp.Compute(p);
+		int type = param.GetType();
+		if (type!= CSIG_TSERIES && type != CSIG_SCALAR)
+			throw past->ExceptionMsg(p, fnsigs, "parameter must be either a scalar or a time sequence.");
+		if (param.GetType() == CSIG_TSERIES)
+		{
+			double audioDur = past->Sig.dur();
+			if (param.GetFs() == 0) // relative
+				for (CTimeSeries *p = &param; p; p = p->chain)
+				{
+					p->tmark *= audioDur;
+					p->SetFs(past->Sig.GetFs());
+				}
+			//IF tsequence goes beyond the audio duration, cut it out.
+			for (CTimeSeries *p = &param; p; p = p->chain)
+				if (p->chain && p->chain->tmark > audioDur)
+				{
+					delete p->chain;
+					p->chain = NULL;
+				}
+		}
 	}
 	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::Resample, &param);
-
-
-
-
-	//CSignals sig = past->Sig;
-	//char errstr[256] = "";
-	//past->Compute(p);
-	//if (past->Sig.IsScalar())
-	//{
-	//	double param = past->Sig.value();
-	//	int orgfs = sig.GetFs();
-	//	if (!sig.Resample((int)round(orgfs/param), errstr)) throw past->ExceptionMsg(pnode, string(errstr));
-	//	sig.SetFs(orgfs);
-	//}
-	//else if (past->Sig.GetType()==CSIG_VECTOR)
-	//{
-	//	CSignal param((CSignal)past->Sig);
-	//	unsigned int len(past->Sig.nSamples);
-	//	vector<unsigned int> fsholder, lengthholder;
-	//	int fs = sig.GetFs();
-	//	for (size_t k(0); k<param.nSamples; k++) fsholder.push_back((int)(fs/param.buf[k]+.5));
-	//	splitevenindices(lengthholder, sig.nSamples, len);
-	//	if (!sig.Resample(fsholder, lengthholder, errstr)) throw past->ExceptionMsg(pnode, string(errstr));
-	//}
-	//past->Sig = sig;
+	string fname = pnode->str;
+	if (fname == "timestretch") past->Sig.pf_basic2 = &CSignal::timestretch;
+	else if (fname == "pitchscale") past->Sig.pf_basic2 = &CSignal::pitchscale;
+	else if (fname == "resample") past->Sig.pf_basic2 = &CSignal::resample;
+	else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
+	past->Sig.basic(past->Sig.pf_basic2, &param);
 }
 
-void _fmm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _movespec(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals audio = past->Sig;
-	char errstr[256];
-	int multiplier = 10;
-	CVar param = past->Compute(p);
-	past->blockCell(pnode, param);
-	past->blockString(pnode, param);
-	if (param.nSamples >= audio.nSamples/10)
-		throw past->ExceptionMsg(pnode, fnsigs, "2nd argument must have 1/10 or less the length of the 1st arg.");
-	past->Sig = audio;
-	if (past->Sig.fm2(param, multiplier, errstr)==NULL)
-		throw past->ExceptionMsg(pnode, fnsigs, string(errstr));
+	CAstSig tp(past);
+	CSignals param = tp.Compute(p);
+	if (!param.IsScalar())
+		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (frequency to shift).");
+	double shift = param.value();
+	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::movespec, &shift); // NOT YET
 }
-#endif //NO_RESAMPLE
 
 void processEscapes(string &str)
 {
@@ -554,50 +543,6 @@ void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	past->Sig.UpdateBuffer(nItems);
 	for (int i=0; i<nItems; i++)
 		past->Sig.buf[i] = val1 + step*i;
-}
-
-void _pitchscale(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	//More qualifers please 
-	past->checkAudioSig(pnode, past->Sig);
-	CSignals param;
-	try {
-		CAstSig tp(past);
-		tp.Compute(p);
-		param = tp.Compute(p);
-	}
-	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::pitchscale, &param);
-}
-
-void _timestretch(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	//check qualifers
-	past->checkAudioSig(pnode, past->Sig);
-	CSignals param;
-	try {
-		CAstSig tp(past);
-		param = tp.Compute(p);
-		if (param.GetType() == CSIG_TSERIES)
-		{
-			double audioDur = past->Sig.dur();
-			if (param.GetFs() == 0) // relative
-				for (CTimeSeries *p = &param; p; p = p->chain)
-				{
-					p->tmark *= audioDur;
-					p->SetFs(past->Sig.GetFs());
-				}
-			//IF tsequence goes beyond the audio duration, cut it out.
-			for (CTimeSeries *p = &param; p; p = p->chain)
-				if (p->chain && p->chain->tmark > audioDur)
-				{
-					delete p->chain;
-					p->chain = NULL;
-				}
-		}
-	}
-	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::timestretch, &param);
 }
 
 void _interp1(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1240,50 +1185,6 @@ void _hilbert(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::Hilbert);
 }
 
-void _movespec(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
-{
-	past->checkAudioSig(pnode, past->Sig);
-	CAstSig tp(past);
-	CSignals param = tp.Compute(p);
-	if (!param.IsScalar())
-		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (frequency to shift).");
-	double shift = param.value();
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::ShiftFreq, &shift); // NOT YET
-}
-
-void _tscale(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
-{ // Currently not used. both tscale and fscale are processed from CallUDF()  v1.47
-	past->checkAudioSig(pnode, past->Sig);
-	CAstSig tp(past);
-	CSignals param = tp.Compute(p);
-	if (!param.IsScalar())
-		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (ratio to compress time).");
-	CAstSig tp2(past);
-	char str[256];
-	string emsg;
-	sprintf(str, "tscale(%s,%g)", pnode->str, 1. / param.value());
-	tp2.SetNewScript(emsg, str);
-	tp2.Compute();
-	past->Sig = tp2.Sig;
-}
-
-void _fscale(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
-{ // Currently not used v1.47
-	past->checkAudioSig(pnode, past->Sig);
-	CAstSig tp(past);
-	CSignals param = tp.Compute(p);
-	if (!param.IsScalar())
-		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (amount of pitch lowering in semitones).");
-	double fchange = 12. * log(1. / param.value()) / log(2);
-	CAstSig tp2(past);
-	char str[256];
-	string emsg;
-	sprintf(str, "fscale(%s,%g)", pnode->str, fchange);
-	tp2.SetNewScript(emsg, str);
-	tp2.Compute();
-	past->Sig = tp2.Sig;
-}
-
 #endif //NO_FFTW
 
 void _sort(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1869,11 +1770,14 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	EnumAudioVariables(past, audiovars);
 	if (past->FsFixed || audiovars.size()>0)
 	{
-		int old = past->Sig.GetFs();
-		if (past->Sig.GetFs() != past->GetFs() && !past->Sig.Resample(past->GetFs(), errStr))
-			throw past->ExceptionMsg(p, (string(errStr) + " " + filename).c_str());
-		if (old != past->Sig.GetFs())
-			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", old, past->Sig.GetFs());
+		int old = past->GetFs();
+		CSignals ratio(1);
+		ratio.SetValue((double)old / past->Sig.GetFs());
+		past->Sig.basic(past->Sig.pf_basic2 = &CSignal::resample, &ratio);
+		if (ratio.IsString()) // this means there was an error during resample
+			throw past->ExceptionMsg(p, fnsigs, ratio.string().c_str());
+		sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), old);
+		past->Sig.SetFs(old);
 	}
 	else
 	{
@@ -2178,14 +2082,9 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_isaudioat;
 	built_in_funcs.push_back(pp);
 
-	pp.name = "fmm";
-	pp.funcsignature = "(audio_signal, freq_variation_array)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_fmm;
-	built_in_funcs.push_back(pp);
-
-	pp.name = "interp";
+	pp.name = "resample";
 	pp.funcsignature = "(audio_signal, playback_rate_change_ratio)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_caret;
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
 	built_in_funcs.push_back(pp);
 
 	// end narg 2 and 2
@@ -2335,11 +2234,11 @@ void CAstSigEnv::InitBuiltInFunctionList()
 
 	pp.name = "timestretch";
 	pp.funcsignature = "(array, ratio)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_timestretch;
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
 	built_in_funcs.push_back(pp);
 	pp.name = "pitchscale";
 	pp.funcsignature = "(array, ratio)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_pitchscale;
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
 	built_in_funcs.push_back(pp);
 	
 	pp.narg1 = 3;	pp.narg2 = 3;
@@ -2450,17 +2349,7 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	pp.narg1 = 2;	pp.narg2 = 2;
 	pp.name = "movespec";
 	pp.funcsignature = "(audio_signal, frequency_to_shift)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_movespec;
-	built_in_funcs.push_back(pp);
-
-	pp.name = "tscale";
-	pp.funcsignature = "(audio_signal, compression_ratio)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tscale;
-	built_in_funcs.push_back(pp);
-
-	pp.name = "fscale";
-	pp.funcsignature = "(audio_signal, semitone_to_lower)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_fscale;
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
 	built_in_funcs.push_back(pp);
 
 	pp.name = "conv";

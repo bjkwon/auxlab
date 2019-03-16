@@ -152,6 +152,11 @@
   <ItemGroup>
     <ResourceCompile Include="$(SrcPath)auxp.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="auxp\f3_channel_stereo_mono.aux" />
+    <None Include="auxp\fscale.aux" />
+    <None Include="auxp\tscale.aux" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

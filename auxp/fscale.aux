@@ -1,5 +1,0 @@
-function y=fscale(x, fsem)
-rate = 2^(fsem/12)
-y0=tscale(x,rate)
-y = y0 ~ rate
-y = y(1:length(x))

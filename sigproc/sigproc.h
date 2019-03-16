@@ -170,7 +170,6 @@ public:
 	// Signal generation (no stereo handling)
 	double * fm(double midFreq, double fmWidth, double fmRate, int  nsamples, double beginFMPhase=0.);
 	double * fm(double midFreq, double fmWidth, double fmRate, double dur_ms, double beginFMPhase=0.);
-	double * fm2(CSignal flutter, int  multiplier, char *errstr);
 	double * Silence(unsigned int nsamples);
 	double * Silence(double dur_ms);
 	double * DC(double dur_ms);
@@ -200,16 +199,11 @@ public:
 #ifndef NO_FFTW
 	CSignal& Hilbert(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& HilbertEnv(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal& ShiftFreq(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& movespec(unsigned int id0 = 0, unsigned int len = 0);
 #endif
 	void DownSample(int q);
 	void UpSample(int p);
 	CSignal& Reset(int  fs2set=0);
-#ifndef NO_RESAMPLE
-	CSignal& Resample(unsigned int id0 = 0, unsigned int len = 0);
-	double * Resample(int newfs, char *errstr);
-	double * Resample(vector<unsigned int> newfs, vector<unsigned int> lengths, char *errstr);
-#endif //NO_RESAMPLE
 	virtual void Dramp(double dur_ms, int beginID=0);
 	void ReverseTime();
 	CSignal& Interp(const CSignal& gains, const CSignal& tmarks);
@@ -243,6 +237,7 @@ public:
 	CSignal& dynafilter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filtfilt(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& resample(unsigned int id0 = 0, unsigned int len = 0);
 #ifndef NO_IIR
 	CSignal& IIR(unsigned int id0 = 0, unsigned int len = 0); 
 #endif // NO_IIR
@@ -353,8 +348,6 @@ public:
 	int GetType() const;
 	void SwapContents1node(CTimeSeries &sec);
 	CTimeSeries& LogOp(CTimeSeries &rhs, int type);
-	CTimeSeries& Resample(int newfs, char *errstr);
-	CTimeSeries& Resample(vector<unsigned int> newfs, vector<unsigned int> lengths, char *errstr);
 	void UpSample(int cc);
 	void DownSample(int cc);
 	void ReverseTime();
@@ -458,11 +451,6 @@ public:
 	double alldur();
 	double * Mag();
 	CSignal Angle();
-#ifndef NO_RESAMPLE
-	double * Resample(int  newfs, char *errstr);
-	double * Resample(vector<unsigned int> newfs, vector<unsigned int> lengths, char *errstr);
-	double * fm2(CSignal flutter, int  multiplier, char *errstr);
-#endif // NO_RESAMPLE
 	void DownSample(int q);
 	void UpSample(int p);
 #ifndef NO_FFTW

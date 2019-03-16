@@ -1115,17 +1115,22 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 
 void xcom::setfs(CAstSig *past, int newfs)
 {
-	char errstr[256];
 	if (past->pEnv->Fs == newfs) return;
 	past->pEnv->Fs = newfs; //Sample rate adjusted
 	//variables updated
-	for (map<string, CVar>::iterator what = past->Vars.begin(); what != past->Vars.end(); what++)
+	CSignals ratio(1);
+	for (auto &it : past->Vars)
 	{
-		CSignals tpp = what->second;
-		if (tpp.GetType() == CSIG_AUDIO)
+		if (it.second.GetType() == CSIG_AUDIO)
 		{
-			tpp.Resample(newfs, errstr); // Sometimes resample generates an array with slightly different length than requested and zeros are padded. If you want to track it down, check errstr here
-			what->second = tpp;
+			CSignals level = it.second.RMS();
+			ratio.SetValue((double)newfs / it.second.GetFs());
+			it.second.basic(it.second.pf_basic2 = &CSignal::resample, &ratio);
+			if (ratio.IsString()) // this means there was an error during resample
+				MessageBox(mShowDlg.hDlg, ratio.string().c_str(), "Error in setfs", 0);
+			it.second.SetFs(newfs);
+			CSignals level2 = it.second.RMS();
+			it.second *= level2.value() / level.value();
 		}
 	}
 }
@@ -1812,22 +1817,16 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 #endif
 	HANDLE hLib = LoadLibrary(fname); // fix this.... if the path has been changed in the middle, we are no longer in AppPath
 	if (!hLib)
-		printf("[Warning] Standard private UDF library %s not found\n", fname);
+		printf("[Warning] Private UDF library module %s not found\n", fname);
 	else
 	{
 		string res;
 		int id = 100; // the resource ID in auxp begins with 101 (harded-coded)
-		//printf("Private udf library found: %s\n", fname);
-		//printf("Private modules loaded: ");
 		while (1)
 		{
 			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
 			if (res.empty())
-			{
-//				printf("\n");
 				break;
-			}
-//			printf("%s ", res.c_str());
 		}
 		FreeLibrary((HMODULE)hLib);
 	}
