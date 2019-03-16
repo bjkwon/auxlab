@@ -443,7 +443,8 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			{
 				//For the global variable $gcf, updated whether or not this is named plot.
 				SetGlovar(pgcfNew);
-				if (CAstSig::vecast.at(res)->GetVariable("gcf") != pgcfNew)
+				string vam;
+				if (CAstSig::vecast.at(res)->GetVariable("gcf", vam) != pgcfNew)
 				{
 					//For the regular variable gcf, updated only if this is not named plot.
 					if (pgcfNew->GetFs() != 2)
@@ -854,7 +855,8 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
 	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
-	SetGlovar(CAstSig::vecast.at(res)->GetVariable("gcf"));
+	string vam;
+	SetGlovar(CAstSig::vecast.at(res)->GetVariable("gcf",vam));
 	//It's better to update gcf before WM__PLOTDLG_CREATED is posted
 	//that way, environment context can be set properly (e.g., main or inside CallSub)
 	//4/24/2017 bjkwon

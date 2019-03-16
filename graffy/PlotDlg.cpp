@@ -1312,8 +1312,16 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 		ShowStatusBar(CURSOR_LOCATION);
 //		KillTimer(CUR_MOUSE_POS);
 //		SetTimer(CUR_MOUSE_POS, 2000, NULL);
-		selRange.tp1 = cax->pix2timepoint(curRange.px1); 
-		selRange.tp2 = cax->pix2timepoint(curRange.px2); 
+		CSignals tp(1);
+		if (curRange != NO_SELECTION)
+		{
+			tp.UpdateBuffer(2);
+			tp.buf[0] = selRange.tp1 = cax->pix2timepoint(curRange.px1);
+			tp.buf[1] = selRange.tp2 = cax->pix2timepoint(curRange.px2);
+		}
+		gcf.strut["sel"] = tp;
+		for (auto ax : gcf.ax)
+			ax->strut["sel"] = tp;
 	}
 	if (mousePt==0) // outside ANY axis
 	{ // clean the status of current location 
@@ -1345,7 +1353,7 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
  // index=-1 means playback ended and device is being closed.
 
 	CAxes *pax = gcf.ax.front();
-	double dara, gara, tp = pax->pix2timepoint(2);
+	double tp = pax->pix2timepoint(2);
 	switch (code)
 	{
 	case WOM_OPEN:
@@ -1364,9 +1372,12 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 	case -1: // error
 		break;
 	default: // status updates
+	{
 		//Not used for now, but leaving just for the future use. 2/22/2019
+//		double dara, gara;
 //		gara = pvar->strut["durLeft"].value();
 //		dara = pvar->strut["durTotal"].value();
+	}
 		playingIndex++;
 		if (playCursor > 0)
 			playLoc = playCursor + pax->timepoint2pix(block*+playingIndex / 1000);

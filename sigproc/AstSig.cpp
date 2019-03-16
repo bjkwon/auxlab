@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.499
-// Date: 2/16/2019
+// Version: 1.5
+// Date: 3/15/2019
 // 
 #include <sstream>
 #include <list>
@@ -26,15 +26,6 @@
 #else
 #include "cipsycon.tab.h"
 #endif
-
-/* NOTE 9/23/2017
-Don't use------- throw CAstException(p, this, "error message");
-when p->type is N_XXXXXX, because it will make an error msg like 
-
-ERROR: N_EXTRACT : variable not available.
-
-which is not helpful to users.
-*/
 
 #define PRINTLOG(FNAME,STR) \
 { FILE*__fp=fopen(FNAME,"at"); fprintf(__fp,STR);	fclose(__fp); }
@@ -78,34 +69,6 @@ void dummy_fun6a(const char* pt)
 void dummy_fun7(CAstSig *a, const char *b, CVar c)
 {
 }
-
-
-AstNode *get_parent_node(AstNode *root, AstNode *pChild)
-{
-	if (root == pChild) return NULL;
-	AstNode *p = root;
-	if (p == pChild) return p;
-	//first locate the base node for the line of pChild
-	while (p)
-	{
-		AstNode *res;
-		if (p->line == pChild->line) break;
-		if (p->type == T_IF)
-		{ // if ... else ... end is done
-		//do if ... elseif ... else ... end
-			// do while ... end
-			//do for ... end
-			res = get_parent_node(p->child->next, pChild);
-			if (!res)
-				res = get_parent_node(p->child->alt, pChild);
-			if (res) return res;
-		}
-		p = p->next;
-	}
-	//Now, p is the base node for the line
-	return CAstSig::findParentNode(p, pChild);
-}
-
 
 #ifndef LINK_STATIC_SIGPROC
 HMODULE hDllModule;
@@ -344,7 +307,7 @@ unsigned long CAstSig::tic()
 unsigned long CAstSig::toc()
 {
 	if (Tick0==1)
-		throw CAstException(pAst, this, "toc called without tic");
+		throw ExceptionMsg(pAst, "toc called without tic");
 	return Tick1 = (GetTickCount0() - Tick0);
 }
 
@@ -541,7 +504,7 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 {
 	if (!pCalling->str)
-		throw CAstException(pCalling, this, "Internal error! CheckPrepareCallUDF()");
+		throw ExceptionMsg(pCalling, "Internal error! CheckPrepareCallUDF()");
 	u.currentLine = pCalling->line; // ? 10/18/2018
 	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
@@ -564,7 +527,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 	{
 		auto jtUDF = pEnv->udf.find(u.base); // if this is to be a local udf, base should be ready through a previous iteration.
 		if (jtUDF == pEnv->udf.end())
-			throw CAstException(pCalling, this, "Internal error! CheckPrepareCallUDF()", "supposed to be a local udf, but AstNode with that name not prepared");
+			throw ExceptionMsg(pCalling, "Internal error! CheckPrepareCallUDF()", "supposed to be a local udf, but AstNode with that name not prepared");
 		son->u.pUDF_base = (*jtUDF).second.pAst;
 		son->u.base = u.base; // this way, base can maintain through iteration.
 		son->u.pUDF = (*pEnv->udf.find(u.base)).second.local[pCalling->str].pAst;
@@ -578,7 +541,11 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 			for (AstNode *pf = pOutParam->child; pf; pf = pf->next)
 				son->u.argout.push_back(pf->str);
 		else
-			throw CAstException(pOutParam, this, "Internal error! UDF output should be alt and N_VECTOR", pOutParam->type);
+		{
+			ostringstream out("Internal error!UDF output should be alt and N_VECTOR");
+			out << pOutParam->type;
+			throw ExceptionMsg(pOutParam, out.str().c_str());
+		}
 	}
 	AstNode *pf, *pa;	 // formal & actual parameter; pa is for this, pf is for son
 	//Checking requested output arguments vs formal output arguments
@@ -589,7 +556,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 		for (son->u.nargout = 0; p && p->line == lhs->line; p = p->next, son->u.nargout++) {}
 		if (son->u.nargout > (int)son->u.argout.size()) {
 			oss << "Maximum number of return arguments for function '" << u.pUDF->str << "' is " << son->u.argout.size() << ".";
-			throw CAstException(u.pUDF, this, oss.str());
+			throw ExceptionMsg(u.pUDF, oss.str().c_str());
 		}
 	}
 	else
@@ -872,88 +839,10 @@ bool CAstSig::isContiguous(body &ind, unsigned int &begin, unsigned int &end)
 	return contig;
 }
 
-CVar &CAstSig::extract(char *errstr, CVar **pinout, body &isig)
-{   
-	//pinout comes with input and makes the output
-	//At the end, Sig is updated with pinout
-	//pinout always has the same or smaller buffer size, so let's not worry about calling UpdateBuffer() here
-	//Instead of throw an exception, errstr is copy'ed. Return value should be ignored.
-	// For success, errstr stays empty.
-	errstr[0] = 0;
-	CSignals out((*pinout)->GetFs());
-	CSignals *p = &out;
-	out.UpdateBuffer(isig.nSamples);
-	//CSignal::Min() makes a vector
-	//body::Min() makes a scalar.
-	if (isig._min() <= 0. )
-	{
-		strcpy(errstr, "Index must be positive.");
-		return Sig;
-	}
-	if ((*pinout)->IsComplex())
-	{
-		out.SetComplex();
-		for (unsigned int i=0; i<isig.nSamples; i++)
-			out.cbuf[i] = (*pinout)->cbuf[(int)isig.buf[i]-1];
-	}
-	else if ((*pinout)->IsLogical())
-	{
-		out.MakeLogical();
-		for (unsigned int i=0; i<isig.nSamples; i++)
-			out.logbuf[i] = (*pinout)->logbuf[(int)isig.buf[i]-1];
-	}
-	else if ((*pinout)->IsString())
-	{
-		out.UpdateBuffer(isig.nSamples+1); // make room for null 
-		for (unsigned int i=0; i<isig.nSamples; i++)
-			out.strbuf[i] = (*pinout)->strbuf[(int)isig.buf[i]-1];
-		out.strbuf[out.nSamples-1]=0;
-	}
-	else
-	{
-		if ((*pinout)->IsGO())
-		{
-			if (isig._max()>(*pinout)->nSamples)
-			{
-				sprintf(errstr, "Index out of range: %d", (int)isig._max());
-				return Sig;
-			}
-			if (isig.nSamples == 1)
-			{
-				size_t did = (size_t)isig.value() - 1;
-				CVar *tp = (CVar*)(INT_PTR)(*pinout)->buf[did];
-				pgo = *pinout = tp;
-				return Sig = **pinout;
-			}
-			else
-			{
-				vector<INT_PTR> gos;
-				for (unsigned int k = 0; k < isig.nSamples; k++)
-				{
-					size_t did = (size_t)isig.buf[k] - 1;
-					CVar *tp = (CVar*)(INT_PTR)(*pinout)->buf[did];
-					gos.push_back((INT_PTR)tp);
-				}
-				*pinout = MakeGOContainer(gos);
-				return Sig = *pinout;
-			}
-		}
-		out.SetReal();
-		if (Sig.GetType() == CSIG_VECTOR || Sig.GetType() == CSIG_AUDIO)
-		{
-			int id(0);
-			for (unsigned int k = 0; k < isig.nSamples; k++)
-				out.buf[id++] = (*pinout)->buf[(int)isig.buf[k] - 1];
-		}
-	}
-	out.nGroups = isig.nGroups;
-	return (Sig=out);
-}
-
 bool CAstSig::checkcond(const AstNode *p)
 {
 	ConditionalOperation(p, p->child);
-	if (!Sig.IsScalar())	throw CAstException(p, this, "--conditional op requires a scalar.");
+	if (!Sig.IsScalar())	throw ExceptionMsg(p, "--conditional op requires a scalar.");
 	if (Sig.IsLogical()) 
 		return Sig.logbuf[0];
 	else				
@@ -964,24 +853,10 @@ void CAstSig::checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned
 {
 	if (id>inout->nSamples) 
 	{
-		string out(errstr);
-		out += " index ";
-		char buf[64];
-		sprintf(buf, "%d out of range", id);
-		out += buf;
-		throw CAstException(pnode, this, out);
+		ostringstream out;
+		out << errstr << " index " << id << " out of range.";
+		throw ExceptionMsg(pnode, out.str().c_str());
 	}
-}
-
-int CAstSig::checkpositiveinteger(const AstNode *pnode, CVar *id)
-{
-	// This must be called after id is scalar.
-	double did = id->value();
-	if (did<1.)
-		throw CAstException(pnode, this, "index must be greater than 0");
-	if ((double)(int)did - did > .05 || did- (double)(int)did>.05)
-		throw CAstException(pnode, this, "index must be integer");
-	return (int)did;
 }
 
 /* These two replace() member functions can be part of body in csignals.cpp for the point of logic,
@@ -1005,12 +880,12 @@ CTimeSeries &CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec
 	for (unsigned int k = 0; k < index.nSamples; k++)
 	{
 		if (index.buf[k] < 1.)
-			throw CAstException(pnode, this, "index must be greater than 0");
+			throw ExceptionMsg(pnode, "index must be greater than 0");
 		unsigned int id = (int)index.buf[k];
 		if (id - index.buf[k] > .25 || index.buf[k] - id > .25)
-			throw CAstException(pnode, this, "index must be integer");
+			throw ExceptionMsg(pnode, "index must be integer");
 		if (id > pobj->nSamples)
-			throw CAstException(pnode, this, "replace index exceeds the range.");
+			throw ExceptionMsg(pnode, "replace index exceeds the range.");
 	}
 	if (sec.nSamples == 0)
 	{
@@ -1028,12 +903,12 @@ CTimeSeries &CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec
 		for (unsigned int k = 0; k < index.nSamples; k++)
 		{
 			if (index.buf[k] < 1.)
-				throw CAstException(pnode, this, "index must be greater than 0");
+				throw ExceptionMsg(pnode, "index must be greater than 0");
 			unsigned int id = (unsigned int)(index.buf[k]);
 			if (id - index.buf[k] > .05 || index.buf[k] - id > .05)
-				throw CAstException(pnode, this, "index must be integer");
+				throw ExceptionMsg(pnode, "index must be integer");
 			if (id > pobj->nSamples) 
-				throw CAstException(pnode, this, "replace index exceeds the range.");
+				throw ExceptionMsg(pnode, "replace index exceeds the range.");
 			id--; // zero-based
 			if (sec.nSamples == 1) // items from id1 to id2 are to be replaced with sec.value()
 				memcpy(pobj->logbuf + id * pobj->bufBlockSize, sec.logbuf, pobj->bufBlockSize);
@@ -1045,7 +920,7 @@ CTimeSeries &CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec
 
 CTimeSeries &CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
 { // this replaces the data body between id1 and id2 (including edges) with sec
-	if (id1 < 0 || id2 < 0) throw CAstException(pnode, this, "replace index cannot be negative.");
+	if (id1 < 0 || id2 < 0) throw ExceptionMsg(pnode, "replace index cannot be negative.");
 	if (sec.bufBlockSize != pobj->bufBlockSize)
 	{
 		if (pobj->bufBlockSize == 1 && sec.bufBlockSize != 1) sec.MakeLogical();
@@ -1055,8 +930,8 @@ CTimeSeries &CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec
 		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 8) sec.SetComplex();
 	}
 	//id1 and id2 are zero-based here.
-	if (id1 > (int)pobj->nSamples - 1) throw CAstException(pnode, this, "replace index1 exceeds the range.");
-	if (id2 > (int)pobj->nSamples - 1) throw CAstException(pnode, this, "replace index2 exceeds the range.");
+	if (id1 > (int)pobj->nSamples - 1) throw ExceptionMsg(pnode, "replace index1 exceeds the range.");
+	if (id2 > (int)pobj->nSamples - 1) throw ExceptionMsg(pnode, "replace index2 exceeds the range.");
 	unsigned int secnsamples = sec.nSamples;
 	bool ch = ((CSignal *)&sec)->bufBlockSize == 1;
 	if (ch) secnsamples--;
@@ -1123,7 +998,6 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 		}
 		else
 		{
-//			if (sec.length()!=1) throw CAstException(pnode, this, "RHS must be a scalar");
 			unsigned int id = (unsigned int)round(indsig.value());
 			checkindexrange(pnode, inout, id, "LHS");
 			if (sec.IsComplex())
@@ -1159,11 +1033,7 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 				{ // x(1200:1201) = zeros(111) FAILED HERE	on memcpy line.... that's wrong. 1/20/2018
 					// this must be contiguous
 					if (!isContiguous(indsig, id1, id2))
-					{
-	//					if (!sec.IsScalar())
-	//						throw CAstException(pnode, this, "to replace audio signal with a non-scalar object, the indices must be contiguous.");
 						replace(pnode, inout, sec, indsig); // if sec is a scalar, just assignment call by index 
-					}
 					else
 					{
 						checkindexrange(pnode, inout, id1, "LHS");
@@ -1171,7 +1041,7 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 						if (sec.nSamples != id2 - id1 + 1)
 						{
 							if (!sec.IsScalar())
-								throw CAstException(pnode, this, "to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
+								throw ExceptionMsg(pnode, "to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
 						}
 						if (sec.IsComplex() && !inout->IsComplex()) inout->SetComplex();
 						replace(pnode, inout, sec, id1 - 1, id2 - 1);
@@ -1180,7 +1050,7 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 			}
 			else if (!pnode->next && !pnode->str) // if s(conditional) is on the LHS, the RHS must be either a scalar, or the replica, i.e., s(conditional)
 			{
-				if (!tp && !indsig.IsLogical()) throw CAstException(pnode, this, "Internal logic error (insertreplace:0)--s(conditional?).");
+				if (!tp && !indsig.IsLogical()) throw ExceptionMsg(pnode, "Internal logic error (insertreplace:0)--s(conditional?).");
 				if (sec.IsScalar())
 				{
 					double val = sec.value();
@@ -1209,14 +1079,14 @@ CAstSig &CAstSig::insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &
 				inout->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
 			}
 			else
-				throw CAstException(pnode, this, "Internal logic error (insertreplace:1) --unexpected node type.");
+				throw ExceptionMsg(pnode, "Internal logic error (insertreplace:1) --unexpected node type.");
 		}
 		else
 		{
 			// v(1:5) or v([contiguous]) = (any array) to replace
 			// v(1:2:5) or v([non-contiguous]) = RHS; //LHS and RHS must match length.
 			bool contig = isContiguous(indsig, id1, id2);
-			if (!sec.IsEmpty() && !contig && sec.nSamples!=1 && sec.nSamples!=indsig.nSamples) throw CAstException(pnode, this, "the number of replaced items must be the same as that of replacing items.");
+			if (!sec.IsEmpty() && !contig && sec.nSamples!=1 && sec.nSamples!=indsig.nSamples) throw ExceptionMsg(pnode, "the number of replaced items must be the same as that of replacing items.");
 			if (contig)
 				replace(pnode, inout, sec, id1-1, id2-1);
 			else 
@@ -1254,7 +1124,8 @@ AstNode *CAstSig::SetNewScriptFromFile(string &emsg, const char *full_filename, 
 			}
 		}
 		Script = udf_filename; // will not have any lingering effects. The context stays within CAstSig aux(pEnv) in ReadUDF()
-		pEnv->udf[udf_filename].newrecruit = true;
+		transform(Script.begin(), Script.end(), Script.begin(), ::tolower);
+		pEnv->udf[Script].newrecruit = true;
 		if (!SetNewScript(emsg, filecontent.c_str()))
 			return NULL; // syntax error in auxcon script is caught here
 	}
@@ -1362,10 +1233,10 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 	char udf_filename[256];
 	_splitpath(fullfilename, NULL, NULL, udf_filename, NULL);
 	AstNode *pnode4Func = (AstNode *)((p->type == N_BLOCK) ? p->next : p);
-	//for (AstNode *pp = pnode4Func; pp; pp = pp->next)
-	//	assert(pp->type != T_FUNCTION); 	//if not,	throw CAstException(pp, this, "All codes in AUX file must be inside function definitions.");
-	if (strcmp(udf_filename, pnode4Func->str)) // pnode4Func is NULL for local function call and it will crash.....8/1/
-		throw CAstException(p, this, "inconsistent function name", string(string(string(udf_filename) + " vs ") + pnode4Func->str).c_str());
+	string namefrompnode = pnode4Func->str;
+	transform(namefrompnode.begin(), namefrompnode.end(), namefrompnode.begin(), ::tolower);
+	if (namefrompnode != udf_filename) // pnode4Func is NULL for local function call and it will crash.....8/1/
+		throw ExceptionMsg(p, "inconsistent function name", string(string(string(udf_filename) + " vs ") + pnode4Func->str).c_str());
 
 	pEnv->udf[udf_filename].pAst = pnode4Func;	
 	pEnv->udf[udf_filename].fullname = fullfilename;
@@ -1374,9 +1245,11 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 	{// if one or more local functions exists
 		UDF loc;
 		loc.pAst = pp;
+		namefrompnode = pp->str;
+		transform(namefrompnode.begin(), namefrompnode.end(), namefrompnode.begin(), ::tolower);
 		loc.fullname = fullfilename;
 		loc.content = "see base function for content";
-		pEnv->udf[udf_filename].local[pp->str] = loc;
+		pEnv->udf[udf_filename].local[namefrompnode] = loc;
 	}
 	return pnode4Func;
 }
@@ -1388,7 +1261,7 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 	tsig = Compute(p->next); // p->next points to the last operand.
 	bool tseq = (tsig.nSamples == 1 && tsig.chain);
 	if (!tseq && tsig.GetType()!=CSIG_SCALAR && tsig.GetType() != CSIG_VECTOR)
-		throw CAstException(pnode, this, "The last operand should be scalar or 2-element vector.");
+		throw ExceptionMsg(pnode,"The last operand should be scalar or 2-element vector.");
 	if (p->type == '@') 
 	{ // trinary
 		CSignals second = Compute(p->child->next);
@@ -1397,9 +1270,9 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 			trinary = true;
 			double srms = second.CSignal::RMS();
 			if (srms == -std::numeric_limits<double>::infinity())
-				throw CAstException(pnode, this, "x @ ref @ value ---- Invalid: RMS of ref is infinity.");
+				throw ExceptionMsg(pnode,"x @ ref @ value ---- Invalid: RMS of ref is infinity.");
 			if (isnan(srms))
-				throw CAstException(pnode, this, "x @ ref @ value ---- Invalid: Left chan of ref is NULL.");
+				throw ExceptionMsg(pnode,"x @ ref @ value ---- Invalid: Left chan of ref is NULL.");
 			refRMS.SetValue(srms);
 			if (second.next && second.next->nSamples)
 			{
@@ -1408,10 +1281,10 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 			}
 			Compute(p->child);	// Sig has the first operand
 			if (!Sig.IsStereo() && second.IsStereo())
-				throw CAstException(pnode, this, "x @ ref @ value ---- if x is mono, ref must be mono.");
+				throw ExceptionMsg(pnode,"x @ ref @ value ---- if x is mono, ref must be mono.");
 		}
 		else
-			throw CAstException(pnode, this, "A @ B @ C ---- B must be an audio signal.");
+			throw ExceptionMsg(pnode,"A @ B @ C ---- B must be an audio signal.");
 	}
 	else
 	{ // binary
@@ -1419,18 +1292,18 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 		Compute(p); // Sig has the first operand
 	}
 	checkAudioSig(pnode,  Sig);
-	if (!Sig.IsStereo() && !tsig.IsScalar()) throw CAstException(p->next, this, "Mono signal should be scaled with a scalar.");
+	if (!Sig.IsStereo() && !tsig.IsScalar()) throw ExceptionMsg(p->next, "Mono signal should be scaled with a scalar.");
 	double mrms = Sig.CSignal::RMS();
 	if (mrms == -std::numeric_limits<double>::infinity())
-		throw CAstException(pnode, this, "Invalid: The signal is all-zero (-infinity RMS).");
+		throw ExceptionMsg(pnode,"Invalid: The signal is all-zero (-infinity RMS).");
 	rms.SetValue(-mrms);
 	if (Sig.IsStereo() && Sig.next->nSamples)
 	{
 		if (tsig.nSamples>2)
-			throw CAstException(pnode, this, "For a stereo signal, the last operand should be a vector of two or less elements.");
+			throw ExceptionMsg(pnode,"For a stereo signal, the last operand should be a vector of two or less elements.");
 		double msrms = Sig.next->CSignal::RMS();
 		if (msrms == -std::numeric_limits<double>::infinity())
-			throw CAstException(pnode, this, "Invalid: The signal (2nd Chan) is all-zero (-infinity RMS).");
+			throw ExceptionMsg(pnode,"Invalid: The signal (2nd Chan) is all-zero (-infinity RMS).");
 		isig.SetValue(-msrms);
 		rms.SetNextChan(&isig);
 		if (tsig.nSamples==2)
@@ -1490,96 +1363,6 @@ void CAstSig::index_array_satisfying_condition(CVar &isig)
 	isig = out;
 }
 
-CVar &CAstSig::eval_indexing(const AstNode *pInd, CVar *psig, CVar &isig)
-{
-	// input: pInd, psig
-	// output: isig -- sig holding all indices
-
-	// process the first index
-	unsigned int len;
-	prepare_endpoint(pInd, psig);
-	try {
-		CAstSig tp(this);
-		if (pInd->type == T_FULLRANGE)
-		{ // x(:,ids) or x(:)
-			isig.UpdateBuffer((unsigned int)endpoint);
-			for (int k = 0; k <(int)isig.nSamples; k++)	isig.buf[k] = k + 1;
-		}
-		else
-			isig = tp.Compute(pInd);
-		if (isig.IsLogical()) index_array_satisfying_condition(isig);
-		// process the second index, if it exists
-		if (pInd->next)
-		{
-			if (psig->nGroups > 1 && isig.nSamples > 1)
-				isig.nGroups = isig.nSamples;
-			AstNode *p = pInd->next;
-			CVar isig2;
-			if (p->type == T_FULLRANGE)
-			{// x(ids,:)
-				len = psig->Len();
-				isig2.UpdateBuffer(len);
-				for (unsigned int k = 0; k < len; k++)	isig2.buf[k] = k + 1;
-			}
-			else // x(ids1,ids2)
-			{
-				//endpoint for the second arg in 2D is determined here.
-				tp.endpoint = (double)psig->Len();
-				isig2 = tp.Compute(p);
-			}
-			char buf[128];
-			if (isig2.IsLogical()) index_array_satisfying_condition(isig2);
-			else if (isig2._max()>(double)psig->Len())
-				throw CAstException(pInd, this, "Out of range: 2nd index ", itoa((int)isig2._max(), buf, 10));
-			interweave_indices(isig, isig2, psig->Len());
-		}
-	}
-	catch (const CAstException &e) {
-		throw CAstException(pInd, this, e.getErrMsg());
-	}
-	return isig;
-}
-
-CVar &CAstSig::ExtractByIndex(const AstNode *pnode, AstNode *p, CVar **psig)
-{ // pnode->type should be N_ARGS
-	char ebuf[256];
-	CVar tsig, isig, isig2;
-	if (!p->child)	throw CAstException(pnode, this, "A variable index should be provided.");
-	eval_indexing(p->child, *psig, isig);
-	if (isig._max() > Sig.nSamples)
-	{
-		sprintf(ebuf, "Index %d exceeds the length of variable.", (int)isig._max());
-		throw CAstException(pnode, this, ebuf);
-	}
-	Sig = extract(ebuf, psig, isig);
-	if (ebuf[0])
-		throw CAstException(pnode, this, ebuf);
-	return Sig;
-}
-
-CVar &CAstSig::TimeExtract(const AstNode *pnode, AstNode *p, CVar *psig)
-{
-	char estr[256];
-	if (!psig)
-	{
-		strcat(estr, " for time extraction ~");
-		throw CAstException(pnode, this, estr);
-	}
-	checkAudioSig(pnode,  *psig);
-
-	CTimeSeries *pts = psig;
-	for (; pts; pts = pts->chain)
-		endpoint = pts->CSignal::endt();
-	if (psig->next)
-	{
-		pts = psig->next;
-		endpoint = max(endpoint, pts->CSignal::endt());
-	}
-	CVar tp = gettimepoints(pnode, p);
-	CVar out(*psig);
-	out.Crop(tp.buf[0], tp.buf[1]);
-	return Sig = out;
-}
 
 CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 { 
@@ -1587,7 +1370,7 @@ CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 	CVar tsig2, tsig = Compute(p);
 	int type1 = tsig.GetType();
 	if (type1 != CSIG_SCALAR && type1 != CSIG_VECTOR)
-		strcpy(pnode->str, "TSEQ"),	throw CAstException(pnode, this, "Invalid tmark array");
+		strcpy(pnode->str, "TSEQ"),	throw ExceptionMsg(pnode,"Invalid tmark array");
 	if (pnode->child->next) {
 		//[tvalues][val] pnode->child->next is N_VECTOR for val
 		//[tvalues][val;] pnode->child->next is N_MATRIX for val
@@ -1595,14 +1378,14 @@ CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 		checkVector(pnode, tsig2);
 		int type2 = tsig2.GetType();
 		if (type2 != CSIG_SCALAR && type2 != CSIG_VECTOR)
-			strcpy(pnode->str, "TSEQ"), throw CAstException(pnode, this, "Invalid t-sequence value array");
+			strcpy(pnode->str, "TSEQ"), throw ExceptionMsg(pnode,"Invalid t-sequence value array");
 		if (tsig2.nGroups == 1)
 		{
 			//if 
 			if (pnode->child->next->type == N_VECTOR)
 			{
 				if (tsig2.nSamples != tsig.nSamples)
-					strcpy(pnode->str, "TSEQ"), throw CAstException(pnode, this, "Time point and value arrays must have the same length.");
+					strcpy(pnode->str, "TSEQ"), throw ExceptionMsg(pnode,"Time point and value arrays must have the same length.");
 			}
 			else //pnode->child->next->type == N_MATRIX
 			{
@@ -1612,7 +1395,7 @@ CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 		else
 		{
 			if (tsig2.nGroups != tsig.nSamples)
-				strcpy(pnode->str, "TSEQ"), throw CAstException(pnode, this, "The number of time points and time sequences must have the same.");
+				strcpy(pnode->str, "TSEQ"), throw ExceptionMsg(pnode,"The number of time points and time sequences must have the same.");
 		}
 	}
 	Sig.Reset(tsig.GetFs());
@@ -1658,10 +1441,6 @@ CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 		HandlePseudoVar(pnode);
 	else
 	{
-		//{
-		//	aux_HOOK(this, pnode, p, 0, dummy);
-		//	return Sig;
-		//}
 		if (p->type == N_ARGS) p = p->child;
 		if (p->type == N_HOOK) p = p->child;
 		if (!strcmp(p->str, "sel"))
@@ -1720,14 +1499,14 @@ CVar &CAstSig::NodeMatrix(const AstNode *pnode, AstNode *p)
 			blockCell(pnode, esig);
 			if (audio == 0 && (esig.GetType() == CSIG_AUDIO || esig.GetType() == CSIG_TSERIES))
 			{
-				if (p->next->next)	throw CAstException(pnode, this, "Currently two channels or less for audio signals or t-series are allowed.");
+				if (p->next->next)	throw ExceptionMsg(pnode,"Currently two channels or less for audio signals or t-series are allowed.");
 				tsig.SetNextChan(&esig);
 			}
 			else if (audio > 0)
 			{
-				if (p->next->next)	throw CAstException(pnode, this, "Currently two channels or less for audio signals or t-series are allowed.");
+				if (p->next->next)	throw ExceptionMsg(pnode,"Currently two channels or less for audio signals or t-series are allowed.");
 				if (esig.GetType() != tsig.GetType())
-					throw CAstException(pnode, this, "Signal type, Audio (or t-series), must be the same in both channels.");
+					throw ExceptionMsg(pnode,"Signal type, Audio (or t-series), must be the same in both channels.");
 				tsig.SetNextChan(&esig);
 			}
 		}
@@ -1738,9 +1517,7 @@ CVar &CAstSig::NodeMatrix(const AstNode *pnode, AstNode *p)
 			if (!p->next && p->alt && p->alt->type == N_STRUCT && p->alt == pnode->tail) // in the last loop, if p->alt is structure and the same as pnode->tail; i.e., the "dot" operation applies to the matrix, not the vector, so, Compute(p), which tries to apply the dot opeartor to the vector through N_VECTOR, shouldn't be called. The matrix-wide dot operation should be handled at the bottom. 4/17/2018
 				p->alt = NULL;
 			esig = Compute(p);
-//			if (esig.GetType() == CSIG_AUDIO || esig.GetType() == CSIG_TSERIES)
-//				throw CAstException(pnode, this, "Audio signal and non-audio signal cannot be in a matrix.");
-			if (!esig.IsEmpty() && tsig.Len() != esig.Len()) throw CAstException(pnode, this, "All groups must have the same length for 2-D data. (All rows must be the same length in the matrix)");
+			if (!esig.IsEmpty() && tsig.Len() != esig.Len()) throw ExceptionMsg(pnode,"All groups must have the same length for 2-D data. (All rows must be the same length in the matrix)");
 			tsig += &esig;
 			tsig.nGroups += esig.nGroups;
 		}
@@ -1772,11 +1549,11 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 	{
 		tsig = Compute(p);
 		if (thisisGO && (tsig.GetType() != CSIG_HDLARRAY && !tsig.IsGO()))
-			throw CAstException(pnode, this, "Graphic Handle and non-Graphic handle cannot be in an array");
+			throw ExceptionMsg(pnode,"Graphic Handle and non-Graphic handle cannot be in an array");
 		if ((!thisisGO && !beginswithempty) && (tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO()))
-			throw CAstException(pnode, this, "Graphic Handle and non-Graphic handle cannot be in an array");
+			throw ExceptionMsg(pnode,"Graphic Handle and non-Graphic handle cannot be in an array");
 		if (ngroups != tsig.nGroups)
-			throw CAstException(pnode, this, "Every item in the brackets must have the same nGroups.");
+			throw ExceptionMsg(pnode,"Every item in the brackets must have the same nGroups.");
 		totalLen += Sig.Len();
 		if (!compl) compl = tsig.IsComplex();
 		thisisGO = tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO();
@@ -1829,10 +1606,10 @@ CVar &CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)
 { // assume: pnode type is N_TIME_EXTRACT
 	CVar tsig1 = Compute(p);
 	if (!tsig1.IsScalar())
-		throw CAstException(pnode, this, "Time marker1 should be scalar");
+		throw ExceptionMsg(pnode, "Time marker1 should be scalar");
 	CSignals tsig2 = Compute(p->next);
 	if (!tsig2.IsScalar())
-		throw CAstException(pnode, this, "Time marker2 should be scalar");
+		throw ExceptionMsg(pnode, "Time marker2 should be scalar");
 	tsig1 += &tsig2;
 	return Sig = tsig1;
 }
@@ -1940,8 +1717,6 @@ vector<CVar> CAstSig::Compute(void)
 		}
 		fBreak = false;
 		GfInterrupted = false;
-//		Tick0 = GetTickCount0();
-//		printf("begin: %d\n", Tick0);
 		if (pAst->type == N_BLOCK && u.application &&  !strcmp(u.application,"xcom")) {
 			AstNode *p = pAst->next;
 			while (p)
@@ -1956,16 +1731,13 @@ vector<CVar> CAstSig::Compute(void)
 			res.push_back(Compute(pAst));
 		}
 		Tick1 = GetTickCount0();
-//		printf("end:   %d\n", Tick1);
 		return res;
 	}
 	catch (const CAstException &e) {
 		if (!e.out.empty())
 		{
 			for (size_t k=0; k<e.out.size(); k++)
-			{
 				res.push_back(*e.out[(int)k]);
-			}
 			return res;
 		}
 		else
@@ -2005,7 +1777,7 @@ CVar *CAstSig::MakeGOContainer(vector<CVar *> GOs)
 CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar)
 {
 	if (!varname)
-		throw CAstException(pAst, this, "Internal error--varname not specified in GetGlobalVariable()");
+		throw ExceptionMsg(pAst, "Internal error--varname not specified in GetGlobalVariable()");
 	if (pvar)
 	{
 	}
@@ -2054,7 +1826,7 @@ CVar *CAstSig::GetGloGOVariable(const char *varname, CVar *pvar)
 	}
 	catch (out_of_range oor)
 	{
-		throw CAstException(pAst, this, "Internal error--GetGloGOVariable() should be called when global variable is sure to exist in pEnv->glovar");
+		throw ExceptionMsg(pAst, "Internal error--GetGloGOVariable() should be called when global variable is sure to exist in pEnv->glovar");
 	}
 }
 
@@ -2078,23 +1850,25 @@ CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
 	}
 	catch (out_of_range oor)
 	{
-		throw CAstException(pAst, this, "Internal error--GetGOVariable() should be called when varname is sure to exist in GOvars");
+		throw ExceptionMsg(pAst, "Internal error--GetGOVariable() should be called when varname is sure to exist in GOvars");
 	}
 }
 
-CVar *CAstSig::GetVariable(const char *varname, CVar *pvar)
+CVar *CAstSig::GetVariable(const char *varname, string &fullvarname, CVar *pvar)
 { //To retrive a variable from a workspace pvar is NULL (default)
   //To retrive a member variable, specify pvar as the base variable 
  // For multiple GO's, calls GetGOVariable()
 	CVar *pout(NULL);
 	if (!varname)
-		throw CAstException(pAst, this, "Internal error--varname not specified in GetVariable()");
+		throw ExceptionMsg(pAst, "Internal error--varname not specified in GetVariable()");
 	if (pvar)
 	{
 		if (pvar->strut.find(varname) != pvar->strut.end())
 			pout = &pvar->strut.at(varname);
 		else if (pvar->struts.find(varname) == pvar->struts.end())
 			return NULL;
+		fullvarname += '.';
+		fullvarname += varname;
 	}
 	else
 	{
@@ -2102,88 +1876,10 @@ CVar *CAstSig::GetVariable(const char *varname, CVar *pvar)
 			pout = &Vars.at(varname);
 		else if (GOvars.find(varname) == GOvars.end())
 			return NULL;
+		fullvarname = varname;
 	}
 	if (pout) return pout;
 	return GetGOVariable(varname, pvar);
-}
-
-CVar &CAstSig::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig, CVar *psigBase)
-{
-	unsigned int id = 0;
-	CVar isig;
-	replica = Sig;
-	eval_indexing(pLHS, psigBase, isig);
-	CVar rhs = Compute(pRHS);
-	if (rhs.IsScalar())
-	{
-		for (unsigned k = 0; k < isig.nSamples; k++)
-			psigBase->buf[(int)isig.buf[k]-1] = rhs.value();
-	}
-	else if (searchtree(pRHS, T_REPLICA))
-	{ 
-		if (psigBase->IsTimeSignal()) // Check this part 9/4/2018
-		{
-			// consolidate chained rhs with lhs
-			for (CTimeSeries *cts = &rhs; cts; cts = cts->chain)
-			{
-				// id translated from tmark for each chain
-				id = (unsigned int)(cts->tmark / 1000. * cts->GetFs());
-				memcpy(psigBase->buf + id, cts->buf, cts->nSamples * sizeof(double));
-			}
-		}
-		else
-		{
-			for (unsigned k = 0; k < isig.nSamples; k++)
-					psigBase->buf[(int)isig.buf[k]-1] = rhs.buf[k];
-		}
-	}
-	else if (rhs.IsEmpty())
-	{
-		insertreplace(pLHS, psigBase, rhs, isig);
-		Sig.Reset();
-	}
-	else
-		throw CAstException(pRHS, this, "Invalid RHS; For LHS with conditional indexing, RHS should be either a scalar, empty, or .. (self).");
-	SetVar(pnode->str, psigBase);
-	return Sig;
-}
-
-CVar &CAstSig::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig, CVar *psigBase)
-{ // Computes pRHS, if available, and assign it to LHS. If pRHS is NULL, evaluates the single side (pLHS) and puts in to Sig and the application may echo as needed.
-	// 2 cases where psig is not Sig: first, a(2), second, a.sqrt
-	CVar tsig;
-	if (IsCondition(pLHS))
-		return TID_condition(pnode, pLHS, pRHS, psig, psigBase);
-	switch (pLHS->type)
-	{
-	case N_ARGS: 
-		tsig = TID_indexing(pLHS, pRHS, psig, psigBase);
-		if (pgo)
-		{ // need to get the member name right before N_ARGS
-			AstNode *pp = findParentNode((AstNode*)pnode, pLHS, true);
-			setgo.type = pp->str;
-		}
-		break;
-	case T_ID: // T-Y-2
-	case N_STRUCT:
-	case N_CALL:
-		tsig = TID_tag(pnode, pLHS, pRHS, psig, psigBase);
-		break;
-	case N_TIME_EXTRACT: // T-Y-4 
-		tsig = TID_time_extract(pnode, pLHS, pRHS, psigBase);
-		break;
-	case N_HOOK:
-		if (pEnv->pseudo_vars.find(pnode->str) == pEnv->pseudo_vars.end())
-		{
-			tsig = TID_tag(pnode, pLHS, pRHS, psig, psigBase);
-		}
-		else
-			throw CAstException(pLHS, this, "Pseudo variable cannot be modified.");
-		break;
-	default:  // T-Y-5
-		return Compute(pRHS); // check... this may not happen.. if so, inspect.
-	}
-	return Sig;
 }
 
 AstNode *get_next_parsible_node(AstNode *pn)
@@ -2212,12 +1908,13 @@ AstNode *CAstSig::read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn)
 { // This returns the next node. pn gets updated as well.
   // pn->type must always be T_ID or N_STRUCT
 	if ((*pn)->type!=T_ID && (*pn)->type!=N_STRUCT)
-		throw CAstException(*pn, this, "Only a variable or member variable can be cleared.");
+		throw ExceptionMsg(*pn, "Only a variable or member variable can be cleared.");
 	if ((*pn)->str[0] == '#' || IsValidBuiltin((*pn)->str))
-		throw CAstException(*pn, this, "Function cannot be cleared.");
+		throw ExceptionMsg(*pn, "Function cannot be cleared.");
 	CVar *pres;
-	if (!(pres = GetVariable((*pn)->str, ndog.psigBase)))
-		throw CAstException(*pn, this, "Variable not found.");
+	string vam;
+	if (!(pres = GetVariable((*pn)->str, vam, ndog.psigBase)))
+		throw ExceptionMsg(*pn, "Variable not found.");
 	AstNode * res = get_next_parsible_node(*pn);
 	if (res && res->type == N_STRUCT && !strcmp(res->str, "clear"))
 	{
@@ -2227,25 +1924,23 @@ AstNode *CAstSig::read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn)
 	return res;
 }
 
-AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn,  AstNode *ppar)
+AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 {
 	if (pn->type == T_OP_CONCAT || pn->type == '+' || pn->type == '-' || pn->type == T_TRANSPOSE || pn->type == T_MATRIXMULT
-		|| pn->type == '*' || pn->type == '/' || pn->type == T_OP_SHIFT || pn->type == T_NEGATIVE || (pn==ndog.root && IsCondition(pn)))
+		|| pn->type == '*' || pn->type == '/' || pn->type == T_OP_SHIFT || pn->type == T_NEGATIVE || (pn==diggy.level.root && IsCondition(pn)))
 	{ //No further actions
 		return get_next_parsible_node(pn);
 	}
 	string emsg;
-	char estr[256];
 	AstNode *p = pn;
 	int cellind, ind(0);
 	CVar *pres;
+	ostringstream out;
 	AstNode *pUDF;
 	if ((pUDF=ReadUDF(emsg, pn->str)))
 	{
 		if (pn->child)
-		{
-			throw CAstException(pn, this, "Name conflict between the LHS variable and a user-defined function.");
-		}
+			throw ExceptionMsg(pn, "Name conflict between the LHS variable and a user-defined function.");
 //		ppar = get_parent_node(pAst, pn);
 		if (ppar)
 		{
@@ -2254,20 +1949,20 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn,  AstNode *ppar)
 //				lhs = higher;
 			// Otherwise, the parent node is not necessarily the LHS. 10/14/2018
 		}
-		// if static function, ndog.psigBasemust be NULL
-		if (pUDF->suppress==3 && ndog.psigBase)
-			throw CAstException(pUDF, this, "Function declared as static cannot be called as a member function.");
-		if (PrepareAndCallUDF(pn, ndog.psigBase)) // this probably won't return false
+		// if static function, diggy.level.psigBasemust be NULL
+		if (pUDF->suppress==3 && diggy.level.psigBase)
+			throw ExceptionMsg(pUDF, "Function declared as static cannot be called as a member function.");
+		if (PrepareAndCallUDF(pn, diggy.level.psigBase)) // this probably won't return false
 		{// if a function call follows N_ARGS, skip it for next_parsible_node
-			ndog.psigBase = &Sig;
+			diggy.level.psigBase = &Sig;
 			if (pn->alt && pn->alt->type == N_ARGS)
 				pn = pn->alt; // to skip N_ARGS
 		}
 	}
 	else
 	{
-		if (!emsg.empty())	throw CAstException(pn, this, emsg);
-		if (builtin_func_call(ndog, pn))
+		if (!emsg.empty())	throw ExceptionMsg(pn, emsg.c_str());
+		if (builtin_func_call(diggy, pn))
 		{ // if a function call follows N_ARGS, skip it for next_parsible_node
 			if (pn->alt)
 			{
@@ -2277,34 +1972,33 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn,  AstNode *ppar)
 		}
 		else if (pn->type == N_ARGS)
 		{
-			if (ndog.psigBase->IsGO() && ndog.psigBase->GetFs() != 3)
+			if (diggy.level.psigBase->IsGO() && diggy.level.psigBase->GetFs() != 3)
 			{
 				CVar tp = Compute(pn->child);
 				if (tp.GetType()!=CSIG_SCALAR || tp.value()!=1.)
-					throw CAstException(ppar, this, "Invalid index of a graphic object arrary.");
+					throw ExceptionMsg(ppar, "Invalid index of a graphic object arrary.");
 			}
 			else
 			{
-				if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ppar, this, "A cell array cannot be accessed with ( ).");
-				ExtractByIndex(ppar, pn, &ndog.psigBase); //Sig updated. No change in psig
+				if (diggy.level.psigBase->GetType() == CSIG_CELL) throw ExceptionMsg(ppar, "A cell array cannot be accessed with ( ).");
+				diggy.ExtractByIndex(ppar, pn); //Sig updated. No change in psig
 			}
-			if (ndog.psigBase->IsGO())
-				pgo = ndog.psigBase;
+			if (diggy.level.psigBase->IsGO())
+				pgo = diggy.level.psigBase;
 		}
 		else if (IsCondition(pn))
 		{
-			if (ndog.psigBase->GetType() == CSIG_CELL) throw CAstException(ppar, this, "A cell array cannot be accessed with ( ).");
+			if (diggy.level.psigBase->GetType() == CSIG_CELL) throw ExceptionMsg(ppar, "A cell array cannot be accessed with ( ).");
 			CVar isig, isig2;
-			eval_indexing(pn, ndog.psigBase, isig);
-			Sig = extract(estr, &ndog.psigBase, isig);
-			if (estr[0]) throw CAstException(ppar, this, estr);
+			diggy.eval_indexing(pn, isig);
+			Sig = diggy.extract(pn, isig);
 			if (!pn->next) // 1D indexing, unGroup it
 				Sig.nGroups = 1;
 		}
 		else if (pn->type == N_TIME_EXTRACT)
-			TimeExtract(pn, pn->child, ndog.psigBase);
+			diggy.TimeExtract(pn, pn->child);
 		else if (pn->type == T_REPLICA || pn->type == T_ENDPOINT)
-			Sig = *ndog.psigBase;
+			Sig = *diggy.level.psigBase;
 		else
 		{
 			if (pn->type == N_HOOK)
@@ -2312,30 +2006,31 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn,  AstNode *ppar)
 				pres = GetGlobalVariable(pn, pn->str);
 				if (!pres)
 				{
-					if (ndog.root->child && (!pn->alt || pn->alt->type == N_STRUCT)) 
+					if (diggy.level.root->child && (!pn->alt || pn->alt->type == N_STRUCT)) 
 						return NULL;
-					throw CAstException(pn, this, "Gloval variable not available.");
+					throw ExceptionMsg(pn, "Gloval variable not available.");
 				}
-				ndog.psigBase = pres;
+				diggy.level.psigBase = pres;
 			}
 			//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
-			else if (!(pres = GetVariable(pn->str, ndog.psigBase)) )
+			else if (!(pres = GetVariable(pn->str, diggy.level.varname, diggy.level.psigBase)) )
 			{
-				if (ndog.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
+				if (diggy.level.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
 				{
 					if (!pn->alt) return NULL; // if pn is the last node, no exception and continue to check RHS
 					if (pn->alt->type == N_STRUCT) return NULL; // (something_not_existing).var = RHS
 				}
-				throw CAstException(pn, this, "Variable or function not available.");
+				out << "Variable or function not available: " << pn->str;
+				throw ExceptionMsg(pn, out.str().c_str());
 			}
 			if (pres->IsGO())
 			{ // the variable pn->str is a GO
-				Sig = *(ndog.psigBase = pgo = pres);
+				Sig = *(diggy.level.psigBase = pgo = pres);
 				if (pn->child) setgo.type = pn->str;
 			}
 			/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
 			// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
-			else if (pgo && !ndog.root->child && !setgo.frozen)
+			else if (pgo && !diggy.level.root->child && !setgo.frozen)
 				pgo = NULL;
 			if (pn->alt)
 			{
@@ -2345,7 +2040,9 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn,  AstNode *ppar)
 					// I.E., p->child should be non-NULL
 				{
 					cellind = (int)Compute(p->child).value(); // check the validity of ind...probably it will be longer than this.
-					Sig = *(ndog.psigBase = &pres->cell.at(cellind - 1)); // check the validity
+					out << "{" << cellind << "}";
+					diggy.level.varname += out.str();
+					Sig = *(diggy.level.psigBase = &pres->cell.at(cellind - 1)); // check the validity
 				}
 				else if (p->type == N_STRUCT)
 				{
@@ -2354,31 +2051,34 @@ AstNode *CAstSig::read_node(NODEDIGGER &ndog, AstNode *pn,  AstNode *ppar)
 						if (p->str[0] != '#' && !IsValidBuiltin(p->str))
 							if (!ReadUDF(emsg, p->str))
 								if (!emsg.empty())
-									throw CAstException(NULL, this, emsg);
+									throw ExceptionMsg(pn, emsg.c_str()); // check the message
 								else
-									throw CAstException(pn, this, "Unknown variable, function or keyword identifier.", p->str);
+								{
+									out << "Unknown variable, function, or keyword identifier : " << p->str;
+									throw ExceptionMsg(pn, out.str().c_str());
+								}
 					}
-					Sig = *(ndog.psigBase = pres);
+					Sig = *(diggy.level.psigBase = pres);
 				}
 				else
-					Sig = *(ndog.psigBase = pres);
+					Sig = *(diggy.level.psigBase = pres);
 			}
 			else
-				Sig = *(ndog.psigBase = pres);
+				Sig = *(diggy.level.psigBase = pres);
 		}
 	}
 	return get_next_parsible_node(pn);
 }
 
 
-AstNode *CAstSig::read_nodes(NODEDIGGER &ndog)
+AstNode *CAstSig::read_nodes(CDeepProc &diggy)
 {
-	AstNode *pn = ndog.root;
+	AstNode *pn = diggy.level.root;
 	AstNode *p, *pPrev=NULL;
 	CVar pvar;
 	while (pn)
 	{
-		p = read_node(ndog, pn, pPrev);
+		p = read_node(diggy, pn, pPrev);
 		if (!p) return pn;
 		if (p->type == N_ARGS)
 			pPrev = pn;
@@ -2391,22 +2091,19 @@ AstNode *CAstSig::read_nodes(NODEDIGGER &ndog)
 
 CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 {
+	CDeepProc diggy(this, pnode, psig); // psig is NULL except for T_REPLICA
 	if (pnode)
 	{
 		setgo.clear();
-		NODEDIGGER ndog;
-		ndog.root = pnode;
-		ndog.psigBase = psig; // NULL except for T_REPLICA
-
 		char ebuf[256] = {};
 		// a = sqrt(2) --> inside psigAtNode, without knowing whether this call is part of RHS handling or not, there's no way to know whether a string is something new to fill in later or just throw an exception.
 		// by default the 3rd arg of psigAtNode is false, but if this call is made during RHS handling (where pRHS is NULL), it tells psigAtNode to try builtin_func_call first. 8/28/2018
 
-		AstNode *pLast = read_nodes(ndog); // that's all about LHS.
-		if (!ndog.psigBase)
+		AstNode *pLast = read_nodes(diggy); // that's all about LHS.
+		if (!diggy.level.psigBase)
 		{
 			lhs = pLast;
-			ndog.side = 'L';
+			diggy.level.side = 'L';
 			return define_new_variable(pnode, pRHS);
 		}
 		// At this point, Sig should be it
@@ -2414,24 +2111,24 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// pLast: the node corresponding to psig
 		if (!pRHS)
 		{
-			if (ndog.psigBase->IsGO()) return *pgo;
+			if (diggy.level.psigBase->IsGO()) return *pgo;
 			else	return Sig;
 		}
 		setgo.frozen = true;
-		ndog.side = 'R';
+		diggy.level.side = 'R';
 		lhs = pLast;
-		CVar res = TID_RHS2LHS(pnode, pLast, pRHS, &Sig, ndog.psigBase);
+		CVar res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
 		// Do this again....  f.pos(2) = 200
 		// Need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
 		// 11/4/2018
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
 			if (res.IsGO())
-				fpmsg.SetGoProperties(this, setgo.type, *ndog.psigBase);
+				fpmsg.SetGoProperties(this, setgo.type, *diggy.level.psigBase);
 			else
 				fpmsg.SetGoProperties(this, setgo.type, res);
 		}
-		ndog.psigBase = NULL;
+		Script = diggy.level.varname;
 	}
 	return Sig;
 }
@@ -2472,7 +2169,7 @@ CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 		Sig = Compute(p);
 		pgo = NULL;
 		if (!Sig.IsLogical() || !rsig.IsLogical())
-			throw CAstException(p, this, "Logical operation is only for logical arrays.");
+			throw ExceptionMsg(p, "Logical operation is only for logical arrays.");
 		Sig.LogOp(rsig, pnode->type); // rsig is a dummy for func signature.
 		break;
 	case T_LOGIC_OR:
@@ -2507,7 +2204,7 @@ CVar &CAstSig::Compute(const AstNode *pnode)
 	AstNode *p = pnode->child;
 try {
 	if (GfInterrupted)
-		throw CAstException(pnode, this, "Script execution has been interrupted.");
+		throw ExceptionMsg(pnode, "Script execution has been interrupted.");
 	switch (pnode->type) {
 	case T_ID:
 		return TID((AstNode*)pnode, p);
@@ -2613,7 +2310,7 @@ try {
 		tsig = Compute(p->next);
 		blockCell(pnode,  Sig);
 		if (!tsig.IsScalar())
-			throw CAstException(p->next, this, "Second operand of '>>' must be a scalar.");
+			throw ExceptionMsg(p->next, "Second operand of '>>' must be a scalar.");
 		Compute(p);
 		checkAudioSig(pnode,  Sig);
 		Sig >>= tsig.value();
@@ -2704,7 +2401,7 @@ try {
 			//		Sig = SubAstSig.Compute();
 			//}
 		} catch (const char *errmsg) {
-			throw CAstException(pnode, this, "Calling sigma( )\n\nIn sigma expression:\n"+string(errmsg));
+			throw ExceptionMsg(pnode, ("Calling sigma( )\n\nIn sigma expression:\n"+string(errmsg)).c_str());
 		}
 		break;
 	case T_RETURN:
@@ -2717,17 +2414,18 @@ try {
 		if (u.CallbackCIPulse)
 			u.CallbackCIPulse(pnode, this);
 		else
-			throw CAstException(pnode, this, "Internal error! CI Pulse without handler!");
-		break;
-	case T_FUNCTION:
-		// should have already been removed by Compute(void)
-		throw CAstException(pnode, this, "Internal error! Unexpected node - T_FUNCTION");
+			throw ExceptionMsg(pnode, "Internal error! CI Pulse without handler!");
 		break;
 	default:
-		throw CAstException(pnode, this, "Internal error! Unknown node type - ", pnode->type);
+	{
+		ostringstream out;
+		out << "Internal error! Unknown node type - " << pnode->type;
+		throw ExceptionMsg(pnode, out.str().c_str());
+	}
+		
 	}
 } catch (const exception &e) {
-	throw CAstException(pnode, this, string("Internal error! ") + e.what());
+	throw ExceptionMsg(pnode, (string("Internal error! ") + e.what()).c_str());
 } 
 return Sig;
 }
@@ -2743,7 +2441,7 @@ CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 		if (Sig.IsEmpty()) return Sig = *pgo;
 		//Now, Sig can be CSIG_HDLARRAY, then use it as is.
 		if (!pgo)
-			throw CAstException(p, this, "RHS is a graphic handle. LHS is not. Can't concatenate.");
+			throw ExceptionMsg(p, "RHS is a graphic handle. LHS is not. Can't concatenate.");
 		if (Sig.GetType() == CSIG_HDLARRAY)
 		{
 			Sig.UpdateBuffer(Sig.nSamples + 1);
@@ -2753,10 +2451,10 @@ CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 	}
 	Compute(p);
 	if (pgo)
-		throw CAstException(p, this, "LHS is a graphic handle. RHS is not. Can't concatenate.");
+		throw ExceptionMsg(p, "LHS is a graphic handle. RHS is not. Can't concatenate.");
 	if (Sig.nGroups > 1)
 	if ((tsig.GetType() == CSIG_CELL) && (Sig.GetType() != CSIG_CELL))
-		throw CAstException(p->next, this, "A cell variable cannot be appended to a non-cell variable.");
+		throw ExceptionMsg(p->next, "A cell variable cannot be appended to a non-cell variable.");
 	if (Sig.GetType() == CSIG_CELL)
 	{
 		if (tsig.GetType() == CSIG_CELL)
@@ -2773,7 +2471,7 @@ CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 		if (tsig.nSamples * Sig.nSamples > 0) // if either is empty, no rejection
 		{
 			if (tsig.nGroups!=Sig.nGroups && tsig.Len() !=Sig.Len())
-				throw CAstException(p->next, this, "To concatenate, the second operand must have the same number of elements or the same number of groups (i.e., rows) ");
+				throw ExceptionMsg(p->next, "To concatenate, the second operand must have the same number of elements or the same number of groups (i.e., rows) ");
 		}
 		//For matrix, Group-wise (i.e., row-wise) concatenation
 		if (Sig.nGroups > 1 && Sig.Len()!=tsig.Len())
@@ -2830,19 +2528,16 @@ CVar &CAstSig::InitCell(const AstNode *pnode, AstNode *p)
 		for (; p; count++, p = p->next)
 			;
 		p = pnode->child;
-		Sig.Reset(1); // check.........8/19
+		Sig.Reset(1);
 		Sig.cell.reserve(count);
 		for (; p; p = p->next)
-		{
-			CVar tsig = temp.Compute(p);
-			Sig.appendcell(tsig);
-		}
+			Sig.appendcell(temp.Compute(p));
 		if (pnode->str)
 			SetVar(pnode->str, &Sig);
 		return Sig;
 	}
 	catch (const CAstException &e) {
-		throw CAstException(pnode, this, e.getErrMsg());
+		throw ExceptionMsg(pnode, e.getErrMsg().c_str());
 	}
 }
 
@@ -3323,7 +3018,7 @@ int CAstSig::checkNumArgs(const AstNode *pnode, const AstNode *p, string &FuncSi
 		else
 			return nArgs;
 	}
-	throw CAstException(pnode, this, FuncSigs, msg.str());
+	throw ExceptionMsg(pnode, FuncSigs, msg.str());
 }
 
 CVar *CAstSig::GetSig(const char *var)

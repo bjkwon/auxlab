@@ -461,12 +461,12 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			throw CAstException(pnode, past, "X- and Y- positions must be scalar.");
 	}
 	if ((*it).GetType() != CSIG_STRING) throw CAstException(pnode, past, "Third argument must be string.");
-
-	CSignals *pgcf = past->GetVariable("gcf");
+	string vam;
+	CSignals *pgcf = past->GetVariable("gcf", vam);
 	if (pgcf == NULL)
 	{
 		_figure(past, pnode, NULL, fnsigs);
-		pgcf = past->GetVariable("gcf");
+		pgcf = past->GetVariable("gcf", vam);
 	}
 	CFigure *cfig = (CFigure *)FindFigure(pgcf);
 	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back().string().c_str(), args.front().value(), args[1].value(), 0, 0));
@@ -496,11 +496,12 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	CSignals *pgcf;
 	if (!pGO || pGO->IsEmpty())
 	{
-		pgcf = past->GetVariable("gcf");
+		string vam;
+		pgcf = past->GetVariable("gcf", vam);
 		if (!pgcf)
 		{
 			_figure(past, pnode, NULL, fnsigs);
-			pgcf = past->GetVariable("gcf");
+			pgcf = past->GetVariable("gcf", vam);
 		}
 	}
 	else

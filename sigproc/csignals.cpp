@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.498
-// Date: 2/4/2019
+// Version: 1.5
+// Date: 3/15/2019
 // 
 #ifdef _WINDOWS
 #ifndef _MFC_VER // If MFC is used.
@@ -1988,32 +1988,6 @@ CSignal& CSignal::Interp(const CSignal& gains, const CSignal& tmarks)
 	return *this;
 }
 
-CSignal& CSignal::Take(CSignal& out, unsigned int id1, unsigned int id2)
-{
-	out.Reset();
-	unsigned int nSamplesNeeded;
-	if (id2<id1)		// Time reversal
-	{
-		if (id2>nSamples-1) return *this;
-		id1 = min (nSamples-1, id1);
-		id2 = max (0, id2);
-		nSamplesNeeded = id1-id2+1;
-		out.UpdateBuffer(nSamplesNeeded);
-		for (unsigned int k=0; k<nSamplesNeeded; k++)
-			out.buf[k] = buf[id1-k];
-	}
-	else
-	{
-		if (id1>nSamples-1) return *this;
-		id1 = max (0, id1);
-		id2 = min (nSamples-1, id2);
-		nSamplesNeeded = id2-id1+1;
-		out.UpdateBuffer(nSamplesNeeded);
-		memcpy((void*)&out.buf[-min(0,id1)], (void*)&buf[max(0,id1)], sizeof(double)*(id2-max(0,id1)+1));
-	}
-	return out;
-}
-
 CTimeSeries& CTimeSeries::Squeeze()
 {
 	int nSamplesTotal(0), nSamples0(nSamples);
@@ -3474,7 +3448,7 @@ CSignal& CSignal::filtfilt(unsigned int id0, unsigned int len)
 	den = coeffs.back();
 
 	CSignal temp(fs), temp2(fs), out(fs);
-	size_t nfact = 3 * (max(num.size(),den.size()) - 1);
+	unsigned int nfact = (unsigned int)( 3 * (max(num.size(), den.size()) - 1));
 	temp.Silence((unsigned int)nfact);
 	temp += this;
 	temp2.Silence((unsigned int)nfact);
@@ -3484,7 +3458,8 @@ CSignal& CSignal::filtfilt(unsigned int id0, unsigned int len)
 	temp.ReverseTime();
 	temp.filter(id0, temp.nSamples);
 	temp.ReverseTime();
-	temp.Take(out, (unsigned int)nfact, (unsigned int)(nfact + nSamples - 1));
+	out.UpdateBuffer(nSamples);
+	memcpy(out.buf, temp.buf + nfact, sizeof(double)*nSamples);
 	*this = out;
 	return *this;
 }
@@ -4112,18 +4087,6 @@ CSignals& CSignals::operator>>=(const double delta)
 	CTimeSeries::operator>>=(delta);
 	if (next)	*next>>=delta;
 	return *this;
-}
-
-CSignals& CSignals::Take(CSignals& out, int id1, int id2)
-{
-	CTimeSeries out2(out.fs);
-	CTimeSeries::Take(out, id1, id2);
-	if (next != NULL)
-	{
-		next->Take(out2, id1, id2);
-		out.SetNextChan(&out2);
-	}
-	return out;
 }
 
 CSignals& CSignals::Crop(double begin_ms, double end_ms)

@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.497
-// Date: 12/26/2018
+// Version: 1.5
+// Date: 3/15/2019
 // 
 #pragma once
 
@@ -84,6 +84,7 @@ enum DEBUG_STATUS
 using namespace std;
 
 class CAstSig;
+class CDeepProc;
 
 class body
 {
@@ -220,11 +221,6 @@ public:
 	bool operator == (string rhstr);
 	CSignal& operator+=(CSignal *yy); // Concatenation
 	virtual CSignal& operator>>=(double delta);
-
-	// Signal alteration (stereo handling with an established convention)
-
-	// Signal extraction (stereo handling with a clean, inarguable convention)
-	CSignal& Take(CSignal& out, unsigned int id1, unsigned int id2);
 
 	// Retrieve signal characteristics (single channel ONLY)
 	int GetType() const; 
@@ -449,7 +445,6 @@ public:
 	CSignals& reciprocal(void);
 	CSignals& operator-(void);
 	CSignals& operator>>=(const double delta);
-	CSignals& Take(CSignals& out, int id1, int id2);
 	CSignals& Crop(double begin_ms, double end_ms);
 	CSignals& Modulate (CSignals env);
 	CSignals& Insert(double timept, CSignals &newchunk);
@@ -545,15 +540,14 @@ public:
 	const AstNode *pnode;
 	CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
 	string str1, str2, outstr;
-	int int1;
-
-	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const string s2 = "");
-	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const int x, const string s2="");
+	CAstException(const AstNode *p, CAstSig *pAst, const string s1);
+	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const string s2);
 	CAstException(const AstNode *p0, CAstSig *past, const char* msg);
 	string getErrMsg() const {return outstr;};
 	vector<CSignals *> out;
 private:
 	void makeOutStr();
+	void genString();
 };
 
 class UDF
@@ -653,6 +647,7 @@ public:
 	CVar *psigBase;
 	CVar Sig;
 	CVar *pgo;
+	string varname; // tracks the "full" name of variable including the index, the dot or { }, etc.
 };
 
 class CUDF
@@ -676,6 +671,7 @@ public:
 
 class CAstSig
 {
+	friend class CDeepProc;
 public:
 #ifndef GRAFFY
 	static void cleanup_nodes(CAstSig *beginhere = NULL);
@@ -732,25 +728,16 @@ private:
 	bool IsValidBuiltin(string funcname);
 	CAstSig &insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &sec, CVar &indsig);
 	void checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned int id, string errstr);
-	int checkpositiveinteger(const AstNode *pnode, CVar *id);
 	bool isContiguous(body &id, unsigned int &begin,unsigned int &end);
 	AstNode *searchtree(AstNode *pp, int type);
-	CVar &extract(char *errstr, CVar **pinout, body &isig);
 	bool checkcond(const AstNode *p);
 	void hold_at_break_point(const AstNode *pnode);
 	void prepare_endpoint(const AstNode *p, CVar *pvar);
-	bool builtin_func_call(NODEDIGGER &ndog, AstNode *p);
-	CVar &TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig, CVar *psigBase);
-	CVar &TID_indexing(AstNode *p, AstNode *pRHS, CVar *psig, CVar *psigBase);
-	CVar &TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig, CVar *psigBase=NULL);
-	CVar &TID_cell(AstNode *p, AstNode *pRHS, CVar *psig);
-	CVar &TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
-	CVar &TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig, CVar *psigBase);
+	bool builtin_func_call(CDeepProc &diggy, AstNode *p);
 	CVar &Concatenate(const AstNode *pnode, AstNode *p);
-	AstNode *read_node(NODEDIGGER &ndog, AstNode *pn, AstNode *pPrev=NULL);
-	AstNode *read_nodes(NODEDIGGER &ndog);
+	AstNode *read_node(CDeepProc &diggy, AstNode *pn, AstNode *pPrev=NULL);
+	AstNode *read_nodes(CDeepProc &diggy);
 	AstNode *read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn);
-	CVar &eval_indexing(const AstNode *pInd, CVar *psig, CVar &indSig);
 	void interweave_indices(CVar &isig, CVar &isig2, unsigned int len);
 	void index_array_satisfying_condition(CVar &isig);
 	void replica_prep(CVar *psig);
@@ -781,6 +768,8 @@ public:
 	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase = NULL);
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase=NULL);
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);
+	CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
+	CAstException ExceptionMsg(const AstNode *pnode, const char *msg);
 
     CAstSig(const CAstSig &org);
 	CAstSig(const CAstSig *src);
@@ -801,14 +790,12 @@ public:
 	CVar &NodeMatrix(const AstNode *pnode, AstNode *p);
 	CVar &define_new_variable(const AstNode *pnode, AstNode *pRHS);
 	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
-	CVar *GetVariable(const char *varname, CVar *pvar = NULL);
+	CVar *GetVariable(const char *varname, string &fullvarname, CVar *pvar = NULL);
 	CVar *GetGOVariable(const char *varname, CVar *pvar = NULL);
 	CVar *GetGloGOVariable(const char *varname, CVar *pvar);
 	CVar *MakeGOContainer(vector<CVar *> GOs);
 	CVar *MakeGOContainer(vector<INT_PTR> GOs);
 	CVar &TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
-	CVar &ExtractByIndex(const AstNode *pnode, AstNode *p, CVar **psig = NULL);
-	CVar &TimeExtract(const AstNode *pnode, AstNode *p, CVar *psig);
 	CVar &Eval(AstNode *pnode);
 	CVar &Transpose(const AstNode *pnode, AstNode *p);
 	CAstSig &Reset(const int fs = 0, const char* path=NULL);
@@ -839,6 +826,25 @@ public:
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int *args);
 };
 
+class CDeepProc
+{
+	friend class CAstSig;
+public:
+	CDeepProc(CAstSig *past, AstNode *pnode, CVar *psig);
+	virtual ~CDeepProc() {};
+	CAstSig *pbase;
+	NODEDIGGER level;
+
+	CVar &TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig);
+	CVar &TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar &ExtractByIndex(const AstNode *pnode, AstNode *p);
+	CVar &eval_indexing(const AstNode *pInd, CVar &indSig);
+	CVar &TID_indexing(AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar &TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar &extract(const AstNode *pnode, body &isig);
+	CVar &TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
+	CVar &TimeExtract(const AstNode *pnode, AstNode *p);
+};
 
 
 

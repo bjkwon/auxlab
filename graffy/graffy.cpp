@@ -48,7 +48,7 @@ public:
 	CFigure *findFigure(CSignals *xFig);
 	HANDLE  openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon = NULL);
 	HANDLE  openFigure(CRect *rt, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon = NULL);
-//	int getselRange(CSignalsGO *hgo, CSignals *out);
+	int getselRange(CSignals *hgo, CSignals *out);
 	int closeFigure(HANDLE h);
 	CGraffyDLL();
 	virtual ~CGraffyDLL();
@@ -285,22 +285,22 @@ HANDLE CGraffyDLL::openFigure(CRect *rt, HWND hWndAppl, int devID, double blocks
 	return openFigure(rt, "", hWndAppl, devID, blocksize, hIcon);
 }
 
-//int CGraffyDLL::getselRange(CSignalsGO *hgo, CSignals *out)
-//{
-//	HANDLE h = FindGObj(hgo);
-//	if (!h) return 0;
-//	CFigure *cfig(NULL);
-//	if (h) cfig = static_cast<CFigure *>(h);
-//	CPlotDlg *phDlg = (CPlotDlg*)(cfig->m_dlg);
-//	CSignals _out;
-//	int res = phDlg->GetSelect(&_out);
-//	if (res)
-//	{
-//		out->buf[0] = _out.buf[0];
-//		out->buf[1] = _out.buf[1];
-//	}
-//	return res;
-//}
+int CGraffyDLL::getselRange(CSignals *hgo, CSignals *out)
+{
+	HANDLE h = FindGObj(hgo);
+	if (!h) return 0;
+	CFigure *cfig(NULL);
+	if (h) cfig = static_cast<CFigure *>(h);
+	CPlotDlg *phDlg = (CPlotDlg*)(cfig->m_dlg);
+	CSignals _out;
+	int res = phDlg->GetSelect(&_out);
+	if (res)
+	{
+		out->buf[0] = _out.buf[0];
+		out->buf[1] = _out.buf[1];
+	}
+	return res;
+}
 
 HANDLE CGraffyDLL::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon)
 {
@@ -487,8 +487,7 @@ GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in)
 
 GRAPHY_EXPORT int GetFigSelRange(CGobj *hgo, CSignals *out)
 {
-	return 0;
-//	return theApp.getselRange(hgo, out);
+	return theApp.getselRange(hgo, out);
 }
 
 

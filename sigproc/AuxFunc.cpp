@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.499
-// Date: 2/20/2019
+// Version: 1.5
+// Date: 3/15/2019
 // 
 #include <math.h>
 #include <stdlib.h>
@@ -110,14 +110,14 @@ void CAstSig::checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg
 	if (checkthis.GetType()==CSIG_AUDIO) return;
 	if (checkthis.GetType()==CSIG_CELL && ((CSignal)checkthis).GetType()==CSIG_AUDIO) return;
 	string msg("requires an audio signal as the base.");
-	throw CAstException(pnode, this, (msg+addmsg).c_str());
+	throw ExceptionMsg(pnode, (msg+addmsg).c_str());
 }
 
 void CAstSig::checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg)
 {
 	if (checkthis.IsTimeSignal()) return;
 	string msg("requires a time_sequence as the base.");
-	throw CAstException(pnode, this, (msg + addmsg).c_str());
+	throw ExceptionMsg(pnode, (msg + addmsg).c_str());
 }
 
 
@@ -125,7 +125,7 @@ void CAstSig::checkComplex (const AstNode *pnode, CVar &checkthis)
 {
 	if (checkthis.IsComplex()) return;
 	string msg("requires a complex vector as the base.");
-	throw CAstException(pnode, this, msg.c_str());
+	throw ExceptionMsg(pnode, msg.c_str());
 }
 
 void CAstSig::checkSignal(const AstNode *pnode, CVar &checkthis, string addmsg)
@@ -134,7 +134,7 @@ void CAstSig::checkSignal(const AstNode *pnode, CVar &checkthis, string addmsg)
 	if (checkthis.GetType() == CSIG_VECTOR) return;
 	if (checkthis.GetType() == CSIG_AUDIO) return;
 	string msg("requires an audio signal or a vector.");
-	throw CAstException(pnode, this, (msg + addmsg).c_str());
+	throw ExceptionMsg(pnode, (msg + addmsg).c_str());
 }
 
 void CAstSig::checkVector(const AstNode *pnode, CVar &checkthis, string addmsg)
@@ -142,14 +142,14 @@ void CAstSig::checkVector(const AstNode *pnode, CVar &checkthis, string addmsg)
 	if (checkthis.GetType() == CSIG_SCALAR) return;
 	if (checkthis.GetType() == CSIG_VECTOR) return;
 	string msg("requires a non-audio array.");
-	throw CAstException(pnode, this, (msg+addmsg));
+	throw ExceptionMsg(pnode, (msg+addmsg).c_str());
 }
 
 void CAstSig::checkScalar(const AstNode *pnode, CVar &checkthis, string addmsg)
 {
 	if (checkthis.IsScalar()) return;
 	string msg("requires a scalar argument.");
-	throw CAstException(pnode, this, (msg + addmsg));
+	throw ExceptionMsg(pnode, (msg+addmsg).c_str());
 }
 
 void CAstSig::checkString(const AstNode *pnode, CVar &checkthis, string addmsg)
@@ -157,33 +157,33 @@ void CAstSig::checkString(const AstNode *pnode, CVar &checkthis, string addmsg)
 	if (checkthis.GetType()==CSIG_STRING) return;
 	string msg("requires a string argument.");
 	if (checkthis.GetType()==CSIG_CELL && ((CSignal)checkthis).GetType()==CSIG_STRING) return;
-	throw CAstException(pnode, this, (msg+addmsg).c_str());
+	throw ExceptionMsg(pnode, (msg+addmsg).c_str());
 }
 
 void CAstSig::blockCell(const AstNode *pnode, CVar &checkthis)
 {
 	string msg("Not valid with a cell, struct, or point-array variable ");
 	if (checkthis.GetFs()==3)
-		throw CAstException(pnode, this, msg.c_str());
+		throw ExceptionMsg(pnode, msg.c_str());
 	if (checkthis.GetType() == CSIG_CELL)
 		if (((CSignal)checkthis).GetType() == CSIG_EMPTY)
-			throw CAstException(pnode, this, msg.c_str());
+			throw ExceptionMsg(pnode, msg.c_str());
 	if (checkthis.GetType() == CSIG_STRUCT)
-			throw CAstException(pnode, this, msg.c_str());
+			throw ExceptionMsg(pnode, msg.c_str());
 }
 
 void CAstSig::blockScalar(const AstNode *pnode, CVar &checkthis)
 {
 	if (checkthis.GetType() != CSIG_SCALAR && !checkthis.IsEmpty()) return;
 	string msg("Not valid with a scalar variable ");
-	throw CAstException(pnode, this, msg.c_str());
+	throw ExceptionMsg(pnode, msg.c_str());
 }
 
 void CAstSig::blockString(const AstNode *pnode, CVar &checkthis)
 {
 	if (checkthis.GetType() == CSIG_STRING) {
 		string msg("Not valid with a string variable ");
-		throw CAstException(pnode, this, msg.c_str());
+		throw ExceptionMsg(pnode, msg.c_str());
 	}
 }
 
@@ -191,7 +191,7 @@ void CAstSig::blockComplex(const AstNode *pnode, CVar &checkthis)
 {
 	if (checkthis.IsComplex()) {
 		string msg("Not valid with a complex variable ");
-		throw CAstException(pnode, this, msg.c_str());
+		throw ExceptionMsg(pnode, msg.c_str());
 	}
 }
 
@@ -204,7 +204,7 @@ void _diff(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		past->Compute(p);
 		past->checkScalar(pnode, past->Sig);
 		order = (int)round(past->Sig.value());
-		if (order < 1) throw CAstException(pnode, past, "non-negative argument is required");
+		if (order < 1) throw past->ExceptionMsg(pnode, "non-negative argument is required");
 	}
 	sig.Diff(order);
 	past->Sig = sig;
@@ -254,7 +254,7 @@ void _rand(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	past->checkScalar(pnode, past->Sig);
 	double val = past->Sig.value();
 	if (val<0)
-		throw CAstException(pnode, past, fnsigs, "argument must be positive.");
+		throw past->ExceptionMsg(pnode, fnsigs, "argument must be positive.");
 	int ival = (int)round(val);
 	static bool initialized(false);
 	if (!initialized)
@@ -272,7 +272,7 @@ void _irand(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	past->checkScalar(pnode, past->Sig);
 	double val = past->Sig.value();
 	if (val<0)
-		throw CAstException(pnode, past, fnsigs, "argument must be positive.");
+		throw past->ExceptionMsg(pnode, fnsigs, "argument must be positive.");
 	static bool initialized(false);
 	if (!initialized)
 	{
@@ -288,7 +288,7 @@ void _randperm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	past->checkScalar(pnode, past->Sig);
 	int ival  = (int)round(past->Sig.value());
 	if (ival < 1)
-		throw CAstException(pnode, past, fnsigs, "argument must be positive.");
+		throw past->ExceptionMsg(pnode, fnsigs, "argument must be positive.");
 	static bool initialized(false);
 	if (!initialized)
 	{
@@ -326,7 +326,7 @@ void _caret(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		tp.Compute(p);
 		param = tp.Compute(p);
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::Resample, &param);
 
 
@@ -339,7 +339,7 @@ void _caret(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	//{
 	//	double param = past->Sig.value();
 	//	int orgfs = sig.GetFs();
-	//	if (!sig.Resample((int)round(orgfs/param), errstr)) throw CAstException(pnode, past, string(errstr));
+	//	if (!sig.Resample((int)round(orgfs/param), errstr)) throw past->ExceptionMsg(pnode, string(errstr));
 	//	sig.SetFs(orgfs);
 	//}
 	//else if (past->Sig.GetType()==CSIG_VECTOR)
@@ -350,7 +350,7 @@ void _caret(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	//	int fs = sig.GetFs();
 	//	for (size_t k(0); k<param.nSamples; k++) fsholder.push_back((int)(fs/param.buf[k]+.5));
 	//	splitevenindices(lengthholder, sig.nSamples, len);
-	//	if (!sig.Resample(fsholder, lengthholder, errstr)) throw CAstException(pnode, past, string(errstr));
+	//	if (!sig.Resample(fsholder, lengthholder, errstr)) throw past->ExceptionMsg(pnode, string(errstr));
 	//}
 	//past->Sig = sig;
 }
@@ -365,10 +365,10 @@ void _fmm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	past->blockCell(pnode, param);
 	past->blockString(pnode, param);
 	if (param.nSamples >= audio.nSamples/10)
-		throw CAstException(pnode, past, fnsigs, "2nd argument must have 1/10 or less the length of the 1st arg.");
+		throw past->ExceptionMsg(pnode, fnsigs, "2nd argument must have 1/10 or less the length of the 1st arg.");
 	past->Sig = audio;
 	if (past->Sig.fm2(param, multiplier, errstr)==NULL)
-		throw CAstException(pnode, past, fnsigs, string(errstr));
+		throw past->ExceptionMsg(pnode, fnsigs, string(errstr));
 }
 #endif //NO_RESAMPLE
 
@@ -393,7 +393,7 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 	CAtlRegExp<> regexp;
 	REParseError status = regexp.Parse("%([-+ #0]+)?({\\z|\\*})?(\\.{\\z|\\*})?[hlL]?{[cuoxXideEgGfs]}" );
 	if (status != REPARSE_ERROR_OK)
-		throw CAstException(pnode, past, string("Internal error! RegExp.Parse( ) failed.")); ;
+		throw past->ExceptionMsg(pnode, "Internal error! RegExp.Parse( ) failed.");
 	past->Sig.Reset(2);	// to get the output string
 	CAstSig tast(past);	// to preserve this->Sig
 	CAtlREMatchContext<> mcFormat;
@@ -412,13 +412,13 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 			mcFormat.GetMatch(nGroupIndex, &szStart, &szEnd);
 			if (nGroupIndex == 2 || (nGroupIndex < 2 && szStart && *szStart == '*')) {	// condition for consuming an argument
 				if ((p = p->next) == NULL)
-					throw CAstException(pnode, past, fnsigs, "Not enough arguments.");
+					throw past->ExceptionMsg(pnode, fnsigs, "Not enough arguments.");
 				if (nGroupIndex == 2 && *szStart == 's')
 					vstring = tast.ComputeString(p);
 				else if (tast.Compute(p).IsScalar())
 					v = tast.Sig.value();
 				else
-					throw CAstException(pnode, past, fnsigs, "Scalar value expected for this argument.");
+					throw past->ExceptionMsg(pnode, fnsigs, "Scalar value expected for this argument.");
 				if (nGroupIndex != 2) {
 					char width[20];
 					sprintf(width, "%d", round(v));
@@ -475,7 +475,7 @@ void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 {
 	past->Compute(p);
 	if (!past->Sig.IsScalar())
-		throw CAstException(pnode, past, fnsigs, "First arg must be a file identifider");
+		throw past->ExceptionMsg(pnode, fnsigs, "First arg must be a file identifider");
 	double fl = past->Sig.value();
 	FILE *file = file_ids[fl];
 	if (!file || fclose(file)==EOF)
@@ -536,15 +536,15 @@ void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CSignals first = past->Sig;
-	if (!first.IsScalar()) throw CAstException(pnode, past, string("All arguments must be scalars (check 1st arg)."));
+	if (!first.IsScalar()) throw past->ExceptionMsg(pnode, "All arguments must be scalars (check 1st arg).");
 	double val1, val2, step;
 	CSignals third, second = past->Compute(p->next);
-	if (!second.IsScalar()) throw CAstException(pnode, past, string("All arguments must be scalars (check 2nd arg).")); 
+	if (!second.IsScalar()) throw past->ExceptionMsg(pnode, "All arguments must be scalars (check 2nd arg)."); 
 	val1 = first.value();
 	val2 = second.value();
 	if (p->next->next) {
 		third = past->Compute(p->next->next);
-		if (!third.IsScalar()) throw CAstException(pnode, past, string("All arguments must be scalars (check 3rd arg).")); 
+		if (!third.IsScalar()) throw past->ExceptionMsg(pnode, "All arguments must be scalars (check 3rd arg)."); 
 		step = third.value();
 	}
 	else 
@@ -566,7 +566,7 @@ void _pitchscale(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		tp.Compute(p);
 		param = tp.Compute(p);
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::pitchscale, &param);
 }
 
@@ -596,7 +596,7 @@ void _timestretch(CAstSig *past, const AstNode *pnode, const AstNode *p, string 
 				}
 		}
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::timestretch, &param);
 }
 
@@ -648,7 +648,7 @@ void _fdelete(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 void aux_error(CAstSig *past, const AstNode *pnode, const AstNode *p, int nArgs, string &fnsigs)
 {
 	string errmsg = past->ComputeString(p);
-	throw CAstException(pnode, past, "User raised error - " + errmsg);
+	throw past->ExceptionMsg(pnode, ("User raised error - " + errmsg).c_str());
 }
 
 #ifndef NO_SF
@@ -658,9 +658,9 @@ void aux_error(CAstSig *past, const AstNode *pnode, const AstNode *p, int nArgs,
 // 11/21/2017
 void _setfs(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	if (!past->Sig.IsScalar()) throw CAstException(p, past, string("Scalar value should be provided for the sample rate."));
+	if (!past->Sig.IsScalar()) throw past->ExceptionMsg(p, "Scalar value should be provided for the sample rate.");
 	double fs = past->Sig.value();
-	if (fs<500.) throw CAstException(p, past, "Sample rate should be at least 500 Hz.");
+	if (fs<500.) throw past->ExceptionMsg(p, "Sample rate should be at least 500 Hz.");
 	past->FsFixed=true;
 	past->pEnv->Fs = (int)fs; //Sample rate adjusted
 }
@@ -676,7 +676,7 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 		tp.Compute(p);
 		tp.checkString(p, tp.Sig);
 		if (tp.Sig.string().empty())
-			throw CAstException(p, &tp, "Empty filename");
+			throw tp.ExceptionMsg(p, "Empty filename");
 		filename = tp.Sig.string();
 		if (p->next!=NULL)
 		{
@@ -685,11 +685,11 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 			option = third.string();
 		}
 	}
-	catch (const CAstException &e) {	throw CAstException(pnode, past, fnsigs, e.getErrMsg());	}
+	catch (const CAstException &e) {	throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());	}
 	filename = past->MakeFilename(filename, "wav");
 	char errStr[256];
 	if (!past->Sig.Wavwrite(filename.c_str(), errStr, option))
-		throw CAstException(p, past, string(errStr));
+		throw past->ExceptionMsg(p, errStr);
 }
 
 
@@ -708,14 +708,14 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	if (sig.GetType() != CSIG_AUDIO)
 	{
 		if (!sig.IsScalar())
-			throw CAstException(pnode, past, fnsigs, "The base must be an audio signal or an audio handle (1)");
+			throw past->ExceptionMsg(pnode, fnsigs, "The base must be an audio signal or an audio handle (1)");
 		if (sig.strut.find("type")== sig.strut.end())
-			throw CAstException(pnode, past, fnsigs, "The base must be an audio signal or an audio handle (2)");
+			throw past->ExceptionMsg(pnode, fnsigs, "The base must be an audio signal or an audio handle (2)");
 		CSignals type = sig.strut["type"];
 		if (type.GetType()!=CSIG_STRING || type.string() != "audio_playback")
-			throw CAstException(pnode, past, fnsigs, "The base must be an audio signal or an audio handle (3)");
+			throw past->ExceptionMsg(pnode, fnsigs, "The base must be an audio signal or an audio handle (3)");
 		if (!p)
-			throw CAstException(pnode, past, fnsigs, "Audio signal not given.");
+			throw past->ExceptionMsg(pnode, fnsigs, "Audio signal not given.");
 		past->Compute(p);
 		past->checkAudioSig(p, past->Sig);
 		CSignals audio = past->Sig;
@@ -723,10 +723,10 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		{
 			past->Compute(p->next);
 			if (!past->Sig.IsScalar())
-				throw CAstException(p, past, fnsigs, "Argument must be a scalar.");
+				throw past->ExceptionMsg(p, fnsigs, "Argument must be a scalar.");
 			nRepeats = (int)past->Sig.value();
 			if (nRepeats<1)
-				throw CAstException(p, past, fnsigs, "Repeat counter must be equal or greater than one.");
+				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
 		INT_PTR h = audio.PlayArrayNext((INT_PTR)sig.value(), 0, WM__AUDIOEVENT, &block, errstr, nRepeats);
 		if (!h)
@@ -752,10 +752,10 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		{
 			past->Compute(p);
 			if (!past->Sig.IsScalar())
-				throw CAstException(p, past, fnsigs, "Argument must be a scalar.");
+				throw past->ExceptionMsg(p, fnsigs, "Argument must be a scalar.");
 			nRepeats = (int)past->Sig.value();
 			if (nRepeats<1)
-				throw CAstException(p, past, fnsigs, "Repeat counter must be equal or greater than one.");
+				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
 		int devID = 0;
 		INT_PTR h = sig.PlayArray(devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
@@ -783,7 +783,7 @@ void _playstop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 {
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
-		throw CAstException(pnode, past, fnsigs, "Argument must be a scalar.");
+		throw past->ExceptionMsg(pnode, fnsigs, "Argument must be a scalar.");
 	string fname = past->pAst->str;
 	if (!p)
 		fname = past->pAst->alt->str;
@@ -804,7 +804,7 @@ void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string
 {
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
-		throw CAstException(pnode, past, fnsigs, "Argument must be a scalar.");
+		throw past->ExceptionMsg(pnode, fnsigs, "Argument must be a scalar.");
 	string fname = past->pAst->str;
 	if (!p)
 		fname = past->pAst->alt->str;
@@ -899,10 +899,10 @@ void _include(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 				past->Vars[it->first] = it->second;
 		} catch (const char *errmsg) {
 			fclose(auxfile);
-			throw CAstException(pnode, past, "Including "+filename+"\n\nIn the file: \n"+errmsg);
+			throw past->ExceptionMsg(pnode, ("Including "+filename+"\n\nIn the file: \n"+errmsg).c_str());
 		}
 	} else
-		throw CAstException(pnode, past, "Cannot read file", filename);
+		throw past->ExceptionMsg(pnode, "Cannot read file", filename);
 }
 
 void _eval(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -916,7 +916,7 @@ void _eval(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		for (map<string, CVar>::iterator it = tast.Vars.begin(); it != tast.Vars.end(); it++)
 			past->SetVar(it->first.c_str(), &it->second);
 	} catch (const char *errmsg) {
-		throw CAstException(pnode, past, "While evaluating\n"+str+"\n"+errmsg);
+		throw past->ExceptionMsg(pnode, ("While evaluating\n"+str+"\n"+errmsg).c_str());
 	}
 }
 
@@ -934,7 +934,7 @@ bool isAllNodeT_NUM(const AstNode *p)
 void _str2num(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (!past->Sig.IsString())
-		throw CAstException(pnode, past, fnsigs, "argument must be a text string.");
+		throw past->ExceptionMsg(pnode, fnsigs, "argument must be a text string.");
 	string emsg;
 	CAstSig tast(past->pEnv);
 	if (!tast.SetNewScript(emsg, (string("[") + past->Sig.string() + "]").c_str()))
@@ -948,7 +948,7 @@ void _str2num(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 void _zeros(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (!past->Sig.IsScalar())
-		throw CAstException(p, past, fnsigs, "argument must be a scalar.");
+		throw past->ExceptionMsg(p, fnsigs, "argument must be a scalar.");
 	int n = (int)round(past->Sig.value());
 	past->Sig.Reset(1);
 	if (n <= 0) return;
@@ -960,7 +960,7 @@ void _zeros(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 void _ones(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (!past->Sig.IsScalar())
-		throw CAstException(p, past, fnsigs, "argument must be a scalar.");
+		throw past->ExceptionMsg(p, fnsigs, "argument must be a scalar.");
 	int n = (int)round(past->Sig.value());
 	past->Sig.Reset(1);
 	if (n <= 0) return;
@@ -978,23 +978,23 @@ void _matrix(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		second = tp.Compute(p);
 	}
 	catch (const CAstException &e) {
-		throw CAstException(pnode, past, fnsigs, e.getErrMsg());
+		throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());
 	}
 	if (!second.IsScalar())
-		throw CAstException(pnode, past, fnsigs, "argument must be a scalar.");
+		throw past->ExceptionMsg(pnode, fnsigs, "argument must be a scalar.");
 	double val = second.value();
 	if (val!=(double)(int)val)
-		throw CAstException(pnode, past, fnsigs, "argument must be an integer.");
+		throw past->ExceptionMsg(pnode, fnsigs, "argument must be an integer.");
 	double nCols = past->Sig.nSamples / val;
 	if (past->Sig.GetType() == CSIG_VECTOR)
 	{
 		if (past->Sig.nSamples / val != (int)nCols)
-			throw CAstException(pnode, past, fnsigs, "The length of array must be divisible by the requested the row count.");
+			throw past->ExceptionMsg(pnode, fnsigs, "The length of array must be divisible by the requested the row count.");
 	}
 	else if (past->Sig.GetType() == CSIG_AUDIO)
 	{
 		if (past->Sig.chain)
-			throw CAstException(pnode, past, fnsigs, "To make a matrix from an audio signal, null portions should be filled with zeros. Call contig().");
+			throw past->ExceptionMsg(pnode, fnsigs, "To make a matrix from an audio signal, null portions should be filled with zeros. Call contig().");
 		double rem = fmod((double)past->Sig.nSamples, val);
 		if (rem > 0)
 		{
@@ -1003,17 +1003,17 @@ void _matrix(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		}
 	}
 	else
-		throw CAstException(pnode, past, fnsigs, "Vector or audio signals required.");
+		throw past->ExceptionMsg(pnode, fnsigs, "Vector or audio signals required.");
 	past->Sig.nGroups = (int)val;
 }
 
 void _cell(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (!past->Sig.IsScalar())
-		throw CAstException(p, past, fnsigs, "argument must be a scalar.");
+		throw past->ExceptionMsg(p, fnsigs, "argument must be a scalar.");
 	int n = (int)round(past->Sig.value());
 	if (n <= 0)
-		throw CAstException(p, past, fnsigs, "argument must be a positive number.");
+		throw past->ExceptionMsg(p, fnsigs, "argument must be a positive number.");
 
 	past->Sig.Reset();
 	CVar tp;
@@ -1033,7 +1033,7 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	past->Sig.Reset(1);
 	past->Compute(p);
 	if (!past->Sig.IsString())
-		throw CAstException(p, past, fnsigs, "argument must be a string.");
+		throw past->ExceptionMsg(p, fnsigs, "argument must be a string.");
 	string arg = past->Sig.string();
 	char drive[MAX_PATH], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH], pathonly[MAX_PATH] = {};
 	_splitpath(arg.c_str(), drive, dir, fname, ext);
@@ -1045,7 +1045,7 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	HANDLE hFind = FindFirstFile(arg.c_str(), &ls);
 	if (hFind == INVALID_HANDLE_VALUE)
 //	if ((hFile = _findfirst(, &c_file)) == -1L)
-		throw CAstException(p, past, fnsigs, "No files in the specified directory");
+		throw past->ExceptionMsg(p, fnsigs, "No files in the specified directory");
 	else
 	{
 		past->Sig.Reset();
@@ -1090,7 +1090,7 @@ void _isaudioat(CAstSig *past, const AstNode *pnode, const AstNode *p, string &f
 	CAstSig tp(past);
 	tp.Compute(p);
 	if (tp.Sig.GetType() != CSIG_SCALAR)
-		throw CAstException(pnode, past, fnsigs, "argument must be a scalar.");
+		throw past->ExceptionMsg(pnode, fnsigs, "argument must be a scalar.");
 	double vv = tp.Sig.value();
 	past->Sig.SetValue(past->Sig.IsAudioOnAt(vv));
 	past->Sig.MakeLogical();
@@ -1138,7 +1138,7 @@ void _or(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 		CSignals x1 = past->Sig;
 		CSignals x2 = past->Compute(p);
 		if (!x2.IsLogical())
-			throw CAstException(pnode, past, fnsigs, "argument must be a logical variable.");
+			throw past->ExceptionMsg(pnode, fnsigs, "argument must be a logical variable.");
 		past->Sig.Reset(1);
 		past->Sig.UpdateBuffer(min(x1.nSamples, x2.nSamples));
 		past->Sig.MakeLogical();
@@ -1173,7 +1173,7 @@ void _and(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 		CSignals x1 = past->Sig;
 		CSignals x2 = past->Compute(p);
 		if (!x2.IsLogical())
-			throw CAstException(pnode, past, fnsigs, "argument must be a logical variable.");
+			throw past->ExceptionMsg(pnode, fnsigs, "argument must be a logical variable.");
 		past->Sig.Reset(1);
 		past->Sig.UpdateBuffer(min(x1.nSamples, x2.nSamples));
 		past->Sig.MakeLogical();
@@ -1197,10 +1197,10 @@ void _fft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 			param = tp.Compute(p);
 			past->checkScalar(p, param);
 			if (param.value()<1) 
-				throw CAstException(p, past, "argument must be a positive integer.");
+				throw past->ExceptionMsg(p, "argument must be a positive integer.");
 		}
 		catch (const CAstException &e) {
-			throw CAstException(pnode, past, fnsigs, e.getErrMsg());
+			throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());
 		}
 	}
 	past->Sig = past->Sig.basic(past->Sig.pf_basic3 = &CSignal::FFT, (void*)&param);
@@ -1219,10 +1219,10 @@ void _ifft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			param = tp.Compute(p);
 			past->checkScalar(p, param);
 			if (param.value()<1)
-				throw CAstException(p, past, "argument must be a positive integer.");
+				throw past->ExceptionMsg(p, "argument must be a positive integer.");
 		}
 		catch (const CAstException &e) {
-			throw CAstException(pnode, past, fnsigs, e.getErrMsg());
+			throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());
 		}
 	}
 	past->Sig = past->Sig.basic(past->Sig.pf_basic3 = &CSignal::iFFT, (void*)&param);
@@ -1246,7 +1246,7 @@ void _movespec(CAstSig *past, const AstNode *pnode, const AstNode *p, std::strin
 	CAstSig tp(past);
 	CSignals param = tp.Compute(p);
 	if (!param.IsScalar())
-		throw CAstException(p, past, fnsigs, "parameter must be a scalar (frequency to shift).");
+		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (frequency to shift).");
 	double shift = param.value();
 	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::ShiftFreq, &shift); // NOT YET
 }
@@ -1257,7 +1257,7 @@ void _tscale(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string 
 	CAstSig tp(past);
 	CSignals param = tp.Compute(p);
 	if (!param.IsScalar())
-		throw CAstException(p, past, fnsigs, "parameter must be a scalar (ratio to compress time).");
+		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (ratio to compress time).");
 	CAstSig tp2(past);
 	char str[256];
 	string emsg;
@@ -1273,7 +1273,7 @@ void _fscale(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string 
 	CAstSig tp(past);
 	CSignals param = tp.Compute(p);
 	if (!param.IsScalar())
-		throw CAstException(p, past, fnsigs, "parameter must be a scalar (amount of pitch lowering in semitones).");
+		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (amount of pitch lowering in semitones).");
 	double fchange = 12. * log(1. / param.value()) / log(2);
 	CAstSig tp2(past);
 	char str[256];
@@ -1296,7 +1296,7 @@ void _sort(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	{
 		past->Compute(p);
 		if (!past->Sig.IsScalar())
-			throw CAstException(pnode, past, fnsigs, "2nd argument must be a scalar.");
+			throw past->ExceptionMsg(pnode, fnsigs, "2nd argument must be a scalar.");
 		if (past->Sig.value() < 0) order = -1.;
 	}
 	past->Sig = sig.basic(sig.pf_basic2 = &CSignal::sort, &order);
@@ -1307,14 +1307,14 @@ void _decfir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	CSignals second = past->Compute(p->next);
 	CSignals third = past->Compute(p->next->next);
 	if (!third.IsScalar())
-		throw CAstException(pnode, past, fnsigs, "3rd argument must be a scalar: offset");
+		throw past->ExceptionMsg(pnode, fnsigs, "3rd argument must be a scalar: offset");
 	CSignals fourth = past->Compute(p->next->next->next);
 	if (!fourth.IsScalar())
-		throw CAstException(pnode, past, fnsigs, "4th argument must be a scalar: nChan");
+		throw past->ExceptionMsg(pnode, fnsigs, "4th argument must be a scalar: nChan");
 	int offset = (int)third.value()-1; // because AUX is one-based
 	int nChan = (int)fourth.value();
 	if (offset>nChan)
-		throw CAstException(pnode, past, fnsigs, "nChan must be equal or greater than offset");
+		throw past->ExceptionMsg(pnode, fnsigs, "nChan must be equal or greater than offset");
 	past->Compute(p);
 	past->Sig.DecFir(second, offset, nChan);
 }
@@ -1360,7 +1360,7 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		third = past->Compute(p->next);
 	} else {				// 2 args
 		if (second.nSamples <= 1)
-			throw CAstException(pnode, past, fnsigs, "2nd argument must be a vector(the numerator array for filtering).");
+			throw past->ExceptionMsg(pnode, fnsigs, "2nd argument must be a vector(the numerator array for filtering).");
 		third.SetValue(1);
 	}
 	unsigned int len = max(second.nSamples, third.nSamples);
@@ -1389,7 +1389,7 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		if (fname == "filt")
 			sig.basic(sig.pf_basic2 = &CSignal::dynafilter, &TScoeff);
 		else if (fname == "filtfilt")
-			throw CAstException(pnode, past, fnsigs, "Dynamic filtering cannot be applied to filtfilt");
+			throw past->ExceptionMsg(pnode, fnsigs, "Dynamic filtering cannot be applied to filtfilt");
 	}
 	past->Sig = sig;
 }
@@ -1469,7 +1469,7 @@ void _iir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	catch (const char* estr) 
 	{
 		sformat(emsg, "Invalid argument---%s\nFor more of ELLF Digital Filter Calculator, check http://www.moshier.net/index.html.", estr);
-		throw CAstException(pnode, past, fnsigs, emsg);
+		throw past->ExceptionMsg(pnode, fnsigs, emsg);
 	}
 }
 #endif // NO_IIR
@@ -1511,13 +1511,13 @@ void _fm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	CSignals fifth, second = past->Compute(p->next);
 	CSignals third = past->Compute(p->next->next);
 	CSignals fourth = past->Compute(p->next->next->next);
-	if (!second.IsScalar()) throw CAstException(p, past, fnsigs, "freq2 must be a scalar.");
-	if (!third.IsScalar()) throw CAstException(p, past, fnsigs, "mod_rate must be a scalar.");
-	if (!fourth.IsScalar()) throw CAstException(p, past, fnsigs, "duration must be a scalar.");
-	if (fourth.value()<=0) throw CAstException(p, past, fnsigs, "duration must be positive.");
+	if (!second.IsScalar()) throw past->ExceptionMsg(p, fnsigs, "freq2 must be a scalar.");
+	if (!third.IsScalar()) throw past->ExceptionMsg(p, fnsigs, "mod_rate must be a scalar.");
+	if (!fourth.IsScalar()) throw past->ExceptionMsg(p, fnsigs, "duration must be a scalar.");
+	if (fourth.value()<=0) throw past->ExceptionMsg(p, fnsigs, "duration must be positive.");
 	if (p->next->next->next->next) {	// 5 args
 		fifth = past->Compute(p->next->next->next->next);
-		if (!fifth.IsScalar()) throw CAstException(p, past, fnsigs, "init_phase must be a scalar."); }
+		if (!fifth.IsScalar()) throw past->ExceptionMsg(p, fnsigs, "init_phase must be a scalar."); }
 	else fifth.SetValue(0);
 
 	past->Compute(p);
@@ -1550,9 +1550,9 @@ void _std(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 			tp.checkScalar(pnode, arg);
 			double flag = tp.Sig.value();
 			if (flag != 0. && flag != 1.)
-				throw CAstException(p, past, fnsigs, "Invalid parameter: should be either 0 (divided by n-1; default) or 1 (divided by n).");
+				throw past->ExceptionMsg(p, fnsigs, "Invalid parameter: should be either 0 (divided by n-1; default) or 1 (divided by n).");
 		}
-		catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+		catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	}
 	past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::stdev, &arg);
 }
@@ -1568,7 +1568,7 @@ void _size(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			arg = tp.Compute(p);
 			tp.checkScalar(pnode, arg);
 		}
-		catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+		catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	}
 	double tp1 = past->Sig.nGroups;
 	double tp2 = past->Sig.Len();
@@ -1584,7 +1584,7 @@ void _size(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	else if (arg.value() == 2.)
 		past->Sig.SetValue(tp2);
 	else
-		throw CAstException(pnode, past, fnsigs, "Invalid parameter: should be either 1 or 2.");
+		throw past->ExceptionMsg(pnode, fnsigs, "Invalid parameter: should be either 1 or 2.");
 }
 
 void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1596,7 +1596,7 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 	else if (fname == "length")
 	{
 		if (past->Sig.next) 
-			throw CAstException(pnode, past, "Cannot be a stereo audio signal.");
+			throw past->ExceptionMsg(pnode, "Cannot be a stereo audio signal.");
 		if (past->Sig.IsGO())
 		{
 			double out = past->Sig.length().buf[0];
@@ -1734,9 +1734,9 @@ void _ramp(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &f
 		tp.Compute(p);
 		param = tp.Compute(p);
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	if (!param.IsScalar())
-		throw CAstException(p, past, fnsigs, "Ramp_duration must be a scalar.");
+		throw past->ExceptionMsg(p, fnsigs, "Ramp_duration must be a scalar.");
 	double ramptime = param.value();
 	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::dramp, &ramptime);
 }
@@ -1750,7 +1750,7 @@ void _sam(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fn
 		CAstSig tp(past);
 		rate = tp.Compute(p);
 		if (!rate.IsScalar())
-			throw CAstException(p, past, fnsigs, "AM_rate must be a scalar.");
+			throw past->ExceptionMsg(p, fnsigs, "AM_rate must be a scalar.");
 		modRate = rate.value();
 		int nArgs(0);
 		for (const AstNode *cp = p; cp; cp = cp->next)
@@ -1759,18 +1759,18 @@ void _sam(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fn
 		{
 			depth = tp.Compute(p->next);
 			if (!depth.IsScalar())
-				throw CAstException(p, past, fnsigs, "AM_depth_m must be a scalar.");
+				throw past->ExceptionMsg(p, fnsigs, "AM_depth_m must be a scalar.");
 			amDepth = depth.value();
 			if (nArgs == 3)
 			{
 				initphase = tp.Compute(p->next->next);
 				if (!initphase.IsScalar())
-					throw CAstException(p, past, fnsigs, "initial_phase must be a scalar.");
+					throw past->ExceptionMsg(p, fnsigs, "initial_phase must be a scalar.");
 				initPhase = initphase.value();
 			}
 		}
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	past->Sig.SAM(modRate, amDepth, initPhase);
 }
 
@@ -1803,19 +1803,19 @@ void _tone(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	for (const AstNode *cp = p; cp; cp = cp->next)
 		++nArgs;
 	if (!past->Sig.IsVector() || past->Sig.nSamples>2)
-		throw CAstException(p, past, fnsigs, "Frequency must be either a constant or two-element array.");
+		throw past->ExceptionMsg(p, fnsigs, "Frequency must be either a constant or two-element array.");
 	body freq = past->Sig; //should be same as tp.Compute(p);
 	if (freq._max() >= past->GetFs() / 2)
-		throw CAstException(p, past, fnsigs, "Frequency exceeds Nyquist frequency.");
+		throw past->ExceptionMsg(p, fnsigs, "Frequency exceeds Nyquist frequency.");
 	CVar duration = past->Compute(p->next);
 	past->checkScalar(pnode, duration);
 	if (duration.value() <= 0)
-		throw CAstException(p, past, fnsigs, "Duration must be positive.");
+		throw past->ExceptionMsg(p, fnsigs, "Duration must be positive.");
 	if (nArgs == 3)
 	{
 		CSignals _initph = past->Compute(p->next->next);
 		if (!_initph.IsScalar())
-			throw CAstException(p, past, fnsigs, "Initial_phase must be a scalar.");
+			throw past->ExceptionMsg(p, fnsigs, "Initial_phase must be a scalar.");
 		initPhase = _initph.value();
 	}
 	if ( (len = freq.nSamples )== 1)
@@ -1836,9 +1836,9 @@ void _tparamonly(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 {
 	CSignals dur = past->Sig;
 	if (!dur.IsScalar())
-		throw CAstException(p, past, fnsigs, "duration must be a scalar.");
+		throw past->ExceptionMsg(p, fnsigs, "duration must be a scalar.");
 	if (dur.value()<0.)
-		throw CAstException(p, past, fnsigs, "duration must be a non-negative number.");
+		throw past->ExceptionMsg(p, fnsigs, "duration must be a non-negative number.");
 	past->Sig.SetFs(past->GetFs());
 	if (!strcmp(pnode->str,"noise"))
 		past->Sig.Noise(dur.value());
@@ -1849,7 +1849,7 @@ void _tparamonly(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 	else if (!strcmp(pnode->str, "dc"))
 		past->Sig.DC(dur.value());
 	else
-		throw CAstException(p, past, fnsigs, "Internal error 3426.");
+		throw past->ExceptionMsg(p, fnsigs, "Internal error 3426.");
 }
 
 void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1864,14 +1864,14 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	string filename = past->MakeFilename(past->Sig.string(), "wav");
 	char errStr[256];
 	if (!past->Sig.Wavread(filename.c_str(), errStr))
-		throw CAstException(p, past, string(errStr));
+		throw past->ExceptionMsg(p, errStr);
 	vector<string> audiovars;
 	EnumAudioVariables(past, audiovars);
 	if (past->FsFixed || audiovars.size()>0)
 	{
 		int old = past->Sig.GetFs();
 		if (past->Sig.GetFs() != past->GetFs() && !past->Sig.Resample(past->GetFs(), errStr))
-			throw CAstException(p, past, string(errStr) + " " + filename);
+			throw past->ExceptionMsg(p, (string(errStr) + " " + filename).c_str());
 		if (old != past->Sig.GetFs())
 			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", old, past->Sig.GetFs());
 	}
@@ -1951,7 +1951,7 @@ void _tsq_gettimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::s
 		past->Compute(p);
 		past->checkAudioSig(pnode, past->Sig);
 		if (past->Sig.next)
-			throw CAstException(pnode, past, "Cannot be a stereo audio signal--just for now...");
+			throw past->ExceptionMsg(pnode, "Cannot be a stereo audio signal--just for now...");
 		if (relative)
 		{
 			nChains = past->Sig.CountChains();
@@ -2004,9 +2004,9 @@ void _tsq_settimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::s
 		CAstSig tp(past);
 		CVar newtime = tp.Compute(p);
 		if (newtime.GetType()!=CSIG_VECTOR)
-			throw CAstException(p, past, fnsigs, "Argument must be a vector of time points.");
+			throw past->ExceptionMsg(p, fnsigs, "Argument must be a vector of time points.");
 		if (newtime.nSamples!=nItems)
-			throw CAstException(p, past, fnsigs, "Argument vector must have the same number of elements as the TSEQ.");
+			throw past->ExceptionMsg(p, fnsigs, "Argument vector must have the same number of elements as the TSEQ.");
 		int id = 0;
 		for (CTimeSeries *p = &past->Sig; p; p = p->chain)
 		{
@@ -2014,7 +2014,7 @@ void _tsq_settimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::s
 			if (newtime.GetFs() == 0) p->SetFs(0);
 		}
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
 }
@@ -2039,9 +2039,9 @@ void _tsq_setvalues(CAstSig *past, const AstNode *pnode, const AstNode *p, std::
 		CAstSig tp(past);
 		CVar newvalues = tp.Compute(p);
 		if (newvalues.GetType() != CSIG_VECTOR)
-			throw CAstException(p, past, fnsigs, "Argument must be a vector.");
+			throw past->ExceptionMsg(p, fnsigs, "Argument must be a vector.");
 		if (newvalues.nGroups!= nItems)
-			throw CAstException(p, past, fnsigs, "Argument vector must have the same number of groups as the TSEQ length.");
+			throw past->ExceptionMsg(p, fnsigs, "Argument vector must have the same number of groups as the TSEQ length.");
 		int id = 0;
 		for (CTimeSeries *p = &past->Sig; p; p = p->chain)
 		{
@@ -2049,7 +2049,7 @@ void _tsq_setvalues(CAstSig *past, const AstNode *pnode, const AstNode *p, std::
 			memcpy(p->buf, newvalues.buf + id++ * newvalues.Len(), sizeof(double)*newvalues.Len());
 		}
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
 }
@@ -2768,11 +2768,11 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		else if (fname == "log10")	fn0 = log10, cfn1 = r2c_log10;
 		if (structCall)
 		{
-			if (p && p->type != N_STRUCT) throw CAstException(pnode, this, fname, "Superfluous parameter(s)");
+			if (p && p->type != N_STRUCT) throw ExceptionMsg(pnode, fname, "Superfluous parameter(s)");
 		}
 		else
 		{
-			if (!p) throw CAstException(pnode, this, "", "Empty parameter");
+			if (!p) throw ExceptionMsg(pnode, "", "Empty parameter");
 			Compute(p);
 		}
 		if (Sig.IsStruct() || !Sig.cell.empty() || Sig.GetFs() == 3)
@@ -2780,10 +2780,10 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			if (structCall)
 			{
 				string dotnotation = dotstring(pnode, pRoot);
-				throw CAstException(pnode, this, dotnotation, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object");
 			}
 			else
-				throw CAstException(p, this, fname, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object");
 		}
 		Sig.MFFN(fn0, cfn1);
 		break;
@@ -2792,16 +2792,16 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		else if (fname == "mod")	fn2 = fmod, cfn2 = NULL; // do this
 		if (structCall)
 		{
-			if (!p || p->type == N_STRUCT) throw CAstException(pnode, this, "", "requires second parameter.");
+			if (!p || p->type == N_STRUCT) throw ExceptionMsg(pnode, "", "requires second parameter.");
 			CVar Sig0 = Sig;
 			if (Sig.IsStruct() || !Sig.cell.empty() || Sig.GetFs() == 3)
-				throw CAstException(pnode, this, fname, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(pnode, fname, "Cannot take cell, class or handle object");
 			param = Compute(p);
 			Sig = Sig0.MFFN(fn2, cfn2, param);
 		}
 		else
 		{
-			if (!p->next) throw CAstException(pnode, this, "", "requires second parameter.");
+			if (!p->next) throw ExceptionMsg(pnode, "", "requires second parameter.");
 			param = Compute(p->next);
 			Compute(p);
 			if (Sig.IsStruct() || !Sig.cell.empty() || Sig.GetFs() == 3)
@@ -2809,10 +2809,10 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 				if (structCall)
 				{
 					string dotnotation = dotstring(pnode, pRoot);
-					throw CAstException(pnode, this, dotnotation, "Cannot take cell, class or handle object");
+					throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object");
 				}
 				else
-					throw CAstException(p, this, fname, "Cannot take cell, class or handle object");
+					throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object");
 			}
 			Sig.MFFN(fn2, cfn2, param);
 		}
@@ -2832,10 +2832,10 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			if (structCall)
 			{
 				string dotnotation = dotstring(pnode, pRoot);
-				throw CAstException(pnode, this, dotnotation, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object");
 			}
 			else
-				throw CAstException(p, this, fname, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object");
 		}
 		if (cfn1) Sig.each(cfn1);
 		else if (fn1) Sig.each(fn1);
@@ -2849,13 +2849,8 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			fnsigs = fname + pEnv->built_in_funcs[pos].funcsignature;
 			if (structCall)
 			{
-				//if (isgraphicfunc(fname))
-				//{
-				//	if (!pgo || !pgo->IsGO())
-				//		throw CAstException(p, this, fname, "For graphic functions as a member function, a graphic handle should be the base.");
-				//}
 				if (pEnv->built_in_funcs[pos].alwaysstatic)
-					throw CAstException(p, this, fname, "Cannot be a member function.");
+					throw ExceptionMsg(p, fname, "Cannot be a member function.");
 				firstparamtrim(fnsigs);
 				nArgs = checkNumArgs(pnode, p, fnsigs, pEnv->built_in_funcs[pos].narg1 - 1, pEnv->built_in_funcs[pos].narg2 - 1);
 				pEnv->inFunc[fname](this, pnode, p, fnsigs);
@@ -2870,7 +2865,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			}
 		}
 		else
-			throw CAstException(p, this, fname, "Not a built-in function.");
+			throw ExceptionMsg(p, fname, "Not a built-in function.");
 	}
 	Sig.functionEvalRes = true;
 	return;

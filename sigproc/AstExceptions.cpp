@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.5
+// Date: 3/15/2019
 // 
 #include <sstream>
 #include <list>
@@ -95,58 +95,54 @@ void adjust_AstNode(const AstNode *p)
 // and necessary clean up is taken care of, upon exception thrown (error)
 // Take care of CAstException constructors not using CAstSig *past... 
 
-CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
-: pCtx(pContext), pnode(p), str1(s1), str2(s2), int1(0)
+// The only reason pnode is left is for auxcon stuff, but otherwise they can go 3/15/2019
+CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const string s2)
 {
+	return CAstException(pnode, this, s1, s2);
+}
+CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
+{
+	return CAstException(pnode, this, msg);
+}
+
+
+
+CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
+: pCtx(pContext), pnode(p), str2(s2)
+{
+	//Use this format to create an exception message for invalid function definition (and others)
+	//p carries the function name
 	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
 		adjust_AstNode(pnode);
-	if (pnode && pnode->str)
-	{
-		string msg = pnode->str + string(" : ");
-		str1.replace(0, 0, msg);
-	}
+	str1 = p->str;
+	str1 += " : ";
+	str1 += s2 + '\n';
+	str1 += s1;
+	outstr = str1;
 	if (pCtx && pCtx->u.debug.status == typed_line) return;
 	str1.insert(0, "[GOTO_BASE]");
 	if (!p) pnode = pCtx->pAst;
 	makeOutStr();
-	if (outstr.empty())
-	{ // What is this for? One example: exception thrown in RegisterUDF()
-		outstr = str1 + " : "; 
-		outstr += str2;
-	}
+	outstr += '\n';
 }
 
-CAstException::CAstException(const AstNode *p, CAstSig *past, const string s1, const int x, const string s2)
-: pCtx(past), pnode(p), str1(s1), str2(s2), int1(x)
+CAstException::CAstException(const AstNode *p, CAstSig *pAst, const string s1)
 {
-	if (past && !strcmp(past->u.application, "auxcon"))
-		adjust_AstNode(pnode);
-	if (pCtx && pCtx->u.debug.status == typed_line) return;
-	str1.insert(0, "[GOTO_BASE]");
-	makeOutStr();
+	CAstException(p, pAst, s1.c_str());
 }
 
 CAstException::CAstException(const AstNode *p0, CAstSig *pContext, const char* msg)
-	: pCtx(pContext), pnode(p0), int1(0)
+	: pCtx(pContext), pnode(p0)
 {
 	if (pCtx && !strcmp(pCtx->u.application,"auxcon"))
 		adjust_AstNode(pnode);
-	char buf[64];
-	string unknown;
-	if (pnode&&pnode->str)	unknown = pnode->str;
-	else {			// needed for calls from CSignals &CAstSig::Compute(const AstNode *pnode)
-		if (pnode->type > 256) { sprintf(buf, "%s", GetNodeType(pnode->type).c_str()); unknown = buf; }
-		else			unknown = pnode->type;
-	}
-	str1 = " ";
-	str1 += unknown + " : ";
-	str1 += msg + string("\n");
-	outstr = str1;
+	outstr = str1 = msg;
 	//If this is user-typed lines during debugging (F10, F5,... etc), it should just return without going into what's going on in the current UDF.
 	if (pCtx && pCtx->u.debug.status == typed_line) return;
 	str1.insert(0, "[GOTO_BASE]");
 	if (!pnode) pnode = pCtx->pAst;
 	makeOutStr();
+	outstr += '\n';
 }
 
 void CAstException::makeOutStr()
@@ -193,8 +189,6 @@ void CAstException::makeOutStr()
 	}
 	else
 		oss << "\nIn line " << pnode->line << ", col " << pnode->col;
-	if (int1)
-		oss << int1;
 	outstr = oss.str();
 	// if the exception is thrown from auxcon, it will skip
 	if (pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017

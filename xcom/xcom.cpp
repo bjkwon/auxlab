@@ -960,15 +960,16 @@ void xcom::echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 	{
 		if (!pvar)
 		{
-			pvar = pctx->GetVariable(pnode->str);
+			string vam;
+			pvar = pctx->GetVariable(pnode->str, vam);
 			if (!pvar) return; // this filters out a null statement in a block such as a=1; b=100; 500 
 		}
 		if (CAstSig::IsLooping(pnode)) return; // T_IF, T_FOR, T_WHILE
 		if (CAstSig::IsTID(pnode))
 		{
 			p = pnode->alt;
-			if (pnode->str && pnode->child)
-				echo(pnode->str, pvar);
+			if (pnode->child)
+				echo(pctx->Script.c_str(), pvar);
 			else if ( !pnode->next && (pvar->functionEvalRes) || CAstSig::IsCondition(p))
 			{
 				pctx->SetVar("ans", pvar);
@@ -1050,7 +1051,8 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		//if LHS is x(arg_list) or x(time_extraction), Sig is partial. This needs to the entire portion for plot window
 		if (CAstSig::IsTID(pContext->pAst) && pContext->pAst->alt && CAstSig::IsPortion(pContext->pAst->alt))
 		{
-			CVar *tp = pContext->GetVariable(pContext->pAst->str);
+			string vam;
+			CVar *tp = pContext->GetVariable(pContext->pAst->str, vam);
 			if (tp) pContext->Sig = *tp;
 		}
 	}

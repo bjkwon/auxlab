@@ -159,6 +159,8 @@ void CAxes::initGO(void * _hpar)
 	CGobj::initGO(_hpar);
 	strut["type"] = CSignals(std::string("axes"));
 	strut["box"] = CSignals(true);
+	CSignals empty;
+	strut["sel"] = empty;
 	strut["linewidth"] = CSignals(1.);
 	CAxis *mor = new CAxis(m_dlg, this);
 	struts["x"].push_back(mor);
