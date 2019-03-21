@@ -201,7 +201,6 @@ BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
 	int newfs;
 	int res;
-	char errstr[256];
 	switch (umsg)
 	{
 	case WM_INITDIALOG:

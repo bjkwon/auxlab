@@ -332,6 +332,29 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 					p->tmark *= audioDur;
 					p->SetFs(past->Sig.GetFs());
 				}
+			//If the first tmark is not 0, make one with 0 tmark and bring the value at zero
+			if (param.tmark != 0.)
+			{
+				CTimeSeries newParam(past->Sig.GetFs());
+				newParam.tmark = 0.;
+				newParam.SetValue(param.value());
+				newParam.chain = new CTimeSeries;
+				*newParam.chain = param; // this way the copied version goes to chain
+				param = newParam;
+			}
+			//If the last tmark is not the end of the signal, make one with 0 tmark and bring the value at zero
+			CTimeSeries *pLast;
+			for (CTimeSeries *p = &param; p; p = p->chain)
+				if (!p->chain) 
+					pLast = p;
+			if (pLast->tmark != past->Sig.dur())
+			{
+				CTimeSeries newParam(past->Sig.GetFs());
+				newParam.tmark = past->Sig.dur();
+				newParam.SetValue(pLast->value());
+				pLast->chain = new CTimeSeries;
+				*pLast->chain = newParam; // this way the copied version goes to chain
+			}
 			//IF tsequence goes beyond the audio duration, cut it out.
 			for (CTimeSeries *p = &param; p; p = p->chain)
 				if (p->chain && p->chain->tmark > audioDur)
@@ -345,7 +368,7 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 	string fname = pnode->str;
 	if (fname == "timestretch") past->Sig.pf_basic2 = &CSignal::timestretch;
 	else if (fname == "pitchscale") past->Sig.pf_basic2 = &CSignal::pitchscale;
-	else if (fname == "resample") past->Sig.pf_basic2 = &CSignal::resample;
+	else if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
 	else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
 	past->Sig.basic(past->Sig.pf_basic2, &param);
 }
@@ -2082,7 +2105,7 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_isaudioat;
 	built_in_funcs.push_back(pp);
 
-	pp.name = "resample";
+	pp.name = "respeed";
 	pp.funcsignature = "(audio_signal, playback_rate_change_ratio)";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
 	built_in_funcs.push_back(pp);

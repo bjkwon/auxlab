@@ -2902,36 +2902,97 @@ CTimeSeries * CTimeSeries::AtTimePoint(double timept)
 CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	CSignal *pratio = (CSignal *)parg;
+	CSignals *pratio = (CSignals *)parg;
 	char errstr[256] = {};
 	SRC_DATA conv;
-	vector<float> data_in, data_out;
-	data_in.resize(nSamples);
-	conv.data_in = &data_in[0];
-	conv.src_ratio = pratio->value();
-	conv.input_frames = nSamples;
-	conv.output_frames = (long)(nSamples * (conv.src_ratio) + .5); // conv.src_ratio+1 should be right, but just in case 
-	data_out.resize(conv.output_frames);
-	conv.data_out = &data_out[0];
+	float *data_out, *data_in = new float[nSamples];
+	int errcode;
+	SRC_STATE* handle = src_new(SRC_SINC_MEDIUM_QUALITY, 1, &errcode);
+	conv.data_in = data_in;
 	for (unsigned int k = 0; k < nSamples; k++) conv.data_in[k] = (float)buf[k];
-	int res = src_simple(&conv, SRC_SINC_BEST_QUALITY, 1);
-	if (!res)
+	if (pratio->GetType() != CSIG_TSERIES)
 	{
-//		if (conv.output_frames_gen != newfs)
-//			strcpy(errstr, "resampled output generated less points than desired, zeros padded at the end.");
-
-		//update nSamples and fs
+		conv.src_ratio = pratio->value();
+		conv.input_frames = nSamples;
+		conv.output_frames = (long)(nSamples * conv.src_ratio + .5);
+		conv.data_out = data_out = new float[conv.output_frames];
+		conv.end_of_input = 1;
+		errcode = src_process(handle, &conv);
+		if (errcode)
+		{
+			pratio->SetString(src_strerror(errcode));
+			delete[] data_in;	delete[] data_out;
+			return *this;
+		}
 		UpdateBuffer(conv.output_frames);
-//		double newfs = fs * pratio->value();
-//		fs = (int)(newfs + .5);
 		long k;
-		for (k = 0; k < conv.output_frames_gen; k++) 			buf[k] = conv.data_out[k];
-		for (k = conv.output_frames_gen; k < conv.output_frames; k++)		buf[k] = 0;
+		for (k = 0; k < conv.output_frames_gen; k++)
+			buf[k] = conv.data_out[k];
+		for (k = conv.output_frames_gen; k < conv.output_frames; k++)
+			buf[k] = 0;
 	}
 	else
-	{ // If there's an error, the error message is sent back to the app via pratio.
-		pratio->SetString(src_strerror(res));
+	{
+		int blockCount = 0;
+		//libsamplerate takes float buffers, CSignals takes double; so separate input, output buffers should be used.
+		//data_in is just the float version of buf, the input
+		//data_out is the float buffer used in each of the src_process call--smaller buffer is used than data_in
+		//after src_process, the data is transferred to outbuffer (double)--just accumulated.
+		//after all the blocks, outbuffer is memcpy'ed to buf for the output.
+		//3/20/2019
+		vector<double> outbuffer;
+		//inspect pratio to estimate the output length
+		int cum = 0, cumID = 0;
+		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
+			cum += (int)((p->chain->tmark - p->tmark) * fs / 1000 * p->value());
+		outbuffer.reserve(cum);
+		conv.end_of_input = 0;
+		int lastSize = 1, lastPt = 0;
+		data_out = new float[lastSize];
+		conv.src_ratio_initial = pratio->value();
+		//assume that pratio time sequence is well prepared--
+		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
+		{
+			//current p covers from p->tmark to p->chain->tmark
+			unsigned int i1 = (int)(p->tmark * fs / 1000);
+			unsigned int i2 = (int)(p->chain->tmark * fs / 1000);
+			unsigned int nSampleBlock = i2 - i1;
+			conv.input_frames = nSampleBlock;
+			if (p->value() == p->chain->value())
+				conv.src_ratio_mean = p->value();
+			else
+				conv.src_ratio_mean = 2 * p->value()*p->chain->value() / (p->value() + p->chain->value());
+			conv.output_frames = (long)(nSampleBlock * conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
+			if (conv.output_frames > lastSize)
+			{
+				delete[] data_out;
+				data_out = new float[lastSize = conv.output_frames+20000];//reserve the buffer size big enough to avoid memory crash, but find out a better than this.... 3/20/2019
+			}
+			if (nSamples - (lastPt + nSampleBlock) < 100)
+				conv.end_of_input = 1;
+			conv.data_out = data_out;
+			conv.src_ratio = p->chain->value();
+			errcode = src_process(handle, &conv);
+			if (errcode)
+			{
+				std::string errout;
+				sformat(errout, "Error in block %d--%s", blockCount++, src_strerror(errcode));
+				pratio->SetString(errout.c_str());
+				delete[] data_in;	delete[] data_out;
+				return *this;
+			}
+			for (int k=0; k< conv.output_frames_gen; k++)
+				outbuffer.push_back(data_out[k]);
+			lastPt += conv.input_frames;
+			if (p->chain->chain)
+				conv.data_in = &data_in[lastPt];
+		}
+		UpdateBuffer(outbuffer.size());
+		memcpy(buf, &outbuffer[0], sizeof(double)*outbuffer.size());
 	}
+	src_delete(handle);
+	delete[] data_in;
+	delete[] data_out;
 	return *this;
 }
 #endif //NO_RESAMPLE
