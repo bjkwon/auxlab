@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.497
-// Date: 1/30/2019
+// Version: 1.5
+// Date: 3/20/2019
 */ 
 
 /* Psycon syntax parser */
@@ -80,7 +80,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 %left '<' '>' T_LOGIC_LE T_LOGIC_GE
 %left ':'
 %left '-' '+' T_OP_CONCAT
-%left T_OP_SHIFT "->" '%' '@' '~'
+%left T_OP_SHIFT "->" '%' '@' '~' '#'
 %left '*' T_MATRIXMULT '/'
 %right '^' /* exponentiation */
 %left T_LOGIC_NOT T_POSITIVE T_NEGATIVE /* unary plus/minus */
@@ -516,6 +516,24 @@ compop: "+="
 		$$->str = strdup("movespec");
 		$$->tail = $$->child = newAstNode(N_ARGS, @$);
 	}
+	| "~="
+	{ 		
+		$$ = newAstNode(T_ID, @$);
+		$$->str = strdup("respeed");
+		$$->tail = $$->child = newAstNode(N_ARGS, @$);
+	}
+	| "<>="
+	{ 		
+		$$ = newAstNode(T_ID, @$);
+		$$->str = strdup("timestretch");
+		$$->tail = $$->child = newAstNode(N_ARGS, @$);
+	}
+	| "#="
+	{ 		
+		$$ = newAstNode(T_ID, @$);
+		$$->str = strdup("pitchscale");
+		$$->tail = $$->child = newAstNode(N_ARGS, @$);
+	}
 ;
 
 assign2this: '=' exp_range
@@ -869,7 +887,11 @@ exp: T_NUMBER
 	| exp '%' exp
 	{ $$ = makeFunctionCall("mod", $1, $3, @$);}
 	| exp '~' exp
-	{ $$ = makeFunctionCall("interp", $1, $3, @$);}
+	{ $$ = makeFunctionCall("respeed", $1, $3, @$);}
+	| exp '#' exp
+	{ $$ = makeFunctionCall("pitchscale", $1, $3, @$);}
+	| exp "<>" exp
+	{ $$ = makeFunctionCall("timestretch", $1, $3, @$);}
 	| exp "->" exp
 	{ $$ = makeFunctionCall("movespec", $1, $3, @$);}
 	| exp '@' exp

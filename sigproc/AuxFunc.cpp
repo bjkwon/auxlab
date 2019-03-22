@@ -371,6 +371,10 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 	else if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
 	else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
 	past->Sig.basic(past->Sig.pf_basic2, &param);
+	if (fname == "timestretch" || fname == "respeed")
+	{ // Take care of overlapping chains after processing
+		past->Sig.MergeChains();
+	}
 }
 
 void _movespec(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
@@ -2265,7 +2269,7 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_funcs.push_back(pp);
 	
 	pp.narg1 = 3;	pp.narg2 = 3;
-	pp.name = "interp1";
+	pp.name = "interp";
 	pp.funcsignature = "(refX, refY, query_x_points)";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_interp1;
 	built_in_funcs.push_back(pp);

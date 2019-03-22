@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.5
+// Date: 3/20/2019
 */ 
 
 /* scanner for Psycon syntax parser */
@@ -104,7 +104,7 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 	yy_pop_state();
 	return (unsigned char)yytext[0];
 	}
-if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|static|return|sigma|"=="|"!="|"<="|">="|">>"|"&&"|"**"|"||"|"++"|"+="|"-="|"*="|"/="|"^="|"@="|"@@="|"++="|".."|"->"|->=|">>="|"%=" {
+if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|static|return|sigma|"=="|"!="|"<="|">="|"<>"|"->"|">>"|"&&"|"**"|"||"|"++"|"+="|"-="|"*="|"/="|"^="|"->="|"<>="|"#="|"~="|"@="|"@@="|"++="|".."|"->"|->=|">>="|"%=" {
 	yylloc.last_column += yyleng;
 	return getTokenID(yytext);
 	}

@@ -1165,8 +1165,8 @@ CSignal& CSignal::Modulate(vector<double> &tpoints, vector<double> &tvals)
 	for (auto it = tpoints.begin(); it != tpoints.end() - 1; it++)
 	{
 		if (*it > endt()) continue;
-		double t1 = *it;
-		double t2 = *(it + 1);
+		double t1 = *it + tmark;
+		double t2 = *(it + 1) + tmark;
 		double slope = (*(itval + 1) - *itval) / (t2 - t1);
 		double slopePerSample = (*(itval + 1) - *itval) / (t2 - t1) / fs*1000.;
 		unsigned int beginID = max(0, (unsigned int)round((t1 - tmark)*fs / 1000.));
@@ -2912,7 +2912,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 	for (unsigned int k = 0; k < nSamples; k++) conv.data_in[k] = (float)buf[k];
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
-		conv.src_ratio = pratio->value();
+		conv.src_ratio_initial = conv.src_ratio = 1./pratio->value();
 		conv.input_frames = nSamples;
 		conv.output_frames = (long)(nSamples * conv.src_ratio + .5);
 		conv.data_out = data_out = new float[conv.output_frames];
@@ -2949,7 +2949,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 		conv.end_of_input = 0;
 		int lastSize = 1, lastPt = 0;
 		data_out = new float[lastSize];
-		conv.src_ratio_initial = pratio->value();
+		conv.src_ratio_initial = 1./pratio->value();
 		//assume that pratio time sequence is well prepared--
 		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
 		{
@@ -2959,9 +2959,9 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 			unsigned int nSampleBlock = i2 - i1;
 			conv.input_frames = nSampleBlock;
 			if (p->value() == p->chain->value())
-				conv.src_ratio_mean = p->value();
+				conv.src_ratio_mean = 1. / p->value();
 			else
-				conv.src_ratio_mean = 2 * p->value()*p->chain->value() / (p->value() + p->chain->value());
+				conv.src_ratio_mean = 1. / (2 * p->value()*p->chain->value() / (p->value() + p->chain->value()));
 			conv.output_frames = (long)(nSampleBlock * conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
 			if (conv.output_frames > lastSize)
 			{
@@ -2971,7 +2971,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 			if (nSamples - (lastPt + nSampleBlock) < 100)
 				conv.end_of_input = 1;
 			conv.data_out = data_out;
-			conv.src_ratio = p->chain->value();
+			conv.src_ratio = 1. / p->chain->value();
 			errcode = src_process(handle, &conv);
 			if (errcode)
 			{
