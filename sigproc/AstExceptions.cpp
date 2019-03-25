@@ -105,8 +105,6 @@ CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
 	return CAstException(pnode, this, msg);
 }
 
-
-
 CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
 : pCtx(pContext), pnode(p), str2(s2)
 {

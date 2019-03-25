@@ -317,6 +317,7 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 	//check qualifers
 	past->checkAudioSig(pnode, past->Sig);
 	CSignals param;
+	string fname;
 	try {
 		CAstSig tp(past);
 		param = tp.Compute(p);
@@ -363,14 +364,16 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 					p->chain = NULL;
 				}
 		}
+		fname = pnode->str;
+		if (fname == "timestretch") past->Sig.pf_basic2 = &CSignal::timestretch;
+		else if (fname == "pitchscale") past->Sig.pf_basic2 = &CSignal::pitchscale;
+		else if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
+		else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
+		past->Sig.basic(past->Sig.pf_basic2, &param);
+		if (param.IsString())
+			throw past->ExceptionMsg(pnode, ("Error in respeed:" + param.string()).c_str());
 	}
 	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
-	string fname = pnode->str;
-	if (fname == "timestretch") past->Sig.pf_basic2 = &CSignal::timestretch;
-	else if (fname == "pitchscale") past->Sig.pf_basic2 = &CSignal::pitchscale;
-	else if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
-	else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
-	past->Sig.basic(past->Sig.pf_basic2, &param);
 	if (fname == "timestretch" || fname == "respeed")
 	{ // Take care of overlapping chains after processing
 		past->Sig.MergeChains();

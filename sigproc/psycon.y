@@ -514,25 +514,25 @@ compop: "+="
 	{ 		
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("movespec");
-		$$->tail = $$->child = newAstNode(N_ARGS, @$);
+		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "~="
 	{ 		
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("respeed");
-		$$->tail = $$->child = newAstNode(N_ARGS, @$);
+		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "<>="
 	{ 		
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("timestretch");
-		$$->tail = $$->child = newAstNode(N_ARGS, @$);
+		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "#="
 	{ 		
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("pitchscale");
-		$$->tail = $$->child = newAstNode(N_ARGS, @$);
+		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 ;
 
@@ -551,12 +551,18 @@ assign2this: '=' exp_range
 		{
 			$$->child->child = newAstNode(T_REPLICA, @$);
 			$$->child->tail = $$->child->child->next = newAstNode(T_REPLICA, @$);
+			$$->tail = $$->child->next = $2;
+		}
+		else if ($$->alt) 
+		{
+			$$->alt->child = newAstNode(T_REPLICA, @2);
+			$$->alt->tail = $$->alt->child->next = $2;
 		}
 		else
 		{
-			$$->child = newAstNode(T_REPLICA, @2);
+			$$->alt = newAstNode(T_REPLICA, @2);
+			$$->tail = $$->alt->next = $2;
 		}
-		$$->tail = $$->child->next = $2;
 	}
 ;
 
