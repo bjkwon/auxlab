@@ -566,14 +566,14 @@ static const yytype_uint16 yyrline[] =
      398,   403,   406,   412,   420,   422,   423,   426,   431,   439,
      443,   447,   452,   457,   460,   465,   470,   477,   481,   488,
      488,   490,   494,   496,   498,   500,   502,   507,   509,   511,
-     513,   519,   525,   531,   539,   543,   547,   569,   574,   597,
-     609,   615,   622,   626,   634,   635,   641,   648,   656,   664,
-     672,   684,   688,   693,   700,   707,   714,   719,   724,   730,
-     736,   744,   752,   756,   765,   770,   781,   796,   811,   827,
-     832,   837,   841,   842,   846,   862,   867,   873,   881,   883,
-     885,   887,   889,   891,   893,   895,   897,   899,   901,   903,
-     905,   907,   911,   916,   923,   930,   947,   954,   974,   975,
-     977,   987,   999,  1002
+     513,   519,   525,   531,   539,   543,   547,   572,   577,   600,
+     612,   618,   625,   629,   637,   638,   644,   651,   659,   667,
+     675,   687,   691,   696,   703,   710,   717,   722,   727,   733,
+     739,   747,   755,   759,   768,   773,   784,   799,   814,   830,
+     835,   840,   844,   845,   849,   865,   870,   876,   884,   886,
+     888,   890,   892,   894,   896,   898,   900,   902,   904,   906,
+     908,   910,   914,   919,   926,   933,   950,   957,   977,   978,
+     980,   990,  1002,  1005
 };
 #endif
 
@@ -3227,16 +3227,19 @@ yyreduce:
 			(yyval.pnode)->child->child = newAstNode(T_REPLICA, (yyloc));
 			(yyval.pnode)->child->tail = (yyval.pnode)->child->child->next = newAstNode(T_REPLICA, (yyloc));
 			(yyval.pnode)->tail = (yyval.pnode)->child->next = (yyvsp[(2) - (2)].pnode);
+		(yyval.pnode)->col = 111;
 		}
 		else if ((yyval.pnode)->alt) 
 		{
 			(yyval.pnode)->alt->child = newAstNode(T_REPLICA, (yylsp[(2) - (2)]));
 			(yyval.pnode)->alt->tail = (yyval.pnode)->alt->child->next = (yyvsp[(2) - (2)].pnode);
+		(yyval.pnode)->col = 222;
 		}
 		else
 		{
-			(yyval.pnode)->alt = newAstNode(T_REPLICA, (yylsp[(2) - (2)]));
-			(yyval.pnode)->tail = (yyval.pnode)->alt->next = (yyvsp[(2) - (2)].pnode);
+			(yyval.pnode)->child = newAstNode(T_REPLICA, (yylsp[(2) - (2)]));
+			(yyval.pnode)->tail = (yyval.pnode)->child->next = (yyvsp[(2) - (2)].pnode);
+		(yyval.pnode)->col = 333;
 		}
 	;}
     break;
@@ -3244,7 +3247,7 @@ yyreduce:
   case 87:
 
 /* Line 1455 of yacc.c  */
-#line 570 "psycon.y"
+#line 573 "psycon.y"
     { //84
 		(yyval.pnode) = newAstNode(T_ID, (yyloc));
 		(yyval.pnode)->str = (yyvsp[(1) - (1)].str);
@@ -3254,7 +3257,7 @@ yyreduce:
   case 88:
 
 /* Line 1455 of yacc.c  */
-#line 575 "psycon.y"
+#line 578 "psycon.y"
     {//85
 		(yyval.pnode) = (yyvsp[(1) - (3)].pnode);
 		AstNode *p = newAstNode(N_STRUCT, (yyloc));
@@ -3282,7 +3285,7 @@ yyreduce:
   case 89:
 
 /* Line 1455 of yacc.c  */
-#line 598 "psycon.y"
+#line 601 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (3)].pnode);
 		AstNode *p = newAstNode(N_STRUCT, (yyloc));
@@ -3299,7 +3302,7 @@ yyreduce:
   case 90:
 
 /* Line 1455 of yacc.c  */
-#line 610 "psycon.y"
+#line 613 "psycon.y"
     {//87
 		(yyval.pnode) = (yyvsp[(1) - (4)].pnode);
 		(yyval.pnode)->tail = (yyval.pnode)->alt->alt = newAstNode(N_CELL, (yyloc));
@@ -3310,7 +3313,7 @@ yyreduce:
   case 91:
 
 /* Line 1455 of yacc.c  */
-#line 616 "psycon.y"
+#line 619 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (6)].pnode);
 		(yyval.pnode)->tail = (yyval.pnode)->tail->alt = newAstNode(N_TIME_EXTRACT, (yylsp[(2) - (6)]));
@@ -3322,7 +3325,7 @@ yyreduce:
   case 92:
 
 /* Line 1455 of yacc.c  */
-#line 623 "psycon.y"
+#line 626 "psycon.y"
     {//tid-vector 89
 		(yyval.pnode) = (yyvsp[(2) - (3)].pnode);
 	;}
@@ -3331,7 +3334,7 @@ yyreduce:
   case 93:
 
 /* Line 1455 of yacc.c  */
-#line 627 "psycon.y"
+#line 630 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(N_HOOK, (yyloc));
 		(yyval.pnode)->str = strdup((yyvsp[(2) - (2)].pnode)->str);
@@ -3342,7 +3345,7 @@ yyreduce:
   case 95:
 
 /* Line 1455 of yacc.c  */
-#line 636 "psycon.y"
+#line 639 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_ID, (yyloc));
 		(yyval.pnode)->str = (yyvsp[(1) - (4)].str);
@@ -3353,7 +3356,7 @@ yyreduce:
   case 96:
 
 /* Line 1455 of yacc.c  */
-#line 642 "psycon.y"
+#line 645 "psycon.y"
     { //93
 		(yyval.pnode) = newAstNode(T_ID, (yyloc));
 		(yyval.pnode)->str = (yyvsp[(1) - (4)].str);
@@ -3365,7 +3368,7 @@ yyreduce:
   case 97:
 
 /* Line 1455 of yacc.c  */
-#line 649 "psycon.y"
+#line 652 "psycon.y"
     { //94
 		(yyval.pnode) = newAstNode(T_ID, (yyloc));
 		(yyval.pnode)->str = (yyvsp[(1) - (7)].str);
@@ -3378,7 +3381,7 @@ yyreduce:
   case 98:
 
 /* Line 1455 of yacc.c  */
-#line 657 "psycon.y"
+#line 660 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_ID, (yyloc));
 		(yyval.pnode)->str = (yyvsp[(1) - (6)].str);
@@ -3391,7 +3394,7 @@ yyreduce:
   case 99:
 
 /* Line 1455 of yacc.c  */
-#line 665 "psycon.y"
+#line 668 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (4)].pnode);
 		if ((yyval.pnode)->tail)
@@ -3404,7 +3407,7 @@ yyreduce:
   case 100:
 
 /* Line 1455 of yacc.c  */
-#line 673 "psycon.y"
+#line 676 "psycon.y"
     { // 97
 		if ((yyval.pnode)->alt != NULL  && (yyval.pnode)->alt->type==N_STRUCT)
 		{ // dot notation with a blank parentheses, e.g., a.sqrt() or (1:2:5).sqrt()
@@ -3421,7 +3424,7 @@ yyreduce:
   case 101:
 
 /* Line 1455 of yacc.c  */
-#line 685 "psycon.y"
+#line 688 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_REPLICA, (yyloc));
 	;}
@@ -3430,7 +3433,7 @@ yyreduce:
   case 102:
 
 /* Line 1455 of yacc.c  */
-#line 689 "psycon.y"
+#line 692 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_REPLICA, (yyloc));
 		(yyval.pnode)->tail = (yyval.pnode)->alt = (yyvsp[(3) - (4)].pnode);
@@ -3440,7 +3443,7 @@ yyreduce:
   case 103:
 
 /* Line 1455 of yacc.c  */
-#line 694 "psycon.y"
+#line 697 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_REPLICA, (yyloc));
 		(yyval.pnode)->tail = (yyval.pnode)->alt = newAstNode(N_CELL, (yyloc));
@@ -3452,7 +3455,7 @@ yyreduce:
   case 104:
 
 /* Line 1455 of yacc.c  */
-#line 701 "psycon.y"
+#line 704 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_REPLICA, (yyloc));
 		(yyval.pnode)->alt = newAstNode(N_CELL, (yyloc));
@@ -3464,7 +3467,7 @@ yyreduce:
   case 105:
 
 /* Line 1455 of yacc.c  */
-#line 708 "psycon.y"
+#line 711 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_REPLICA, (yyloc));
 		(yyval.pnode)->tail = (yyval.pnode)->alt = newAstNode(N_TIME_EXTRACT, (yylsp[(2) - (6)]));
@@ -3476,7 +3479,7 @@ yyreduce:
   case 106:
 
 /* Line 1455 of yacc.c  */
-#line 715 "psycon.y"
+#line 718 "psycon.y"
     { 	
 		(yyval.pnode) = newAstNode(T_TRANSPOSE, (yyloc));
  		(yyval.pnode)->child = (yyvsp[(1) - (2)].pnode);
@@ -3486,7 +3489,7 @@ yyreduce:
   case 107:
 
 /* Line 1455 of yacc.c  */
-#line 720 "psycon.y"
+#line 723 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(N_TSEQ, (yyloc));
 		(yyval.pnode)->child = (yyvsp[(2) - (5)].pnode);
@@ -3496,7 +3499,7 @@ yyreduce:
   case 108:
 
 /* Line 1455 of yacc.c  */
-#line 725 "psycon.y"
+#line 728 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(N_TSEQ, (yyloc));
 		(yyval.pnode)->child = (yyvsp[(2) - (6)].pnode);
@@ -3507,7 +3510,7 @@ yyreduce:
   case 109:
 
 /* Line 1455 of yacc.c  */
-#line 731 "psycon.y"
+#line 734 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(N_TSEQ, (yyloc));
 		(yyval.pnode)->child = (yyvsp[(2) - (6)].pnode);
@@ -3518,7 +3521,7 @@ yyreduce:
   case 110:
 
 /* Line 1455 of yacc.c  */
-#line 737 "psycon.y"
+#line 740 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(N_TSEQ, (yyloc));
 		(yyval.pnode)->str = malloc(8);
@@ -3531,7 +3534,7 @@ yyreduce:
   case 111:
 
 /* Line 1455 of yacc.c  */
-#line 745 "psycon.y"
+#line 748 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(N_TSEQ, (yyloc));
 		(yyval.pnode)->str = malloc(8);
@@ -3544,7 +3547,7 @@ yyreduce:
   case 112:
 
 /* Line 1455 of yacc.c  */
-#line 753 "psycon.y"
+#line 756 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(2) - (3)].pnode);
 	;}
@@ -3553,7 +3556,7 @@ yyreduce:
   case 113:
 
 /* Line 1455 of yacc.c  */
-#line 757 "psycon.y"
+#line 760 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(2) - (3)].pnode);
 		(yyval.pnode)->line = (yyloc).first_line;
@@ -3564,7 +3567,7 @@ yyreduce:
   case 114:
 
 /* Line 1455 of yacc.c  */
-#line 766 "psycon.y"
+#line 769 "psycon.y"
     { //111
 		(yyval.pnode) = (yyvsp[(1) - (2)].pnode);
 		(yyval.pnode)->child = (yyvsp[(2) - (2)].pnode);
@@ -3574,7 +3577,7 @@ yyreduce:
   case 115:
 
 /* Line 1455 of yacc.c  */
-#line 771 "psycon.y"
+#line 774 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (2)].pnode);
 		//If LHS is vector, move the child node (the vector content) to alt. That's OK because the vector on LHS cannot have index or arg_list. Note that this is not really a vector, but only a list of variable list to store the results of RHS. 9/13/2018
@@ -3590,7 +3593,7 @@ yyreduce:
   case 116:
 
 /* Line 1455 of yacc.c  */
-#line 782 "psycon.y"
+#line 785 "psycon.y"
     { //c=a(2)=44
 		if (!(yyvsp[(1) - (3)].pnode)->child) 
 			(yyvsp[(1) - (3)].pnode)->child = (yyvsp[(3) - (3)].pnode);
@@ -3610,7 +3613,7 @@ yyreduce:
   case 117:
 
 /* Line 1455 of yacc.c  */
-#line 797 "psycon.y"
+#line 800 "psycon.y"
     { //a(2)=d=11
 		if (!(yyvsp[(1) - (3)].pnode)->child) 
 			(yyvsp[(1) - (3)].pnode)->child = (yyvsp[(3) - (3)].pnode);
@@ -3630,7 +3633,7 @@ yyreduce:
   case 118:
 
 /* Line 1455 of yacc.c  */
-#line 812 "psycon.y"
+#line 815 "psycon.y"
     { // x={"bjk",noise(300), 4.5555}
 		(yyval.pnode)->str = getT_ID_str((yyvsp[(1) - (3)].pnode));
 		(yyval.pnode)->child = (yyvsp[(3) - (3)].pnode);
@@ -3642,7 +3645,7 @@ yyreduce:
   case 119:
 
 /* Line 1455 of yacc.c  */
-#line 828 "psycon.y"
+#line 831 "psycon.y"
     { // 116
 		(yyval.pnode) = newAstNode(T_NUMBER, (yyloc));
 		(yyval.pnode)->dval = (yyvsp[(1) - (1)].dval);
@@ -3652,7 +3655,7 @@ yyreduce:
   case 120:
 
 /* Line 1455 of yacc.c  */
-#line 833 "psycon.y"
+#line 836 "psycon.y"
     { // 117
 		(yyval.pnode) = newAstNode(T_STRING, (yyloc));
 		(yyval.pnode)->str = (yyvsp[(1) - (1)].str);
@@ -3662,7 +3665,7 @@ yyreduce:
   case 121:
 
 /* Line 1455 of yacc.c  */
-#line 838 "psycon.y"
+#line 841 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_ENDPOINT, (yyloc));
 	;}
@@ -3671,7 +3674,7 @@ yyreduce:
   case 123:
 
 /* Line 1455 of yacc.c  */
-#line 843 "psycon.y"
+#line 846 "psycon.y"
     {//120
 		(yyval.pnode) = (yyvsp[(1) - (1)].pnode);
 	;}
@@ -3680,7 +3683,7 @@ yyreduce:
   case 124:
 
 /* Line 1455 of yacc.c  */
-#line 847 "psycon.y"
+#line 850 "psycon.y"
     {
 		if ((yyvsp[(1) - (6)].pnode)->type==N_CELL)
 		{
@@ -3701,7 +3704,7 @@ yyreduce:
   case 125:
 
 /* Line 1455 of yacc.c  */
-#line 863 "psycon.y"
+#line 866 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_NEGATIVE, (yyloc));
 		(yyval.pnode)->child = (yyvsp[(2) - (2)].pnode);
@@ -3711,7 +3714,7 @@ yyreduce:
   case 126:
 
 /* Line 1455 of yacc.c  */
-#line 868 "psycon.y"
+#line 871 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(2) - (2)].pnode);
 		(yyval.pnode)->line = (yyloc).first_line;
@@ -3722,7 +3725,7 @@ yyreduce:
   case 127:
 
 /* Line 1455 of yacc.c  */
-#line 874 "psycon.y"
+#line 877 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_SIGMA, (yyloc));
 		(yyval.pnode)->child = newAstNode(T_ID, (yylsp[(3) - (8)]));
@@ -3735,105 +3738,105 @@ yyreduce:
   case 128:
 
 /* Line 1455 of yacc.c  */
-#line 882 "psycon.y"
+#line 885 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode('+', (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 129:
 
 /* Line 1455 of yacc.c  */
-#line 884 "psycon.y"
+#line 887 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode('-', (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 130:
 
 /* Line 1455 of yacc.c  */
-#line 886 "psycon.y"
+#line 889 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode('*', (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 131:
 
 /* Line 1455 of yacc.c  */
-#line 888 "psycon.y"
+#line 891 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode('/', (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 132:
 
 /* Line 1455 of yacc.c  */
-#line 890 "psycon.y"
+#line 893 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode(T_MATRIXMULT, (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 133:
 
 /* Line 1455 of yacc.c  */
-#line 892 "psycon.y"
+#line 895 "psycon.y"
     { (yyval.pnode) = makeFunctionCall("^", (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 134:
 
 /* Line 1455 of yacc.c  */
-#line 894 "psycon.y"
+#line 897 "psycon.y"
     { (yyval.pnode) = makeFunctionCall("mod", (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 135:
 
 /* Line 1455 of yacc.c  */
-#line 896 "psycon.y"
+#line 899 "psycon.y"
     { (yyval.pnode) = makeFunctionCall("respeed", (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 136:
 
 /* Line 1455 of yacc.c  */
-#line 898 "psycon.y"
+#line 901 "psycon.y"
     { (yyval.pnode) = makeFunctionCall("pitchscale", (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 137:
 
 /* Line 1455 of yacc.c  */
-#line 900 "psycon.y"
+#line 903 "psycon.y"
     { (yyval.pnode) = makeFunctionCall("timestretch", (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 138:
 
 /* Line 1455 of yacc.c  */
-#line 902 "psycon.y"
+#line 905 "psycon.y"
     { (yyval.pnode) = makeFunctionCall("movespec", (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 139:
 
 /* Line 1455 of yacc.c  */
-#line 904 "psycon.y"
+#line 907 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode('@', (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 140:
 
 /* Line 1455 of yacc.c  */
-#line 906 "psycon.y"
+#line 909 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode(T_OP_SHIFT, (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 141:
 
 /* Line 1455 of yacc.c  */
-#line 908 "psycon.y"
+#line 911 "psycon.y"
     { (yyval.pnode) = makeBinaryOpNode(T_OP_CONCAT, (yyvsp[(1) - (3)].pnode), (yyvsp[(3) - (3)].pnode), (yyloc));;}
     break;
 
   case 142:
 
 /* Line 1455 of yacc.c  */
-#line 912 "psycon.y"
+#line 915 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_FUNCTION, (yyloc));
 		(yyval.pnode)->suppress = 2;
@@ -3843,7 +3846,7 @@ yyreduce:
   case 143:
 
 /* Line 1455 of yacc.c  */
-#line 917 "psycon.y"
+#line 920 "psycon.y"
     {
 		(yyval.pnode) = newAstNode(T_FUNCTION, (yyloc));
 		(yyval.pnode)->suppress = 3;
@@ -3853,7 +3856,7 @@ yyreduce:
   case 144:
 
 /* Line 1455 of yacc.c  */
-#line 924 "psycon.y"
+#line 927 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (4)].pnode);
 		(yyval.pnode)->str = (yyvsp[(2) - (4)].str);
@@ -3865,7 +3868,7 @@ yyreduce:
   case 145:
 
 /* Line 1455 of yacc.c  */
-#line 931 "psycon.y"
+#line 934 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (6)].pnode);
 		(yyval.pnode)->str = (yyvsp[(4) - (6)].str);
@@ -3887,7 +3890,7 @@ yyreduce:
   case 146:
 
 /* Line 1455 of yacc.c  */
-#line 948 "psycon.y"
+#line 951 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (7)].pnode);
 		(yyval.pnode)->str = (yyvsp[(2) - (7)].str);
@@ -3899,7 +3902,7 @@ yyreduce:
   case 147:
 
 /* Line 1455 of yacc.c  */
-#line 955 "psycon.y"
+#line 958 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(1) - (9)].pnode);
 		(yyval.pnode)->str = (yyvsp[(4) - (9)].str);
@@ -3921,21 +3924,21 @@ yyreduce:
   case 148:
 
 /* Line 1455 of yacc.c  */
-#line 974 "psycon.y"
+#line 977 "psycon.y"
     { (yyval.pnode) = newAstNode(T_SWITCH, (yyloc));;}
     break;
 
   case 149:
 
 /* Line 1455 of yacc.c  */
-#line 976 "psycon.y"
+#line 979 "psycon.y"
     { (yyval.pnode) = newAstNode(T_SWITCH, (yyloc));;}
     break;
 
   case 150:
 
 /* Line 1455 of yacc.c  */
-#line 978 "psycon.y"
+#line 981 "psycon.y"
     {
 		if ((yyvsp[(1) - (5)].pnode)->child)
 			(yyvsp[(1) - (5)].pnode)->tail->next = (yyvsp[(3) - (5)].pnode);
@@ -3950,7 +3953,7 @@ yyreduce:
   case 151:
 
 /* Line 1455 of yacc.c  */
-#line 988 "psycon.y"
+#line 991 "psycon.y"
     {
 		if ((yyvsp[(1) - (6)].pnode)->child)
 			(yyvsp[(1) - (6)].pnode)->tail->next = (yyvsp[(4) - (6)].pnode);
@@ -3965,7 +3968,7 @@ yyreduce:
   case 153:
 
 /* Line 1455 of yacc.c  */
-#line 1003 "psycon.y"
+#line 1006 "psycon.y"
     {
 		(yyval.pnode) = (yyvsp[(2) - (3)].pnode);
 		(yyval.pnode)->type = N_INITCELL;
@@ -3977,7 +3980,7 @@ yyreduce:
 
 
 /* Line 1455 of yacc.c  */
-#line 3981 "psycon.tab.c"
+#line 3984 "psycon.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -4196,7 +4199,7 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 1025 "psycon.y"
+#line 1028 "psycon.y"
 
 
 /* Called by yyparse on error. */

@@ -302,8 +302,11 @@ bool CAstSig::builtin_func_call(CDeepProc &diggy, AstNode *p)
 	{
 		if (p->str[0] == '$' || IsValidBuiltin(p->str)) // hook bypasses IsValidBuiltin
 		{
-			if (diggy.level.root->type==T_ID && diggy.level.root->child) // if and only if LHS is a function call
-				throw ExceptionMsg(diggy.level.root, "LHS must be l-value. Isn't it a built-in function?");
+			// if diggy.level.root->child is present, it generally means that RHS exists and should be rejected if LHS is a function call
+			// The exception is if LHS has alt node, because it will go down through the next node and it may end up a non-function call.
+			if (diggy.level.root->child) 
+				if (!diggy.level.root->alt)
+					throw ExceptionMsg(diggy.level.root, "LHS must be an l-value. Isn't it a built-in function?");
 			HandleAuxFunctions(p, diggy.level.root);
 			diggy.level.psigBase = &Sig;
 			return true;
