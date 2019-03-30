@@ -13,6 +13,9 @@
 
 /* Modified by BJKWON 7/11/2016
   __declspec(dllexport) is added to each exported function declaration
+
+ * Modified for AUXLAB by Bomjun Kwon 3/30/2019
+  src_ratio_initial and src_ratio_mean added
 */
 
 #ifndef SAMPLERATE_H

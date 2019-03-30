@@ -2237,7 +2237,33 @@ int CSignal::maxcc(double *x1, int len1, double *x2, int len2)
 CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
+	CTimeSeries *pratio = (CTimeSeries *)parg;
+	CTimeSeries copy_ratio = *pratio;
+	for (CTimeSeries *p = &copy_ratio; p; p = p->chain)
+		p->tmark /= dur();
 	timestretch(id0, len);
+	double ratio_mean;
+	for (CTimeSeries *p = pratio; p; p = p->chain)
+		p->SetValue(1. / p->value());
+	for (CTimeSeries *p = pratio, *p2 = &copy_ratio; p && p->chain; p = p->chain, p2=p2->chain)
+	{
+		if (p->value() == p->chain->value())
+			ratio_mean = p->value();
+		else
+			ratio_mean = (2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
+		int _fs = (int)(fs / ratio_mean + .5);
+		p->tmark = dur() / _fs * fs * p2->tmark;
+		p->SetFs(_fs);
+	}
+	for (CTimeSeries *p = pratio, *p2 = &copy_ratio; p; p = p->chain, p2 = p2->chain)
+	{
+		if (!p->chain) // last one
+		{
+			int _fs = (int)(fs / p->value() + .5);
+			p->tmark = dur() / _fs * fs * p2->tmark;
+		}
+	}
+
 	resample(id0, len);
 	return *this;
 }
@@ -2247,12 +2273,12 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	if (len == 0) len = nSamples;
 	CTimeSeries *pratio = (CTimeSeries *)parg;
 	//pratio is either a constant or time sequence of scalars (not relative time)
-	int synHop = 512;
-	int tolerance = 512;
-	const int winLen = 1024; // window size
+	const int winLen = (int)(692.93 + fs /34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
+	int synHop = winLen/2;
+	int tolerance = synHop;
 	const int winLenHalf = (int)(winLen / 2. + .5);
 	double *wind = new double[winLen];
-	for (unsigned int k = 0; k < winLen; k++)
+	for (int k = 0; k < winLen; k++)
 		wind[id0 + k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
 	//pratio must be either real constant or T_SEQ then value at each time point is the ratio for that segment
 	CSignal anaWinPos(1, 2), anchpts(1, 2);
@@ -2260,9 +2286,10 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	out.pf_basic2 = pf_basic2;
 	out.tmark = tmark;
 	int outputLength;
+	double factor = .97 + fs / 2.e6;
 	if (pratio->GetType()!=CSIG_TSERIES)
 	{
-		outputLength = (int)ceil(pratio->value()*nSamples);
+		outputLength = (int)ceil(pratio->value()*nSamples*factor);
 		anaWinPos.buf[1] = (double)outputLength;
 		anchpts.buf[1] = (double)nSamples;
 	}
@@ -2280,6 +2307,7 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 			anaWinPos.buf[k+1] = ceil(cumTpointsY += .5*(p->chain->value() + p->value()) * (p->chain->tmark - p->tmark) * fs / 1000);
 		}
 		anchpts.buf[nTSLayers - 1] = ceil(p->tmark * fs / 1000);
+		factor += (1 - factor) / 2;
 		outputLength = (int)ceil(anaWinPos.buf[nTSLayers - 1]);
 	}
 	vector<double> synWinPos(1); // initializing one element with zero
@@ -2296,20 +2324,26 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	int newlen = winLenHalf + 2 * tolerance + (int)ceil(1 / minFac)*winLen;
 	CSignal temp(fs, nSamples + newlen);
 	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
+	int lastInPoint = nSamples + winLenHalf + tolerance;
+	int lastOutPount=0;
 	*this = temp;
-	for (unsigned k = 0; k < anaWinPos.nSamples - 1; k++)
+	for (unsigned k = 0; k < anaWinPos.nSamples; k++)
 		anaWinPos.buf[k] += (double)tolerance;
 	double *pout = new double[outputLength + 2 * winLen];
 	double *pow = new double[outputLength + 2 * winLen];
 	memset(pout, 0, sizeof(double)*(outputLength + 2 * winLen));
 	memset(pow, 0, sizeof(double)*(outputLength + 2 * winLen));
-	int del = 0;
+	int xid0, jj, kk, del = 0;
 	unsigned k = 0;
 	for (auto yid0 : synWinPos)
 	{
-		int xid0 = (int)anaWinPos.buf[k] + del;
-		for (unsigned int p = 0; p < winLen; p++)
+		xid0 = (int)anaWinPos.buf[k] + del;
+		for (int p = 0; p < winLen; p++)
 		{
+			jj = (int)yid0 + p;
+			kk = (int)xid0 + p;
+			if (xid0 + p == lastInPoint)
+				lastOutPount = (int)yid0 + p;
 			pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
 			pow[(int)yid0 + p] += wind[p];
 		}
@@ -2327,9 +2361,10 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 		if (pow[p] > .001)
 			pout[p] /= pow[p];
 	}
+	if (lastOutPount == 0) lastOutPount = outputLength;
 	// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
-	out.UpdateBuffer((int)outputLength);
-	memcpy(out.buf, pout + winLenHalf, sizeof(double)*outputLength);
+	out.UpdateBuffer(lastOutPount- winLenHalf);
+	memcpy(out.buf, pout + winLenHalf, sizeof(double)*out.nSamples);
 	out.SetFs(fs);
 	delete[] pout;
 	delete[] pow;
@@ -2901,6 +2936,9 @@ CTimeSeries * CTimeSeries::AtTimePoint(double timept)
 #ifndef NO_RESAMPLE
 CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 {
+	//This doesn't mean real "resampling" because this does not change fs.
+	//pratio > 1 means generate more samples (interpolation)-->longer duration and lower pitch
+	//pratio < 1 means downsample--> shorter duration and higher pitch
 	if (len == 0) len = nSamples;
 	CSignals *pratio = (CSignals *)parg;
 	char errstr[256] = {};
@@ -2912,7 +2950,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 	for (unsigned int k = 0; k < nSamples; k++) conv.data_in[k] = (float)buf[k];
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
-		conv.src_ratio_initial = conv.src_ratio = 1./pratio->value();
+		conv.src_ratio_initial = conv.src_ratio = pratio->value();
 		conv.input_frames = nSamples;
 		conv.output_frames = (long)(nSamples * conv.src_ratio + .5);
 		conv.data_out = data_out = new float[conv.output_frames];
@@ -2949,19 +2987,29 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 		conv.end_of_input = 0;
 		int lastSize = 1, lastPt = 0;
 		data_out = new float[lastSize];
-		conv.src_ratio_initial = 1./pratio->value();
+		conv.src_ratio_initial = pratio->value();
 		//assume that pratio time sequence is well prepared--
 		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
 		{
+			unsigned int i1, i2;
+			if (p->value() == p->chain->value())
+				conv.src_ratio_mean = p->value();
+			else
+				conv.src_ratio_mean = (2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
+			int _fs = (int)(fs * conv.src_ratio_mean + .5);
 			//current p covers from p->tmark to p->chain->tmark
-			unsigned int i1 = (int)(p->tmark * fs / 1000);
-			unsigned int i2 = (int)(p->chain->tmark * fs / 1000);
+			if (p->fs == fs)
+			{
+				i1 = (int)(p->tmark * fs / 1000);
+				i2 = (int)(p->chain->tmark * fs / 1000);
+			}
+			else
+			{
+				i1 = (int)(p->tmark * p->fs / 1000);
+				i2 = (int)(p->chain->tmark * p->fs / 1000);
+			}
 			unsigned int nSampleBlock = i2 - i1;
 			conv.input_frames = nSampleBlock;
-			if (p->value() == p->chain->value())
-				conv.src_ratio_mean = 1. / p->value();
-			else
-				conv.src_ratio_mean = 1. / (2 * p->value()*p->chain->value() / (p->value() + p->chain->value()));
 			conv.output_frames = (long)(nSampleBlock * conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
 			if (conv.output_frames > lastSize)
 			{
@@ -2971,7 +3019,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 			if (nSamples - (lastPt + nSampleBlock) < 100)
 				conv.end_of_input = 1;
 			conv.data_out = data_out;
-			conv.src_ratio = 1. / p->chain->value();
+			conv.src_ratio = p->chain->value();
 			errcode = src_process(handle, &conv);
 			if (errcode)
 			{
@@ -2981,13 +3029,13 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 				delete[] data_in;	delete[] data_out;
 				return *this;
 			}
-			for (int k=0; k< conv.output_frames_gen; k++)
+			for (int k = 0; k < conv.output_frames_gen; k++)
 				outbuffer.push_back(data_out[k]);
 			lastPt += conv.input_frames;
 			if (p->chain->chain)
 				conv.data_in = &data_in[lastPt];
 		}
-		UpdateBuffer(outbuffer.size());
+		UpdateBuffer((unsigned int)outbuffer.size());
 		memcpy(buf, &outbuffer[0], sizeof(double)*outbuffer.size());
 	}
 	src_delete(handle);
