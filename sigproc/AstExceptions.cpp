@@ -1,6 +1,6 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
@@ -8,7 +8,7 @@
 // Platform-independent (hopefully) 
 // 
 // Version: 1.5
-// Date: 3/15/2019
+// Date: 3/30/2019
 // 
 #include <sstream>
 #include <list>
@@ -103,6 +103,32 @@ CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const
 CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
 {
 	return CAstException(pnode, this, msg);
+}
+
+CAstException::CAstException(CAstSig *pContext, const string s1, const string s2)
+	: pCtx(pContext), str2(s2)
+{
+	if (pContext->u.pUDF)
+		pnode = pContext->u.pUDF;
+	else
+		pnode = pContext->pAst;
+	//Use this format when you are not sure what pnode to use
+	// Probably it's safe to use this all the time. 
+	//Replace the other constructor CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
+	//with this eventually 3/30/2019
+
+	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
+		adjust_AstNode(pnode);
+	str1 = pnode->str;
+	str1 += " : ";
+	str1 += s2 + '\n';
+	str1 += s1;
+	outstr = str1;
+	if (pCtx && pCtx->u.debug.status == typed_line) return;
+	str1.insert(0, "[GOTO_BASE]");
+	if (!pnode) pnode = pCtx->pAst;
+	makeOutStr();
+	outstr += '\n';
 }
 
 CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)

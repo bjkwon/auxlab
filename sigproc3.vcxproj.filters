@@ -33,9 +33,6 @@
     <ClCompile Include="$(SrcPath)matOperations.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcPath)remez.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="$(SrcPath)psycon.tab.c">
       <Filter>Source Files</Filter>
     </ClCompile>

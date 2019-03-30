@@ -92,11 +92,13 @@ enum graffytype: char
 
 enum LineStyle: unsigned _int8
 { 
+	LineStyle_err = 255,
 	LineStyle_noline = 0,
 	LineStyle_solid, 
 	LineStyle_dash, 
 	LineStyle_dot, 
-	LineStyle_dashdot, 
+	LineStyle_dashdot,
+	LineStyle_dashdotdot,
 };
 
 class CGobj : public CVar
@@ -155,6 +157,8 @@ public:
 	LineStyle lineStyle;
 
 	void initGO(void * _hpar);
+	LineStyle GetLineStyle();
+	std::string GetLineStyleSymbol();
 	GRAPHY_EXPORT CLine& operator=(const CLine& rhs);
 	GRAPHY_EXPORT CLine(CWndDlg * base, CGobj* pParent);   // standard constructor
 	~CLine();

@@ -1,14 +1,14 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.499
-// Date: 2/20/2019
+// Version: 1.5
+// Date: 3/30/2019
 // 
 
 /* Note on multiple axes situation,
@@ -478,26 +478,38 @@ CSignals CPlotDlg::GetAudioSignal(CAxes* pax, bool makechainless)
 }
 
 
-void OnPaint_createpen_with_linestyle(CLine *pln, CDC& dc)
+CPen * OnPaint_createpen_with_linestyle(CLine *pln, CDC& dc, CPen **pOldPen)
 {
-	switch(pln->lineStyle)
+	LOGBRUSH lb;
+	lb.lbStyle = BS_SOLID;
+	lb.lbColor = pln->color;
+	lb.lbHatch = HS_VERTICAL;
+	DWORD style = lb.lbStyle;
+	int penStyle;
+	switch (pln->lineStyle)
 	{
 	case LineStyle_solid:
-		dc.CreatePen(PS_SOLID, pln->lineWidth, pln->color);
+		penStyle = PS_SOLID;
 		break;
 	case LineStyle_dash:
-		dc.CreatePen(PS_DASH, pln->lineWidth, pln->color);
+		penStyle = PS_DASH;
 		break;
 	case LineStyle_dot:
-		dc.CreatePen(PS_DOT, pln->lineWidth, pln->color);
+		penStyle = PS_DOT;
 		break;
 	case LineStyle_dashdot:
-		dc.CreatePen(PS_DASHDOT, pln->lineWidth, pln->color);
+		penStyle = PS_DASHDOT;
+		break;
+	case LineStyle_dashdotdot:
+		penStyle = PS_DASHDOTDOT;
 		break;
 	default:
-		dc.CreatePen(PS_NULL, pln->lineWidth, pln->color);
+		penStyle = PS_NULL;
 		break;
 	}
+	CPen *newPen = new CPen(penStyle | PS_GEOMETRIC, pln->lineWidth, &lb, 0, NULL);
+	*pOldPen = (CPen*)dc.SelectObject(*newPen);
+	return newPen;
 }
 
 void CPlotDlg::OnPaint() 
@@ -523,6 +535,7 @@ void CPlotDlg::OnPaint()
 	if (gcf.ax.size()>0)
 	{
 		CAxes *pax0 = gcf.ax.front();
+		CPen * ppen=NULL;
 		int nax(1);
 		// drawing lines
 		bool paxready(false);
@@ -564,6 +577,7 @@ void CPlotDlg::OnPaint()
 			size_t nLines = pax->m_ln.size(); // just FYI
 			for (auto lyne : pax->m_ln)
 			{
+				CPen *pPenOld = NULL;
 				if (!lyne->visible) continue;
 				for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
 				{
@@ -606,12 +620,12 @@ void CPlotDlg::OnPaint()
 							lyne->lineStyle = LineStyle_solid;
 							if (lyne->lineWidth == 0)
 								lyne->lineWidth = 1;
-							OnPaint_createpen_with_linestyle(lyne, dc);
+							OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
 							draw = makeDrawVector(p, pax);
 							DrawMarker(dc, lyne, draw);
 							lyne->lineStyle = org;
 						}
-						OnPaint_createpen_with_linestyle(lyne, dc);
+						ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
 						if (lyne->lineWidth > 0)
 						{
 							draw = makeDrawVector(p, pax);
@@ -644,6 +658,11 @@ void CPlotDlg::OnPaint()
 							p->tmark = atmark;
 							p->nSamples = anSamples;
 							memcpy(p->buf, abuf, p->Len() * sizeof(double));
+							if (ppen)
+							{
+								dc.SelectObject(pPenOld);
+								delete ppen;
+							}
 						}
 					}
 					delete[] abuf;
@@ -745,6 +764,8 @@ void CPlotDlg::OnPaint()
 			DWORD dw2 = TA_RIGHT|TA_TOP;
 			DWORD dw3 = TA_CENTER|TA_BASELINE;
 			dc.SetTextAlign(dw);
+			char buf23[22];
+			strcpy(buf23, (*txit)->str.c_str());
 			dc.TextOut(pt.x, pt.y, (*txit)->str.c_str(), (int)(*txit)->str.length());
 		}
 		else

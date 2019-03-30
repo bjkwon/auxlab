@@ -1,6 +1,6 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
@@ -8,7 +8,7 @@
 // Platform-independent (hopefully) 
 // 
 // Version: 1.5
-// Date: 3/15/2019
+// Date: 3/30/2019
 // 
 #include <sstream>
 #include <list>
@@ -231,7 +231,8 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 					else
 						*level.psigBase = tsig;
 				}
-				if (pbase->pgo) pbase->setgo.type = p->str;
+				if (pbase->pgo) 
+					pbase->setgo.type = p->str;
 			}
 		}
 		else

@@ -206,7 +206,6 @@
     <ClCompile Include="$(SrcPath)matOperations.cpp" />
     <ClCompile Include="$(SrcPath)psycon.tab.c" />
     <ClCompile Include="$(SrcPath)psycon.yy.c" />
-    <ClCompile Include="$(SrcPath)remez.cpp" />
     <ClCompile Include="$(SrcPath)Built_in_Funcs.cpp" />
   </ItemGroup>
   <ItemGroup>

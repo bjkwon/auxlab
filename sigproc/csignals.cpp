@@ -1,6 +1,6 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
@@ -8,7 +8,7 @@
 // Platform-independent (hopefully) 
 // 
 // Version: 1.5
-// Date: 3/15/2019
+// Date: 3/30/2019
 // 
 #ifdef _WINDOWS
 #ifndef _MFC_VER // If MFC is used.
@@ -2315,6 +2315,8 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	while ((int)synWinPos.back() + synHop <= outputLength + winLenHalf)
 		synWinPos.push_back((int)synWinPos.back() + synHop);
 	anaWinPos.interp1(anchpts, CSignal(synWinPos));
+	if (anaWinPos.nSamples != synWinPos.size())
+		throw "Internal error--anaWinPos and synWinPos have different lengths. CSignal::timestretch";
 	CSignal anaHop;
 	anaHop = anaWinPos;
 	anaHop.Diff();
@@ -4651,7 +4653,6 @@ bool CVar::IsGO()
 	if (fs == 3) return true;
 	if (strut.empty()) return false;
 	if (strut.find("type") == strut.end()) return false;
-	if (strut.find("pos") == strut.end()) return false;
 	if (strut.find("color") == strut.end()) return false;
 	if (strut.find("userdata") == strut.end()) return false;
 	if (strut.find("tag") == strut.end()) return false;

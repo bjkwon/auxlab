@@ -486,7 +486,8 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 
 	in->SetValue((double)(INT_PTR)in);
 	in->struts["parent"].push_back(this);
-	in->strut["markersize"] = CSignals(in->markersize);
+	in->strut["markersize"].SetValue(in->markersize);
+	in->strut["linestyle"] = in->GetLineStyleSymbol();
 	struts["children"].push_back(in);
 	strut["pos"].buf[0] = pos.x0;
 	strut["pos"].buf[1] = pos.y0;

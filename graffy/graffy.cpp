@@ -1,14 +1,14 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.498
-// Date: 2/1/2019
+// Version: 1.5
+// Date: 3/30/2019
 // 
 
 #include "PlotDlg.h"
@@ -789,7 +789,7 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<double> col, CSignals &sig)
 GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 {
 	sig.Reset(1);
-	sig.UpdateBuffer(3* (unsigned int)col.size());
+	sig.UpdateBuffer(3 * (unsigned int)col.size());
 	BYTE r, g, b;
 	int k = 0;
 	for (auto p : col)
@@ -808,6 +808,8 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS)
 {
+	if (!pctx->isThisAllowedPropGO(pctx->pgo, proptype, RHS))
+		throw CAstException(pctx, "Invalid parameter for the property", proptype);
 	HANDLE h = FindGObj(pctx->pgo);
 	string type = pctx->pgo->strut["type"].string();
 	if (type == "figure")
@@ -909,16 +911,24 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 			cline->markersize = (unsigned char)RHS.value();
 		else if (!strcmp(proptype, "color"))
 		{
-//			pctx->pgo->strut["color"] = COLORREF2CSignals(RHS.ToVector(), CSignals());
+			//			pctx->pgo->strut["color"] = COLORREF2CSignals(RHS.ToVector(), CSignals());
 			{	cline->color = 0;		*((char*)&cline->color + 3) = 'M'; 	}
 		}
 		else if (!strcmp(proptype, "width"))
 			cline->lineWidth = (unsigned char)RHS.value();
+		else if (!strcmp(proptype, "linestyle"))
+		{
+			LineStyle tp = cline->GetLineStyle();
+			if (tp == LineStyle_err) 
+				throw CAstException(pctx, "linestyle must be one of the following\nnone - : -- -. ..", "");
+			cline->lineStyle = tp;
+		}
 		else if (!strcmp(proptype, "visible"))
 			cline->visible = RHS.value();
 		else if (!strcmp(proptype, "xdata"))
 		{
-			if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) throw "RHS elements must be equal to existing points.";
+			if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
+				throw CAstException(pctx, "RHS elements must be equal to existing points", "");
 			cline->xdata = RHS;
 			cax->setxlim();
 			cax->xtick.tics1.clear();

@@ -171,6 +171,7 @@ void initLineList()
 	linestylelist["--"] = LineStyle_dash; //dashed line
 	linestylelist[":"] = LineStyle_dot; //dotted line
 	linestylelist["-."] = LineStyle_dashdot; //dash-dot line
+	linestylelist[".."] = LineStyle_dashdotdot; //dash-dot line
 
 	linemarkerlist[' '] = 0; // no marker
 	linemarkerlist['o'] = 'o'; // circle
@@ -751,20 +752,7 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
 		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
 		static char buf[256];
-		if (newFig)
-		{
-			//Why is this necessary? 12/6
-			//int figIDint;
-			//if (!strncmp(buf, "Figure ", 7))
-			//{
-			//	sscanf(buf + 7, "%d", &figIDint);
-			//	cfig->SetValue((double)figIDint);
-			//}
-			//else
-			//	cfig->SetString(buf);
-			// end of //Why is this necessary? 12/6
-		}
-		else
+		if (!newFig)
 			cfig = (CFigure*)cax->struts["parent"].front();
 	}
 	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }

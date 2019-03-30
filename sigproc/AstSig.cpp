@@ -1,6 +1,6 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
@@ -8,7 +8,7 @@
 // Platform-independent (hopefully) 
 // 
 // Version: 1.5
-// Date: 3/15/2019
+// Date: 3/30/2019
 // 
 #include <sstream>
 #include <list>
@@ -1614,6 +1614,8 @@ CVar &CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)
 	return Sig = tsig1;
 }
 
+#define MARKERCHARS "os.x+*d^v<>ph"
+
 bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, CVar &tsig)
 {
 	if (psig->strut.find(propname) == psig->strut.end())
@@ -1647,11 +1649,18 @@ bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, CVar &tsig)
 	else if (psig->strut["type"] == string("line"))
 	{
 		if (!strcmp(propname, "marker"))
-			return (tsig.GetType() == CSIG_STRING && tsig.length() == 1);
+		{
+			if (tsig.GetType() != CSIG_STRING || tsig.nSamples != 2)
+				return false;
+			char ch = (char)tsig.logbuf[0];
+			return strchr(MARKERCHARS, ch) != NULL;
+		}
 		if (!strcmp(propname, "markersize") || !strcmp(propname, "width"))
 			return (tsig.GetType() == CSIG_SCALAR);
 		if (!strcmp(propname, "xdata") || !strcmp(propname, "ydata"))
 			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO);
+		if (!strcmp(propname, "linestyle"))
+			return true; // check at SetGOProperties() in graffy.cpp
 	}
 	else if (psig->strut["type"] == string("text"))
 	{
@@ -2119,15 +2128,18 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		diggy.level.side = 'R';
 		lhs = pLast;
 		CVar res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
-		// Do this again....  f.pos(2) = 200
-		// Need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
-		// 11/4/2018
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
 			if (res.IsGO())
 				fpmsg.SetGoProperties(this, setgo.type, *diggy.level.psigBase);
 			else
+			{
+				// For example, f.pos(2) = 200
+				// we need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
+				// 3/30/3029
+				res = pgo->strut[setgo.type];
 				fpmsg.SetGoProperties(this, setgo.type, res);
+			}
 		}
 		Script = diggy.level.varname;
 	}

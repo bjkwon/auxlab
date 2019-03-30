@@ -530,6 +530,7 @@ public:
 	string str1, str2, outstr;
 	CAstException(const AstNode *p, CAstSig *pAst, const string s1);
 	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const string s2);
+	CAstException(CAstSig *pContext, const string s1, const string s2);
 	CAstException(const AstNode *p0, CAstSig *past, const char* msg);
 	string getErrMsg() const {return outstr;};
 	vector<CSignals *> out;
