@@ -2137,7 +2137,8 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 				// For example, f.pos(2) = 200
 				// we need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
 				// 3/30/3029
-				res = pgo->strut[setgo.type];
+				if (pnode->tail->type==N_ARGS)
+					res = pgo->strut[setgo.type];
 				fpmsg.SetGoProperties(this, setgo.type, res);
 			}
 		}
