@@ -284,10 +284,10 @@ POINT CPlotDlg::GetIndDisplayed(CAxes *pax)
 	return out;
 }
 
-vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax)
+vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline)
 {
 	unsigned int id(0), beginID, ind1, ind2 ;
-	int fs = pax->m_ln.front()->sig.GetFs();
+	int fs = thisline->sig.GetFs();
 	vector<POINT> draw;
 	if (pax->xlim[0]>=pax->xlim[1]) return draw;
 	CPoint pt;
@@ -321,7 +321,7 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax)
 
 	(p->tmark<=pax->xlim[0]*1000.) ?  beginID = (int)((pax->xlim[0]-p->tmark/1000.)*(double)fs +.5) : beginID = 0;
 	int estimatedNSamples = (int)((pax->xlim[1]-pax->xlim[0])*(double)fs);
-	if (!pax->hChild && pax->m_ln.front()->sig.GetType()==CSIG_VECTOR)  // For FFT, go to full drawing preemptively...
+	if (!pax->hChild && thisline->sig.GetType()==CSIG_VECTOR)  // For FFT, go to full drawing preemptively...
 		estimatedNSamples=0; 
 	double remnant(0);
 	int adder;
@@ -346,12 +346,12 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax)
 		}
 		if (miin!=1.e100) 
 		{
-			if (pax->m_ln.front()->xdata.nSamples) // for non-audio, plot(x,y) 
+			if (thisline->xdata.nSamples) // for non-audio, plot(x,y) 
 			{ // CHECK HOW THIS IS DIFFERENT FROM LINES 313-318
-				pt = pax->double2pixelpt(pax->m_ln.front()->xdata.buf[beginID], miin, NULL);
+				pt = pax->double2pixelpt(thisline->xdata.buf[beginID], miin, NULL);
 				pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
 				draw.push_back(pt);
-				pt = pax->double2pixelpt(pax->m_ln.front()->xdata.buf[beginID], maax, NULL);
+				pt = pax->double2pixelpt(thisline->xdata.buf[beginID], maax, NULL);
 				pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
 			}
 			else
@@ -399,20 +399,20 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax)
 		else
 		{
 			bool wasbull(0);
-			if (pax->m_ln.front()->xdata.nSamples==0) // plot(y) 
+			if (thisline->xdata.nSamples==0) // plot(y) 
 			{
 				wasbull=true;
-				pax->m_ln.front()->xdata.UpdateBuffer(p->nSamples);
-				for (unsigned int k=0; k<p->nSamples; k++) pax->m_ln.front()->xdata.buf[k] = (double)(k+1);
+				thisline->xdata.UpdateBuffer(p->nSamples);
+				for (unsigned int k=0; k<p->nSamples; k++) thisline->xdata.buf[k] = (double)(k+1);
 			}
 			else
 				ind2++; // The meaning of ind2 is different whether xdata is NULL or not, this line is necessary otherwise the last point is missing
 			for (id=ind1; id<ind2 && id-ind1<p->nSamples; id++)
 			{
 				if (p->bufBlockSize==1)
-					pt = pax->double2pixelpt(pax->m_ln.front()->xdata.buf[id], p->logbuf[id], NULL);
+					pt = pax->double2pixelpt(thisline->xdata.buf[id], p->logbuf[id], NULL);
 				else
-					pt = pax->double2pixelpt(pax->m_ln.front()->xdata.buf[id], p->buf[id], NULL);
+					pt = pax->double2pixelpt(thisline->xdata.buf[id], p->buf[id], NULL);
 				if (pt.y > pax->rcAx.bottom || pt.y < pax->rcAx.top)
 				{
 					if (p->buf[id] == std::numeric_limits<double>::infinity())
@@ -426,8 +426,8 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax)
 			}
 			//if (wasbull)
 			//{
-			//	delete[] pax->m_ln.front()->xdata;
-			//	pax->m_ln.front()->xdata=NULL;
+			//	delete[] thisline->xdata;
+			//	thisline->xdata=NULL;
 			//}
 		}
 	}
@@ -621,14 +621,14 @@ void CPlotDlg::OnPaint()
 							if (lyne->lineWidth == 0)
 								lyne->lineWidth = 1;
 							OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-							draw = makeDrawVector(p, pax);
+							draw = makeDrawVector(p, pax, lyne);
 							DrawMarker(dc, lyne, draw);
 							lyne->lineStyle = org;
 						}
 						ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
 						if (lyne->lineWidth > 0)
 						{
-							draw = makeDrawVector(p, pax);
+							draw = makeDrawVector(p, pax, lyne);
 							if (p->IsTimeSignal()) {
 								if (pt.y < pax->axRect.top)  pt.y = pax->axRect.top;
 								if (pt.y > pax->axRect.bottom) pt.y = pax->axRect.bottom;

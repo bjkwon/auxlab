@@ -192,7 +192,7 @@ public:
 	BOOL OnNCActivate(UINT state);
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
-	vector<POINT> makeDrawVector(CSignal *p, CAxes *pax);
+	vector<POINT> makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline);
 	void DrawMarker(CDC dc, CLine* mline, vector<POINT> draw);
 	POINT GetIndDisplayed(CAxes *pax);
 	RANGE_ID GetIndSelected(CAxes *pax);

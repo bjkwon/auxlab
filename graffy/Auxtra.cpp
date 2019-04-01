@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.498
-// Date: 2/1/2019
+// Version: 1.5
+// Date: 3/31/2019
 // 
 
 #include "graffy.h"
@@ -554,8 +554,9 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 	DWORD col(-1);
 	getLineSpecifier(past, pnode, plotOptions, linestyle, marker, col); // check if the format is valid and get the plot options if all are good.
 	double *xdata = NULL;
-	int xdataLen;
+	int xdataLen=-1;
 	int count = 1;
+	bool ignoreLast = false;
 	for (const AstNode *pp = p; ; count++)
 	{
 		if (count == 1)
@@ -563,11 +564,21 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 			if (past->pgo)		continue;
 		}
 		else
+		{
 			past->Compute(pp);
+			pp = p->next;
+		}
 		past->blockCell(pnode, past->Sig);
 		past->blockString(pnode, past->Sig);
 		past->blockScalar(pnode, past->Sig);
-		if (count == nArgs)
+		if (pp)
+		{//check whether pp is processed into a string...We need to know whether this is x-ploy or xy-plot
+		 //it should have survived error handling in _plot_line
+			CAstSig tp(past);
+			if (tp.Compute(pp).IsString())
+				ignoreLast = true;
+		}
+		if ((!p || ignoreLast) && !xdata) // NULL p: the last; NULL xdata: not xy plot
 		{
 			plotlines = PlotCSignals(pax, NULL, &past->Sig, col, marker, linestyle);
 			break;
@@ -575,7 +586,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 		else
 		{
 			if (xdata)
-			{
+			{ //xy-plot
 				if (past->Sig.nSamples != xdataLen)
 					throw CAstException(pnode, past, fnsigs, "The length of 1st and 2nd arguments must be the same.");
 				plotlines = PlotCSignals(pax, xdata, &past->Sig, col, marker, linestyle);
@@ -591,86 +602,31 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 	}
 }
 
-GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{// add a line object to the specified axes (if not specified, put it to gca)
- // it must follow one of the following formats
- // line (ax, vector1, vector2), line(vector1, vector2), line(ax, audio_sig), or line(audio_sig)
-	CAxes *cax(NULL);
-	CVar *pgo = past->pgo;
-	//reject if pgo is not axes
-	//allow pgo NULL (then go with gcf)
-	if (pgo && pgo->IsGO())
-	{
-		if (pgo->strut["type"].string() == "axes")
-			cax = (CAxes *)pgo;
-		else if (pgo->strut["type"].string() == "figure")
-		{
-			if (!pgo->struts["gca"].empty()) cax = (CAxes *)pgo->struts["gca"].front();
-			else cax = (CAxes *)AddAxes(pgo, .08, .18, .86, .72); // create axes with default pos
-		}
-		else
-			throw CAstException(p, past, fnsigs, "A graphic object not Figure nor Axes object given as the first argument.");
-	}
-	else
-	{
-		if (past->Sig.struts.find("gcf") == past->Sig.struts.end())
-			throw CAstException(p, past, fnsigs, "gcf (current graphic figure handle) is not found.");
-		CFigure *cfig = (CFigure *)past->Sig.struts["gcf"].front();
-		if (!cfig->struts["gca"].empty()) cax = (CAxes *)cfig->struts["gca"].front();
-		else cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72); // create axes with default pos
-	}
-
-	try {
-		CAstSig tp(past);
-		//Find gcf if pgo is NULL; if no gcf. create a figure
-		int nArgs = 1;
-		string plotOptions = "-";
-		int marker;
-		LineStyle linestyle;
-		DWORD col(-1);
-		for (const AstNode *pp(p); pp; pp = pp->next)
-		{
-			nArgs++;
-			if (!pp->next) // the last one
-			{
-				tp.Compute(pp);
-				if (tp.Sig.GetType() == CSIG_STRING)
-				{
-					plotOptions = tp.Sig.string();
-					nArgs--;
-				}
-			}
-		}
-		getLineSpecifier(past, pnode, plotOptions, linestyle, marker, col); // check if the format is valid and get the plot options if all are good.
-		__plot(cax, &tp, pnode, p, fnsigs, plotOptions, nArgs);
-	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
-	//make output...always via ptarray 10/28/2018
-	//do not use past->Sig any more. Just figure out from pgo
-	if (plotlines.size() > 1)
-	{
-		vector<INT_PTR> temp;
-		for (auto item : plotlines)
-			temp.push_back((INT_PTR)&item);
-		past->pgo = past->MakeGOContainer(temp); // This is how the figure handle (pointer) is sent back to AstSig
-	}
-	else if (plotlines.size() == 1)
-		past->pgo = (CVar*)plotlines.front(); // This is how the figure handle (pointer) is sent back to AstSig
-	else
-		throw CAstException(pnode, past, fnsigs, "Internal Error---plot failed.");
-	past->Sig = *(CVar*)plotlines.front(); // Just to show on the screen, not the real output.
-}
-
-GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
+	/* a plot call is one of the following---
+	plot(handle, x)
+	plot(handle, x, options)
+	plot(handle, x, y)
+	plot(handle, x, y, options)
+	plot(x)
+	plot(x, options)
+	plot(x, y)
+	plot(x, y, options)
+	handle is a handle to a figure or an axes object
+
+	The line function is the same except it always adds the line object.
+	*/
+	//First, check whether a graphic handle is given as the first param
+	CVar *pgo = past->pgo;
+	if (!past->Sig.IsGO())	pgo = NULL; // first param is not a graphic handle
+
 	static vector<CVar> args;
 	static GRAFWNDDLGSTRUCT in;
 	//args is the argument list not including the graphic handle.
 	mainast = past;
 	CAxes *cax = NULL;
 	CFigure *cfig = NULL;
-	CVar *pgo = past->pgo;
-	bool sigStructCall = pnode->type == N_STRUCT;
 	try {
 		CAstSig tp(past);
 		//Find gcf if pgo is NULL; if no gcf. create a figure
@@ -683,10 +639,7 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			{
 				tp.Compute(pp);
 				if (tp.Sig.GetType() == CSIG_STRING)
-				{
 					plotOptions = tp.Sig.string();
-					nArgs--;
-				}
 			}
 		}
 		bool newFig = false;
@@ -712,12 +665,16 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		{
 			if (pgo->strut["type"].string() == "figure")
 			{ // pgo is figure; check if it is named plot, if so mark it and go down; otherwise, set cax
-				if (pgo->GetFs()==2)
+				if (pgo->GetFs() == 2)
 					newFig = true;
-				else if (pgo->struts.find("gca") == pgo->struts.end())
-					cax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
 				else
-					cax = (CAxes *)FindGObj(pgo->struts["gca"].front());
+				{
+					auto itgca = pgo->struts.find("gca");
+					if (itgca == pgo->struts.end() || itgca->second.empty())
+						cax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
+					else
+						cax = (CAxes *)FindGObj(pgo->struts["gca"].front());
+				}
 			}
 			else if (pgo->strut["type"].string() == "axes")
 			{
@@ -738,17 +695,22 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 			cfig = (CFigure *)itgcf->second.front();
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 		}
-		//if there's existing line in the specified axes
-		if (!cfig && cax->strut["nextplot"] == string("replace"))
+		if (isPlot)
 		{
-			cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
-			cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
-			cax->xtick.tics1.clear();
-			cax->ytick.tics1.clear();
-			while (!cax->child.empty() )
-				deleteObj(cax->child.front());
+			//if there's existing line in the specified axes
+			if (!cfig && cax->strut["nextplot"] == string("replace"))
+			{
+				cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
+				cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
+				cax->xtick.tics1.clear();
+				cax->ytick.tics1.clear();
+				while (!cax->child.empty())
+					deleteObj(cax->child.front());
+			}
 		}
 		//Finally cax and cfig ready. Time to inspect input data
+		if (tp.Sig.GetType() == CSIG_STRING)
+			nArgs = -1;
 		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
 		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
 		static char buf[256];
@@ -781,6 +743,17 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 //	if (mutex==NULL) mutex = CreateMutex(0, 0, 0);
 //	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent")); 
 }
+
+GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	_plot_line(0, past, pnode, p, fnsigs);
+}
+
+GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	_plot_line(1, past, pnode, p, fnsigs);
+}
+
 
 GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
