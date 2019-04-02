@@ -552,7 +552,6 @@ assign2this: '=' exp_range
 			$$->child->child = newAstNode(T_REPLICA, @$);
 			$$->child->tail = $$->child->child->next = newAstNode(T_REPLICA, @$);
 			$$->tail = $$->child->next = $2;
-		$$->col = 111;
 		}
 		else if ($$->alt) 
 		{

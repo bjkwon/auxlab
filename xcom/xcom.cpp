@@ -1851,13 +1851,15 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	if (res & 1)
 		MoveWindow(hr, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
 
+	CAstSig::vecast.push_back(&cast);
+	cast.u.application = "xcom";
+//	mainSpace.RunTest("d:\\temp\\auxlabtest.txt", "", "d:\\temp\\reffile.txt");
 	SYSTEMTIME lt;
 	GetLocalTime(&lt);
 	sprintf(buffer, "//\t[%02d/%02d/%4d, %02d:%02d:%02d] AUXLAB %s begins------", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond, mainSpace.AppVersion);
 	vector<string> in;
 	in.push_back(buffer);
 	mainSpace.LogHistory(in);
-	CAstSig::vecast.push_back(&cast);
 
 	cast.astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &UnloadModule, &ValidateFig, &SetGOProperties);
 	init_aux_reserves();
@@ -1868,10 +1870,126 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	concurinf.dwSize = 25;
 	SetConsoleCursorInfo(hStdout, &concurinf);
 
-	cast.u.application = "xcom";
 
 	mainSpace.console();
 
 	closeXcom(mainSpace.AppPath);
 	return 1;
 }
+
+#ifdef _DEBUG
+#include <fstream>
+
+int xcom::RunTestType(string &line)
+{
+	//get thd first word
+	size_t pos = line.find(' ');
+	string cmd = line.substr(0, pos);
+	line = line.substr(cmd.size());
+	if (cmd == "vector")		return CSIG_VECTOR;
+	if (cmd == "matrix")		return CSIG_MATRIX;
+	if (cmd == "audio")		return CSIG_AUDIO;
+	if (cmd == "cell")		return CSIG_CELL;
+	if (cmd == "class")		return CSIG_STRUCT;
+	if (cmd == "scalar")		return CSIG_SCALAR;
+	if (cmd == "string")		return CSIG_STRING;
+	if (cmd == "tseq")		return CSIG_TSERIES;
+	return -1;
+}
+
+int xcom::RunTestCountElement(int type, string &rest, int &col)
+{
+	istringstream iss(rest);
+	col = -1;
+	int m(-1);
+	switch (type)
+	{
+	case CSIG_SCALAR:
+		return 0;
+	case CSIG_VECTOR:
+	case CSIG_AUDIO:
+	case CSIG_CELL:
+		iss >> m;
+		return m;
+	case CSIG_MATRIX:
+		iss >> m >> col;
+		return m;
+	default:
+		return -1;
+	}
+}
+int xcom::RunTestCheckElements(const CVar &generated, const string &expected)
+{ // only for CSIG_SCALAR, CSIG_VECTOR, CSIG_MATRIX
+	istringstream iss(expected);
+	double val;
+	for (unsigned int k = 0; k < generated.nSamples; k++)
+	{
+		iss >> val;
+		if (fabs(val - generated.buf[k]) > 1.e-3) return 0;
+	}
+	return 1;
+}
+int xcom::RunTest(const char *infile, const char *intended_result_file, const char *reportfile)
+{
+	ifstream file1, filer;
+	ofstream file2;
+	ostringstream oss;
+	string cmd, ref, out;
+	file1.open(infile);
+	filer.open(reportfile);
+	size_t pos;
+	char errstr[256];
+	int lineID = 1;
+	CAstSig *past = CAstSig::vecast.front();
+	int type, nsamples, ncols;
+	try {
+		while (getline(file1, cmd))
+		{
+			computeandshow(cmd.c_str());
+			while (1)
+			{
+				getline(filer, ref);
+				if (ref.find("//") == string::npos) break;
+			}
+			type = RunTestType(ref);
+			if (type != past->Sig.GetType())
+			{
+				oss << "Unexpected type error in line " << lineID;
+				throw oss.str().c_str();
+			}
+			if (type == CSIG_SCALAR || type == CSIG_VECTOR || type == CSIG_MATRIX || type == CSIG_CELL)
+			{
+				nsamples = RunTestCountElement(type, ref, ncols);
+				if (nsamples != past->Sig.nSamples)
+				{
+					oss << "nSamples not the same in line " << lineID;
+					throw oss.str().c_str();
+				}
+			}
+			if (type == CSIG_SCALAR || type == CSIG_VECTOR || type == CSIG_MATRIX)
+			{
+				const string rest = ref.substr(ref.find('\t'));
+				pos = RunTestCheckElements(past->Sig, rest);
+			}
+			else if (type == CSIG_AUDIO)
+			{
+				past->Sig.PlayArray(errstr);
+				CSignals tp;
+				if (!tp.Wavread(ref.c_str(), errstr))
+				{
+					oss << "audio file" << ref << " not found line " << lineID;
+					throw oss.str().c_str();
+				}
+				tp.PlayArray(errstr);
+			}
+		}
+	}
+	catch (const char *emsg)
+	{
+		printf("%s\n", emsg);
+	}
+	file1.close();
+	filer.close();
+	return 1;
+}
+#endif

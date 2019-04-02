@@ -1642,7 +1642,7 @@ bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, CVar &tsig)
 	else if (psig->strut["type"] == string("axis"))
 	{ 
 		if (!strcmp(propname, "lim"))
-			return (tsig.GetType() == CSIG_VECTOR && tsig.nSamples == 2);
+			return ((tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO) && tsig.nSamples == 2);
 		if (!strcmp(propname, "tick"))
 			return (tsig.GetType() == CSIG_VECTOR);
 	}
@@ -2136,7 +2136,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 			{
 				// For example, f.pos(2) = 200
 				// we need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
-				// 3/30/3029
+				// 3/30/2019
 				if (pnode->tail->type==N_ARGS)
 					res = pgo->strut[setgo.type];
 				fpmsg.SetGoProperties(this, setgo.type, res);

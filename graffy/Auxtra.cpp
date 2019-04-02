@@ -578,7 +578,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 			if (tp.Compute(pp).IsString())
 				ignoreLast = true;
 		}
-		if ((!p || ignoreLast) && !xdata) // NULL p: the last; NULL xdata: not xy plot
+		if ((!pp || ignoreLast) && !xdata) // NULL p: the last; NULL xdata: not xy plot
 		{
 			plotlines = PlotCSignals(pax, NULL, &past->Sig, col, marker, linestyle);
 			break;

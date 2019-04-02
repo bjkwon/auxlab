@@ -79,6 +79,12 @@ public:
 	static ostringstream outstream_tseq(CTimeSeries *psig, bool unit);
 	static ostringstream outstream_vector(CSignal*pvar, unsigned int id0, int offset);
 	static ostringstream outstream_value(double val, int offset);
+#ifdef _DEBUG
+	int RunTest(const char *infile, const char *intended_result_file, const char *reportfile);
+	int RunTestType(string &line);
+	int RunTestCountElement(int type, string &rest, int &col);
+	int xcom::RunTestCheckElements(const CVar &generated, const string &expected);
+#endif
 
 
 private:

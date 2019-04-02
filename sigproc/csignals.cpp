@@ -2243,15 +2243,15 @@ CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 		p->tmark /= dur();
 	timestretch(id0, len);
 	double ratio_mean;
-	for (CTimeSeries *p = pratio; p; p = p->chain)
-		p->SetValue(1. / p->value());
+//	for (CTimeSeries *p = pratio; p; p = p->chain)
+//		p->SetValue(1. / p->value());
 	for (CTimeSeries *p = pratio, *p2 = &copy_ratio; p && p->chain; p = p->chain, p2=p2->chain)
 	{
 		if (p->value() == p->chain->value())
-			ratio_mean = p->value();
+			ratio_mean = 1. / p->value();
 		else
-			ratio_mean = (2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
-		int _fs = (int)(fs / ratio_mean + .5);
+			ratio_mean = 1. / (2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
+		int _fs = (int)(fs * ratio_mean + .5);
 		p->tmark = dur() / _fs * fs * p2->tmark;
 		p->SetFs(_fs);
 	}
@@ -2259,7 +2259,7 @@ CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 	{
 		if (!p->chain) // last one
 		{
-			int _fs = (int)(fs / p->value() + .5);
+			int _fs = (int)(fs * p->value() + .5);
 			p->tmark = dur() / _fs * fs * p2->tmark;
 		}
 	}
@@ -2939,8 +2939,8 @@ CTimeSeries * CTimeSeries::AtTimePoint(double timept)
 CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 {
 	//This doesn't mean real "resampling" because this does not change fs.
-	//pratio > 1 means generate more samples (interpolation)-->longer duration and lower pitch
-	//pratio < 1 means downsample--> shorter duration and higher pitch
+	//pratio < 1 means generate more samples (interpolation)-->longer duration and lower pitch
+	//pratio > 1 means downsample--> shorter duration and higher pitch
 	if (len == 0) len = nSamples;
 	CSignals *pratio = (CSignals *)parg;
 	char errstr[256] = {};
@@ -2952,7 +2952,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 	for (unsigned int k = 0; k < nSamples; k++) conv.data_in[k] = (float)buf[k];
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
-		conv.src_ratio_initial = conv.src_ratio = pratio->value();
+		conv.src_ratio_initial = conv.src_ratio = 1. / pratio->value();
 		conv.input_frames = nSamples;
 		conv.output_frames = (long)(nSamples * conv.src_ratio + .5);
 		conv.data_out = data_out = new float[conv.output_frames];
@@ -2995,10 +2995,10 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 		{
 			unsigned int i1, i2;
 			if (p->value() == p->chain->value())
-				conv.src_ratio_mean = p->value();
+				conv.src_ratio_mean = 1./p->value();
 			else
-				conv.src_ratio_mean = (2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
-			int _fs = (int)(fs * conv.src_ratio_mean + .5);
+				conv.src_ratio_mean = 1./(2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
+			int _fs = (int)(fs / conv.src_ratio_mean + .5);
 			//current p covers from p->tmark to p->chain->tmark
 			if (p->fs == fs)
 			{
@@ -3012,7 +3012,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 			}
 			unsigned int nSampleBlock = i2 - i1;
 			conv.input_frames = nSampleBlock;
-			conv.output_frames = (long)(nSampleBlock * conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
+			conv.output_frames = (long)(nSampleBlock / conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
 			if (conv.output_frames > lastSize)
 			{
 				delete[] data_out;
@@ -3021,7 +3021,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 			if (nSamples - (lastPt + nSampleBlock) < 100)
 				conv.end_of_input = 1;
 			conv.data_out = data_out;
-			conv.src_ratio = p->chain->value();
+			conv.src_ratio = 1./p->chain->value();
 			errcode = src_process(handle, &conv);
 			if (errcode)
 			{
@@ -4275,12 +4275,12 @@ CSignals & CSignals::MFFN(double(*fn)(double, double), complex<double>(*cfn)(com
 }
 #ifndef NO_SF
 
+//No error handling--Don't use this constructor unless you are really sure it can't go wrong
 CSignals::CSignals(const char* wavname)
 :next(NULL)
 {
 	char errstr[256];
 	Wavread(wavname, errstr);
-
 }
 
 int CSignals::Wavread(const char *wavname, char *errstr)

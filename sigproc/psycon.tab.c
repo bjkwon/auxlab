@@ -3227,19 +3227,19 @@ yyreduce:
 			(yyval.pnode)->child->child = newAstNode(T_REPLICA, (yyloc));
 			(yyval.pnode)->child->tail = (yyval.pnode)->child->child->next = newAstNode(T_REPLICA, (yyloc));
 			(yyval.pnode)->tail = (yyval.pnode)->child->next = (yyvsp[(2) - (2)].pnode);
-		(yyval.pnode)->col = 111;
+			(yyval.pnode)->col = 8234;
 		}
 		else if ((yyval.pnode)->alt) 
 		{
 			(yyval.pnode)->alt->child = newAstNode(T_REPLICA, (yylsp[(2) - (2)]));
 			(yyval.pnode)->alt->tail = (yyval.pnode)->alt->child->next = (yyvsp[(2) - (2)].pnode);
-		(yyval.pnode)->col = 222;
+			(yyval.pnode)->col = 444;
 		}
 		else
 		{
 			(yyval.pnode)->child = newAstNode(T_REPLICA, (yylsp[(2) - (2)]));
 			(yyval.pnode)->tail = (yyval.pnode)->child->next = (yyvsp[(2) - (2)].pnode);
-		(yyval.pnode)->col = 333;
+			(yyval.pnode)->col = 2344;
 		}
 	;}
     break;

@@ -246,23 +246,22 @@ LRESULT CHistDlg::ProcessCustomDraw (NMHDR *lParam)
 
 void CHistDlg::FillupHist(vector<string> in)
 {
-	char buf[256];
 	int width[]={400, };
 	LRESULT res;
+	int cum = 0;
 	for(int k = 0; k<1; k++)
 	{
 		LvCol.cx=width[k];
 		res = ::SendMessage(hList, LVM_INSERTCOLUMN,k,(LPARAM)&LvCol); 
 	}
 	LvItem.iItem=0;
-	LvItem.iSubItem=0; //First item (InsertITEM)
-	for (unsigned int k=0; k<in.size(); k++)
+	LvItem.iSubItem=0;
+	//display up to 2048 previous commands
+	for (vector<string>::reverse_iterator r = in.rbegin(); r<in.rend() && cum<2048; r++)
 	{
-		if (in[k].find("//")!=0)
+		if ((*r).find("//")!=0)
 		{
-			strcpy(buf,in[k].c_str());
-			LvItem.pszText=buf;
-			LvItem.iItem=k;
+			LvItem.pszText=(char*)(*r).c_str();
 			res = SendDlgItemMessage(IDC_LISTHIST,LVM_INSERTITEM,0,(LPARAM)&LvItem);
 		}
 	}

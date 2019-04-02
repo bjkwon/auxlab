@@ -29,6 +29,7 @@
 #define CSIG_HDLARRAY	12
 #define CSIG_HANDLE		15
 #define CSIG_VECTOR		17
+#define CSIG_MATRIX		19
 #define CSIG_AUDIO		65
 #define CSIG_TSERIES	81 // Think about this... improve it... 5/24/2018
 
