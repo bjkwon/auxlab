@@ -284,12 +284,12 @@ POINT CPlotDlg::GetIndDisplayed(CAxes *pax)
 	return out;
 }
 
-vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline)
+vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC)
 {
-	unsigned int id(0), beginID, ind1, ind2 ;
+	unsigned int id(0), beginID=0, ind1, ind2 ;
 	int fs = thisline->sig.GetFs();
-	vector<POINT> draw;
-	if (pax->xlim[0]>=pax->xlim[1]) return draw;
+	vector<POINT> out;
+	if (pax->xlim[0]>=pax->xlim[1]) return out;
 	CPoint pt;
 	double xPerPixel = (pax->xlim[1]-pax->xlim[0]) / (double)pax->rcAx.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
 	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
@@ -302,11 +302,14 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline)
 	if (tseries)
 	{ // if p is one of multiple chains, ind1 and ind2 need to be adjusted to reflect indices of the current p.
 		nSamplesPerPixel = xPerPixel * fs; 
-		if (p->tmark>=pax->xlim[1]*1000. || p->endt()<=pax->xlim[0]*1000.) return draw;//return empty
-		inttmark = (int)(p->tmark*fs/1000.+.5);
+	//	if (p->tmark>=pax->xlim[1]*1000. || p->endt()<=pax->xlim[0]*1000.) return out;//return empty
+		double t1 = pax->pix2timepoint(paintRC.left);
+		double t2 = pax->pix2timepoint(paintRC.right);
+//		t1 = -1000; t2 = 202020;
+		inttmark = (int)(max(t1,p->tmark/1000.)*fs+.5);
+	//	endttmark = (int)(min(t2,p->endt() / 1000.) *fs + .5);
 		ind1 = max(ind1, inttmark);
-		endttmark = (int)((p->endt()/1000)*fs+.5);
-		ind2 = min(ind2, endttmark);
+	//	ind2 = min(ind2, endttmark);
 	}
 	else
 	{
@@ -318,25 +321,36 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline)
 	double multiplier = 2.;
 	double maax, miin;
 	int nPixels = pax->rcAx.right-pax->rcAx.left+1; // pixel count to cover the plot
-
-	(p->tmark<=pax->xlim[0]*1000.) ?  beginID = (int)((pax->xlim[0]-p->tmark/1000.)*(double)fs +.5) : beginID = 0;
+	// beginID is the first index of buf in the range
+	double tmarkms = p->tmark / 1000.;
+	if (pax->xlim[0]> tmarkms)
+		beginID = (int)((pax->xlim[0] - tmarkms)*fs + .5);
 	int estimatedNSamples = (int)((pax->xlim[1]-pax->xlim[0])*(double)fs);
-	if (!pax->hChild && thisline->sig.GetType()==CSIG_VECTOR)  // For FFT, go to full drawing preemptively...
+	if (!pax->hChild && thisline->sig.GetType()==CSIG_VECTOR)  // For FFT, go to full outing preemptively...
 		estimatedNSamples=0; 
-	double remnant(0);
-	int adder;
-	if (estimatedNSamples>multiplier*nPixels) // Quick drawing // condition: the whole nSamples points are drawn by nPixels points in pax->rcAx
+	double adder=0;
+	if (estimatedNSamples>multiplier*nPixels) // Quick outing // condition: the whole nSamples points are outn by nPixels points in pax->rcAx
 	{
+		unsigned int chunkID0 = beginID;
+		unsigned int chunkID1 = beginID + (unsigned int)nSamplesPerPixel;
+		const double remnant = nSamplesPerPixel - (int)nSamplesPerPixel;
+		pt.x = pax->rcAx.left;
 		do {
-		remnant += nSamplesPerPixel - (int)(nSamplesPerPixel);
-		if (remnant>1) {adder = 1; remnant -= 1.;}
-		else adder = 0;
-		id = min(beginID+(int)(nSamplesPerPixel)+adder, p->nSamples);
+			if (chunkID0 > p->nSamples - 1)
+				break;
+			if (chunkID1 > p->nSamples-1) chunkID1 = p->nSamples - 1;
+			int hei = pax->rcAx.Height();
 		if (!p->IsLogical())
 		{
-			body temp(p->buf+beginID, id-beginID);
-			miin = temp._min();
-			maax = temp._max();
+			const pair<double*, double*> pr = minmax_element(p->buf + chunkID0, p->buf + chunkID1);
+			double dtp = pax->rcAx.bottom - pax->rcAx.Height() * (*pr.first - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
+			pt.y = min(max((int)(dtp + .5), pax->rcAx.top), pax->rcAx.bottom);
+			out.push_back(pt);
+			int lastpty = pt.y;
+			dtp = pax->rcAx.bottom - pax->rcAx.Height() * (*pr.second - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
+			pt.y = max((int)(dtp + .5), pax->rcAx.top);
+			if (pt.y != lastpty)
+				out.push_back(pt);
 		}
 		else
 		{
@@ -344,57 +358,64 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline)
 			miin = temp._min();
 			maax = temp._max();
 		}
+		miin = 1010;
 		if (miin!=1.e100) 
 		{
-			if (thisline->xdata.nSamples) // for non-audio, plot(x,y) 
-			{ // CHECK HOW THIS IS DIFFERENT FROM LINES 313-318
-				pt = pax->double2pixelpt(thisline->xdata.buf[beginID], miin, NULL);
-				pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
-				draw.push_back(pt);
-				pt = pax->double2pixelpt(thisline->xdata.buf[beginID], maax, NULL);
-				pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
-			}
-			else
-			{
-				if (tseries)  // for audio, plot(x)
-				{
-					pt = pax->double2pixelpt((double)beginID/(double)fs+p->tmark/1000., miin, NULL);
-					pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
-					draw.push_back(pt);
-					pt = pax->double2pixelpt((double)beginID/(double)fs+p->tmark/1000., maax, NULL);
-					pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
-				}
-				else // for non-audio, plot(x)
-				{
-					double xval = pax->xlim[0] + (double) (beginID-ind1) / (ind2-ind1) * (pax->xlim[1]-pax->xlim[0]);
-					pt = pax->double2pixelpt((double)xval, miin, NULL);
-					pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
-					draw.push_back(pt);
-					pt = pax->double2pixelpt((double)xval, maax, NULL);
-					pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
-				}
-			}
-			if (p->IsLogical() && maax>0.) 
-				pt.y--; // to show inside the axis box
-			draw.push_back(pt);
+			//if (thisline->xdata.nSamples) // for non-audio, plot(x,y) 
+			//{ // CHECK HOW THIS IS DIFFERENT FROM LINES 313-318
+			//	pt = pax->double2pixelpt(thisline->xdata.buf[beginID], miin, NULL);
+			//	pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
+			//	out.push_back(pt);
+			//	pt = pax->double2pixelpt(thisline->xdata.buf[beginID], maax, NULL);
+			//	pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
+			//}
+			//else
+			//{
+			//	if (tseries)  // for audio, plot(x)
+			//	{
+			//		pt.x++;
+			//		pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
+			//		out.push_back(pt);
+			//		pt = pax->double2pixelpt((double)ind1 /(double)fs+p->tmark/1000., maax, NULL);
+			//		pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
+			//	}
+			//	else // for non-audio, plot(x)
+			//	{
+			//		double xval = pax->xlim[0] + (double) (beginID-ind1) / (ind2-ind1) * (pax->xlim[1]-pax->xlim[0]);
+			//		pt = pax->double2pixelpt((double)xval, miin, NULL);
+			//		pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
+			//		out.push_back(pt);
+			//		pt = pax->double2pixelpt((double)xval, maax, NULL);
+			//		pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
+			//	}
+			//}
+			//if (p->IsLogical() && maax>0.) 
+			//	pt.y--; // to show inside the axis box
+			//out.push_back(pt);
+			adder += remnant;
+			chunkID0 = chunkID1;
+			chunkID1 += (int)nSamplesPerPixel;
+			if (pt.x++ == pax->rcAx.right - 1)
+				break;
+			if (adder > 1) { chunkID1++; adder--; }
 		}
-		beginID  = id; 
-	} while (id<min(p->nSamples, ind2));
+		//beginID  = id; 
+	} while (1);
 	}
-	else // Full drawing 
+	else // Full outing 
 	{
 		if (tseries)
 			if (p->IsLogical())
 				for (unsigned int k=ind1; k<ind2; k++)
 				{
 					pt = pax->double2pixelpt((double)k/fs, (double)p->logbuf[k-inttmark], NULL);
-					draw.push_back(pt);
+					out.push_back(pt);
 				}
 			else
 				for (unsigned int k=ind1; k<ind2; k++)
 				{
 					pt = pax->double2pixelpt((double)k/fs, p->buf[k-inttmark], NULL);
-					draw.push_back(pt);
+					out.push_back(pt);
 				}
 		else
 		{
@@ -422,7 +443,7 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline)
 					else
 						pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
 				}
-				draw.push_back(pt);
+				out.push_back(pt);
 			}
 			//if (wasbull)
 			//{
@@ -431,7 +452,7 @@ vector<POINT> CPlotDlg::makeDrawVector(CSignal *p, CAxes *pax, CLine *thisline)
 			//}
 		}
 	}
-	return draw;
+	return out;
 }
 
 CSignals CPlotDlg::GetAudioSignal(CAxes* pax, bool makechainless)
@@ -584,8 +605,6 @@ void CPlotDlg::OnPaint()
 					auto anSamples = p->nSamples;
 					auto atuck = p->nGroups;
 					auto atmark = p->tmark;
-					double *abuf = new double[p->Len() * sizeof(double)]; // real assumed... check complex 10/30/2018
-					memcpy(abuf, p->buf, p->Len() * sizeof(double));
 					GetWindowText(buf, sizeof(buf));
 					BYTE clcode;
 					vector<DWORD> kolor;
@@ -621,14 +640,14 @@ void CPlotDlg::OnPaint()
 							if (lyne->lineWidth == 0)
 								lyne->lineWidth = 1;
 							OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-							draw = makeDrawVector(p, pax, lyne);
+							draw = makeDrawVector(p, pax, lyne, ps.rcPaint);
 							DrawMarker(dc, lyne, draw);
 							lyne->lineStyle = org;
 						}
 						ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
 						if (lyne->lineWidth > 0)
 						{
-							draw = makeDrawVector(p, pax, lyne);
+							draw = makeDrawVector(p, pax, lyne, ps.rcPaint);
 							if (p->IsTimeSignal()) {
 								if (pt.y < pax->axRect.top)  pt.y = pax->axRect.top;
 								if (pt.y > pax->axRect.bottom) pt.y = pax->axRect.bottom;
@@ -657,7 +676,6 @@ void CPlotDlg::OnPaint()
 							p->nGroups = atuck;
 							p->tmark = atmark;
 							p->nSamples = anSamples;
-							memcpy(p->buf, abuf, p->Len() * sizeof(double));
 							if (ppen)
 							{
 								dc.SelectObject(pPenOld);
@@ -665,7 +683,6 @@ void CPlotDlg::OnPaint()
 							}
 						}
 					}
-					delete[] abuf;
 				}
 			} 
 			if (draw.empty())

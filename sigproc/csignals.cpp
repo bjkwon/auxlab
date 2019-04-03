@@ -2314,9 +2314,8 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	synWinPos.reserve(outputLength * 2);
 	while ((int)synWinPos.back() + synHop <= outputLength + winLenHalf)
 		synWinPos.push_back((int)synWinPos.back() + synHop);
+	if (synWinPos.back() > outputLength) synWinPos.back() = outputLength;
 	anaWinPos.interp1(anchpts, CSignal(synWinPos));
-	if (anaWinPos.nSamples != synWinPos.size())
-		throw "Internal error--anaWinPos and synWinPos have different lengths. CSignal::timestretch";
 	CSignal anaHop;
 	anaHop = anaWinPos;
 	anaHop.Diff();

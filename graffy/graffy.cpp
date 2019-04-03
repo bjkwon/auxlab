@@ -806,7 +806,7 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 	return sig;
 }
 
-GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS)
+GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS, bool invalidateScreen)
 {
 	if (!pctx->isThisAllowedPropGO(pctx->pgo, proptype, RHS))
 		throw CAstException(pctx, "Invalid parameter for the property", proptype);
@@ -827,7 +827,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 		else if (!strcmp(proptype, "color"))
 		{
 			cfig->color = CSignals2COLORREF(RHS);
-			cfig->m_dlg->InvalidateRect(NULL);
+	//		cfig->m_dlg->InvalidateRect(NULL);
 		}
 		else if (!strcmp(proptype, "visible"))
 		{
@@ -837,30 +837,32 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 	}
 	else if (type == "axes")
 	{
+		CRect rt;
 		CAxes *cax = static_cast<CAxes *>(h);
 		CFigure *cfig = (CFigure *)cax->hPar;
 		if (!strcmp(proptype, "pos"))
 		{
 			CVar axpos = pctx->pgo->strut["pos"];
 			cax->setPos(axpos.buf[0], axpos.buf[1], axpos.buf[2], axpos.buf[3]);
+			cfig->m_dlg->GetWindowRect(rt);
 		}
 		else if (!strcmp(proptype, "color"))
 		{
 			cax->color = CSignals2COLORREF(RHS);
 			cfig->m_dlg->InvalidateRect(cax->rcAx);
+			rt = cax->rcAx;
 		}
 		else if (!strcmp(proptype, "nextplot"))
 		{
-			//don't do anything, just return;
+			//do this later 4/2/2019
 			return;
 		}
-		else if (!strcmp(proptype, "x"))
+		else
 		{
+			cfig->m_dlg->GetWindowRect(rt);
+			rt.MoveToXY(CPoint(0, 0));
 		}
-		CRect rt;
-		cfig->m_dlg->GetWindowRect(rt);
-		rt.MoveToXY(CPoint(0, 0));
-		cfig->m_dlg->InvalidateRect(rt);
+		if (invalidateScreen)			cfig->m_dlg->InvalidateRect(rt);
 	}
 	else if (type == "axis")
 	{
@@ -896,7 +898,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 			}
 		}
 		pctx->pgo->strut["auto"] = onoff;
-		cfig->m_dlg->InvalidateRect(NULL);
+		if (invalidateScreen) 	cfig->m_dlg->InvalidateRect(NULL);
 	}
 	else if (type == "line")
 	{
@@ -935,8 +937,11 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 		}
 		else if (!strcmp(proptype, "ydata"))
 			cline->sig = RHS;
-		cfig->m_dlg->InvalidateRect(cax->rcAx); // invalidated rect should also include rects of xtick and ytick .... do it!
-		cfig->m_dlg->InvalidateRect(cax->xtick.rt); // hhhhm... this is not working.... 8/3/2018 7:40pm
+		if (invalidateScreen)
+		{
+			cfig->m_dlg->InvalidateRect(cax->rcAx); // invalidated rect should also include rects of xtick and ytick .... do it!
+			cfig->m_dlg->InvalidateRect(cax->xtick.rt); // hhhhm... this is not working.... 8/3/2018 7:40pm
+		}
 	}
 	else if (type == "text")
 	{
@@ -955,7 +960,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS
 			ctxt->color = CSignals2COLORREF(RHS);
 		else if (!strcmp(proptype, "visible"))
 			ctxt->visible = RHS.logbuf[0];
-		cfig->m_dlg->InvalidateRect(NULL);
+		if (invalidateScreen) 	cfig->m_dlg->InvalidateRect(NULL);
 	}
 }
 

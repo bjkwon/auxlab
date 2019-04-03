@@ -66,7 +66,7 @@ void dummy_fun6a(const char* pt)
 {
 }
 
-void dummy_fun7(CAstSig *a, const char *b, CVar c)
+void dummy_fun7(CAstSig *a, const char *b, CVar c, bool d)
 {
 }
 
@@ -464,7 +464,7 @@ void CAstSig::hold_at_break_point(const AstNode *pnode)
 	}
 }
 
-void CAstSig::astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6)(const char*), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar))
+void CAstSig::astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6)(const char*), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar, bool))
 {
 	fpmsg.UpdateDebuggerGUI = fp1;
 	fpmsg.HoldAtBreakPoint = fp2;
@@ -2131,7 +2131,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
 			if (res.IsGO())
-				fpmsg.SetGoProperties(this, setgo.type, *diggy.level.psigBase);
+				fpmsg.SetGoProperties(this, setgo.type, *diggy.level.psigBase, pAst->type != N_BLOCK);
 			else
 			{
 				// For example, f.pos(2) = 200
@@ -2139,7 +2139,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 				// 3/30/2019
 				if (pnode->tail->type==N_ARGS)
 					res = pgo->strut[setgo.type];
-				fpmsg.SetGoProperties(this, setgo.type, res);
+				fpmsg.SetGoProperties(this, setgo.type, res, pAst->type!=N_BLOCK);
 			}
 		}
 		Script = diggy.level.varname;

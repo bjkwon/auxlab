@@ -276,7 +276,7 @@ void On_F2(HWND hDlg, CAstSig f2sig)
 {
 	try {
 		string emsg;
-		f2sig.SetNewScript(emsg, "f3_channel_stereo_mono");
+		f2sig.SetNewScript(emsg, "f2_channel_stereo_mono");
 		f2sig.Compute();
 	}
 	catch (const char *_errmsg) {

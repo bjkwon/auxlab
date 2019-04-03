@@ -1870,6 +1870,11 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	concurinf.dwSize = 25;
 	SetConsoleCursorInfo(hStdout, &concurinf);
 
+	double ddarr[] = { 1, 3, 4, 10, 2, -2, 5, 7, 3, 10 };
+
+	vector<double> vv(ddarr, ddarr+ 10);
+	double mss = *max_element(vv.begin(), vv.end());
+	double mss2 = *min_element(vv.begin(), vv.end());
 
 	mainSpace.console();
 

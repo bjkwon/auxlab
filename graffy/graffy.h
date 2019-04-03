@@ -323,7 +323,7 @@ GRAPHY_EXPORT HWND GetHWND_PlotDlg2(HANDLE hFig);
 GRAPHY_EXPORT void SetHWND_GRAFFY(HWND hAppl);
 GRAPHY_EXPORT HWND GetHWND_GRAFFY ();
 GRAPHY_EXPORT void deleteObj (HANDLE h);
-GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS);
+GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS, bool invalidateScreen);
 GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B);
 GRAPHY_EXPORT DWORD CSignals2COLORREF(CSignals col);
 GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig);

@@ -621,7 +621,7 @@ public:
 	void(*Back2BaseScope)(int);
 	void(*UnloadModule)(const char*);
 	void(*ValidateFig)(const char*);
-	void(*SetGoProperties)(CAstSig *past, const char *type, CVar RHS);
+	void(*SetGoProperties)(CAstSig *past, const char *type, CVar RHS, bool invalidateScreen);
 	CFuncPointers();
 	virtual ~CFuncPointers() {};
 	CFuncPointers& operator=(const CFuncPointers& rhs);
@@ -741,7 +741,7 @@ public:
 	CVar &pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout = NULL);
 	CVar &TSeq(const AstNode *pnode, AstNode *p);
 	bool isThisAllowedPropGO(CVar *psig, const char *type, CVar &tsig);
-	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6)(const char*), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar));
+	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6)(const char*), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar, bool));
 	bool IsThisBreakpoint(const AstNode *pnode);
 	void checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg = "");
 	void checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg="");
