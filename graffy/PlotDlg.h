@@ -192,8 +192,10 @@ public:
 	BOOL OnNCActivate(UINT state);
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
-	vector<POINT> makeDrawVector(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
-	void DrawMarker(CDC dc, CLine* mline, vector<POINT> draw);
+	int makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint);
+	int makeDrawVector(POINT* out, const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
+	int estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
+	void DrawMarker(CDC dc, CLine* mline, POINT *draw, int nDraws);
 	POINT GetIndDisplayed(CAxes *pax);
 	RANGE_ID GetIndSelected(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);

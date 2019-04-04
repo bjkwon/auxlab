@@ -16,7 +16,7 @@
 #define ROUND(dub) (int)(dub+.5)
 #define PI 3.141592
 
-void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
+void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 {
 	if (!mline) return;
 	int radius(mline->markersize);
@@ -36,7 +36,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 	case 'o':
 		hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(),hBr);
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			circleRt.SetRect(CPoint(draw[k])+CPoint(-radius,-radius), CPoint(draw[k])+CPoint(radius,radius));
 			dc.Ellipse(circleRt);
@@ -44,7 +44,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(),hOrigBrush);
 		break;
 	case 's':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			mark.clear();
 			pt.x = draw[k].x - radius;
@@ -67,14 +67,14 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		break;
 	case '.':
 		radius = 1;
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			circleRt.SetRect(CPoint(draw[k])+CPoint(-1,-radius), CPoint(draw[k])+CPoint(radius,radius));
 			dc.Ellipse(circleRt);
 		}
 		break;	
 	case 'x':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.x = draw[k].x - radius;
 			pt.y = draw[k].y - radius;
@@ -91,7 +91,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		}
 		break;	
 	case '+':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.x = draw[k].x - radius;
 			pt.y = draw[k].y;
@@ -106,7 +106,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		}
 		break;	
 	case '*':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.x = draw[k].x - radius;
 			pt.y = draw[k].y;
@@ -133,7 +133,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		}
 		break;	
 	case 'd':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.x = draw[k].x; 
 			pt.y = draw[k].y + radius;
@@ -153,7 +153,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		}
 		break;		
 	case '^':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.x = draw[k].x; 
 			pt.y = draw[k].y - radius;
@@ -169,7 +169,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		}
 		break;		
 	case 'v':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.x = draw[k].x; 
 			pt.y = draw[k].y + radius;
@@ -185,7 +185,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		}
 		break;		
 	case '<':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.y = draw[k].y; 
 			pt.x = draw[k].x - radius;
@@ -201,7 +201,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		}
 		break;		
 	case '>':
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.y = draw[k].y; 
 			pt.x = draw[k].x + radius;
@@ -218,7 +218,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		break;		
 	case 'p':
 		angle = 72.;
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.x = draw[k].x; 
 			pt.y = draw[k].y - radius;
@@ -233,7 +233,7 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, vector<POINT> draw)
 		break;		
 	case 'h':
 		angle = 60.;
-		for (size_t k=0; k<draw.size(); k++) 
+		for (auto k=0; k<nDraws; k++) 
 		{
 			pt.y = draw[k].y; 
 			pt.x = draw[k].x - radius;

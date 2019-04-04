@@ -481,7 +481,6 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	setylim();
 
 	// parent is Figure object, whose parent is root object whose member is m_dlg
-	m_dlg->InvalidateRect(NULL);
 	((CPlotDlg*)m_dlg)->ShowStatusBar();
 
 	in->SetValue((double)(INT_PTR)in);

@@ -1303,6 +1303,13 @@ double CSignal::dur(unsigned int id0, unsigned int len)
 	return 1000. / fs * len;
 }
 
+
+double CSignal::durc(unsigned int id0, unsigned int len) const
+{
+	if (len == 0) len = nSamples;
+	return 1000. / fs * len;
+}
+
 double CSignal::begint(unsigned int id0, unsigned int len)
 {
 	return tmark + id0 * 1000. / fs;

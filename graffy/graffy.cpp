@@ -618,6 +618,7 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CTimeSeries *pd
 	((CVar*)pdata)->next = NULL;
 	vector<HANDLE> out = PlotCSignals(_ax, x, (CSignals*)pdata, col, cymbol, ls);
 	((CVar*)pdata)->next = tp;
+//	cfig->m_dlg->InvalidateRect(cax->rcAx);
 	return out;
 }
 
@@ -668,6 +669,7 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata
 	CAxes * paxFFT;
 	if (paxFFT = (CAxes*)ax->hChild)
 		ViewSpectrum(paxFFT);
+	hPar->m_dlg->InvalidateRect(NULL);
 	return out;
 }
 

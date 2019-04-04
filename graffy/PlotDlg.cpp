@@ -284,12 +284,124 @@ POINT CPlotDlg::GetIndDisplayed(CAxes *pax)
 	return out;
 }
 
-vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC)
+int CPlotDlg::estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC)
+{
+	double out;
+	int fs = thisline->sig.GetFs();
+	if (pax->xlim[0] >= pax->xlim[1]) return -1;
+	double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rcAx.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
+	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
+	POINT pp = GetIndDisplayed(pax);//The indices of xlim[0] and xlim[1], if p were to be a single chain.
+	if (pp.x == pp.y) return -2;
+	int ind1 = max(0, pp.x);
+	int ind2 = max(0, pp.y); //this is just the right end value, not the y-axis value
+	bool tseries = ((CTimeSeries*)p)->IsTimeSignal();
+	if (tseries)
+	{ // if p is one of multiple chains, ind1 and ind2 need to be adjusted to reflect indices of the current p.
+		nSamplesPerPixel = xPerPixel * fs;
+		double t1 = pax->pix2timepoint(paintRC.left);
+		double t2 = pax->pix2timepoint(paintRC.right);
+	}
+	else
+	{
+		nSamplesPerPixel = xPerPixel * (pax->xlim[1] - pax->xlim[0]) / (ind2 - ind1);
+	}
+	double multiplier = 2.;
+	int nPixels = pax->rcAx.right - pax->rcAx.left + 1; // pixel count to cover the plot
+	int estimatedNSamples = (int)((pax->xlim[1] - pax->xlim[0])*(double)fs);
+	if (estimatedNSamples > multiplier*nPixels) // Quick--chunk drawing
+	{
+		out = ceil(p->nSamples / nSamplesPerPixel);
+		return (int)out * 2;
+	}
+	else
+		return (paintRC.right - paintRC.left)*2;
+}
+
+int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint)
+{
+	POINT pt;
+	const int fs = thisline->sig.GetFs();
+	double x1, y1, x2, y2; // x1 x2: time points of rcPaint relative to rcAx and xlim
+	double dur = p->durc() / 1000.;
+	pax->GetCoordinate(rcPaint.TopLeft(), x1, y1);
+	pax->GetCoordinate(rcPaint.BottomRight(), x2, y2);
+	double tmarkms = p->tmark / 1000.;
+	//index corresponding to x1
+	x1 = max(x1, tmarkms);
+	int rightEdgeCoor = rcPaint.Width();
+	if (dur < x2)
+	{
+		x2 = dur;
+		rightEdgeCoor = pax->double2pixel(x2, 'x');
+	}
+	int idBegin, idLast;
+	idBegin = (int)((x1 - tmarkms) * fs + .5);
+	//index corresponding to x2
+	idLast = (int)((x2- tmarkms) * fs);
+	//number of samples to display
+	int nSamples2Display = idLast - idBegin;
+	if (nSamples2Display > p->nSamples - idBegin) nSamples2Display = p->nSamples - idBegin;
+	int count = 0;
+	if (nSamples2Display >= rightEdgeCoor)
+	{
+		double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rcAx.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
+		double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
+		nSamplesPerPixel = xPerPixel * fs;
+		double adder = 0;
+		unsigned int chunkID0 = idBegin;
+		unsigned int chunkID1 = idBegin + (unsigned int)nSamplesPerPixel;
+		const double remnant = nSamplesPerPixel - (int)nSamplesPerPixel;
+		pt.x = max(rcPaint.left, pax->rcAx.left);
+		for (; ;)
+		{
+			double dtp;
+			if (chunkID0 > idLast - 1)
+				break;
+			if (chunkID1 > p->nSamples - 1) chunkID1 = p->nSamples - 1;
+			if (chunkID1 - chunkID0 == 1)
+			{
+				dtp = pax->rcAx.bottom - pax->rcAx.Height() * (p->buf[chunkID0] - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
+				pt.y = min(max((int)(dtp + .5), pax->rcAx.top), pax->rcAx.bottom);
+				out[count++] = pt;
+			}
+			else
+			{
+				const pair<double*, double*> pr = minmax_element(p->buf + chunkID0, p->buf + chunkID1);
+				dtp = pax->rcAx.bottom - pax->rcAx.Height() * (*pr.first - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
+				pt.y = min(max((int)(dtp + .5), pax->rcAx.top), pax->rcAx.bottom);
+				out[count++] = pt;
+				int lastpty = pt.y;
+				dtp = pax->rcAx.bottom - pax->rcAx.Height() * (*pr.second - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
+				pt.y = max((int)(dtp + .5), pax->rcAx.top);
+				if (pt.y != lastpty)
+					out[count++] = pt;
+			}
+			adder += remnant;
+			chunkID0 = chunkID1;
+			chunkID1 += (int)nSamplesPerPixel;
+			if (pt.x++ == rightEdgeCoor - 1)
+				break;
+			if (adder > 1) { chunkID1++; adder--; }
+		}
+	}
+	else
+	{
+		for (int k = idBegin; k < idBegin + nSamples2Display; k++)
+		{
+			pt = pax->double2pixelpt(p->tmark/1000.+(double)k/fs, p->buf[k], NULL);
+			out[count++] = pt;
+		}
+	}
+	return count;
+}
+
+int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC)
 {
 	unsigned int id(0), beginID=0, ind1, ind2 ;
 	int fs = thisline->sig.GetFs();
-	vector<POINT> out;
-	if (pax->xlim[0]>=pax->xlim[1]) return out;
+	unsigned int count = 0;
+	if (pax->xlim[0]>=pax->xlim[1]) return -1;
 	CPoint pt;
 	double xPerPixel = (pax->xlim[1]-pax->xlim[0]) / (double)pax->rcAx.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
 	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
@@ -345,12 +457,12 @@ vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *this
 			const pair<double*, double*> pr = minmax_element(p->buf + chunkID0, p->buf + chunkID1);
 			double dtp = pax->rcAx.bottom - pax->rcAx.Height() * (*pr.first - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
 			pt.y = min(max((int)(dtp + .5), pax->rcAx.top), pax->rcAx.bottom);
-			out.push_back(pt);
+			out[count++] = pt;
 			int lastpty = pt.y;
 			dtp = pax->rcAx.bottom - pax->rcAx.Height() * (*pr.second - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
 			pt.y = max((int)(dtp + .5), pax->rcAx.top);
 			if (pt.y != lastpty)
-				out.push_back(pt);
+				out[count++] = pt;
 		}
 		else
 		{
@@ -409,13 +521,13 @@ vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *this
 				for (unsigned int k=ind1; k<ind2; k++)
 				{
 					pt = pax->double2pixelpt((double)k/fs, (double)p->logbuf[k-inttmark], NULL);
-					out.push_back(pt);
+					out[count++] = pt;
 				}
 			else
 				for (unsigned int k=ind1; k<ind2; k++)
 				{
 					pt = pax->double2pixelpt((double)k/fs, p->buf[k-inttmark], NULL);
-					out.push_back(pt);
+					out[count++] = pt;
 				}
 		else
 		{
@@ -443,7 +555,7 @@ vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *this
 					else
 						pt.y = min(max(pax->rcAx.top, pt.y), pax->rcAx.bottom);
 				}
-				out.push_back(pt);
+				out[count++] = pt;
 			}
 			//if (wasbull)
 			//{
@@ -452,7 +564,7 @@ vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *this
 			//}
 		}
 	}
-	return out;
+	return count;
 }
 
 CSignals CPlotDlg::GetAudioSignal(CAxes* pax, bool makechainless)
@@ -544,7 +656,6 @@ void CPlotDlg::OnPaint()
 	CDC dc(hdc, hDlg);
 	CClientDC dc2(hDlg);
 	CPoint pt;
-	vector<POINT> draw;
 	CRect clientRt;
 	CAxes* pax;
 	GetClientRect(hDlg, &clientRt);
@@ -553,219 +664,220 @@ void CPlotDlg::OnPaint()
 	CRect rt;
 	char buf[256];
 	GetClientRect(hDlg, &rt);
-	if (gcf.ax.size()>0)
+	//Drawing axes
+	for (vector<CAxes*>::iterator itax = gcf.ax.begin(); itax != gcf.ax.end(); )
 	{
-		CAxes *pax0 = gcf.ax.front();
-		CPen * ppen=NULL;
-		int nax(1);
 		// drawing lines
 		bool paxready(false);
-		for (size_t k=0; k<gcf.ax.size();)
+		if (find(sbinfo.vax.begin(), sbinfo.vax.end(), pax) == sbinfo.vax.end())
+			sbinfo.vax.push_back(*itax);
+		if (!paxready)
+			pax = *itax;
+		else
+			paxready=false;
+		if (!pax->visible) continue;
+		if (!axis_expanding)
+			CPosition lastpos(pax->pos);
+		else
+			pax->pos.Set(clientRt, pax->axRect); // do this again
+		pax->rcAx=DrawAxis(&dc, &ps, pax);
+		//when mouse is moving while clicked
+		if (curRange != NO_SELECTION && pax->hPar->type==GRAFFY_figure ) // this applies only to waveform axis (not FFT axis)
 		{
-			if (find(sbinfo.vax.begin(), sbinfo.vax.end(), gcf.ax[k]) == sbinfo.vax.end())
-				sbinfo.vax.push_back(gcf.ax[k]);
-		//the reason I changed from iterator to indexing---
-		// now, all axes are not necessarily in the ax vector. some (e.g., FFT axis) are linked from another axis and it's incredibly difficult to make it with an iterator 
-		// 8/12/2017 bjk
-			if (!paxready) 
-				pax = gcf.ax[k];
-			else
-				paxready=false;
-			if (!pax->visible) continue;
-			if (!axis_expanding)
-				CPosition lastpos(pax->pos);
-			else
-				pax->pos.Set(clientRt, pax->axRect); // do this again
-			pax->rcAx=DrawAxis(&dc, &ps, pax);
-			//when mouse is moving while clicked
-			if (curRange != NO_SELECTION && pax->hPar->type==GRAFFY_figure ) // this applies only to waveform axis (not FFT axis)
+			rt = pax->axRect;
+			rt.left = curRange.px1+1; 
+			rt.right = curRange.px2-1; 
+			rt.top--;
+			rt.bottom++;
+			dc.SolidFill(selColor, rt);
+			if (ClickOn)
 			{
-				rt = pax->axRect;
-				rt.left = curRange.px1+1; 
-				rt.right = curRange.px2-1; 
-				rt.top--;
-				rt.bottom++;
-				dc.SolidFill(selColor, rt);
-				if (ClickOn)
-				{
-					dc.CreatePen(PS_DOT, 1, RGB(255, 100, 0));
-					dc.MoveTo(curRange.px1, rt.bottom-2);
-					dc.LineTo(curRange.px1, rt.top+1); 
-					dc.MoveTo(curRange.px2, rt.bottom-2);
-					dc.LineTo(curRange.px2, rt.top+1); 
-				}
-			}
-			size_t nLines = pax->m_ln.size(); // just FYI
-			for (auto lyne : pax->m_ln)
-			{
-				CPen *pPenOld = NULL;
-				if (!lyne->visible) continue;
-				for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
-				{
-					auto anSamples = p->nSamples;
-					auto atuck = p->nGroups;
-					auto atmark = p->tmark;
-					GetWindowText(buf, sizeof(buf));
-					BYTE clcode;
-					vector<DWORD> kolor;
-					clcode = HIBYTE(HIWORD(lyne->color));
-					if (clcode=='L' || clcode=='R') 
-						kolor = Colormap(clcode, clcode, 'r', atuck);
-					if (clcode == 'l' || clcode == 'r')
-						kolor = Colormap(clcode, clcode+'R'-'r', 'c', atuck);
-					else if (clcode == 'M')
-					{
-						CVar cmap = lyne->strut["color"];
-						for (unsigned int k=0; k<cmap.nSamples; k+=3)
-						{
-							DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
-							kolor.push_back(dw);
-						}
-					}
-					else
-						kolor.push_back(lyne->color);
-					auto colorIt = kolor.begin();
-					for (unsigned int m = 0; m < atuck; m++)
-					{
-						lyne->color = *colorIt;
-						p->nSamples = p->Len();
-						p->nGroups = 1;
-						memcpy(p->buf, p->buf + m*p->nSamples, p->bufBlockSize*p->nSamples);
-						if (p->IsTimeSignal())
-							p->tmark += 1000.* m*p->nSamples / p->GetFs();
-						if (lyne->symbol != 0)
-						{
-							LineStyle org = lyne->lineStyle;
-							lyne->lineStyle = LineStyle_solid;
-							if (lyne->lineWidth == 0)
-								lyne->lineWidth = 1;
-							OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-							draw = makeDrawVector(p, pax, lyne, ps.rcPaint);
-							DrawMarker(dc, lyne, draw);
-							lyne->lineStyle = org;
-						}
-						ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-						if (lyne->lineWidth > 0)
-						{
-							draw = makeDrawVector(p, pax, lyne, ps.rcPaint);
-							if (p->IsTimeSignal()) {
-								if (pt.y < pax->axRect.top)  pt.y = pax->axRect.top;
-								if (pt.y > pax->axRect.bottom) pt.y = pax->axRect.bottom;
-							}
-							if (draw.size() > 0)
-							{
-								if (lyne->lineStyle != LineStyle_noline)
-									if (draw[draw.size() - 1].x <= pax->axRect.right)
-										dc.Polyline(draw.data(), (int)draw.size());
-									else
-									{
-										int shortlen(-1);
-										int nDrawPt = (int)draw.size();
-										for (int p = nDrawPt - 1; p > 0; p--)
-											if (draw[p].x <= pax->axRect.right)
-												shortlen = p, p = -1;
-										if (shortlen > 0)
-											dc.Polyline(draw.data(), shortlen);
-									}
-							}
-							if (kolor.size() > 1)
-							{
-								colorIt++;
-								if (colorIt== kolor.end())		colorIt = kolor.begin();
-							}
-							p->nGroups = atuck;
-							p->tmark = atmark;
-							p->nSamples = anSamples;
-							if (ppen)
-							{
-								dc.SelectObject(pPenOld);
-								delete ppen;
-							}
-						}
-					}
-				}
-			} 
-			if (draw.empty())
-			{ // Need this to bypass axes without line object
-				k++;
-				continue;
-			}
-			//			dc.SetBkColor(pax->color);
-			// add ticks and ticklabels
-			dc.SetBkColor(gcf.color);
-			// For the very first call to onPaint, axRect is not known so settics is skipped, and need to set it here
-			// also when InvalidateRect(NULL) is called, always remake ticks
-			if (pax->m_ln.size() > 0)
-			{
-				double xstep = 0;
-				if (pax->xtick.tics1.size() > 1) xstep = pax->xtick.tics1.back() - pax->xtick.tics1.front();
-				if (pax->xtick.tics1.empty() && pax->xtick.automatic)
-				{
-					CRect tprt;
-					if (!tprt.SubtractRect(&pax->xtick.rt, &ps.rcPaint)) // if xtick rect is part of rcPaint 
-						if (pax->m_ln.front()->sig.IsTimeSignal())
-							pax->xtick.tics1 = pax->gengrids('x', -3);
-						else
-						{
-							if (draw.size()>2)
-								pax->setxticks();
-							else// if (draw.size() == 2)
-							{
-								pax->xtick.tics1.push_back(pax->xlim[0]);
-								pax->xtick.tics1.push_back(pax->xlim[1]);
-							}
-						}
-				}
-				if (pax->ytick.tics1.empty() && pax->ytick.automatic)
-				{
-					if (pax->m_ln.front()->sig.bufBlockSize==1)
-					{
-						vector<double> tics;
-						tics.push_back(0); tics.push_back(1);
-						pax->ytick.tics1 = tics;
-					}
-					else
-						pax->ytick.tics1 = pax->gengrids('y');
-				}
-				DrawTicks(&dc, pax, 0);
-
-				//x & y labels
-				dc.SetTextAlign(TA_RIGHT|TA_BOTTOM);
-				if (!gcf.ax.empty() && !gcf.ax.front()->m_ln.empty())
-				{
-					if (IsSpectrumAxis(pax))
-					{
-						dc.TextOut(pax->axRect.right-3, pax->axRect.bottom, "Hz");
-						dc.TextOut(pax->axRect.left-3, pax->axRect.top-1, "dB");
-					}
-					else if (pax->m_ln.front()->sig.IsTimeSignal())
-						dc.SetBkMode(TRANSPARENT), dc.TextOut(pax->axRect.right-3, pax->axRect.bottom, "sec");
-				}
-			}
-			if (pax->hChild) 	
-				paxready=true, pax = (CAxes*)pax->hChild;
-			else
-				k++;
-			//CAxes *paxx(gcf.ax.front());
-			if (playCursor > 0) // if cursor for playback was set
-			{
-				dc.CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
-				dc.MoveTo(playCursor, pax->axRect.bottom);
-				dc.LineTo(playCursor, pax->axRect.top);
-			}
-			if (LRrange(&pax->rcAx, playLoc, 'x') == 0)
-			{
-				dc.CreatePen(PS_SOLID, 1, RGB(204, 77, 0));
-				dc.MoveTo(playLoc, pax->axRect.bottom);
-				dc.LineTo(playLoc, pax->axRect.top);
+				dc.CreatePen(PS_DOT, 1, RGB(255, 100, 0));
+				dc.MoveTo(curRange.px1, rt.bottom-2);
+				dc.LineTo(curRange.px1, rt.top+1); 
+				dc.MoveTo(curRange.px2, rt.bottom-2);
+				dc.LineTo(curRange.px2, rt.top+1); 
 			}
 		}
+		size_t nLines = pax->m_ln.size(); // just FYI
+		CPen * ppen = NULL;
+		POINT *draw;
+		if (pax->m_ln.empty())
+		{ // Need this to bypass axes without line object
+			itax++;
+			continue;
+		}
+		int nDraws=0;
+		for (auto lyne : pax->m_ln)
+		{
+			CPen *pPenOld = NULL;
+			if (!lyne->visible) continue;
+			for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
+			{
+				auto anSamples = p->nSamples;
+				auto atuck = p->nGroups;
+				auto atmark = p->tmark;
+				GetWindowText(buf, sizeof(buf));
+				BYTE clcode;
+				vector<DWORD> kolor;
+				clcode = HIBYTE(HIWORD(lyne->color));
+				if (clcode=='L' || clcode=='R') 
+					kolor = Colormap(clcode, clcode, 'r', atuck);
+				if (clcode == 'l' || clcode == 'r')
+					kolor = Colormap(clcode, clcode+'R'-'r', 'c', atuck);
+				else if (clcode == 'M')
+				{
+					CVar cmap = lyne->strut["color"];
+					for (unsigned int k=0; k<cmap.nSamples; k+=3)
+					{
+						DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
+						kolor.push_back(dw);
+					}
+				}
+				else
+					kolor.push_back(lyne->color);
+				auto colorIt = kolor.begin();
+				for (unsigned int m = 0; m < atuck; m++)
+				{
+					lyne->color = *colorIt;
+					p->nSamples = p->Len();
+					p->nGroups = 1;
+					memcpy(p->buf, p->buf + m*p->nSamples, p->bufBlockSize*p->nSamples);
+					if (p->IsTimeSignal())
+						p->tmark += 1000.* m*p->nSamples / p->GetFs();
+					int estCount;
+					if (lyne->lineWidth > 0 || lyne->symbol != 0)
+					{
+						estCount = estimateDrawCounts(p, pax, lyne, ps.rcPaint);
+						draw = new POINT[estCount];
+			//			if (ps.rcPaint.left - pax->rcAx.left > 100)
+							nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
+				//		else
+				//			nDraws = makeDrawVector(draw, p, pax, lyne, ps.rcPaint);
+					}
+					if (lyne->symbol != 0)
+					{
+						LineStyle org = lyne->lineStyle;
+						lyne->lineStyle = LineStyle_solid;
+						if (lyne->lineWidth == 0)
+							lyne->lineWidth = 1;
+						OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+						DrawMarker(dc, lyne, draw, nDraws);
+						lyne->lineStyle = org;
+					}
+					ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+					if (lyne->lineWidth > 0)
+					{
+						if (p->IsTimeSignal()) {
+							if (pt.y < pax->axRect.top)  pt.y = pax->axRect.top;
+							if (pt.y > pax->axRect.bottom) pt.y = pax->axRect.bottom;
+						}
+						if (nDraws > 0)
+						{
+							if (lyne->lineStyle != LineStyle_noline)
+							{
+								int nOutOfAx = 0;
+								for (int k = nDraws-1; k>0; k--)
+								{
+									if (draw[k].x > pax->axRect.right) nOutOfAx++;
+									else break;
+								}
+								dc.Polyline(draw, nDraws - nOutOfAx);
+							}
+						}
+						delete[] draw;
+						if (kolor.size() > 1)
+						{
+							colorIt++;
+							if (colorIt== kolor.end())		colorIt = kolor.begin();
+						}
+						p->nGroups = atuck;
+						p->tmark = atmark;
+						p->nSamples = anSamples;
+						if (ppen)
+						{
+							dc.SelectObject(pPenOld);
+							delete ppen;
+						}
+					}
+				}
+			}
+		} 
+		//			dc.SetBkColor(pax->color);
+		// add ticks and ticklabels
+		dc.SetBkColor(gcf.color);
+		// For the very first call to onPaint, axRect is not known so settics is skipped, and need to set it here
+		// also when InvalidateRect(NULL) is called, always remake ticks
+		if (pax->m_ln.size() > 0)
+		{
+			double xstep = 0;
+			if (pax->xtick.tics1.size() > 1) xstep = pax->xtick.tics1.back() - pax->xtick.tics1.front();
+			if (pax->xtick.tics1.empty() && pax->xtick.automatic)
+			{
+				CRect tprt;
+				if (!tprt.SubtractRect(&pax->xtick.rt, &ps.rcPaint)) // if xtick rect is part of rcPaint 
+					if (pax->m_ln.front()->sig.IsTimeSignal())
+						pax->xtick.tics1 = pax->gengrids('x', -3);
+					else
+					{
+						if (nDraws>2)
+							pax->setxticks();
+						else// if (draw.size() == 2)
+						{
+							pax->xtick.tics1.push_back(pax->xlim[0]);
+							pax->xtick.tics1.push_back(pax->xlim[1]);
+						}
+					}
+			}
+			if (pax->ytick.tics1.empty() && pax->ytick.automatic)
+			{
+				if (pax->m_ln.front()->sig.bufBlockSize==1)
+				{
+					vector<double> tics;
+					tics.push_back(0); tics.push_back(1);
+					pax->ytick.tics1 = tics;
+				}
+				else
+					pax->ytick.tics1 = pax->gengrids('y');
+			}
+			DrawTicks(&dc, pax, 0);
+
+			//x & y labels
+			dc.SetTextAlign(TA_RIGHT|TA_BOTTOM);
+			if (!gcf.ax.empty() && !gcf.ax.front()->m_ln.empty())
+			{
+				if (IsSpectrumAxis(pax))
+				{
+					dc.TextOut(pax->axRect.right-3, pax->axRect.bottom, "Hz");
+					dc.TextOut(pax->axRect.left-3, pax->axRect.top-1, "dB");
+				}
+				else if (pax->m_ln.front()->sig.IsTimeSignal())
+					dc.SetBkMode(TRANSPARENT), dc.TextOut(pax->axRect.right-3, pax->axRect.bottom, "sec");
+			}
+		}
+		if (pax->hChild) 	
+			paxready=true, pax = (CAxes*)pax->hChild;
+		else
+			itax++;
+		if (playCursor > 0) // if cursor for playback was set
+		{
+			dc.CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
+			dc.MoveTo(playCursor, pax->axRect.bottom);
+			dc.LineTo(playCursor, pax->axRect.top);
+		}
+		if (LRrange(&pax->rcAx, playLoc, 'x') == 0)
+		{
+			dc.CreatePen(PS_SOLID, 1, RGB(204, 77, 0));
+			dc.MoveTo(playLoc, pax->axRect.bottom);
+			dc.LineTo(playLoc, pax->axRect.top);
+		}
+		CAxes *pax0 = gcf.ax.front();
 		if (pax0->m_ln.size()>0 || (gcf.ax.size()>1 && gcf.ax[1]->m_ln.size()>0) )
 		{
 			sbinfo.xBegin = pax0->xlim[0];
 			sbinfo.xEnd = pax0->xlim[1];
 		}
-	} // k<gcf.ax.size()
+	} // end of Drawing axes
 	//Drawing texts
 	HFONT fontOriginal = (HFONT)dc.SelectObject(GetStockObject(SYSTEM_FONT));
 	for (vector<CText*>::iterator txit=gcf.text.begin(); txit!=gcf.text.end(); txit++) { 

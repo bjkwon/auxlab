@@ -225,6 +225,7 @@ public:
 	double* GetBuffer() {return buf;}
 	double length(unsigned int id0 = 0, unsigned int len = 0);
 	double dur(unsigned int id0 = 0, unsigned int len = 0);
+	double durc(unsigned int id0 = 0, unsigned int len = 0) const;
 	double begint(unsigned int id0 = 0, unsigned int len = 0);
 	double endt(unsigned int id0 = 0, unsigned int len = 0);
 	
