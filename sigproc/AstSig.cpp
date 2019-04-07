@@ -644,6 +644,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 	}
 	delete son;
 	son = NULL;
+	u.pLastRead = NULL;
 	if (pgo) pgo->functionEvalRes = true;
 	Sig.functionEvalRes = true;
 	CAstSig::vecast.pop_back(); // move here????? to make purgatory work...
@@ -769,6 +770,48 @@ void AddConditionMeetingBlockAsChain(CVar *Sig, CVar *psig, unsigned int iBegin,
 	else					Sig->AddChain(part);
 }
 
+bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
+{
+	//Is this is a call made insde of a UDF?
+	//If so, pnode should appear in next of chlld
+
+	//This depends on the node structure made in psycon.y; 
+	//If you change it, this should be adjusted as well.
+	//look for T_IF, T_FOR and T_WHILE
+	if (p && p->line == 38)
+		Beep(4000, 20);
+	if (!u.pUDF) return false;
+	if (!p)
+	{
+		if (!u.pLastRead)		p = u.pUDF->child;
+		else p = u.pLastRead;
+	}
+	while (p)
+	{
+		if (p == pnode) { 
+			u.pLastRead = p;  return true; }
+		if (p->type == T_IF)
+		{
+			// p->child->next must be N_BLOCK
+			// p->alt must be N_BLOCK if there's else
+			if (isthisUDFscope(pnode, p->child->next->next)) return true;
+			if (p->alt)
+			{
+				if (!p->alt->next) return false; // alt->next being NULL means elseif (something) but no "else" before end
+				if (isthisUDFscope(pnode, p->alt->next)) return true;
+			}
+			// In this code, if a, elseif b, elseif c, else d, end ==> c and d are not processed.
+			// Get the bug!! 4/6/2019
+		}
+		if (pnode->line == p->line)
+		{
+			if (searchtree(pnode, p)) return true; // u.pLastRead is updated inside searchtree
+		}
+		p = p->next;
+	}
+	return false;
+
+}
 
 const AstNode *CAstSig::getparentnode(const AstNode *ptree, const AstNode *p)
 { // This finds the parent tree of p in the ptree structure
@@ -792,6 +835,21 @@ const AstNode *CAstSig::getparentnode(const AstNode *ptree, const AstNode *p)
 	{
 		if (getparentnode(pp, p)) return pp;
 		pp = pp->next;
+	}
+	return NULL;
+}
+
+AstNode *CAstSig::searchtree(const AstNode *pTarget, AstNode *pStart)
+{ // search pTarget in all lower nodes (child, alt, next) in pStart
+	// return NULL if not found
+	if (pStart->line != pTarget->line) return NULL;
+	AstNode *p = pStart;
+	while (p)
+	{
+		if (p == pTarget) { u.pLastRead = p;  return p; }
+		if (p->alt) if (searchtree(pTarget, p->alt)) return p->alt;
+		if (p->child) if (searchtree(pTarget, p->child)) return p->child;
+		if (p->next) if (searchtree(pTarget, p->next)) return p->next;
 	}
 	return NULL;
 }
@@ -1644,7 +1702,7 @@ bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, CVar &tsig)
 		if (!strcmp(propname, "lim"))
 			return ((tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO) && tsig.nSamples == 2);
 		if (!strcmp(propname, "tick"))
-			return (tsig.GetType() == CSIG_VECTOR);
+			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_EMPTY);
 	}
 	else if (psig->strut["type"] == string("line"))
 	{
@@ -2073,7 +2131,13 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 					Sig = *(diggy.level.psigBase = pres);
 			}
 			else
+			{
+				//text(f,.5,.5,"hello") comes here to process f
+				//axes([.1 .1 .6 .6]).color=[1 1 1] comes here, too. // diggy.level.psigBase should not have &Sig of axes (the ghost pointer) that was just created. 
+				// It should have pgo. Otherwise, it will crash because &Sig goes out of scope soon.
+				// That is properly done in builtin_func_call in AstSig2.cpp 4/7/2019
 				Sig = *(diggy.level.psigBase = pres);
+			}
 		}
 	}
 	return get_next_parsible_node(pn);
@@ -2139,7 +2203,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 				// 3/30/2019
 				if (pnode->tail->type==N_ARGS)
 					res = pgo->strut[setgo.type];
-				fpmsg.SetGoProperties(this, setgo.type, res, pAst->type!=N_BLOCK);
+				fpmsg.SetGoProperties(this, setgo.type, res, !isthisUDFscope(pnode));
 			}
 		}
 		Script = diggy.level.varname;
@@ -2191,6 +2255,12 @@ CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 		rsig = ConditionalOperation(p, p->child);
 		ConditionalOperation(p->next, p->next->child);
 		Sig.LogOp(rsig, pnode->type);
+		break;
+	case T_NUMBER:
+		Compute(pnode);
+		Sig.MakeLogical();
+		if (Sig.value() == 0.)		Sig.logbuf[0] = false;
+		else Sig.logbuf[0] = true;
 		break;
 	case N_VECTOR:
 	case N_MATRIX:

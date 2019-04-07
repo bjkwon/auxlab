@@ -225,7 +225,7 @@ BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 					if (it.second.GetType() == CSIG_AUDIO)
 					{
 						CSignals level = it.second.RMS();
-						ratio.SetValue((double)newfs / it.second.GetFs());
+						ratio.SetValue(it.second.GetFs()/ (double)newfs);
 						it.second.basic(it.second.pf_basic2 = &CSignal::resample, &ratio);
 						if (ratio.IsString()) // this means there was an error during resample
 							MessageBox(hDlg, ratio.string().c_str(), "Error in FSDlgProc", 0);

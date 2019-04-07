@@ -4654,7 +4654,7 @@ map<double, double> CTimeSeries::showtseries()
 }
 
 
-bool CVar::IsGO()
+bool CVar::IsGO() const
 { //Is this Graphic Object?
 	if (fs == 3) return true;
 	if (strut.empty()) return false;
@@ -4762,12 +4762,6 @@ CVar& CVar::operator=(const CVar& rhs)
 	{
 		CSignals::operator=(rhs);
 		cell = rhs.cell;
-		auto it = strut.find("gc");
-		if (it != strut.end())
-		{
-			auto sss = (*it).second;
-			CVar *ptemp = &sss;
-		}
 		strut = rhs.strut;
 		struts = rhs.struts;
 	}

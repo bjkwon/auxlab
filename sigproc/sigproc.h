@@ -510,7 +510,7 @@ public:
 	CVar& Reset(int fs2set = 0);
 	int GetType();
 	int GetTypePlus();
-	bool IsGO();
+	bool IsGO() const;
 
 	CVar& operator=(const CSignals& rhs);
 	CVar& operator=(const CVar& rhs);
@@ -654,10 +654,11 @@ public:
 	int nargin, nargout;
 	CDebugStatus debug;
 	const char* application;
-	CUDF() {	application = nullptr;  nextBreakPoint = currentLine = -1;		CallbackCIPulse = NULL; CallbackHook = NULL;	};
+	CUDF() { application = nullptr;  nextBreakPoint = currentLine = -1;		CallbackCIPulse = NULL; CallbackHook = NULL; pLastRead = NULL; };
 	virtual ~CUDF() {};
 	void(*CallbackCIPulse)(const AstNode *, CAstSig *);
 	int(*CallbackHook)(CAstSig *past, const AstNode *pnode, const AstNode *p);
+	AstNode *pLastRead; //used for isthisUDFscope only, to mark the last pnode processed in 
 };
 
 class CAstSig
@@ -720,6 +721,7 @@ private:
 	CAstSig &insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &sec, CVar &indsig);
 	void checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned int id, string errstr);
 	bool isContiguous(body &id, unsigned int &begin,unsigned int &end);
+	AstNode *searchtree(const AstNode *pTarget, AstNode *pStart);
 	AstNode *searchtree(AstNode *pp, int type);
 	bool checkcond(const AstNode *p);
 	void hold_at_break_point(const AstNode *pnode);
@@ -756,6 +758,7 @@ public:
 	void blockString(const AstNode *pnode, CVar &checkthis);
 	void blockComplex(const AstNode *pnode, CVar &checkthis);
 	const AstNode *getparentnode(const AstNode *pnode, const AstNode *p);
+	bool isthisUDFscope(const AstNode *pnode, AstNode *p=NULL);
 	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase = NULL);
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase=NULL);
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);

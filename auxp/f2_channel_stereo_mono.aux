@@ -11,9 +11,7 @@ ax=fig.children
 if ax.length==1
 	ax.pos(4) /=2
 	ax2 = fig.axes(ax.pos)
-//	fprintf("log.txt","ax2 created\n");
 	ax.pos(2) += .4
-//	fprintf("log.txt","ax.pos(2) updated\n");
 	axch = ax.children
 	id4line = []
 	for k = 1:axch.length
@@ -28,15 +26,13 @@ if ax.length==1
 		begints = [data1.begint data2.begint]
 		endts = [data1.endt data2.endt]
 		delete(axch(id4line(2)))
-//		fprintf("log.txt","deleteaxch(id4line(2)\n");
 		if data2.length>0
 			ax2.plot(data2)
 		end
-//		fprintf("log.txt","ax2.plot created\n");
 		// Add error check --- if x.lim is updated, it crashes 2/5/2019
 		if ax.x.lim(2)>ax2.x.lim(2)
 			ax2.x.tick = ax.x.tick
-		else
+		elseif ax2.x.lim(2)>ax.x.lim(2)
 			ax.x.tick = ax2.x.tick
 		end
 		ax.x.lim = [begints.min endts.max]/1000

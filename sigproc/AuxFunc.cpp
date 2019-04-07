@@ -1802,7 +1802,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	{
 		int old = past->GetFs();
 		CSignals ratio(1);
-		ratio.SetValue((double)old / past->Sig.GetFs());
+		ratio.SetValue( past->Sig.GetFs() / (double)old);
 		past->Sig.basic(past->Sig.pf_basic2 = &CSignal::resample, &ratio);
 		if (ratio.IsString()) // this means there was an error during resample
 			throw past->ExceptionMsg(p, fnsigs, ratio.string().c_str());

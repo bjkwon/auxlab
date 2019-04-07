@@ -381,7 +381,8 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 			delete_toDelete(tp, *it);
 		tp = tp->dad;
 	}
-	InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
+	if (!past->isthisUDFscope(pnode))
+		InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
 }
 
 GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -398,7 +399,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	if (nArgs == 1)
 	{
 		CSignals param = past->Compute(p);
-		if (param.GetType() == CSIG_VECTOR || param.nSamples == 4)
+		if (param.GetType() == CSIG_VECTOR && param.nSamples == 4)
 		{
 			rt.left = (LONG)param.buf[0];
 			rt.top = (LONG)param.buf[1];
@@ -408,13 +409,27 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 		else
 		{
 			HANDLE h = FindFigure(&param);
-			if (h)
+			if (!h)
 			{
-				past->Sig = *static_cast<CFigure *>(h);
-				past->pgo = static_cast<CFigure *>(h); // This is how the figure handle (pointer) is sent back to AstSig
-				return;
+				if (param.IsString())
+				{
+					string temp;
+					sformat(temp, "Figure with the specified title not found: \"%s\"", param.string().c_str());
+					throw CAstException(p, past, temp.c_str());
+				}
+				else if (param.IsScalar())
+				{
+					char buf[256];
+					sprintf(buf, "Figure with the specified handle not found: %lf", param.value());
+					throw CAstException(p, past, buf);
+				}
+				else
+					throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
+
 			}
-			throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
+			past->Sig = *static_cast<CFigure *>(h);
+			past->pgo = static_cast<CFigure *>(h); // This is how the figure handle (pointer) is sent back to AstSig
+			return;
 		}
 	}
 	past->Sig.strut.clear();
@@ -474,7 +489,8 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
 	past->Sig = *(past->pgo = ctxt); 
-	cfig->m_dlg->InvalidateRect(NULL);
+	if (!past->isthisUDFscope(pnode))
+		cfig->m_dlg->InvalidateRect(NULL);
 }
 
 CAstSig *mainast;
@@ -528,7 +544,8 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	cfig->struts["gca"].push_back(cax);
 	past->Sig = *cax; // Just to show on the screen, not the real output.
 	past->pgo = cax; // This is how the figure handle (pointer) is sent back to AstSig
-	cfig->m_dlg->InvalidateRect(NULL);
+	if (!past->isthisUDFscope(pnode))
+		cfig->m_dlg->InvalidateRect(NULL);
 }
 
 GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
@@ -820,7 +837,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		past->Sig = *(past->pgo = tp);
 		cfig = (CFigure*)cax;
 	}
-	cfig->m_dlg->InvalidateRect(NULL);
+	if (!past->isthisUDFscope(pnode))
+		cfig->m_dlg->InvalidateRect(NULL);
 
 }
 

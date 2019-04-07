@@ -309,7 +309,9 @@ bool CAstSig::builtin_func_call(CDeepProc &diggy, AstNode *p)
 				if (!diggy.level.root->alt)
 					throw ExceptionMsg(diggy.level.root, "LHS must be an l-value. Isn't it a built-in function?");
 			HandleAuxFunctions(p, diggy.level.root);
-			diggy.level.psigBase = &Sig;
+			// while pgo is active, psigBase should point to pgo, not &Sig
+			// this causes a crash on the line Sig = *diggy.level.psigBase in read_node() in AstSig.cpp   4/7/2019
+			diggy.level.psigBase = pgo ? pgo : &Sig; 
 			return true;
 		}
 	}

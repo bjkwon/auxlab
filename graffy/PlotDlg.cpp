@@ -286,6 +286,11 @@ POINT CPlotDlg::GetIndDisplayed(CAxes *pax)
 
 int CPlotDlg::estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC)
 {
+	//need these two lines because after selection play is done, InvalidateRect might have been called for this part
+	if (paintRC.left > pax->rcAx.right) return 0;
+	if (paintRC.right < pax->rcAx.left) return 0;
+	if (paintRC.right > pax->rcAx.right) paintRC.right = pax->rcAx.right;
+	if (paintRC.left < pax->rcAx.left) paintRC.left = pax->rcAx.left;
 	double out;
 	int fs = thisline->sig.GetFs();
 	if (pax->xlim[0] >= pax->xlim[1]) return -1;
@@ -294,13 +299,14 @@ int CPlotDlg::estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, 
 	POINT pp = GetIndDisplayed(pax);//The indices of xlim[0] and xlim[1], if p were to be a single chain.
 	if (pp.x == pp.y) return -2;
 	int ind1 = max(0, pp.x);
-	int ind2 = max(0, pp.y); //this is just the right end value, not the y-axis value
+	int ind2 = max(0, pp.y);
 	bool tseries = ((CTimeSeries*)p)->IsTimeSignal();
+	double tpoint1, tpoint2;
 	if (tseries)
 	{ // if p is one of multiple chains, ind1 and ind2 need to be adjusted to reflect indices of the current p.
 		nSamplesPerPixel = xPerPixel * fs;
-		double t1 = pax->pix2timepoint(paintRC.left);
-		double t2 = pax->pix2timepoint(paintRC.right);
+		tpoint1 = pax->pix2timepoint(paintRC.left);
+		tpoint2 = pax->pix2timepoint(paintRC.right);
 	}
 	else
 	{
@@ -308,18 +314,22 @@ int CPlotDlg::estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, 
 	}
 	double multiplier = 2.;
 	int nPixels = pax->rcAx.right - pax->rcAx.left + 1; // pixel count to cover the plot
-	int estimatedNSamples = (int)((pax->xlim[1] - pax->xlim[0])*(double)fs);
+	int estimatedNSamples = (int)((pax->xlim[1] - pax->xlim[0])*(double)fs); // how many signal sample points are covered in the client axes--not actual sample counts because the signal may exist only in part of range
+	int res = paintRC.right - paintRC.left;
 	if (estimatedNSamples > multiplier*nPixels) // Quick--chunk drawing
 	{
-		out = ceil(p->nSamples / nSamplesPerPixel);
+		int count = (int)((tpoint2 - tpoint1)*fs);
+		out = ceil(count / nSamplesPerPixel);
 		return (int)out * 2;
 	}
-	else
-		return (paintRC.right - paintRC.left)*2;
+	return res;
 }
 
 int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint)
 {
+	//need these two lines because after selection play is done, InvalidateRect might have been called for this part
+	if (rcPaint.left > pax->rcAx.right) return 0; 
+	if (rcPaint.right < pax->rcAx.left) return 0;
 	POINT pt;
 	const int fs = thisline->sig.GetFs();
 	double x1, y1, x2, y2; // x1 x2: time points of rcPaint relative to rcAx and xlim
@@ -329,11 +339,11 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *th
 	double tmarkms = p->tmark / 1000.;
 	//index corresponding to x1
 	x1 = max(x1, tmarkms);
-	int rightEdgeCoor = rcPaint.Width();
+	int rightEdgeCoor = rcPaint.right;
 	if (dur < x2)
 	{
 		x2 = dur;
-		rightEdgeCoor = pax->double2pixel(x2, 'x');
+		rightEdgeCoor = max(rcPaint.left, pax->double2pixel(x2, 'x'));
 	}
 	int idBegin, idLast;
 	idBegin = (int)((x1 - tmarkms) * fs + .5);
@@ -341,16 +351,16 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *th
 	idLast = (int)((x2- tmarkms) * fs);
 	//number of samples to display
 	int nSamples2Display = idLast - idBegin;
-	if (nSamples2Display > p->nSamples - idBegin) nSamples2Display = p->nSamples - idBegin;
+	if (nSamples2Display > (int)p->nSamples - idBegin) nSamples2Display = (int)p->nSamples - idBegin;
 	int count = 0;
-	if (nSamples2Display >= rightEdgeCoor)
+	if (nSamples2Display >= rcPaint.Width())
 	{
 		double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rcAx.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
 		double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
 		nSamplesPerPixel = xPerPixel * fs;
 		double adder = 0;
-		unsigned int chunkID0 = idBegin;
-		unsigned int chunkID1 = idBegin + (unsigned int)nSamplesPerPixel;
+		int chunkID0 = idBegin;
+		int chunkID1 = idBegin + (unsigned int)nSamplesPerPixel;
 		const double remnant = nSamplesPerPixel - (int)nSamplesPerPixel;
 		pt.x = max(rcPaint.left, pax->rcAx.left);
 		for (; ;)
@@ -358,7 +368,7 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *th
 			double dtp;
 			if (chunkID0 > idLast - 1)
 				break;
-			if (chunkID1 > p->nSamples - 1) chunkID1 = p->nSamples - 1;
+			if (chunkID1 > (int)p->nSamples - 1) chunkID1 = (int)p->nSamples - 1;
 			if (chunkID1 - chunkID0 == 1)
 			{
 				dtp = pax->rcAx.bottom - pax->rcAx.Height() * (p->buf[chunkID0] - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
@@ -748,12 +758,16 @@ void CPlotDlg::OnPaint()
 					int estCount;
 					if (lyne->lineWidth > 0 || lyne->symbol != 0)
 					{
+						if (ps.rcPaint.left > pax->rcAx.right)
+							Beep(2000, 100);
 						estCount = estimateDrawCounts(p, pax, lyne, ps.rcPaint);
-						draw = new POINT[estCount];
-			//			if (ps.rcPaint.left - pax->rcAx.left > 100)
-							nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
-				//		else
-				//			nDraws = makeDrawVector(draw, p, pax, lyne, ps.rcPaint);
+						draw = new POINT[estCount+1];
+						nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
+						if (nDraws > estCount)
+						{
+							sprintf(buf, "left=%d,right=%d,est=%d,actual=%d", ps.rcPaint.left, ps.rcPaint.right, estCount,nDraws);
+							MessageBox(buf,"exceed");
+						}
 					}
 					if (lyne->symbol != 0)
 					{
@@ -772,18 +786,15 @@ void CPlotDlg::OnPaint()
 							if (pt.y < pax->axRect.top)  pt.y = pax->axRect.top;
 							if (pt.y > pax->axRect.bottom) pt.y = pax->axRect.bottom;
 						}
-						if (nDraws > 0)
+						if (nDraws > 0 && lyne->lineStyle != LineStyle_noline)
 						{
-							if (lyne->lineStyle != LineStyle_noline)
+							int nOutOfAx = 0;
+							for (int k = nDraws-1; k>0; k--)
 							{
-								int nOutOfAx = 0;
-								for (int k = nDraws-1; k>0; k--)
-								{
-									if (draw[k].x > pax->axRect.right) nOutOfAx++;
-									else break;
-								}
-								dc.Polyline(draw, nDraws - nOutOfAx);
+								if (draw[k].x > pax->axRect.right) nOutOfAx++;
+								else break;
 							}
+							dc.Polyline(draw, nDraws - nOutOfAx);
 						}
 						delete[] draw;
 						if (kolor.size() > 1)
@@ -840,6 +851,7 @@ void CPlotDlg::OnPaint()
 				else
 					pax->ytick.tics1 = pax->gengrids('y');
 			}
+			pax->struts["x"].front()->strut["tick"] = (CSignals)CSignal(pax->xtick.tics1);
 			DrawTicks(&dc, pax, 0);
 
 			//x & y labels
@@ -1489,10 +1501,12 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 
 void CPlotDlg::setpbprogln()
 {
-	for (vector<CAxes*>::iterator axt=gcf.ax.begin(); axt!=gcf.ax.end(); axt++) 
+	for (auto ax : gcf.ax)
 	{
-		CAxes *pax = *axt;
-		InvalidateRect(CRect(playLoc0-1, pax->axRect.top, playLoc+1, pax->axRect.bottom),0);
+		if (playLoc0 > ax->axRect.right) return;
+		if (playLoc > ax->axRect.right) playLoc = ax->axRect.right;
+		InvalidateRect(CRect(playLoc0 - 1, ax->axRect.top, playLoc0 + 1, ax->axRect.bottom));
+		InvalidateRect(CRect(playLoc - 1, ax->axRect.top, playLoc + 1, ax->axRect.bottom));
 	}
 }
 
@@ -1513,7 +1527,7 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 		::SendMessage(GetHWND_WAVPLAY(), WM__AUDIOEVENT, (WPARAM)pvar, (LPARAM)code); // sending to the dialog in showvar.cpp
 		break;
 	case WOM_CLOSE:
-		playLoc = playLoc0 + pax->timepoint2pix(block);
+		playLoc = playLoc0 + 3;
 		setpbprogln();
 		playLoc0 = playLoc = -1;
 		playing = paused = false;
@@ -1530,12 +1544,12 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 	}
 		playingIndex++;
 		if (playCursor > 0)
-			playLoc = playCursor + pax->timepoint2pix(block*+playingIndex / 1000);
+			playLoc = playCursor + pax->timepoint2pix(block*playingIndex / 1000);
 		else if (curRange == NO_SELECTION)
-			playLoc = pax->timepoint2pix(pax->xlim[0] + block*+playingIndex / 1000);
+			playLoc = pax->timepoint2pix(pax->xlim[0] + block*playingIndex / 1000);
 		else
 		{
-			playLoc = pax->timepoint2pix(selRange.tp1 + block*+playingIndex / 1000);
+			playLoc = pax->timepoint2pix(selRange.tp1 + block*playingIndex / 1000);
 			// if playLoc goes out of range, invalidateRect only to erase playLoc0, i.e., don't update the screen with the newly advanced but out-of-range bar
 			if (playLoc > curRange.px2)
 			{
@@ -1827,6 +1841,7 @@ void CPlotDlg::OnMenu(UINT nID)
 				for (vector<double>::reverse_iterator rit = tp.rbegin(); rit != tp.rend(); rit++)
 					cax->xtick.tics1.push_back(*rit);
 			}
+			cax->struts["x"].front()->strut["tick"] = (CSignals)CSignal(cax->xtick.tics1);
 			sbinfo.xBegin = cax->xlim[0];
 			sbinfo.xEnd = cax->xlim[1];
 			ShowStatusBar();
