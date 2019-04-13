@@ -724,7 +724,7 @@ void printf_single(CVar *pvar)
 		//	cout << ival;
 		//}
 		//else
-			cout << pvar->value();
+			cout << pvar->valuestr();
 	}
 }
 
@@ -956,7 +956,7 @@ void xcom::echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 	*/
 
 	AstNode *p;
-	if (!pnode->suppress)
+;	if (!pnode->suppress)
 	{
 		if (!pvar)
 		{
@@ -1047,7 +1047,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		}
 		else
 			echo(pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
-//		mShowDlg.pcast = CAstSig::vecast.front();
 		//if LHS is x(arg_list) or x(time_extraction), Sig is partial. This needs to the entire portion for plot window
 		if (CAstSig::IsTID(pContext->pAst) && pContext->pAst->alt && CAstSig::IsPortion(pContext->pAst->alt))
 		{
@@ -1861,7 +1860,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	in.push_back(buffer);
 	mainSpace.LogHistory(in);
 
-	cast.astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &UnloadModule, &ValidateFig, &SetGOProperties);
+	cast.astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &ValidateFig, &SetGOProperties, &RepaintGO);
 	init_aux_reserves();
 
 	CONSOLE_CURSOR_INFO concurinf;
@@ -1869,12 +1868,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	concurinf.bVisible = 1;
 	concurinf.dwSize = 25;
 	SetConsoleCursorInfo(hStdout, &concurinf);
-
-	double ddarr[] = { 1, 3, 4, 10, 2, -2, 5, 7, 3, 10 };
-
-	vector<double> vv(ddarr, ddarr+ 10);
-	double mss = *max_element(vv.begin(), vv.end());
-	double mss2 = *min_element(vv.begin(), vv.end());
 
 	mainSpace.console();
 

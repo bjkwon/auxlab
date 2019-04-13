@@ -119,6 +119,7 @@ public:
 	void Reset();
 
 	double value() const;
+	string valuestr() const;
 	complex<double> cvalue() const;
 	void SetValue(double v);
 	void SetValue(complex<double> v);
@@ -620,9 +621,9 @@ public:
 	bool(*IsCurrentUDFOnDebuggerDeck)(const char*);
 	void(*ShowVariables)(CAstSig *pcast);
 	void(*Back2BaseScope)(int);
-	void(*UnloadModule)(const char*);
 	void(*ValidateFig)(const char*);
-	void(*SetGoProperties)(CAstSig *past, const char *type, CVar RHS, bool invalidateScreen);
+	void(*SetGoProperties)(CAstSig *past, const char *type, CVar RHS);
+	void(*RepaintGO)(CAstSig *pctx);
 	CFuncPointers();
 	virtual ~CFuncPointers() {};
 	CFuncPointers& operator=(const CFuncPointers& rhs);
@@ -653,8 +654,10 @@ public:
 	int currentLine;
 	int nargin, nargout;
 	CDebugStatus debug;
+	map<HWND, RECT> rt2validate;
 	const char* application;
-	CUDF() { application = nullptr;  nextBreakPoint = currentLine = -1;		CallbackCIPulse = NULL; CallbackHook = NULL; pLastRead = NULL; };
+	bool repaint;
+	CUDF() {	application = nullptr;  nextBreakPoint = currentLine = -1;		CallbackCIPulse = NULL; CallbackHook = NULL; pLastRead = NULL; repaint = false;	};
 	virtual ~CUDF() {};
 	void(*CallbackCIPulse)(const AstNode *, CAstSig *);
 	int(*CallbackHook)(CAstSig *past, const AstNode *pnode, const AstNode *p);
@@ -744,7 +747,7 @@ public:
 	CVar &pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout = NULL);
 	CVar &TSeq(const AstNode *pnode, AstNode *p);
 	bool isThisAllowedPropGO(CVar *psig, const char *type, CVar &tsig);
-	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6)(const char*), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar, bool));
+	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar), void(*fp8)(CAstSig *));
 	bool IsThisBreakpoint(const AstNode *pnode);
 	void checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg = "");
 	void checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg="");
@@ -758,6 +761,8 @@ public:
 	void blockString(const AstNode *pnode, CVar &checkthis);
 	void blockComplex(const AstNode *pnode, CVar &checkthis);
 	const AstNode *getparentnode(const AstNode *pnode, const AstNode *p);
+	bool need2repaintnow(const AstNode *pnode, AstNode *p = NULL);
+	bool GOpresent(const AstNode *pnode, AstNode *p = NULL);
 	bool isthisUDFscope(const AstNode *pnode, AstNode *p=NULL);
 	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase = NULL);
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase=NULL);

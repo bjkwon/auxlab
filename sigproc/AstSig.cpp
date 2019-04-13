@@ -66,9 +66,10 @@ void dummy_fun6a(const char* pt)
 {
 }
 
-void dummy_fun7(CAstSig *a, const char *b, CVar c, bool d)
+void dummy_fun7(CAstSig *a, const char *b, CVar c)
 {
 }
+
 
 #ifndef LINK_STATIC_SIGPROC
 HMODULE hDllModule;
@@ -321,8 +322,6 @@ AstNode *CAstSig::SetNewScript(string &emsg, const char *str, const char *premsg
 	int res;
 	char *errmsg;
 	if (strlen(str)==0) return pAst;
-	if (pAst && Script == str)
-		return pAst;
 	if (fAllocatedAst) {
 		yydeleteAstNode(pAst, 0);
 		fAllocatedAst = false;
@@ -464,16 +463,16 @@ void CAstSig::hold_at_break_point(const AstNode *pnode)
 	}
 }
 
-void CAstSig::astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6)(const char*), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar, bool))
+void CAstSig::astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar), void(*fp8)(CAstSig *))
 {
 	fpmsg.UpdateDebuggerGUI = fp1;
 	fpmsg.HoldAtBreakPoint = fp2;
 	fpmsg.IsCurrentUDFOnDebuggerDeck = fp3;
 	fpmsg.ShowVariables = fp4;
 	fpmsg.Back2BaseScope = fp5;
-	fpmsg.UnloadModule = fp6;
 	fpmsg.ValidateFig = fp6a;
 	fpmsg.SetGoProperties = fp7;
+	fpmsg.RepaintGO = fp8;
 }
 
 CFuncPointers::CFuncPointers()
@@ -483,9 +482,9 @@ CFuncPointers::CFuncPointers()
 	IsCurrentUDFOnDebuggerDeck = dummy_fun3;
 	ShowVariables = dummy_fun4;
 	Back2BaseScope = dummy_fun5;
-	UnloadModule = dummy_fun6;
 	ValidateFig = dummy_fun6a;
 	SetGoProperties = dummy_fun7;
+	RepaintGO = dummy_fun4;
 }
 
 CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
@@ -495,8 +494,8 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 	IsCurrentUDFOnDebuggerDeck = rhs.IsCurrentUDFOnDebuggerDeck;
 	ShowVariables = rhs.ShowVariables;
 	Back2BaseScope = rhs.Back2BaseScope;
-	UnloadModule = rhs.UnloadModule;
 	SetGoProperties = rhs.SetGoProperties;
+	RepaintGO = rhs.RepaintGO;
 	return *this;
 }
 
@@ -647,6 +646,8 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 	u.pLastRead = NULL;
 	if (pgo) pgo->functionEvalRes = true;
 	Sig.functionEvalRes = true;
+//	if (need2repaintnow(pCalling)) // or maybe pBase??
+		fpmsg.RepaintGO(this);
 	CAstSig::vecast.pop_back(); // move here????? to make purgatory work...
 	return true;
 }
@@ -761,13 +762,29 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 	return u.nargout;
 }
 
-void AddConditionMeetingBlockAsChain(CVar *Sig, CVar *psig, unsigned int iBegin, unsigned int iNow, CVar &part)
+bool CAstSig::GOpresent(const AstNode *pnode, AstNode *p)
+{ // returns true if the statement 
+	string fname = pnode->str;
+	if (fname == "figure" || fname == "plot" || fname == "line" || fname == "axes" || fname == "text" || fname == "replicate")
+		return true;
+	else
+		return false;
+}
+
+bool CAstSig::need2repaintnow(const AstNode *pnode, AstNode *p)
 {
-	part.UpdateBuffer(iNow-iBegin);
-	memcpy(part.buf, (void*)(psig->buf+iBegin), (iNow-iBegin)*sizeof(double));
-	part.tmark = 1.e3*iBegin/psig->GetFs();
-	if (Sig->nSamples==0)	*Sig = part;
-	else					Sig->AddChain(part);
+	// if pnode is on the tree, i.e., part of the udf, no need to repaint, unless this is inside of debugger.
+	if (!u.repaint) return false;
+	bool partofudf = isthisUDFscope(pnode);
+	if (partofudf)
+	{
+		//if ( /* inside the debugger*/ )
+		//	return true;
+		//else
+			return false;
+	}
+	// if pnode is not on the tree, that means this is an independently standing statement, then repaint
+	return true;
 }
 
 bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
@@ -794,7 +811,11 @@ bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
 		{
 			// p->child->next must be N_BLOCK
 			// p->alt must be N_BLOCK if there's else
-			if (isthisUDFscope(pnode, p->child->next->next)) return true;
+			if (isthisUDFscope(pnode, p->child->next->next))
+			{
+				if (p->next) u.pLastRead = p->next;
+				return true;
+			}
 			if (p->alt)
 			{
 				if (!p->alt->next) return false; // alt->next being NULL means elseif (something) but no "else" before end
@@ -846,10 +867,10 @@ AstNode *CAstSig::searchtree(const AstNode *pTarget, AstNode *pStart)
 	AstNode *p = pStart;
 	while (p)
 	{
-		if (p == pTarget) { u.pLastRead = p;  return p; }
-		if (p->alt) if (searchtree(pTarget, p->alt)) return p->alt;
-		if (p->child) if (searchtree(pTarget, p->child)) return p->child;
-		if (p->next) if (searchtree(pTarget, p->next)) return p->next;
+		if (p == pTarget)  return u.pLastRead = p;
+		if (p->alt) if (searchtree(pTarget, p->alt)) { u.pLastRead = pStart;  return p->alt;	}
+		if (p->child) if (searchtree(pTarget, p->child)) { u.pLastRead = pStart;  return p->child; }
+		if (p->next) if (searchtree(pTarget, p->next)) { u.pLastRead = pStart;  return p->next; }
 	}
 	return NULL;
 }
@@ -1724,7 +1745,7 @@ bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, CVar &tsig)
 	{
 		if (!strcmp(propname, "fontsize"))
 			return (tsig.GetType() == CSIG_SCALAR && tsig.bufBlockSize == 8);
-		if (!strcmp(propname, "fontname"))
+		if (!strcmp(propname, "fontname") || !strcmp(propname, "string"))
 			return (tsig.GetType() == CSIG_STRING);
 	}
 	/* Do checking differently for different GO--fig, axes, axis, line, text 8/1/2018
@@ -2195,7 +2216,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
 			if (res.IsGO())
-				fpmsg.SetGoProperties(this, setgo.type, *diggy.level.psigBase, pAst->type != N_BLOCK);
+				fpmsg.SetGoProperties(this, setgo.type, *diggy.level.psigBase);
 			else
 			{
 				// For example, f.pos(2) = 200
@@ -2203,7 +2224,10 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 				// 3/30/2019
 				if (pnode->tail->type==N_ARGS)
 					res = pgo->strut[setgo.type];
-				fpmsg.SetGoProperties(this, setgo.type, res, !isthisUDFscope(pnode));
+				if (GOpresent(pnode)) u.repaint = true;
+				fpmsg.SetGoProperties(this, setgo.type, res);
+				if (need2repaintnow(pnode))
+					fpmsg.RepaintGO(this); 
 			}
 		}
 		Script = diggy.level.varname;

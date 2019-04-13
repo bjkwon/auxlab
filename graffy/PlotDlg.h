@@ -193,7 +193,6 @@ public:
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
 	int makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint);
-	int makeDrawVector(POINT* out, const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
 	int estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
 	void DrawMarker(CDC dc, CLine* mline, POINT *draw, int nDraws);
 	POINT GetIndDisplayed(CAxes *pax);
@@ -203,5 +202,5 @@ public:
 	void GetSignalIndicesofInterest(int code, CAxes *pax, int & ind1, int &ind2);
 	int GetSelect(CSignals *pout);
 	void ShowSpectrum(CAxes *pax, CAxes *paxBase);
-	void getFFTdata(CSignals *sig_mag, CAxes *pax, double *fft, double *freq, int len);
+	void getFFTdata(CSignals *sig_mag, double *fft, int len);
 };

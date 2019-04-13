@@ -17,7 +17,7 @@
 void thread4Plot(PVOID var);
 
 CGobj::CGobj()
-:m_dlg(nullptr), hPar(nullptr), visible(true), hChild(nullptr)
+:m_dlg(nullptr), hPar(nullptr), visible(1), hChild(nullptr)
 {
 	type = GRAFFY_root;
 }
@@ -128,6 +128,7 @@ GRAPHY_EXPORT CFigure::CFigure()
 	initGO(NULL);
 	vector<DWORD> cl(1, color=RGB(230, 230, 210)); // color can disppear later 12/5
 	strut["color"] = COLORREF2CSignals(cl, CSignals());
+	strut["visible"] = CSignals(false); // all figure windows are invisible when created.
 }
 
 CFigure::~CFigure()
@@ -149,6 +150,8 @@ void CFigure::initGO(void * _hpar)
 	strut["type"] = CSignals(std::string("figure"));
 	struts["gca"].push_back(NULL);
 	struts["gca"].pop_back();
+	strut["visible"] = CSignals(false); // all figure windows are invisible when created; but at this time visible is -1 (so that the application knows this is uniniated)
+	visible = -1;
 }
 
 CAxes *CFigure::axes(CPosition pos)
@@ -219,7 +222,7 @@ void CFigure::SetXLIM()
 	//3) Invalidate each axis
 	for (vector<CAxes*>::iterator px = ax.begin(); px != ax.end(); px++)
 	{
-		CRect rt((*px)->rcAx);
+		CRect rt((*px)->rct);
 		rt.InflateRect(5, 0, 10, 30);
 		m_dlg->InvalidateRect(rt);
 	}

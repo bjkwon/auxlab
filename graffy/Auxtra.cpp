@@ -29,6 +29,7 @@ uintptr_t hTread;
 bool win7;
 
 
+void addRedrawCue(HWND hDlg, RECT rt);
 void ReplaceStr(string &str, const char *from, const char *to) { ReplaceStr(str, string(from), string(to)); }
 
 HMODULE hLib(NULL);
@@ -283,22 +284,22 @@ void delete_toDelete(CAstSig *past, CVar *delThis)
 		{
 			for (auto jt = (*it).second.begin(); jt != (*it).second.end(); )
 			{
-				if ((*jt) == delThis)
-					jt = (*it).second.erase(jt);
-				else
-					jt++;
+			if ((*jt) == delThis)
+				jt = (*it).second.erase(jt);
+			else
+				jt++;
 			}
 			it++;
 		}
 		else
 		{
-			if ((*it).second.front() == delThis)
-			{
-				past->Vars[(*it).first] = CVar(); // do not call SetVars--it doesn't make a new item in Vars because of the item in GOvars with the name (*it).first
-				it = past->GOvars.erase(it);
-			}
-			else
-				it++;
+		if ((*it).second.front() == delThis)
+		{
+			past->Vars[(*it).first] = CVar(); // do not call SetVars--it doesn't make a new item in Vars because of the item in GOvars with the name (*it).first
+			it = past->GOvars.erase(it);
+		}
+		else
+			it++;
 		}
 	}
 }
@@ -334,7 +335,7 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 	// Clear the content of the corresponding variable from GOvar
 	for (map<string, vector<CVar*>>::iterator it = past->GOvars.begin(); it != past->GOvars.end(); )
 	{
-		if ((*it).second.size()>1)
+		if ((*it).second.size() > 1)
 		{
 			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end(); )
 			{
@@ -357,7 +358,7 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 		}
 	}
 	// Clean the other way
-	for (auto it = past->GOvars.begin(); it != past->GOvars.end(); it++ )
+	for (auto it = past->GOvars.begin(); it != past->GOvars.end(); it++)
 	{
 		for (auto jt = (*it).second.begin(); jt != (*it).second.end(); jt++)
 		{
@@ -381,7 +382,9 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 			delete_toDelete(tp, *it);
 		tp = tp->dad;
 	}
-	if (!past->isthisUDFscope(pnode))
+	if (past->isthisUDFscope(pnode))
+		past->u.rt2validate[GetHWND_PlotDlg(hobj)] = CRect(0, 0, 0, 0);
+	else
 		InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
 }
 
@@ -454,6 +457,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["pos"].buf[2] = rt.Width();
 	cfig->strut["pos"].buf[3] = rt.Height();
 	past->Sig = *(past->pgo = cfig); 
+	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 }
 
 GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -479,7 +483,7 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	if ((*it).GetType() != CSIG_STRING) throw CAstException(pnode, past, "Third argument must be string.");
 	string vam;
 	CSignals *pgcf = past->GetVariable("gcf", vam);
-	if (pgcf == NULL)
+	if (pgcf == NULL || pgcf->IsEmpty())
 	{
 		_figure(past, pnode, NULL, fnsigs);
 		pgcf = past->GetVariable("gcf", vam);
@@ -489,8 +493,7 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
 	past->Sig = *(past->pgo = ctxt); 
-	if (!past->isthisUDFscope(pnode))
-		cfig->m_dlg->InvalidateRect(NULL);
+	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 }
 
 CAstSig *mainast;
@@ -498,7 +501,6 @@ CAstSig *mainast;
 GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	mainast = past;
-	CVar *ppos;
 	CVar *pGO(NULL);
 	// What is past->pgo doing here? There must have been a reason but I'm not sure any more now.
     // I just removed past->pgo in _plot(). Don't know what the implications would be. Just keep it like this now. 8/2/2018
@@ -506,16 +508,18 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		pGO = past->pgo;
 	else if (past->Sig.IsGO())
 		pGO = &past->Sig;
-	else
-		ppos = &past->Sig;
+	CPosition pos(past->Sig.buf[0], past->Sig.buf[1], past->Sig.buf[2], past->Sig.buf[3]);
 	if (pGO)
-		ppos = &past->Compute(p);
+	{
+		past->Compute(p);
+		pos.x0 = past->Sig.buf[0]; pos.y0 = past->Sig.buf[1]; pos.width = past->Sig.buf[2]; pos.height = past->Sig.buf[3];
+	}
 	CSignals *pgcf;
 	if (!pGO || pGO->IsEmpty())
 	{
 		string vam;
 		pgcf = past->GetVariable("gcf", vam);
-		if (!pgcf)
+		if (!pgcf || pgcf->IsEmpty())
 		{
 			_figure(past, pnode, NULL, fnsigs);
 			pgcf = past->GetVariable("gcf", vam);
@@ -530,7 +534,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	}
 	CFigure *cfig = (CFigure *)FindFigure(pgcf);
 	CAxes * cax;
-	cax = static_cast<CAxes *>(AddAxes(cfig, ppos->buf[0], ppos->buf[1], ppos->buf[2], ppos->buf[3]));
+	cax = static_cast<CAxes *>(AddAxes(cfig, pos));
 
 	//taking care of line graphic handle output
 	cax->SetValue((double)(INT_PTR)cax);
@@ -544,8 +548,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	cfig->struts["gca"].push_back(cax);
 	past->Sig = *cax; // Just to show on the screen, not the real output.
 	past->pgo = cax; // This is how the figure handle (pointer) is sent back to AstSig
-	if (!past->isthisUDFscope(pnode))
-		cfig->m_dlg->InvalidateRect(NULL);
+	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 }
 
 GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
@@ -582,7 +585,9 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 		}
 		else
 		{
-			past->Compute(pp);
+			CAstSig tp(past);
+			if (!tp.Compute(pp).IsString())
+				past->Compute(pp);
 			pp = p->next;
 		}
 		past->blockCell(pnode, past->Sig);
@@ -712,6 +717,12 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 			cfig = (CFigure *)itgcf->second.front();
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 		}
+		vector<CGobj*> prevChild = cax->child;
+		//Finally cax and cfig ready. Time to inspect input data
+		if (tp.Sig.GetType() == CSIG_STRING)
+			nArgs = -1;
+		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
+		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
 		if (isPlot)
 		{
 			//if there's existing line in the specified axes
@@ -721,20 +732,16 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
 				cax->xtick.tics1.clear();
 				cax->ytick.tics1.clear();
-				while (!cax->child.empty())
-					deleteObj(cax->child.front());
+				while (!prevChild.empty())
+					deleteObj(prevChild.front());
 			}
 		}
-		//Finally cax and cfig ready. Time to inspect input data
-		if (tp.Sig.GetType() == CSIG_STRING)
-			nArgs = -1;
-		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
-		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
 		static char buf[256];
 		if (!newFig)
 			cfig = (CFigure*)cax->struts["parent"].front();
 	}
-	catch (const CAstException &e) { throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
+	catch (const CAstException &e) { 
+		throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }
 
 	//past->pgo carries the pointer, past->Sig is sent only for console display
 	switch (plotlines.size())
@@ -749,6 +756,8 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		past->Sig = *(past->pgo = past->MakeGOContainer(temp)); // This is how the figure handle (pointer) is sent back to AstSig
 		break;
 	}
+	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
+
 	//x.plot(___) ==> x needs updating here (a break from the convention where aux calls don't update the variable when applied to it) 3/13/2018
 	//Update gcf if it is not showvar-enter figure handle
 	//allow pgo NULL (then go with gcf)
@@ -837,34 +846,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		past->Sig = *(past->pgo = tp);
 		cfig = (CFigure*)cax;
 	}
-	if (!past->isthisUDFscope(pnode))
+	if (past->isthisUDFscope(pnode))
+		past->u.rt2validate[cfig->m_dlg->hDlg] = CRect(0, 0, 0, 0);
+	else
 		cfig->m_dlg->InvalidateRect(NULL);
-
-}
-
-void findAndUpdateGO(CAstSig &ast, CVar *pgo)
-{ //not used .... 11/2/2018
-	HANDLE h = FindGObj(pgo);
-	CFigure *cfig;
-	CAxes *cax;
-	if (pgo->strut["type"].string() == "figure")
-	{
-		cfig = static_cast<CFigure *>(h);
-	}
-	else if (pgo->strut["type"].string() == "axes")
-	{
-		cax = static_cast<CAxes *>(h);
-		cfig = (CFigure *)cax->hPar;
-		CSignals cpos = pgo->strut["pos"];
-//		past->updateGO(*pgo); // no need 3/27
-		CVar *fg, *ax2, cpos2;
-		if (pgo->struts.find("parent")!= pgo->struts.end())
-			fg = pgo->struts["parent"].front();
-		if (pgo->struts.find("children") != pgo->struts.end())
-		{
-			ax2 = fg->struts["children"].front();
-			cpos2 = ax2->strut["pos"];
-		}
-	}
-//	past->updateGO(&cfig->hgo, &cax->hgo, &cline->hgo, &ctxt->hgo);
 }

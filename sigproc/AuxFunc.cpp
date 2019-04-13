@@ -2787,5 +2787,16 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			throw ExceptionMsg(p, fname, "Not a built-in function.");
 	}
 	Sig.functionEvalRes = true;
+	if (GOpresent(pnode))
+	{
+		u.repaint = true;
+		if (u.title.empty()) // this is a more stringent condition than !isthisUDFscope(pnode).. allowing only the input from the command line 
+		{
+			fpmsg.RepaintGO(this);
+		}
+		else if (need2repaintnow(pnode))
+			fpmsg.RepaintGO(this);
+
+	}
 	return;
 }

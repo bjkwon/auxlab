@@ -193,12 +193,12 @@ GRAPHY_EXPORT CAxes *CAxes::create_child_axis(CPosition pos)
 
 void CAxes::GetCoordinate(POINT* pt, double& x, double& y)
 {
-	int ix = pt->x - rcAx.left;
-	int iy = rcAx.bottom - pt->y;
+	int ix = pt->x - rct.left;
+	int iy = rct.bottom - pt->y;
 	double width = xlim[1]-xlim[0];
 	double height = ylim[1]-ylim[0];
-	x = ix*width/rcAx.Width() + xlim[0];
-	y = iy*height/rcAx.Height() + ylim[0];
+	x = ix*width/rct.Width() + xlim[0];
+	y = iy*height/rct.Height() + ylim[0];
 }
 
 double qut(double lim[2], double d)
@@ -209,7 +209,7 @@ double qut(double lim[2], double d)
 
 double CAxes::GetRangePixel(int x)
 {
-	double relativeVal = (double)(x - rcAx.left)/(double)rcAx.Width();
+	double relativeVal = (double)(x - rct.left)/(double)rct.Width();
 	double val = xlim[0] + relativeVal * (xlim[1]-xlim[0]);
 	return val;
 }
@@ -218,17 +218,17 @@ int CAxes::double2pixel(double a, char xy)
 {
 	double relativeVal;
 	int extent; // in pixel
-	// rcAx field, xlim, ylim must have been prepared prior to this call.
+	// rct field, xlim, ylim must have been prepared prior to this call.
 	switch(xy)
 	{
 	case 'x':
 		relativeVal = qut(xlim, a); 
-		extent = rcAx.Width();
-		return rcAx.left + (int)((double)extent*relativeVal+.5);
+		extent = rct.Width();
+		return rct.left + (int)((double)extent*relativeVal+.5);
 	case 'y':
 		relativeVal = qut(ylim, a); 
-		extent = rcAx.Height();
-		return rcAx.bottom - (int)((double)extent*relativeVal+.5);
+		extent = rct.Height();
+		return rct.bottom - (int)((double)extent*relativeVal+.5);
 	default:
 		return -9999;
 	}
@@ -237,13 +237,13 @@ int CAxes::double2pixel(double a, char xy)
 POINT CAxes::double2pixelpt(double x, double y, double *newxlim)
 {
 	// Returns pixel POINT from (x, y) coordinate in double. 
-	// calculates how many pixels the point advances rcAx.left and rcAx.top based on xlim, ylim
+	// calculates how many pixels the point advances rct.left and rct.top based on xlim, ylim
 	// newxlim is used for audio signal chains (the one with null-signal(s) in the middle)
 	POINT pt;
 	if (newxlim==NULL) pt.x = double2pixel(x,'x');
 	else {
 		double ratio = (newxlim[1]-newxlim[0])/(xlim[1]-xlim[0]);
-		pt.x = rcAx.left; // + GetOffsetPixel(x-xlim[0],'x', ratio);  //now,  how to proceed with ratio??
+		pt.x = rct.left; // + GetOffsetPixel(x-xlim[0],'x', ratio);  //now,  how to proceed with ratio??
 	}
 	pt.y = double2pixel(y,'y');
 	return pt;
@@ -252,7 +252,7 @@ POINT CAxes::double2pixelpt(double x, double y, double *newxlim)
 GRAPHY_EXPORT CRect CAxes::GetWholeRect()
 { // Output: CRect of the whole axis area including xtick, ytick
 	// Add xtick2 and ytick2 on the right and top sides when needed.
-	CRect out(axRect), outxy;
+	CRect out(rct), outxy;
 	outxy.UnionRect(xtick.rt,ytick.rt);
 	out.UnionRect(out, outxy);
 	return out;
@@ -315,7 +315,7 @@ int CAxes::GetDivCount(char xy, int dimens)
 		}
 		break;
 	case 'y':
-		if (dimens<0) dimens = (int) (height*pos.height+.5); // axRect is not updated yet (it is updated inside OnPaint)
+		if (dimens<0) dimens = (int) (height*pos.height+.5); // rct is not updated yet (it is updated inside OnPaint)
 		it = rpix2.begin();	it++;
 		if (dimens > rpix2.rbegin()->first) 
 			nTicks = rpix2.rbegin()->second + (dimens-rpix2.rbegin()->first)/70;
@@ -347,7 +347,7 @@ void CAxes::setxticks()
 	nSamples = (int)(percentShown * m_ln.front()->sig.nSamples+.5);
 	splitevenindices(out, nSamples, nTicks);
 	vxdata.reserve(nSamples);
-	if (m_ln.front()->xdata==NULL)
+	if (m_ln.front()->xdata.nSamples==0)
 	{
 		beginID = (int)ceil(xlim[0]*fs);
 		for (int k=beginID; k<beginID+nSamples; k++) vxdata.push_back((double)(k)/fs); // no need to check whether it is an audio signal 
@@ -371,8 +371,8 @@ GRAPHY_EXPORT void CAxes::setxlim()
 	{
 		if (line->xdata.nSamples) // case of no chain.
 		{
-			xlim[0] = min(line->xdata._min(), xlim[0]);
-			xlim[1] = max(line->xdata._max(), xlim[1]);
+			xlim[0] = min(line->xdata._min(), xlim[0]) - 1;
+			xlim[1] = max(line->xdata._max(), xlim[1]) + 1;
 		}
 		else
 		{
@@ -383,8 +383,10 @@ GRAPHY_EXPORT void CAxes::setxlim()
 			}
 			else
 			{
-				xlim[0] = 1;
-				xlim[1] = max(line->sig.alldur() / 1000. / line->sig.nGroups, xlim[1]); // milliseconds
+				xlim[1] = max(line->sig.alldur() / 1000. / line->sig.nGroups, xlim[1])+1;
+				if (xlim[1] < 10)		xlim[0] = 0.5;
+				else if (xlim[1]<100)		xlim[0] = 0.25;
+				else 		xlim[0] = 0;
 			}
 		}
 	}
@@ -505,16 +507,16 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 int CAxes::timepoint2pix(double timepoint)
 {
 	double proportion = (timepoint-xlim[0]) / (xlim[1]-xlim[0]);// time proportion re the displayed duration
-	int pix_proportion = (int)((double)axRect.Width() * proportion);
-	return axRect.left + pix_proportion;
+	int pix_proportion = (int)((double)rct.Width() * proportion);
+	return rct.left + pix_proportion;
 }
 
 double CAxes::pix2timepoint(int pix)
 {
 	double proportion; // time proportion re the displayed duration
-	int ss=axRect.left;
-	int ss2=axRect.Width();		
-	proportion = (double) (pix-axRect.left) / (double)axRect.Width();
+	int ss=rct.left;
+	int ss2=rct.Width();		
+	proportion = (double) (pix-rct.left) / (double)rct.Width();
 	return xlim[0] + (xlim[1]-xlim[0])*proportion;
 }
 
@@ -599,7 +601,7 @@ CAxes& CAxes::operator=(const CAxes& rhs)
 	if (this != &rhs)
 	{
 		CGobj::operator=(rhs);
-		axRect = rhs.axRect;
+		rct = rhs.rct;
 		colorAxis = rhs.colorAxis;
 		memcpy(xlim, rhs.xlim, sizeof(xlim));
 		memcpy(ylim, rhs.ylim, sizeof(ylim));

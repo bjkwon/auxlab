@@ -110,7 +110,7 @@ public:
 	CGobj *hPar;
 	CGobj *hChild; // this is a linked list, different from vector child, used only for special purpose (for example, to keep a direct genealogy line)
 	CWndDlg *m_dlg;
-	bool visible;
+	int visible;
 	graffytype type;
 	vector<CGobj *> child;
 	CGobj();
@@ -233,8 +233,7 @@ public:
 	GRAPHY_EXPORT CAxes& operator=(const CAxes& rhs);
 	CAxes();
 	~CAxes();
-	CRect axRect;
-	CRect rcAx;
+	CRect rct;
 };
 
 class CFigure : public CGobj
@@ -323,7 +322,8 @@ GRAPHY_EXPORT HWND GetHWND_PlotDlg2(HANDLE hFig);
 GRAPHY_EXPORT void SetHWND_GRAFFY(HWND hAppl);
 GRAPHY_EXPORT HWND GetHWND_GRAFFY ();
 GRAPHY_EXPORT void deleteObj (HANDLE h);
-GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS, bool invalidateScreen);
+GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS);
+GRAPHY_EXPORT void RepaintGO(CAstSig *pctx);
 GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B);
 GRAPHY_EXPORT DWORD CSignals2COLORREF(CSignals col);
 GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig);

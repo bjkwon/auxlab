@@ -180,23 +180,6 @@ void SetGlovar(CVar *cfig)
 	CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(cfig);
 }
 
-int isSameCSignals_for_GCF_purpose(CSignals *p1, CSignals *p2)
-{
-	if (p1->GetType()!=p2->GetType()) return 0;
-	if (p1->length()!=p2->length()) return 0;
-	if (p1->GetType()==CSIG_STRING)
-	{
-		if (p1->string()!=p2->string()) return 0;
-		return 1;
-	}
-	else if (p1->GetType()==CSIG_SCALAR)
-	{
-		if (p1->value() != p2->value() )return 0;
-		return 1;
-	}
-	return 0;
-}
-
 BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
 	int newfs;
@@ -382,6 +365,8 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	input.push_back(pChan2);
 	double xlimOld[2];
 	memcpy(xlimOld, cfig->ax.front()->xlim, 2 * sizeof(double));
+	const int oldType = cfig->ax.front()->m_ln.front()->sig.GetType();
+	const int oldnSamples = cfig->ax.front()->m_ln.front()->sig.nSamples;
 	if (cfig->ax.size()>1) // for now, assume only ax.size is 2 at the most 2/5/2019
 	{
 		xlimOld[0] = min(xlimOld[0], cfig->ax[1]->xlim[0]);
@@ -406,12 +391,12 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 		xlim[1] = max(xlim[1], pChan2->alldur());
 	}
 	xlim[0] /= 1.e3; xlim[1] /= 1.e3;
-	if (lowestTmark > xlimOld[1] || cfig->ax.front()->xlim[1] < xlimOld[0])
-	{ // update xlim
+	if (oldType!=psig->GetType() || lowestTmark > xlimOld[1] || cfig->ax.front()->xlim[1] < xlimOld[0])
+	{ // update xlim, ylim
 		for (auto ax : cfig->ax)
 		{
 			ax->xtick.tics1.clear();
-			if (psig->GetType() == CSIG_VECTOR) ax->ytick.tics1.clear();
+			ax->ytick.tics1.clear();
 			ax->xlim[1] = xlim[1]; // keep ax->xlim[0]
 		}
 	}
@@ -1978,7 +1963,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 		else if (pvar->IsComplex())
 			showcomplex(outbuf, pvar->cbuf[0]);
 		else
-			sprintf(outbuf, "%g", pvar->value());
+			sprintf(outbuf, "%g", pvar->valuestr());
 		break;
 	case CSIG_HANDLE:
 		if (pvar->IsGO())
@@ -1986,10 +1971,10 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 			if (pvar->IsString())
 				sprintf(outbuf, "\"%s\" [Graphic]", pvar->string().c_str());
 			else
-				sprintf(outbuf, "%.0lf [Graphic]", pvar->value());
+				sprintf(outbuf, "%.0lf [Graphic]", pvar->valuestr());
 		}
 		else if (pvar->IsAudioObj())
-			sprintf(outbuf, "%.0lf [Audioplay]", pvar->value());
+			sprintf(outbuf, "%.0lf [Audioplay]", pvar->valuestr());
 		else
 			sprintf(outbuf, "Handle");
 		break;

@@ -7,8 +7,8 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.501
+// Date: 4/9/2019
 // 
 #include "graffy.h"
 
@@ -128,7 +128,6 @@ void CText::initGO(void * _hpar)
 {
 	CGobj::initGO(_hpar);
 	strut["type"] = CSignals(std::string("text"));
-	strut["fontsize"] = CSignals(-1.);
 }
 
 CText& CText::operator=(const CText& rhs)

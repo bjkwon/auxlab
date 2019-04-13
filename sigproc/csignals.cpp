@@ -264,6 +264,22 @@ void body::Reset()
 	bufBlockSize = sizeof(double);
 }
 
+string body::valuestr() const
+{ //this doesn't throw. Used for showvar.cpp (avoiding unhandled exceptions)
+	ostringstream out;
+	if (nSamples >= 1)
+	{
+		if (bufBlockSize == 8)	out << buf[0];
+		else if (bufBlockSize == 1)	out << (double)logbuf[0];
+		else out << "complex";
+	}
+	else if (nSamples == 0)
+		out << "(emptybuffer)";
+	if (nSamples > 1)
+		out << "(more)";
+	return out.str().c_str();
+}
+
 double body::value() const 
 {
 	if (nSamples == 1)
