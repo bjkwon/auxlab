@@ -308,6 +308,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 				rt.MoveToXY(10, 40);
 				::MoveWindow(cfig->m_dlg->hDlg, rt.left, rt.top, rt.Width(), rt.Height(), 1);
 			}
+			cfig->m_dlg->ShowWindow(SW_SHOW);
 		}
 	}
 	else
@@ -1963,7 +1964,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 		else if (pvar->IsComplex())
 			showcomplex(outbuf, pvar->cbuf[0]);
 		else
-			sprintf(outbuf, "%g", pvar->valuestr());
+			sprintf(outbuf, "%s", pvar->valuestr());
 		break;
 	case CSIG_HANDLE:
 		if (pvar->IsGO())
@@ -1971,10 +1972,10 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 			if (pvar->IsString())
 				sprintf(outbuf, "\"%s\" [Graphic]", pvar->string().c_str());
 			else
-				sprintf(outbuf, "%.0lf [Graphic]", pvar->valuestr());
+				sprintf(outbuf, "%.0lf [Graphic]", pvar->valuestr().c_str());
 		}
 		else if (pvar->IsAudioObj())
-			sprintf(outbuf, "%.0lf [Audioplay]", pvar->valuestr());
+			sprintf(outbuf, "%.0lf [Audioplay]", pvar->valuestr().c_str());
 		else
 			sprintf(outbuf, "Handle");
 		break;

@@ -733,7 +733,10 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				cax->xtick.tics1.clear();
 				cax->ytick.tics1.clear();
 				while (!prevChild.empty())
-					deleteObj(prevChild.front());
+				{
+					deleteObj(prevChild.back());
+					prevChild.pop_back();
+				}
 			}
 		}
 		static char buf[256];

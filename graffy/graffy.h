@@ -119,6 +119,7 @@ public:
 	GRAPHY_EXPORT void setPos(double x0, double y0, double width, double height);
 	void setPos(CPosition &posIn);
 	virtual void initGO(void * _hpar);
+	static void addRedrawCue(HWND h, RECT rt);
 };
 
 class CTick : public CGobj

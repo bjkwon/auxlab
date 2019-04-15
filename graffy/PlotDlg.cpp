@@ -347,8 +347,11 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	int idBegin, idLast, nSamples2Display;
 	//number of samples to display
 	int count = 0;
+	double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rct.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
+	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
 	if (tseries)
 	{
+		nSamplesPerPixel = xPerPixel * fs;
 		double tmarkms = p->tmark / 1000.;
 		//index corresponding to x1
 		if (x2 < tmarkms) return 0;
@@ -373,18 +376,19 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	}
 	else
 	{
-		if (lyne->xdata.nSamples) // for xy plot, just make the draw vector here and return. Disregard xlim and ylim
-		{
-			for (unsigned int k = 0; k < p->nSamples; k++)
-			{
-				CPoint pt0 = pt;
-				pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
-				if (pt0 != pt)
-					out[count++] = pt;
-			}
-			return count;
-		}
-		else
+		nSamplesPerPixel = xPerPixel * p->nSamples / (pax->xlim[1] - pax->xlim[0]);
+		//if (lyne->xdata.nSamples) // for xy plot, just make the draw vector here and return. Disregard xlim and ylim
+		//{
+		//	for (unsigned int k = 0; k < p->nSamples; k++)
+		//	{
+		//		CPoint pt0 = pt;
+		//		pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
+		//		if (pt0 != pt)
+		//			out[count++] = pt;
+		//	}
+		//	return count;
+		//}
+		//else
 		{
 			idBegin = max((int)ceil(pax->xlim[0]), (int)x1) - 1;
 			idBegin = max(0, idBegin);
@@ -394,12 +398,6 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 		}
 	}
 	//make this conditional prettier when you have time 4/8/2019
-	double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rct.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
-	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
-	if (tseries)
-		nSamplesPerPixel = xPerPixel * fs;
-	else
-		nSamplesPerPixel = xPerPixel * p->nSamples / (pax->xlim[1] - pax->xlim[0]);
 	if (nSamplesPerPixel > 2.)
 	{
 		double adder = 0;
@@ -444,15 +442,28 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	}
 	else
 	{
-		for (int k = idBegin; k < idBegin + nSamples2Display; k++)
+		if (lyne->xdata.nSamples) // for xy plot, just make the draw vector here and return. Disregard xlim and ylim
 		{
-			if (tseries)
-				pt = pax->double2pixelpt(p->tmark / 1000. + (double)k / fs, p->buf[k], NULL);
-			else if (lyne->xdata.nSamples > 0)
+			for (unsigned int k = 0; k < p->nSamples; k++)
+			{
+				CPoint pt0 = pt;
 				pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
-			else
-				pt = pax->double2pixelpt((double)k+1, p->buf[k], NULL);
-			out[count++] = pt;
+				if (pt0 != pt)
+					out[count++] = pt;
+			}
+		}
+		else
+		{
+			for (int k = idBegin; k < idBegin + nSamples2Display; k++)
+			{
+				if (tseries)
+					pt = pax->double2pixelpt(p->tmark / 1000. + (double)k / fs, p->buf[k], NULL);
+				else if (lyne->xdata.nSamples > 0)
+					pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
+				else
+					pt = pax->double2pixelpt((double)k + 1, p->buf[k], NULL);
+				out[count++] = pt;
+			}
 		}
 	}
 	return count;
@@ -1972,6 +1983,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	pax->rct.bottom = pax->rct.top;
 	pax->rct.top = temp;
 	InvalidateRect(pax->rct);
+//	CGobj::addRedrawCue(hDlg, pax->rct);
 #endif
 }
 

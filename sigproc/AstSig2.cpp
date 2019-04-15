@@ -173,7 +173,12 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 			}
 		}
 		else if (p->alt->type == N_STRUCT)
-			throw pbase->ExceptionMsg(p, "Only one level of class definition allowed.");
+		{
+			pbase->define_new_variable(pnode, pRHS);
+			level.varname += '.';
+			level.varname += p->alt->str;
+		}
+//			throw pbase->ExceptionMsg(p, "Only one level of class definition allowed.");
 		else 
 			throw pbase->ExceptionMsg(p, "Unknown error.");
 	}
@@ -181,7 +186,7 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 	{ // no indexing--assign RHS to LHS (if RHS is available) or retrieve LHS
 		if (pRHS)
 		{
-			if (level.psigBase->IsGO())
+			if (level.psigBase && level.psigBase->IsGO())
 			{ //reject an attempt to modify unchangeable struts
 				if (!strcmp(p->str,"children") || !strcmp(p->str, "parent") || !strcmp(p->str, "gcf") || !strcmp(p->str, "gca"))
 					throw pbase->ExceptionMsg(p, "LHS is unmodifiable.");
@@ -189,7 +194,7 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 			// illegal if p-str is a built-in function name
 			if (p->str[0] == '#' || pbase->IsValidBuiltin(p->str))
 				throw pbase->ExceptionMsg(p, "LHS must be l-value; cannot be a built-in function");
-			pbase->replica_prep(level.psigBase);
+			if (level.psigBase) pbase->replica_prep(level.psigBase);
 			CVar *pgo_org = pbase->pgo;
 			CVar tsig = pbase->Compute(pRHS);
 //			pgo = pgo_org; // if this is uncommented, a = var_go; won't assign the var_go to a if a is already a go. I forgot when/why I had to add this line. 11/29/2018. 
@@ -521,7 +526,7 @@ CVar &CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 }
 
 CVar &CDeepProc::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
-{ // Computes pRHS, if available, and assign it to LHS. If pRHS is NULL, evaluates the single side (pLHS) and puts in to Sig and the application may echo as needed.
+{ // Computes pRHS, if available, and assign it to LHS.
 	// 2 cases where psig is not Sig: first, a(2), second, a.sqrt
 	CVar tsig;
 	if (pbase->IsCondition(pLHS))

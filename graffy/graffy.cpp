@@ -60,6 +60,12 @@ CGraffyDLL theApp;
 
 #define THE_CPLOTDLG  static_cast <CPlotDlg*>(theApp.fig[id])
 
+
+void CGobj::addRedrawCue(HWND h, RECT rt)
+{
+	theApp.redraw.insert(pair<HWND, RECT>(h, rt));
+}
+
 void addRedrawCue(HWND hDlg, RECT rt)
 {
 	theApp.redraw.insert(pair<HWND,RECT>(hDlg, rt));

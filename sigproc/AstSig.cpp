@@ -2194,25 +2194,41 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// by default the 3rd arg of psigAtNode is false, but if this call is made during RHS handling (where pRHS is NULL), it tells psigAtNode to try builtin_func_call first. 8/28/2018
 
 		AstNode *pLast = read_nodes(diggy); // that's all about LHS.
-		if (!diggy.level.psigBase)
-		{
-			lhs = pLast;
-			diggy.level.side = 'L';
-			Script = pnode->str;
-			return define_new_variable(pnode, pRHS);
-		}
-		// At this point, Sig should be it
-		// psig : the base content of Sig 
-		// pLast: the node corresponding to psig
+		// var = (any statement): pLast is T_ID and no alt, child represents (any statement)
+		// var(id) = (any statement): pLast is N_ARGS
+		// var.prop = (any statement): pLast is N_STRUCT
+		/* when var is not available, i.e., diggy.level.psigBase is NULL,
+			var = (any statement) : from RHS to LHS
+			var(id) = (any statement) : error
+			var.prop = (any statement) : var is generated as a class variable with prop
+		*/
 		if (!pRHS)
 		{
 			if (diggy.level.psigBase->IsGO()) return *pgo;
 			else	return Sig;
 		}
+		CVar res;
+		if (!diggy.level.psigBase)
+		{
+			lhs = pLast;
+			diggy.level.side = 'L';
+			Script = pnode->str;
+			Script += diggy.level.varname;
+	//		return define_new_variable(pnode, pRHS);
+		}
+		res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
+		if (diggy.level.psigBase)
+			Script = diggy.level.varname;
+		else
+			Script += diggy.level.varname;
+
+		// At this point, Sig should be it
+		// psig : the base content of Sig 
+		// pLast: the node corresponding to psig
 		setgo.frozen = true;
 		diggy.level.side = 'R';
-		lhs = pLast;
-		CVar res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
+//		lhs = pLast;
+//		res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
 			if (res.IsGO())
@@ -2230,7 +2246,6 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 					fpmsg.RepaintGO(this); 
 			}
 		}
-		Script = diggy.level.varname;
 	}
 	return Sig;
 }

@@ -267,6 +267,8 @@ void body::Reset()
 string body::valuestr() const
 { //this doesn't throw. Used for showvar.cpp (avoiding unhandled exceptions)
 	ostringstream out;
+	out.unsetf(ios::floatfield);
+	out.precision(14);
 	if (nSamples >= 1)
 	{
 		if (bufBlockSize == 8)	out << buf[0];
@@ -277,7 +279,7 @@ string body::valuestr() const
 		out << "(emptybuffer)";
 	if (nSamples > 1)
 		out << "(more)";
-	return out.str().c_str();
+	return out.str();
 }
 
 double body::value() const 
