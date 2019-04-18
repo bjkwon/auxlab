@@ -366,8 +366,13 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	input.push_back(pChan2);
 	double xlimOld[2];
 	memcpy(xlimOld, cfig->ax.front()->xlim, 2 * sizeof(double));
-	const int oldType = cfig->ax.front()->m_ln.front()->sig.GetType();
-	const int oldnSamples = cfig->ax.front()->m_ln.front()->sig.nSamples;
+	CTimeSeries *psigOld = &cfig->ax.front()->m_ln.front()->sig;
+	const int oldType = psigOld->GetType();
+	const int oldnSamples = psigOld->nSamples;
+	bool reestablishxlim = false;
+	//if xlim[0] and xlim[1] for xlimOld are the whole duration, re-establish xlim with the new sig
+	if (xlimOld[0] == 0. && xlimOld[1] == psigOld->alldur()/1.e3)
+		reestablishxlim = true;
 	if (cfig->ax.size()>1) // for now, assume only ax.size is 2 at the most 2/5/2019
 	{
 		xlimOld[0] = min(xlimOld[0], cfig->ax[1]->xlim[0]);
@@ -392,7 +397,7 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 		xlim[1] = max(xlim[1], pChan2->alldur());
 	}
 	xlim[0] /= 1.e3; xlim[1] /= 1.e3;
-	if (oldType!=psig->GetType() || lowestTmark > xlimOld[1] || cfig->ax.front()->xlim[1] < xlimOld[0])
+	if (reestablishxlim || oldType!=psig->GetType() || lowestTmark > xlimOld[1] || cfig->ax.front()->xlim[1] < xlimOld[0])
 	{ // update xlim, ylim
 		for (auto ax : cfig->ax)
 		{
@@ -539,6 +544,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 				}
 				else // if the variable is no longer unavable, audio or vector, exit the thread (and delete the fig window)
 					PostThreadMessage(GetCurrentThreadId(), WM_QUIT, 0, 0);
+				InvalidateRect(thisDlg->hDlg, NULL, 0);
 			}
 			break;
 		}
@@ -869,6 +875,7 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 {
 	vector<string> varname2del;
 	CVar *p = (CVar *)FindFigure(hDlgPlot);
+	vector<string> varname2delete;
 	//scan pVars and pGOvars and delete p if found
 	CVar dummy;
 	for (map<string, vector<CVar*>>::iterator it = pGOvars->begin(); it != pGOvars->end(); )
@@ -895,6 +902,7 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 			if (Is_A_Ancestor_of_B(p, (*it).second.front()))
 			{
 				(*pVars)[(*it).first] = dummy;
+				varname2delete.push_back((*it).first);
 				it = pGOvars->erase(it);
 			}
 			else
@@ -911,6 +919,12 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 			delete toDelete;
 			break;
 		}
+	}
+	for (auto it = varname2delete.begin(); it!= varname2delete.end(); it++)
+	{
+		CWndDlg * dlg = Find_cellviewdlg((*it).c_str());
+		if (dlg && dlg->dwUser == 1010)
+			dlg->DestroyWindow();
 	}
 }
 
@@ -1964,7 +1978,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 		else if (pvar->IsComplex())
 			showcomplex(outbuf, pvar->cbuf[0]);
 		else
-			sprintf(outbuf, "%s", pvar->valuestr());
+			sprintf(outbuf, "%s", pvar->valuestr().c_str());
 		break;
 	case CSIG_HANDLE:
 		if (pvar->IsGO())

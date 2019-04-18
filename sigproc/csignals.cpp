@@ -1580,6 +1580,8 @@ void CTimeSeries::AddMultChain(char type, CTimeSeries *sec)
 			//	if (sec->nSamples>0)	sec->buf += sizeof(sec->buf)*p->nSamples;
 			//}
 		}
+		if (sec->GetType() == CSIG_AUDIO)
+			SetFs(sec->fs);
 		return;
 	}
 

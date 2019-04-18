@@ -1618,8 +1618,11 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 					mShowDlg.OnVarChanged(pt);
 				}
 		}
-		if (pcast->statusMsg.length()>0 && pcast->statusMsg.substr(0,6)=="(NOTE)") 
+		if (pcast->statusMsg.length() > 0 && pcast->statusMsg.substr(0, 6) == "(NOTE)")
+		{
 			cout << pcast->statusMsg.c_str() << endl;
+			pcast->statusMsg.clear();
+		}
 	}
 	if (IsNowDebugging(pcast))
 	{

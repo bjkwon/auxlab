@@ -871,6 +871,7 @@ AstNode *CAstSig::searchtree(const AstNode *pTarget, AstNode *pStart)
 		if (p->alt) if (searchtree(pTarget, p->alt)) { u.pLastRead = pStart;  return p->alt;	}
 		if (p->child) if (searchtree(pTarget, p->child)) { u.pLastRead = pStart;  return p->child; }
 		if (p->next) if (searchtree(pTarget, p->next)) { u.pLastRead = pStart;  return p->next; }
+		return NULL;
 	}
 	return NULL;
 }
@@ -1914,7 +1915,8 @@ CVar *CAstSig::GetGloGOVariable(const char *varname, CVar *pvar)
 	}
 	catch (out_of_range oor)
 	{
-		throw ExceptionMsg(pAst, "Internal error--GetGloGOVariable() should be called when global variable is sure to exist in pEnv->glovar");
+		return NULL;
+//		throw ExceptionMsg(pAst, "Internal error--GetGloGOVariable() should be called when global variable is sure to exist in pEnv->glovar");
 	}
 }
 

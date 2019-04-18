@@ -533,6 +533,11 @@ void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 			past->Sig.SetValue(-2.);
 			return;
 		}
+		if (past->Sig.value() == 0.)
+		{
+			printf(buffer.c_str());
+			return;
+		}
 		file = file_ids[past->Sig.value()];
 		openclosehere = false;
 	}
@@ -1028,7 +1033,7 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 			if (!pathonly[0])
 				_splitpath(ls.cFileName, drive, dir, fname, ext);
 			else
-				strcpy(fname, ls.cFileName);
+				_splitpath(ls.cFileName, NULL, NULL, fname, ext);
 			char fullname[256];
 			CVar tp;
 			tp.strut["name"] = CSignals(CSignal(string(fname)));
@@ -1075,16 +1080,19 @@ void _varcheck(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 {
 	string fname = pnode->str;
 	int type = past->Sig.GetType();
-	if (fname == "isempty")			past->Sig.SetValue(past->Sig.IsEmpty());
-	else if (fname == "isaudio")	past->Sig.SetValue(type == CSIG_AUDIO ? 1 : 0);
-	else if (fname == "isvector")	past->Sig.SetValue(type == CSIG_VECTOR ? 1 : 0);
-	else if (fname == "isstring")	past->Sig.SetValue(type == CSIG_STRING ? 1 : 0);
-	else if (fname == "iscell")		past->Sig.SetValue((double)(int)!past->Sig.cell.empty());
-	else if (fname == "isclass")	past->Sig.SetValue((double)(int)!past->Sig.strut.empty());
-	else if (fname == "isbool")		past->Sig.SetValue(past->Sig.bufBlockSize == 1 && past->Sig.GetFs() != 2);
-	else if (fname == "isstereo")	past->Sig.SetValue(past->Sig.next != NULL ? 1 : 0);
-	else if (fname == "istseq")		past->Sig.SetValue((double)(int)past->Sig.IsTimeSignal()); //check...
-	past->Sig.MakeLogical();
+	CVar out;
+	if (fname == "isempty")			out.SetValue(past->Sig.IsEmpty());
+	else if (fname == "isaudio")	out.SetValue(type == CSIG_AUDIO ? 1 : 0);
+	else if (fname == "isvector")	out.SetValue(type == CSIG_VECTOR ? 1 : 0);
+	else if (fname == "isstring")	out.SetValue(type == CSIG_STRING ? 1 : 0);
+	else if (fname == "iscell")		out.SetValue((double)(int)!past->Sig.cell.empty());
+	else if (fname == "isclass")	out.SetValue((double)(int)!past->Sig.strut.empty());
+	else if (fname == "isbool")		out.SetValue(past->Sig.bufBlockSize == 1 && past->Sig.GetFs() != 2);
+	else if (fname == "isstereo")	out.SetValue(past->Sig.next != NULL ? 1 : 0);
+	else if (fname == "istseq")		out.SetValue((double)(int)past->Sig.IsTimeSignal()); //check...
+	out.MakeLogical();
+	past->Sig = out;
+	past->pgo = NULL;//must be reset here; otherwise, the GO lingers and interferes with other opereation successively.
 }
 
 void _or(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1538,7 +1546,9 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		else
 		{
 			past->Sig.SetFs(1); // Don't call Reset because we need to leave the data buffer as is.
-			if (past->Sig.IsTimeSignal())
+			if (!past->Sig.cell.empty())
+				past->Sig.SetValue((double)past->Sig.cell.size());
+			else if (past->Sig.IsTimeSignal())
 			{
 				past->Sig.SetValue((double)(past->Sig.CountChains()));
 			}
@@ -1800,14 +1810,17 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	EnumAudioVariables(past, audiovars);
 	if (past->FsFixed || audiovars.size()>0)
 	{
-		int old = past->GetFs();
-		CSignals ratio(1);
-		ratio.SetValue( past->Sig.GetFs() / (double)old);
-		past->Sig.basic(past->Sig.pf_basic2 = &CSignal::resample, &ratio);
-		if (ratio.IsString()) // this means there was an error during resample
-			throw past->ExceptionMsg(p, fnsigs, ratio.string().c_str());
-		sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), old);
-		past->Sig.SetFs(old);
+		if (past->Sig.GetFs() != past->GetFs())
+		{
+			int oldFs = past->GetFs();
+			CSignals ratio(1);
+			ratio.SetValue(past->Sig.GetFs() / (double)oldFs);
+			past->Sig.basic(past->Sig.pf_basic2 = &CSignal::resample, &ratio);
+			if (ratio.IsString()) // this means there was an error during resample
+				throw past->ExceptionMsg(p, fnsigs, ratio.string().c_str());
+			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), oldFs);
+			past->Sig.SetFs(oldFs);
+		}
 	}
 	else
 	{

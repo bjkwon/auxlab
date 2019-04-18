@@ -418,13 +418,19 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 				{
 					string temp;
 					sformat(temp, "Figure with the specified title not found: \"%s\"", param.string().c_str());
-					throw CAstException(p, past, temp.c_str());
+					//throw CAstException(p, past, temp.c_str());
+					past->pgo = NULL;
+					past->Sig = CVar();
+					return;
 				}
 				else if (param.IsScalar())
 				{
 					char buf[256];
 					sprintf(buf, "Figure with the specified handle not found: %lf", param.value());
-					throw CAstException(p, past, buf);
+					//throw CAstException(p, past, buf);
+					past->pgo = NULL;
+					past->Sig = CVar();
+					return;
 				}
 				else
 					throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
@@ -474,22 +480,28 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		args.push_back(past->Compute(p));
 	for (const AstNode *pp(p); pp; pp = pp->next)
 		args.push_back(past->Compute(pp));
-	vector<CSignals>::iterator it = args.begin();
-	for (; it != args.end()-1; it++)
+	int count = 0;
+	vector<CSignals>::reverse_iterator rit = args.rbegin();
+	if ((*rit).GetType() != CSIG_STRING) throw CAstException(pnode, past, "The last argument must be string.");
+	for (rit++; count<2; rit++, count++)
 	{
-		if ((*it).GetType() != CSIG_SCALAR) 
+		if ((*rit).GetType() != CSIG_SCALAR) 
 			throw CAstException(pnode, past, "X- and Y- positions must be scalar.");
 	}
-	if ((*it).GetType() != CSIG_STRING) throw CAstException(pnode, past, "Third argument must be string.");
 	string vam;
 	CSignals *pgcf = past->GetVariable("gcf", vam);
-	if (pgcf == NULL || pgcf->IsEmpty())
+	if (!pGO)
 	{
-		_figure(past, pnode, NULL, fnsigs);
-		pgcf = past->GetVariable("gcf", vam);
+		if (pgcf == NULL || pgcf->IsEmpty())
+		{
+			_figure(past, pnode, NULL, fnsigs);
+			pgcf = past->GetVariable("gcf", vam);
+		}
 	}
-	CFigure *cfig = (CFigure *)FindFigure(pgcf);
-	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back().string().c_str(), args.front().value(), args[1].value(), 0, 0));
+	else
+		pgcf = pGO;
+	CFigure *cfig = (CFigure *)pgcf;
+	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back().string().c_str(), (args.end()-3)->value(), (args.end() - 2)->value(), 0, 0));
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
 	past->Sig = *(past->pgo = ctxt); 

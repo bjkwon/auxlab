@@ -78,9 +78,9 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 %left T_LOGIC_AND
 %left T_LOGIC_EQ T_LOGIC_NE 
 %left '<' '>' T_LOGIC_LE T_LOGIC_GE
-%left ':'
+%left ':' '~'
 %left '-' '+' T_OP_CONCAT
-%left T_OP_SHIFT "->" '%' '@' '~' '#'
+%left T_OP_SHIFT "->" '%' '@'  '#'
 %left '*' T_MATRIXMULT '/'
 %right '^' /* exponentiation */
 %left T_LOGIC_NOT T_POSITIVE T_NEGATIVE /* unary plus/minus */

@@ -16,11 +16,8 @@
 #include <string.h>
 #include <algorithm>
 
-#pragma data_seg ("shared")
 vector<CAstSig*> xcomvecast;
 vector<CAstSig*> CAstSig::vecast = xcomvecast;
-#pragma data_seg ()
-#pragma comment(linker, "/section:SHARED,RWS")
 
 HINSTANCE hInst;
 CPlotDlg* childfig;
@@ -801,6 +798,7 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	if (pctx)
 	{
 		CVar *pgcf = pctx->GetGloGOVariable("gcf", NULL);
+		if (!pgcf) return;
 		if (((CFigure*)pgcf)->visible == -1)
 		{
 			((CFigure*)pgcf)->visible = 1;
