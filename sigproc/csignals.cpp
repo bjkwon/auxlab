@@ -2264,45 +2264,34 @@ int CSignal::maxcc(double *x1, int len1, double *x2, int len2)
 CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	CTimeSeries *pratio = (CTimeSeries *)parg;
-	CTimeSeries copy_ratio = *pratio;
-	for (CTimeSeries *p = &copy_ratio; p; p = p->chain)
-		p->tmark /= dur();
+	CSignals *pratio = (CSignals *)parg;
+	CTimeSeries temp(1.); // to be used only a temporarycarrier to timestretch
+	pratio->next = &temp;
+	int winLen = (int)(692.93 + fs / 34100.*256.);
+	//double devia = 1000.* winLen/2 / fs ;
+	//pratio->chain->tmark -= devia;
 	timestretch(id0, len);
-	double ratio_mean;
-//	for (CTimeSeries *p = pratio; p; p = p->chain)
-//		p->SetValue(1. / p->value());
-	for (CTimeSeries *p = pratio, *p2 = &copy_ratio; p && p->chain; p = p->chain, p2=p2->chain)
-	{
-		if (p->value() == p->chain->value())
-			ratio_mean = 1. / p->value();
-		else
-			ratio_mean = 1. / (2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
-		int _fs = (int)(fs * ratio_mean + .5);
-		p->tmark = dur() / _fs * fs * p2->tmark;
-		p->SetFs(_fs);
-	}
-	for (CTimeSeries *p = pratio, *p2 = &copy_ratio; p; p = p->chain, p2 = p2->chain)
-	{
-		if (!p->chain) // last one
-		{
-			int _fs = (int)(fs * p->value() + .5);
-			p->tmark = dur() / _fs * fs * p2->tmark;
-		}
-	}
-
 	resample(id0, len);
+	pratio->next = NULL;
 	return *this;
+}
+
+double harmonicmean(double x1, double x2)
+{
+	return 2 * x1*x2 / (x1 + x2);
 }
 
 CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	CTimeSeries *pratio = (CTimeSeries *)parg;
+	CSignals *pratio = (CSignals *)parg;
 	//pratio is either a constant or time sequence of scalars (not relative time)
 	const int winLen = (int)(692.93 + fs /34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
-	int synHop = winLen/2;
-	int tolerance = synHop;
+	int tolerance, synHop = winLen/2;
+	if (pratio->next) // during pitchscale
+		tolerance = synHop/10;
+	else
+		tolerance = synHop/20;
 	const int winLenHalf = (int)(winLen / 2. + .5);
 	double *wind = new double[winLen];
 	for (int k = 0; k < winLen; k++)
@@ -2313,10 +2302,10 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	out.pf_basic2 = pf_basic2;
 	out.tmark = tmark;
 	int outputLength;
-	double factor = .97 + fs / 2.e6;
+	CTimeSeries *p;
 	if (pratio->GetType()!=CSIG_TSERIES)
 	{
-		outputLength = (int)ceil(pratio->value()*nSamples*factor);
+		outputLength = (int)ceil(pratio->value()*nSamples);
 		anaWinPos.buf[1] = (double)outputLength;
 		anchpts.buf[1] = (double)nSamples;
 	}
@@ -2326,76 +2315,86 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 		anaWinPos.UpdateBuffer(nTSLayers);
 		anchpts.UpdateBuffer(nTSLayers);
 		double cumTpointsY = 0.;
-		CTimeSeries *p = pratio;
+		p = pratio;
 		anaWinPos.buf[0] = 0;
 		for (unsigned int k = 0; k < nTSLayers - 1; k++, p=p->chain)
 		{
 			anchpts.buf[k] = ceil(p->tmark * fs / 1000);
-			anaWinPos.buf[k+1] = ceil(cumTpointsY += .5*(p->chain->value() + p->value()) * (p->chain->tmark - p->tmark) * fs / 1000);
+			cumTpointsY += harmonicmean(p->chain->value(), p->value()) * (p->chain->tmark - p->tmark) * fs / 1000;
+			anaWinPos.buf[k+1] = ceil(cumTpointsY);
 		}
 		anchpts.buf[nTSLayers - 1] = ceil(p->tmark * fs / 1000);
-		factor += (1 - factor) / 2;
 		outputLength = (int)ceil(anaWinPos.buf[nTSLayers - 1]);
 	}
+	FILE * fp = fopen("log.txt", "at");
+	fprintf(fp, "anaWinPos pre\t");
+	for (unsigned kk = 0; kk< anaWinPos.nSamples;kk++)
+	{
+		fprintf(fp, "%10.1f\t", anaWinPos.buf[kk]);
+	}
+	fprintf(fp, "\n");
 	vector<double> synWinPos(1); // initializing one element with zero
 	synWinPos.reserve(outputLength * 2);
 	while ((int)synWinPos.back() + synHop <= outputLength + winLenHalf)
 		synWinPos.push_back((int)synWinPos.back() + synHop);
 	if (synWinPos.back() > outputLength) synWinPos.back() = outputLength;
+	p = pratio->chain;
+	for (unsigned int k = 1; k < anaWinPos.nSamples && p; k++, p = p->chain)
+		p->tmark *= anaWinPos.buf[k] / anchpts.buf[k];
 	anaWinPos.interp1(anchpts, CSignal(synWinPos));
-	CSignal anaHop;
-	anaHop = anaWinPos;
-	anaHop.Diff();
-	for (unsigned int k = 0; k < anaHop.nSamples; k++)
-		anaHop.buf[k] = synHop / anaHop.buf[k];
-	double minFac = anaHop._min();
-	int newlen = winLenHalf + 2 * tolerance + (int)ceil(1 / minFac)*winLen;
-	CSignal temp(fs, nSamples + newlen);
-	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
+	double minFacor = synHop / (anaWinPos.buf[1]- anaWinPos.buf[0]);
 	int lastInPoint = nSamples + winLenHalf + tolerance;
-	int lastOutPount=0;
+	int lastOutPoint=0;
+	int additionals = winLenHalf + 2 * tolerance + (int)ceil(1 / minFacor)*winLen;
+	CSignal temp(fs, nSamples + additionals);
+	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
 	*this = temp;
 	for (unsigned k = 0; k < anaWinPos.nSamples; k++)
 		anaWinPos.buf[k] += (double)tolerance;
-	double *pout = new double[outputLength + 2 * winLen];
-	double *pow = new double[outputLength + 2 * winLen];
-	memset(pout, 0, sizeof(double)*(outputLength + 2 * winLen));
-	memset(pow, 0, sizeof(double)*(outputLength + 2 * winLen));
-	int xid0, jj, kk, del = 0;
+	double *pout = (double*)calloc(outputLength, 2 * winLen);
+	double *overlapWind = (double*)calloc(outputLength, 2 * winLen);
+	int xid0, del = 0;
 	unsigned k = 0;
+	int tp1, tp2;
 	for (auto yid0 : synWinPos)
 	{
 		xid0 = (int)anaWinPos.buf[k] + del;
 		for (int p = 0; p < winLen; p++)
 		{
-			jj = (int)yid0 + p;
-			kk = (int)xid0 + p;
-			if (xid0 + p == lastInPoint)
-				lastOutPount = (int)yid0 + p;
 			pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
-			pow[(int)yid0 + p] += wind[p];
+			overlapWind[(int)yid0 + p] += wind[p];
 		}
 		// last frame; no cross correlation
 		if (k < anaWinPos.nSamples - 1)
 		{
+			tp1 = (int)(anaWinPos.buf[k + 1] - anaWinPos.buf[k]);
+			tp2 = (int)(synWinPos[k+1] - yid0);
 			// Cross correlation between x(nextAnaWinRan) and x(currAnaWinRan + synHop)
 			int maxid = maxcc(buf + (int)anaWinPos.buf[k + 1] - tolerance, winLen + 2 * tolerance, buf + (int)anaWinPos.buf[k] + del + synHop, winLen);
+			double ratio = (double)tp2 / tp1;
+			double div = 10 + (ratio - 1) * 10;
+			double tol = (double)synHop / div;
+			tolerance = (int)(tol + .5);
+			fprintf(fp, "%d: tp1=%d, tp2=%d, diff=%d, ratio=%5.2f, tolerance=%d, maxid=%d\n", k, tp1, tp2, tp2 - tp1, (double)tp2/tp1, tolerance, maxid);
 			del = tolerance - maxid + 1;
 		}
 		k++;
 	}
+	fclose(fp);
+	int ddk = (int)anaWinPos.buf[anaWinPos.nSamples - 1] + del;
+	lastOutPoint = (int)synWinPos.back() + lastInPoint - (int)anaWinPos.buf[anaWinPos.nSamples-1] - del;
 	for (int p = 0; p < outputLength + 2 * winLen; p++)
 	{
-		if (pow[p] > .001)
-			pout[p] /= pow[p];
+		if (overlapWind[p] > .001)
+			pout[p] /= overlapWind[p];
 	}
-	if (lastOutPount == 0) lastOutPount = outputLength;
+	if (lastOutPoint == 0) lastOutPoint = outputLength;
 	// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
-	out.UpdateBuffer(lastOutPount- winLenHalf);
+	out.UpdateBuffer(lastOutPoint- winLenHalf);
 	memcpy(out.buf, pout + winLenHalf, sizeof(double)*out.nSamples);
 	out.SetFs(fs);
-	delete[] pout;
-	delete[] pow;
+	free(overlapWind);
+	free(pout);
 	delete[] wind;
 	return *this=out;
 }
@@ -3016,6 +3015,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 		int lastSize = 1, lastPt = 0;
 		data_out = new float[lastSize];
 		conv.src_ratio_initial = pratio->value();
+		long inputSamplesLeft = (long)nSamples;
 		//assume that pratio time sequence is well prepared--
 		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
 		{
@@ -3026,28 +3026,34 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 				conv.src_ratio_mean = 1./(2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
 			int _fs = (int)(fs / conv.src_ratio_mean + .5);
 			//current p covers from p->tmark to p->chain->tmark
-			if (p->fs == fs)
-			{
-				i1 = (int)(p->tmark * fs / 1000);
-				i2 = (int)(p->chain->tmark * fs / 1000);
-			}
+			if (!p->chain->chain)
+				conv.input_frames = inputSamplesLeft;
 			else
 			{
-				i1 = (int)(p->tmark * p->fs / 1000);
-				i2 = (int)(p->chain->tmark * p->fs / 1000);
+				//current p covers from p->tmark to p->chain->tmark
+				if (p->fs == fs)
+				{
+					i1 = (int)(p->tmark * fs / 1000);
+					i2 = (int)(p->chain->tmark * fs / 1000);
+				}
+				else
+				{
+					i1 = (int)(p->tmark * _fs / 1000);
+					i2 = (int)(p->chain->tmark * _fs / 1000);
+				}
+				unsigned int nSampleBlock = i2 - i1;
+				conv.input_frames = nSampleBlock;
 			}
-			unsigned int nSampleBlock = i2 - i1;
-			conv.input_frames = nSampleBlock;
-			conv.output_frames = (long)(nSampleBlock / conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
+			conv.output_frames = (long)(conv.input_frames * conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
 			if (conv.output_frames > lastSize)
 			{
 				delete[] data_out;
-				data_out = new float[lastSize = conv.output_frames+20000];//reserve the buffer size big enough to avoid memory crash, but find out a better than this.... 3/20/2019
+				data_out = new float[lastSize = conv.output_frames + 20000];//reserve the buffer size big enough to avoid memory crash, but find out a better than this.... 3/20/2019
 			}
-			if (nSamples - (lastPt + nSampleBlock) < 100)
+			if (nSamples - (lastPt + conv.input_frames) < 100)
 				conv.end_of_input = 1;
 			conv.data_out = data_out;
-			conv.src_ratio = 1./p->chain->value();
+			conv.src_ratio = 1. / p->chain->value();
 			errcode = src_process(handle, &conv);
 			if (errcode)
 			{
@@ -3061,7 +3067,10 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 				outbuffer.push_back(data_out[k]);
 			lastPt += conv.input_frames;
 			if (p->chain->chain)
+			{
 				conv.data_in = &data_in[lastPt];
+				inputSamplesLeft -= conv.input_frames_used;
+			}
 		}
 		UpdateBuffer((unsigned int)outbuffer.size());
 		memcpy(buf, &outbuffer[0], sizeof(double)*outbuffer.size());
