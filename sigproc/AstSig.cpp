@@ -1637,7 +1637,7 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 		totalLen += Sig.Len();
 		if (!compl) compl = tsig.IsComplex();
 		thisisGO = tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO();
-		if (!audiofs && tsig.GetFs()>3) 
+		if (!audiofs && tsig.GetType() == CSIG_AUDIO)
 			audiofs = tsig.GetFs();
 	}
 	CVar out;

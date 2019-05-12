@@ -43,9 +43,9 @@
 
 
 /* To-do
-All of these 
+All of these
 	throw "message";
-statements should be revised. 
+statements should be revised.
 They are const char, not CException; therefore, they are caught by catch (const char *errmsg) in xcom::computeandshow
 and such information as line, col, pnode, etc are not processed for display.
 A solution might be, whenever a function with the throw statement is used in AstSig.cpp, there should be another try loop
@@ -65,42 +65,45 @@ void filter(int nTabs, double *num, int length, double *in, double *out);
 double quantizetmark(double delta, int fs)
 {
 	//quantize delta based on the fs grid.  3/31/2016. Rev. 5/19/2018
+	if (fs > 1)
+	{
 	int pt = (int)round(delta / 1000 * fs);
-	double newdelta = 1000. * pt / fs;
-	return newdelta;
+		return 1000. * pt / fs;
+	}
+	return delta;
 }
 
 int _double_to_24bit(double x)
 {
 	// This maps a double variable raning -1 to 1, to a short variable ranging -16388608 to 16388607.
-	return (int)(max(min(x,1),-1)*MAX_24BIT-.5);
+	return (int)(max(min(x, 1), -1)*MAX_24BIT - .5);
 }
 
 double _24bit_to_double(int x)
 { // converts a short variable into double in a scale of 16388608.
-	return ((double)x+.5)/MAX_24BIT;
+	return ((double)x + .5) / MAX_24BIT;
 }
 
 void _short_to_24bit(short* pshort, int* pint, int len)
 { // Assumes that memory blocks have been prepared.
-	for (int i=0; i<len; i++) pint[i] = pshort[i]<<8;
+	for (int i = 0; i < len; i++) pint[i] = pshort[i] << 8;
 }
 
 void _24bit_to_short(int* pint, short* pshort, int len)
 { // Assumes that memory blocks have been prepared.
-	for (int i=0; i<len; i++) pshort[i] = (short)(pint[i]>>8);
+	for (int i = 0; i < len; i++) pshort[i] = (short)(pint[i] >> 8);
 }
 
 void _double_to_short(double* dint, short* pshort, int len)
 {
-	for (int i=0; i<len; i++) 
+	for (int i = 0; i < len; i++)
 		pshort[i] = (short)(_double_to_24bit(dint[i]) >> 8);
 }
 
 double _getdB(double x)
 {
 	// 3 dB is added to make rms of full scale sinusoid 0 dB
-	return 20*log10(x) + 3.0103;
+	return 20 * log10(x) + 3.0103;
 }
 
 void SwapCSignalsPutScalarSecond(CSignals &sig1, CSignals &sig2)
@@ -114,54 +117,54 @@ void SwapCSignalsPutScalarSecond(CSignals &sig1, CSignals &sig2)
 
 /*bufBlockSize is 1 (for logical, string), sizeof(double) (regular), or sizeof(double)*2 (complex).     4/4/2017 bjkwon */
 body::body()
-:nSamples(0), bufBlockSize(sizeof(double)), buf(new double[0]), nGroups(1), parg(NULL)
+	:nSamples(0), bufBlockSize(sizeof(double)), buf(new double[0]), nGroups(1), parg(NULL)
 {
 }
 
 body::body(double value)
-:nSamples(1), bufBlockSize(sizeof(double)), buf(new double[1]), nGroups(1), parg(NULL)
+	: nSamples(1), bufBlockSize(sizeof(double)), buf(new double[1]), nGroups(1), parg(NULL)
 {
 	SetValue(value);
 }
 
 body::body(complex<double> value)
-:nSamples(1), bufBlockSize(sizeof(double)*2), buf(new double[2]), nGroups(1), parg(NULL)
+	: nSamples(1), bufBlockSize(sizeof(double) * 2), buf(new double[2]), nGroups(1), parg(NULL)
 {
-	cbuf[0]=value; 
+	cbuf[0] = value;
 }
 
-body::body(const body& src) 
-:nSamples(0), bufBlockSize(sizeof(double)), buf(new double[0]), nGroups(1), parg(NULL)
+body::body(const body& src)
+	: nSamples(0), bufBlockSize(sizeof(double)), buf(new double[0]), nGroups(1), parg(NULL)
 {
 	*this = src;
 }
 
 body::body(double *y, int len)
-:nSamples(len), bufBlockSize(sizeof(double)), buf(new double[len]), nGroups(1), parg(NULL)
+	: nSamples(len), bufBlockSize(sizeof(double)), buf(new double[len]), nGroups(1), parg(NULL)
 {
 	memcpy(buf, y, bufBlockSize*len);
 }
 
 body::body(bool *y, int len)
-:nSamples(len), bufBlockSize(1), logbuf(new bool[len]), nGroups(1), parg(NULL)
+	: nSamples(len), bufBlockSize(1), logbuf(new bool[len]), nGroups(1), parg(NULL)
 {
 	memcpy(buf, y, bufBlockSize*len);
 }
 
 body& body::operator=(const body& rhs)
 {
-	if (this != &rhs) 
+	if (this != &rhs)
 	{
-		unsigned int currentBufSize = bufBlockSize * nSamples; 
+		unsigned int currentBufSize = bufBlockSize * nSamples;
 		unsigned int reqBufSize = rhs.bufBlockSize * rhs.nSamples;
-		if (currentBufSize < reqBufSize) 
+		if (currentBufSize < reqBufSize)
 		{
-			if (nSamples>0) delete[] buf; 
+			if (nSamples > 0) delete[] buf;
 			logbuf = new bool[reqBufSize];
 		}
 		nSamples = rhs.nSamples;
 		bufBlockSize = rhs.bufBlockSize;
-		nGroups= rhs.nGroups;
+		nGroups = rhs.nGroups;
 		memcpy(buf, rhs.buf, nSamples*bufBlockSize);
 	}
 	return *this;
@@ -169,21 +172,21 @@ body& body::operator=(const body& rhs)
 
 body& body::operator+=(const double con)
 {
-	unsigned int blockSize = bufBlockSize/sizeof(double);
-	for (unsigned int k=0; k<nSamples; k++) buf[k*blockSize] += con; 
+	unsigned int blockSize = bufBlockSize / sizeof(double);
+	for (unsigned int k = 0; k < nSamples; k++) buf[k*blockSize] += con;
 	return *this;
 }
 
 body& body::operator*=(const double con)
 {
-	unsigned int blockSize = bufBlockSize/sizeof(double);
+	unsigned int blockSize = bufBlockSize / sizeof(double);
 	switch (blockSize)
 	{
 	case 1:
-		for (unsigned int k=0; k<nSamples; k++) buf[k] *= con;
+		for (unsigned int k = 0; k < nSamples; k++) buf[k] *= con;
 		break;
 	case 2:
-		for (unsigned int k=0; k<nSamples; k++) cbuf[k] *= con;
+		for (unsigned int k = 0; k < nSamples; k++) cbuf[k] *= con;
 		break;
 	}
 	return *this;
@@ -196,10 +199,10 @@ body& body::operator/=(const double con)
 
 body& body::operator-(void)
 {
-	if (bufBlockSize==sizeof(double))
-		for (unsigned int k=0; k<nSamples; k++) buf[k] = -buf[k];
-	if (bufBlockSize==2*sizeof(double))
-		for (unsigned int k=0; k<nSamples; k++) cbuf[k] = -cbuf[k];
+	if (bufBlockSize == sizeof(double))
+		for (unsigned int k = 0; k < nSamples; k++) buf[k] = -buf[k];
+	if (bufBlockSize == 2 * sizeof(double))
+		for (unsigned int k = 0; k < nSamples; k++) cbuf[k] = -cbuf[k];
 	return *this;
 }
 
@@ -208,7 +211,7 @@ body::~body()
 	if (buf) delete[] buf;
 }
 
-void body::SetValue(double v) 
+void body::SetValue(double v)
 { // why did I change it this way? --- I want to just replace a value with the existing value (i.e., if it was already CSIG_SCALR, I want to reuse the buffer) 8/15/2018
 	if (bufBlockSize != sizeof(double))
 	{
@@ -224,39 +227,39 @@ void body::SetValue(double v)
 		nSamples = 1;
 	}
 	nGroups = 1;
-	buf[0]=v; 
+	buf[0] = v;
 }
 
-void body::SetValue(complex<double> v) 
+void body::SetValue(complex<double> v)
 {
-	bufBlockSize=2*sizeof(double); 
-	if (buf) delete[] buf; 
-	buf = new double[2]; 
-	nSamples=1; cbuf[0]=v; 
+	bufBlockSize = 2 * sizeof(double);
+	if (buf) delete[] buf;
+	buf = new double[2];
+	nSamples = 1; cbuf[0] = v;
 }
 
 body& body::UpdateBuffer(unsigned int length)	// Set nSamples. Re-allocate buf if necessary to accommodate new length.
 {
-	unsigned int currentBufsize = bufBlockSize * nSamples; 
-	unsigned int reqBufSize = bufBlockSize * length; 
+	unsigned int currentBufsize = bufBlockSize * nSamples;
+	unsigned int reqBufSize = bufBlockSize * length;
 	if (length < 0 || currentBufsize == reqBufSize)
 		return *this;
 	if (length > nSamples) {
 		bool *newlogbuf = new bool[reqBufSize];
-		if (nSamples>0)
+		if (nSamples > 0)
 			memcpy(newlogbuf, buf, nSamples*bufBlockSize);
 		delete[] buf;
 		logbuf = newlogbuf;
 	}
 	if (length > nSamples)
-		memset(logbuf+nSamples*bufBlockSize, 0, (length-nSamples)*bufBlockSize); //initializing with zeros for the rest
+		memset(logbuf + nSamples * bufBlockSize, 0, (length - nSamples)*bufBlockSize); //initializing with zeros for the rest
 	nSamples = length;
 	return *this;
 }
 
 void body::Reset()
 {
-	if (buf) 
+	if (buf)
 		delete[] buf;
 	buf = NULL;
 	nSamples = 0;
@@ -282,41 +285,41 @@ string body::valuestr() const
 	return out.str();
 }
 
-double body::value() const 
+double body::value() const
 {
 	if (nSamples == 1)
 	{
-		if (bufBlockSize==8)	return buf[0];
+		if (bufBlockSize == 8)	return buf[0];
 		else if (bufBlockSize == 1)	return (double)logbuf[0];
 		else throw "value( ) on complex value. Use cvalue instead.";
 	}
-	else if (nSamples==0) 
-		throw "value( ) on null."; 
-	else 
+	else if (nSamples == 0)
+		throw "value( ) on null.";
+	else
 		throw "value( ) on vector/array.";
 }
 
-complex<double> body::cvalue() const 
+complex<double> body::cvalue() const
 {
-	if (nSamples==1) 
-		return cbuf[0]; 
-	else if (nSamples==0) 
-		throw "value( ) on null."; 
-	else 
+	if (nSamples == 1)
+		return cbuf[0];
+	else if (nSamples == 0)
+		throw "value( ) on null.";
+	else
 		throw "value( ) on vector/array.";
 }
 
 //Equivalent to real part
-void body::SetReal() 
+void body::SetReal()
 { // This converts a complex array into real (decimating the imaginary part).
   // Must not be used when the buf is properly prepared--in that case just bufBlockSize = 1; is sufficient.
 	unsigned int k = 0;
 	if (IsComplex())
 	{
-		bufBlockSize = sizeof(double); 
-		for (; k<nSamples; k++) buf[k] = buf[2*k];
+		bufBlockSize = sizeof(double);
+		for (; k < nSamples; k++) buf[k] = buf[2 * k];
 	}
-//if logical or string, it will turn to regular 8 
+	//if logical or string, it will turn to regular 8 
 	else if (bufBlockSize == 1)
 	{
 		body out;
@@ -336,7 +339,7 @@ void body::Imag()
 	if (IsComplex())
 	{
 		bufBlockSize = sizeof(double);
-		for (unsigned int k = 0; k<nSamples; k++) buf[k] = buf[2 * k + 1];
+		for (unsigned int k = 0; k < nSamples; k++) buf[k] = buf[2 * k + 1];
 	}
 	else
 	{
@@ -345,7 +348,7 @@ void body::Imag()
 	}
 }
 
-void body::SetComplex() 
+void body::SetComplex()
 {
 	if (bufBlockSize != sizeof(double) * 2)
 	{
@@ -394,9 +397,9 @@ body &body::addmult(char type, body &sec, unsigned int id0, unsigned int len)
 			auto rhs = sec.nSamples == 1 ? sec.cbuf[0] : sec.cbuf[vertID];
 			auto len2 = len == 0 ? lenL : len;
 			if (type == '+')
-				for (auto k = id0; k<id0 + len2; k++)		cbuf[k] += rhs;
+				for (auto k = id0; k < id0 + len2; k++)		cbuf[k] += rhs;
 			else
-				for (auto k = id0; k<id0 + len2; k++)		cbuf[k] *= rhs;
+				for (auto k = id0; k < id0 + len2; k++)		cbuf[k] *= rhs;
 			len = len2;
 		}
 		else
@@ -416,21 +419,21 @@ body &body::addmult(char type, body &sec, unsigned int id0, unsigned int len)
 		if (IsComplex())
 		{
 			if (type == '+')
-				for (auto k = id0; k<id0 + len; k++)		cbuf[k] += sec.cbuf[vertID*lenR + k - id0];
+				for (auto k = id0; k < id0 + len; k++)		cbuf[k] += sec.cbuf[vertID*lenR + k - id0];
 			else
-				for (auto k = id0; k<id0 + len; k++)		cbuf[k] *= sec.cbuf[vertID*lenR + k - id0];
+				for (auto k = id0; k < id0 + len; k++)		cbuf[k] *= sec.cbuf[vertID*lenR + k - id0];
 		}
 		else
 		{
 			if (type == '+')
-				for (auto k = id0; k<id0 + len; k++)		buf[k] += sec.buf[vertID*lenR + k - id0];
+				for (auto k = id0; k < id0 + len; k++)		buf[k] += sec.buf[vertID*lenR + k - id0];
 			else
-				for (auto k = id0; k<id0 + len; k++)		buf[k] *= sec.buf[vertID*lenR + k - id0];
+				for (auto k = id0; k < id0 + len; k++)		buf[k] *= sec.buf[vertID*lenR + k - id0];
 		}
 	}
 	if (IsComplex())
 	{
-		for (auto k = (unsigned)0; k<len; k++)
+		for (auto k = (unsigned)0; k < len; k++)
 			if (imag(cbuf[k]) != 0.) return *this;
 		//if it survives this far, it should be set real
 		SetReal();
@@ -439,90 +442,90 @@ body &body::addmult(char type, body &sec, unsigned int id0, unsigned int len)
 }
 
 
-body &body::each(double (*fn)(double))
+body &body::each(double(*fn)(double))
 {
-	if (bufBlockSize==1)
-		for (unsigned int k=0; k<nSamples; ++k)	logbuf[k] = fn(logbuf[k])!=0;
+	if (bufBlockSize == 1)
+		for (unsigned int k = 0; k < nSamples; ++k)	logbuf[k] = fn(logbuf[k]) != 0;
 	else
-		for (unsigned int k=0; k<nSamples; ++k)	buf[k] = fn(buf[k]);
+		for (unsigned int k = 0; k < nSamples; ++k)	buf[k] = fn(buf[k]);
 	return *this;
 }
 
-body &body::each(double (*fn)(complex<double>))
+body &body::each(double(*fn)(complex<double>))
 {
 	double *out = new double[nSamples];
-	for (unsigned int k=0; k<nSamples; ++k)	out[k] = fn(cbuf[k]);
+	for (unsigned int k = 0; k < nSamples; ++k)	out[k] = fn(cbuf[k]);
 	delete[] buf;
 	buf = out;
-	bufBlockSize=sizeof(double);
+	bufBlockSize = sizeof(double);
 	return *this;
 }
 
 body &body::each(complex<double>(*fn)(double))
 {
-	for (unsigned int k = 0; k<nSamples; ++k)	cbuf[k] = fn(buf[k]);
+	for (unsigned int k = 0; k < nSamples; ++k)	cbuf[k] = fn(buf[k]);
 	return *this;
 }
 
 body &body::each(complex<double>(*fn)(complex<double>))
 {
-	for (unsigned int k = 0; k<nSamples; ++k)	cbuf[k] = fn(cbuf[k]);
+	for (unsigned int k = 0; k < nSamples; ++k)	cbuf[k] = fn(cbuf[k]);
 	return *this;
 }
 
-body &body::each(double (*fn)(double, double), const body &arg)
+body &body::each(double(*fn)(double, double), const body &arg)
 {
-	if (arg.nSamples==1) 
+	if (arg.nSamples == 1)
 	{
 		double val = arg.value();
-		if (bufBlockSize==1 && arg.bufBlockSize==1)
-			for (unsigned int k=0; k<nSamples; k++)	logbuf[k] = fn(logbuf[k],arg.logbuf[0])!=0;
-		else if (bufBlockSize==1 && arg.bufBlockSize!=1)
-			for (unsigned int k=0; k<nSamples; k++)	logbuf[k] = fn(logbuf[k],val)!=0; 
+		if (bufBlockSize == 1 && arg.bufBlockSize == 1)
+			for (unsigned int k = 0; k < nSamples; k++)	logbuf[k] = fn(logbuf[k], arg.logbuf[0]) != 0;
+		else if (bufBlockSize == 1 && arg.bufBlockSize != 1)
+			for (unsigned int k = 0; k < nSamples; k++)	logbuf[k] = fn(logbuf[k], val) != 0;
 		else
-			for (unsigned int k=0; k<nSamples; k++)	buf[k] = fn(buf[k],val); 
+			for (unsigned int k = 0; k < nSamples; k++)	buf[k] = fn(buf[k], val);
 	}
-	else if (nSamples==1) 
+	else if (nSamples == 1)
 	{
 		double baseval = buf[0];
 		UpdateBuffer(arg.nSamples);
-		if (bufBlockSize==1 && arg.bufBlockSize==1)
-			for (unsigned int k=0; k<arg.nSamples; k++) logbuf[k] = fn(baseval, arg.logbuf[k])!=0;
-		else if (bufBlockSize==1 && arg.bufBlockSize!=1)
-			for (unsigned int k=0; k<arg.nSamples; k++) logbuf[k] = fn(baseval, arg.buf[k])!=0; 
+		if (bufBlockSize == 1 && arg.bufBlockSize == 1)
+			for (unsigned int k = 0; k < arg.nSamples; k++) logbuf[k] = fn(baseval, arg.logbuf[k]) != 0;
+		else if (bufBlockSize == 1 && arg.bufBlockSize != 1)
+			for (unsigned int k = 0; k < arg.nSamples; k++) logbuf[k] = fn(baseval, arg.buf[k]) != 0;
 		else
-			for (unsigned int k=0; k<arg.nSamples; k++) buf[k] = fn(baseval, arg.buf[k]); 
+			for (unsigned int k = 0; k < arg.nSamples; k++) buf[k] = fn(baseval, arg.buf[k]);
 	}
 	else
 	{
 		nSamples = min(nSamples, arg.nSamples);
-		if (bufBlockSize==1 && arg.bufBlockSize==1)
-			for (unsigned int k=0; k<nSamples; k++) logbuf[k] = fn(logbuf[k], arg.logbuf[k])!=0; 
-		else if (bufBlockSize==1 && arg.bufBlockSize!=1)
-			for (unsigned int k=0; k<nSamples; k++) logbuf[k] = fn(logbuf[k], arg.buf[k])!=0; 
+		if (bufBlockSize == 1 && arg.bufBlockSize == 1)
+			for (unsigned int k = 0; k < nSamples; k++) logbuf[k] = fn(logbuf[k], arg.logbuf[k]) != 0;
+		else if (bufBlockSize == 1 && arg.bufBlockSize != 1)
+			for (unsigned int k = 0; k < nSamples; k++) logbuf[k] = fn(logbuf[k], arg.buf[k]) != 0;
 		else
-			for (unsigned int k=0; k<nSamples; k++) buf[k] = fn(buf[k], arg.buf[k]); 
+			for (unsigned int k = 0; k < nSamples; k++) buf[k] = fn(buf[k], arg.buf[k]);
 	}
 	return *this;
 }
 
-body &body::each(complex<double> (*fn)(complex<double>, complex<double>), const body &arg)
+body &body::each(complex<double>(*fn)(complex<double>, complex<double>), const body &arg)
 {
-	if (arg.nSamples==1) 
+	if (arg.nSamples == 1)
 	{
 		complex<double> val = arg.cbuf[0];
-		for (unsigned int k=0; k<nSamples; k++)	cbuf[k] = fn(cbuf[k],val); 
+		for (unsigned int k = 0; k < nSamples; k++)	cbuf[k] = fn(cbuf[k], val);
 	}
-	else if (nSamples==1) 
+	else if (nSamples == 1)
 	{
 		complex<double> val = arg.cbuf[0];
 		UpdateBuffer(arg.nSamples);
-		for (unsigned int k=0; k<arg.nSamples; k++) cbuf[k] = fn(val, arg.cbuf[k]); 
+		for (unsigned int k = 0; k < arg.nSamples; k++) cbuf[k] = fn(val, arg.cbuf[k]);
 	}
 	else
 	{
 		nSamples = min(nSamples, arg.nSamples);
-		for (unsigned int k=0; k<nSamples; k++) cbuf[k] = fn(cbuf[k], arg.buf[k]); 
+		for (unsigned int k = 0; k < nSamples; k++) cbuf[k] = fn(cbuf[k], arg.buf[k]);
 	}
 	return *this;
 }
@@ -531,7 +534,7 @@ body &body::mathFunForbidNegative(double(*fn)(double), complex<double>(*cfn)(com
 {
 	void *tp = parg;
 	parg = nullptr;
-	if (bufBlockSize==16 || _min() < 0)
+	if (bufBlockSize == 16 || _min() < 0)
 	{
 		SetComplex();
 		each(cfn);
@@ -556,31 +559,49 @@ body &body::mathFunForbidNegative(double(*fn)(double, double), complex<double>(*
 	return *this;
 }
 
-double lt (double a, double b)
-{ return a<b;}
-double le (double a, double b)
-{ return a<=b;}
-double gt (double a, double b)
-{ return a>b;}
-double ge (double a, double b)
-{ return a>=b;}
-double eq (double a, double b)
-{ return a==b;}
-double ne (double a, double b)
-{ return a!=b;}
+double lt(double a, double b)
+{
+	return a < b;
+}
+double le(double a, double b)
+{
+	return a <= b;
+}
+double gt(double a, double b)
+{
+	return a > b;
+}
+double ge(double a, double b)
+{
+	return a >= b;
+}
+double eq(double a, double b)
+{
+	return a == b;
+}
+double ne(double a, double b)
+{
+	return a != b;
+}
 double and (double a, double b)
-{ return a&&b;}
+{
+	return a && b;
+}
 double or (double a, double b)
-{ return a||b;}
+{
+	return a || b;
+}
 double not (double a)
-{ if (a==0) return 1.;
-else  return 0.;}
+{
+	if (a == 0) return 1.;
+	else  return 0.;
+}
 
 
 body& body::LogOp(body &rhs, int type)
 {
-	double (*fn)(double, double);
-	switch(type)
+	double(*fn)(double, double);
+	switch (type)
 	{
 	case '<':
 		fn = lt;
@@ -604,7 +625,7 @@ body& body::LogOp(body &rhs, int type)
 		fn = and;
 		break;
 	case T_LOGIC_OR:
-		fn = or;
+		fn = or ;
 		break;
 	case T_LOGIC_NOT:
 		each(not);
@@ -618,30 +639,30 @@ body& body::LogOp(body &rhs, int type)
 
 body& body::MakeLogical()
 {
-	if (bufBlockSize ==1) return *this;
-	body out; 
+	if (bufBlockSize == 1) return *this;
+	body out;
 	out.bufBlockSize = 1; // logical array
 	out.UpdateBuffer(nSamples); // This over-reserve the memory, but there's no harm. 4/4/2017 bjk
-	for (unsigned int k=0; k<nSamples; k++) 
+	for (unsigned int k = 0; k < nSamples; k++)
 	{
-		if (buf[k]==0.) out.logbuf[k] = false;
+		if (buf[k] == 0.) out.logbuf[k] = false;
 		else			out.logbuf[k] = true;
 	}
 	out.nGroups = nGroups;
-	return (*this=out);
+	return (*this = out);
 }
 
 body &body::insert(body &sec, int id)
 {
-	if (sec.nSamples==0) return *this;
-	if (id<0) throw "insert index cannot be negative."; 
-	if (sec.bufBlockSize!=bufBlockSize) throw "insert must be between the same data structure."; 
+	if (sec.nSamples == 0) return *this;
+	if (id < 0) throw "insert index cannot be negative.";
+	if (sec.bufBlockSize != bufBlockSize) throw "insert must be between the same data structure.";
 	int nToMove = nSamples - id;
-	UpdateBuffer(nSamples+sec.nSamples);
+	UpdateBuffer(nSamples + sec.nSamples);
 	bool *temp = new bool[nToMove*bufBlockSize];
-	memcpy(temp, logbuf+id*bufBlockSize, nToMove*bufBlockSize);
-	memcpy(logbuf+id*bufBlockSize, sec.buf, sec.nSamples*bufBlockSize);
-	memcpy(logbuf+(id+sec.nSamples)*bufBlockSize, temp, nToMove*bufBlockSize);
+	memcpy(temp, logbuf + id * bufBlockSize, nToMove*bufBlockSize);
+	memcpy(logbuf + id * bufBlockSize, sec.buf, sec.nSamples*bufBlockSize);
+	memcpy(logbuf + (id + sec.nSamples)*bufBlockSize, temp, nToMove*bufBlockSize);
 	delete[] temp;
 	return *this;
 }
@@ -651,13 +672,13 @@ double body::sum(unsigned int id0, unsigned int len)
 	if (len == 0) len = nSamples;
 	double out(0.);
 	int isum(0);
-	if (bufBlockSize==1)
+	if (bufBlockSize == 1)
 	{
-		for (unsigned int k = id0; k<id0+len; k++)		isum += logbuf[k];
+		for (unsigned int k = id0; k < id0 + len; k++)		isum += logbuf[k];
 		out = (double)isum;
 	}
 	else
-		for (unsigned int k = id0; k<id0 + len; k++)		out += buf[k];
+		for (unsigned int k = id0; k < id0 + len; k++)		out += buf[k];
 	return out;
 }
 
@@ -668,23 +689,23 @@ double body::stdev(unsigned int id0, unsigned int len)
 	if (len == 0) len = nSamples;
 	if (!len) throw "Empty array";
 	double sqsum(0.);
-	for (unsigned int k = id0; k<id0 + len; k++)		sqsum += buf[k]*buf[k];
+	for (unsigned int k = id0; k < id0 + len; k++)		sqsum += buf[k] * buf[k];
 	double mm = mean(id0, len);
-	if (flag==1.)
+	if (flag == 1.)
 	{
-		double var = sqsum/len - mm*mm;
+		double var = sqsum / len - mm * mm;
 		return sqrt(var);
 	}
 	else
 	{
-		double var = (sqsum + mm*mm*len - 2*mm*sum(id0,len) ) / (len-1);
+		double var = (sqsum + mm * mm*len - 2 * mm*sum(id0, len)) / (len - 1);
 		return sqrt(var);
 	}
 }
 
 int migra(int input, int nGroup, int nSamples)
 {
-	int x1 = nGroup*(input - 1) + 1;
+	int x1 = nGroup * (input - 1) + 1;
 	int additional(0);
 	while (x1 > nSamples)
 	{
@@ -703,10 +724,10 @@ body &body::transpose()
 	unsigned char *check = new unsigned char[nSamples];
 	memset(check, 0, nSamples);
 	check[1] = 1;
-	int lasttrace = migra(2, nGroups, nSamples) ;
-	for (unsigned int trace = 2; counter<nSamples-2; trace++)
+	int lasttrace = migra(2, nGroups, nSamples);
+	for (unsigned int trace = 2; counter < nSamples - 2; trace++)
 	{
-		if (check[trace-1]) continue;
+		if (check[trace - 1]) continue;
 		id = trace;
 		next = migra(id, nGroups, nSamples);
 		tp1 = buf[id - 1];
@@ -747,7 +768,7 @@ double body::_max(unsigned int id, int unsigned len)
 	{
 		for (unsigned int k = id; k < id + len; k++)
 		{
-			if (abs(cbuf[k]) >local)
+			if (abs(cbuf[k]) > local)
 				local = buf[k], mid = k;
 		}
 	}
@@ -759,7 +780,7 @@ double body::_max(unsigned int id, int unsigned len)
 				local = 1.; mid = k; break;
 			}
 		}
-		if (local < 0 ) local = 0.;
+		if (local < 0) local = 0.;
 	}
 	if (parg)
 		((CVar*)parg)->SetValue((double)mid + 1 - id);
@@ -797,7 +818,7 @@ double body::_min(unsigned int id, unsigned int len)
 		}
 		if (local > 1) local = 1.;
 	}
-	if (parg)	
+	if (parg)
 		((CVar*)parg)->SetValue((double)mid + 1 - id);
 	return local;
 }
@@ -817,8 +838,7 @@ body & body::interp1(body &that, body &qx)
 	out.UpdateBuffer(qx.nSamples);
 	for (unsigned int q = 0; q < qx.nSamples; q++)
 	{
-		vector<double> tp(1, qx.buf[q]);
-		it = upper_bound(it, v1.end(), qx.buf[q]); //because qp is sorted, having the iterator (previous searched result, if any) as the first argument will save time.
+		it = upper_bound(it, v1.end(), qx.buf[q]); //because qx is sorted, having the iterator (previous searched result, if any) as the first argument will save time.
 		ptrdiff_t pos;
 		double valueAlready, preVal;
 		if (it != v1.end())
@@ -839,30 +859,30 @@ body & body::interp1(body &that, body &qx)
 }
 
 CSignal::CSignal()
-:fs(1), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
+	:fs(1), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
 {
 }
 
 CTimeSeries::CTimeSeries()
-:chain(NULL)
+	: chain(NULL)
 {
 }
 
 CSignal::CSignal(int sampleRate)
-: fs(max(sampleRate,0)), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
+	: fs(max(sampleRate, 0)), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
 {
-	if (fs==2) bufBlockSize=1;
+	if (fs == 2) bufBlockSize = 1;
 }
 
 CSignal::CSignal(int sampleRate, int len)
-: fs(max(sampleRate, 0)), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
+	: fs(max(sampleRate, 0)), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
 {
 	if (fs == 2) bufBlockSize = 1;
 	UpdateBuffer(len);
 }
 
 CTimeSeries::CTimeSeries(int sampleRate)
-: chain(NULL)
+	: chain(NULL)
 {
 	fs = max(sampleRate, 0);
 	tmark = 0.;
@@ -870,7 +890,7 @@ CTimeSeries::CTimeSeries(int sampleRate)
 }
 
 CSignal::CSignal(double value)
-:fs(1), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
+	:fs(1), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
 {
 	SetValue(value);
 }
@@ -878,7 +898,7 @@ CSignal::CSignal(double value)
 CTimeSeries::CTimeSeries(double value)
 	: chain(NULL)
 {
-	fs = 1; 
+	fs = 1;
 	tmark = 0;
 	SetValue(value);
 }
@@ -898,7 +918,7 @@ CSignal::CSignal(std::string str)
 }
 
 CSignal::CSignal(const CSignal& src)
-:fs(1), tmark(0.)
+	:fs(1), tmark(0.)
 {
 	*this = src;
 }
@@ -910,13 +930,13 @@ CTimeSeries::CTimeSeries(const CSignal& src)
 }
 
 CTimeSeries::CTimeSeries(const CTimeSeries& src)
-	:chain(NULL) //REQUIRED!!!!  otherwise, copied object return has uninitialized chain and causes a crash later. 5/24/2048
+	: chain(NULL) //REQUIRED!!!!  otherwise, copied object return has uninitialized chain and causes a crash later. 5/24/2048
 {
 	*this = src;
 }
 
 CSignal::CSignal(double *y, int len)
-:fs(1), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
+	: fs(1), tmark(0.), pf_basic(NULL), pf_basic2(NULL), pf_basic3(NULL)
 {
 	UpdateBuffer(len);
 	memcpy((void*)buf, (void*)y, sizeof(double)*len);
@@ -936,8 +956,8 @@ vector<double> body::ToVector()
 CSignal::~CSignal()
 {
 	if (buf) {
-		delete[] buf; 
-		buf=NULL;
+		delete[] buf;
+		buf = NULL;
 	}
 }
 
@@ -966,7 +986,7 @@ CSignal& CSignal::Reset(int fs2set)	// Empty all data fields - sets nSamples to 
 	pf_basic = NULL;
 	pf_basic2 = NULL;
 	if (fs2set)	// if fs2set == 0 (default), keep the current fs.
-		fs = max(fs2set,1);	// not to allow minus.
+		fs = max(fs2set, 1);	// not to allow minus.
 	tmark = 0;
 	return *this;
 }
@@ -983,17 +1003,17 @@ CTimeSeries& CTimeSeries::Reset(int fs2set)	// Empty all data fields - sets nSam
 
 void CTimeSeries::SetChain(CTimeSeries *unit, double time_shifted)
 {
-	if (unit!=NULL)
+	if (unit != NULL)
 	{
-		if (nSamples>0)  delete[] buf;
-		buf = NULL; 
+		if (nSamples > 0)  delete[] buf;
+		buf = NULL;
 		chain = unit;
 	}
 }
 
 void CTimeSeries::SetChain(double time_shifted)
 {
-	if (nSamples>0)
+	if (nSamples > 0)
 	{
 		tmark = quantizetmark(time_shifted, fs); ;
 		chain = this;
@@ -1006,7 +1026,7 @@ CSignal& CSignal::operator=(const body& rhs)
 	if (this != &rhs)
 	{
 		Reset();
-		if (rhs.nSamples>0)
+		if (rhs.nSamples > 0)
 			body::operator=(rhs);
 	}
 	return *this; // return self-reference so cascaded assignment works
@@ -1107,7 +1127,7 @@ const CSignal& CSignal::operator/(const CSignal& sec)
 CSignal& CSignal::operator=(const CSignal& rhs)
 {   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
 	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
-	if (this != &rhs) 
+	if (this != &rhs)
 	{
 		Reset(rhs.fs);
 		if (rhs.fs > 0)
@@ -1120,8 +1140,8 @@ CSignal& CSignal::operator=(const CSignal& rhs)
 		pf_basic = rhs.pf_basic;
 		pf_basic2 = rhs.pf_basic2;
 		pf_basic3 = rhs.pf_basic3;
-		if (rhs.nSamples>0)
-			body::operator=(rhs); 
+		if (rhs.nSamples > 0)
+			body::operator=(rhs);
 	}
 	return *this;
 }
@@ -1149,18 +1169,18 @@ void CTimeSeries::SwapContents1node(CTimeSeries &sec)
 }
 
 CTimeSeries& CTimeSeries::operator+=(const double con)
-{ 
+{
 	body::operator+=(con);
-	if (chain) *chain += con; 
-	return *this; 
-} 
+	if (chain) *chain += con;
+	return *this;
+}
 
 CTimeSeries& CTimeSeries::operator*=(const double con)
-{ 
+{
 	body::operator*=(con);
-	if (chain) *chain *= con; 
-	return *this; 
-} 
+	if (chain) *chain *= con;
+	return *this;
+}
 
 CTimeSeries& CTimeSeries::operator-(void)	// Unary minus
 {
@@ -1186,7 +1206,7 @@ CSignal& CSignal::Modulate(vector<double> &tpoints, vector<double> &tvals)
 		double t1 = *it + tmark;
 		double t2 = *(it + 1) + tmark;
 		double slope = (*(itval + 1) - *itval) / (t2 - t1);
-		double slopePerSample = (*(itval + 1) - *itval) / (t2 - t1) / fs*1000.;
+		double slopePerSample = (*(itval + 1) - *itval) / (t2 - t1) / fs * 1000.;
 		unsigned int beginID = max(0, (unsigned int)round((t1 - tmark)*fs / 1000.));
 		unsigned int endID = min(nSamples, (unsigned int)round((t2 - tmark)*fs / 1000.));
 		for (unsigned int k = beginID; k < endID; k++)
@@ -1202,7 +1222,7 @@ CTimeSeries& CTimeSeries::operator+=(CTimeSeries &sec)
 	if (sec.IsEmpty() || sec.GetType() == CSIG_NULL) return *this;
 	if (IsSingle() && !sec.IsSingle())
 		SwapContents1node(sec);
-	if (sec.IsString() || IsString()) 
+	if (sec.IsString() || IsString())
 		throw "Addition of string is allowed only with a scalar.";
 	AddMultChain('+', &sec);
 	return *this;
@@ -1235,46 +1255,47 @@ CSignal& CSignal::operator+=(CSignal *yy)
 CTimeSeries& CTimeSeries::operator+=(CTimeSeries *yy)
 {
 	//Do THIS on 5/24/2018......................
-	
+
 	// a little jumbled up with jhpark's previous codes and bjkwon's current codes... 7/6/2016
-	if (yy==NULL) return *this;
-	if (IsEmpty()) return (*this=*yy);
-	if (GetType()==CSIG_NULL) return *this=*yy>>=tmark;
+	if (yy == NULL) return *this;
+	if (IsEmpty()) return (*this = *yy);
+	if (GetType() == CSIG_NULL) return *this = *yy >>= tmark;
 	// Concatenation of CTimeSeries
   // yy might lose its value.
-	if (GetFs()<2)
+	if (GetFs() < 2)
 		SetFs(yy->GetFs());
 
 	CTimeSeries *ptail = GetDeepestChain();
 	bool bb = GetType() == CSIG_AUDIO;
-	bb = yy->GetType() == CSIG_AUDIO; 
+	bb = yy->GetType() == CSIG_AUDIO;
 	bb = (GetType() == CSIG_AUDIO && yy->GetType() == CSIG_AUDIO) && (yy->chain || yy->tmark);
-	if ((GetType()==CSIG_AUDIO && yy->GetType()==CSIG_AUDIO) && (yy->chain || yy->tmark) ) {
+	if ((GetType() == CSIG_AUDIO && yy->GetType() == CSIG_AUDIO) && (yy->chain || yy->tmark)) {
 		// when insertee has chain(s), chain it instead of copying. yy loses its value.
 		CTimeSeries *pNew = new CTimeSeries(fs);
 		if (chain && !yy->chain) // I don't know what would be the consequences of this leaving out  5/12/2016 ---check later??
 			*pNew = *yy;	// make a copy, leaving the original intact for the next channel
 		else
 			pNew->SwapContents1node(*yy);		// pNew takes the insertee. As yy lost all its pointers, yy can be destroyed later without destroying any data it used to have.
-		*pNew >>= ptail->tmark+ptail->_dur();	// to make the insertee the next chain(s) of ptail.
+		*pNew >>= ptail->tmark + ptail->_dur();	// to make the insertee the next chain(s) of ptail.
 		ptail->chain = pNew;					// link it to *this.
-	} else {
+	}
+	else {
 		// otherwise, just copy at the end.
-		if (yy->nSamples>0)
+		if (yy->nSamples > 0)
 		{
 			int nSamples0 = ptail->nSamples;
 			if (yy->IsComplex()) ptail->SetComplex();
 			if (IsComplex()) yy->SetComplex();
 			ptail->UpdateBuffer(yy->nSamples + nSamples0);
-			if (GetType()==CSIG_STRING)
+			if (GetType() == CSIG_STRING)
 				strcat(ptail->strbuf, yy->strbuf);
 			else
 				memcpy(&ptail->logbuf[nSamples0*bufBlockSize], yy->buf, bufBlockSize*yy->nSamples);
 		}
-		if (GetType()!=CSIG_AUDIO && IsComplex())
+		if (GetType() != CSIG_AUDIO && IsComplex())
 		{
-			for (unsigned int k=0; k<nSamples; k++) 
-				if (imag(cbuf[k])!=0.) return *this;
+			for (unsigned int k = 0; k < nSamples; k++)
+				if (imag(cbuf[k]) != 0.) return *this;
 			//if it survives this far, it should be set real
 			SetReal();
 		}
@@ -1287,18 +1308,18 @@ bool CSignal::operator==(const CSignal &rhs)
 	if (rhs.bufBlockSize != bufBlockSize) return false;
 	if (rhs.fs != fs) return false;
 	if (rhs.nSamples != nSamples) return false;
-	if (bufBlockSize==1)
-		for (unsigned int k=0; k < nSamples; k++)
+	if (bufBlockSize == 1)
+		for (unsigned int k = 0; k < nSamples; k++)
 		{
 			if (logbuf[k] != rhs.logbuf[k]) return false;
 		}
 	else if (bufBlockSize == 8)
-		for (unsigned int k=0; k < nSamples; k++)
+		for (unsigned int k = 0; k < nSamples; k++)
 		{
 			if (buf[k] != rhs.buf[k]) return false;
 		}
 	else //if (bufBlockSize == 16)
-		for (unsigned int k=0; k < nSamples; k++)
+		for (unsigned int k = 0; k < nSamples; k++)
 		{
 			if (cbuf[k] != rhs.cbuf[k]) return false;
 		}
@@ -1335,16 +1356,16 @@ double CSignal::begint(unsigned int id0, unsigned int len)
 
 double CSignal::endt(unsigned int id0, unsigned int len)
 {
-	return begint(id0,len) + dur(id0,len);
+	return begint(id0, len) + dur(id0, len);
 }
 
 double CSignal::length(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	if (GetType() == CSIG_STRING) 
-		return (double)strlen(strbuf); 
-	else 
-		return len; 
+	if (GetType() == CSIG_STRING)
+		return (double)strlen(strbuf);
+	else
+		return len;
 }
 
 CSignal CTimeSeries::TSeries2CSignal()
@@ -1382,7 +1403,7 @@ CTimeSeries CTimeSeries::basic(double (CSignal::*pf_basic)(unsigned int, unsigne
 		{
 			for (unsigned int k = 0; k < nGroups; k++)
 			{
-				tp.tmark = tmark+round(1000.*k*Len()/fs);
+				tp.tmark = tmark + round(1000.*k*Len() / fs);
 				tp.SetValue((this->*(this->pf_basic))(k*len, len));
 				out.AddChain(tp);
 				if (parg)
@@ -1417,7 +1438,7 @@ CTimeSeries CTimeSeries::basic(double (CSignal::*pf_basic)(unsigned int, unsigne
 		{
 			p->parg = popt;
 			tp.tmark = p->tmark;
-			tp.SetValue((p->*(this->pf_basic))(0,0));
+			tp.SetValue((p->*(this->pf_basic))(0, 0));
 			out.AddChain(tp);
 			if (p->parg)
 			{
@@ -1474,7 +1495,7 @@ CTimeSeries CTimeSeries::basic(CSignal(CSignal::*pf_basic3)(unsigned int, unsign
 		for (unsigned int k = 0; k < nGroups; k++)
 		{
 			out += &(CTimeSeries)(this->*(this->pf_basic3))(k*len, len);
-//			sbit0 += &sbit;
+			//			sbit0 += &sbit;
 		}
 		out.nGroups = nGroups;
 		CTimeSeries tp(sbit);
@@ -1485,7 +1506,7 @@ CTimeSeries CTimeSeries::basic(CSignal(CSignal::*pf_basic3)(unsigned int, unsign
 			tp.tmark = p->tmark;
 			out.AddChain(tp);
 		}
-//		out = tp;
+		//		out = tp;
 	}
 	return out;
 }
@@ -1517,8 +1538,10 @@ void CTimeSeries::AddMultChain(char type, CTimeSeries *sec)
 	if (fs > 1 && sec->fs > 1 && fs != sec->fs)  throw "The sampling rates of both operands must be the same.";
 
 	CTimeSeries *p;
-	if (IsComplex() || sec->IsComplex()) 
-	{ SetComplex(); sec->SetComplex(); }
+	if (IsComplex() || sec->IsComplex())
+	{
+		SetComplex(); sec->SetComplex();
+	}
 	if (sec->GetType() == CSIG_TSERIES)
 	{
 		if (GetType() == CSIG_TSERIES) //special case: point by point operation
@@ -1532,9 +1555,9 @@ void CTimeSeries::AddMultChain(char type, CTimeSeries *sec)
 			}
 			for (CTimeSeries *p = this, *pp = sec; p; p = p->chain, pp = pp->chain)
 			{
-				if (type=='*')	
+				if (type == '*')
 					for (unsigned int k = 0; k < p->nSamples; k++)	p->buf[k] *= pp->buf[k];
-				else			
+				else
 					for (unsigned int k = 0; k < p->nSamples; k++)	p->buf[k] += pp->buf[k];
 			}
 			return;
@@ -1569,7 +1592,7 @@ void CTimeSeries::AddMultChain(char type, CTimeSeries *sec)
 				return;
 			}
 		}
-		for (p = this; p; (p = p->chain) && (sec->nSamples>0))
+		for (p = this; p; (p = p->chain) && (sec->nSamples > 0))
 		{
 			for (unsigned int k = 0; k < p->nGroups; k++)
 				p->addmult(type, *sec, k*p->Len(), p->Len());
@@ -1587,12 +1610,12 @@ void CTimeSeries::AddMultChain(char type, CTimeSeries *sec)
 
 	vector<double> thistmark;
 	vector<double> sectmark;
-	for (p=this; p; p=p->chain)
+	for (p = this; p; p = p->chain)
 	{
 		thistmark.push_back(p->tmark);
 		thistmark.push_back(p->tmark + p->_dur());
 	}
-	for (p=sec; p; p=p->chain)
+	for (p = sec; p; p = p->chain)
 	{
 		sectmark.push_back(p->tmark);
 		sectmark.push_back(p->tmark + p->_dur());
@@ -1602,102 +1625,102 @@ void CTimeSeries::AddMultChain(char type, CTimeSeries *sec)
 	short status(0);
 	vector<double> anc; // just for debugging/tracking purposes... OK to delete.
 	unsigned int count;
-	anc0 = min(thistmark[im],sectmark[is]);
+	anc0 = min(thistmark[im], sectmark[is]);
 	anc.push_back(anc0);
 	CTimeSeries out(sec->GetFs()), part(sec->GetFs());
 	if (IsComplex() || sec->IsComplex()) part.SetComplex();
-	do{
-	if ( im==thistmark.size() && is==sectmark.size() )
-		break;
-	if ( is==sectmark.size() ) //only thistmark is left
-		status += (short)(pow(-1.,(int)im)), im++; 
-	else if ( im==thistmark.size() ) //only sectmark is left
-		status += (short)(2*pow(-1.,(int)is)), is++;
-	else if (thistmark[im]<=sectmark[is]) // both are available. check them
-		status += (short)(pow(-1.,(int)im)), im++; 
-	else
-		status += (short)(2*pow(-1.,(int)is)), is++;
-	if (im==thistmark.size() && is==sectmark.size() )
-		break;
-	else if (im<thistmark.size() && is<sectmark.size() )
-		anc1 = min(thistmark[im],sectmark[is]);
-	else // this means only one of the two, thistmark and sectmark, is left, just pick the available one.
-		if (sectmark.size()-is>0)
-			anc1 = sectmark[is];
+	do {
+		if (im == thistmark.size() && is == sectmark.size())
+			break;
+		if (is == sectmark.size()) //only thistmark is left
+			status += (short)(pow(-1., (int)im)), im++;
+		else if (im == thistmark.size()) //only sectmark is left
+			status += (short)(2 * pow(-1., (int)is)), is++;
+		else if (thistmark[im] <= sectmark[is]) // both are available. check them
+			status += (short)(pow(-1., (int)im)), im++;
 		else
-			anc1 = thistmark[im];
-	anc.push_back(anc1);
+			status += (short)(2 * pow(-1., (int)is)), is++;
+		if (im == thistmark.size() && is == sectmark.size())
+			break;
+		else if (im < thistmark.size() && is < sectmark.size())
+			anc1 = min(thistmark[im], sectmark[is]);
+		else // this means only one of the two, thistmark and sectmark, is left, just pick the available one.
+			if (sectmark.size() - is > 0)
+				anc1 = sectmark[is];
+			else
+				anc1 = thistmark[im];
+		anc.push_back(anc1);
 
-	if (status>0) // if status is 0, skip this cycle--no need to add chain
-	{
-		CTimeSeries *pm = this;
-		CTimeSeries *ps = sec;
-		// status indicates in the time range between the last two values of anc, what signal is present
-		// 1 means this, 2 means sec, 3 means both
-		count = (unsigned int)round(( anc1-anc0 )/1000.*fs);
-		unsigned int blockSize = bufBlockSize/sizeof(double);
+		if (status > 0) // if status is 0, skip this cycle--no need to add chain
 		{
-			part.UpdateBuffer(count);
-			part.tmark = anc0;
-			part.nGroups = nGroups;
-			if (status&1) 
+			CTimeSeries *pm = this;
+			CTimeSeries *ps = sec;
+			// status indicates in the time range between the last two values of anc, what signal is present
+			// 1 means this, 2 means sec, 3 means both
+			count = (unsigned int)round((anc1 - anc0) / 1000.*fs);
+			unsigned int blockSize = bufBlockSize / sizeof(double);
 			{
-				for (k=0, p=pm; k<im/2; k++/*, p=p->chain*/)
+				part.UpdateBuffer(count);
+				part.tmark = anc0;
+				part.nGroups = nGroups;
+				if (status & 1)
 				{
-					if (p->chain!=NULL) p=p->chain;
-					else				break;
-				}
-				int id = (int)round(( anc0-p->tmark )/1000.*fs);
-				memcpy(part.buf, p->logbuf+id*bufBlockSize, part.nSamples*bufBlockSize);
-			}
-			if (status&2) 
-			{
-				for (k=0, p=ps; k<is/2; k++)
-					if (p->chain!=NULL) p=p->chain;
-				int id = (int)round(( anc0-p->tmark )/1000.*fs);
-				if (status&1) // type=='+' add the two,  type=='*' multiply
-				{
-					if (type=='+')
+					for (k = 0, p = pm; k < im / 2; k++/*, p=p->chain*/)
 					{
-						if (part.IsComplex()) for (unsigned int k = 0; k < count; k++)	part.cbuf[k] += p->cbuf[k + id];
-						else				 for (unsigned int k = 0; k < count; k++)	part.buf[k] += p->buf[k + id];
+						if (p->chain != NULL) p = p->chain;
+						else				break;
 					}
-					else if (type=='*')
-					{
-						if (part.IsComplex()) for (unsigned int k=0; k<count; k++)	part.cbuf[k] *= p->cbuf[k+id];
-						else				 for (unsigned int k=0; k<count; k++)	part.buf[k] *= p->buf[k+id];
-					}
+					int id = (int)round((anc0 - p->tmark) / 1000.*fs);
+					memcpy(part.buf, p->logbuf + id * bufBlockSize, part.nSamples*bufBlockSize);
 				}
-				else 
+				if (status & 2)
 				{
-					memcpy(part.buf, p->logbuf+id*bufBlockSize, part.nSamples*bufBlockSize);
+					for (k = 0, p = ps; k < is / 2; k++)
+						if (p->chain != NULL) p = p->chain;
+					int id = (int)round((anc0 - p->tmark) / 1000.*fs);
+					if (status & 1) // type=='+' add the two,  type=='*' multiply
+					{
+						if (type == '+')
+						{
+							if (part.IsComplex()) for (unsigned int k = 0; k < count; k++)	part.cbuf[k] += p->cbuf[k + id];
+							else				 for (unsigned int k = 0; k < count; k++)	part.buf[k] += p->buf[k + id];
+						}
+						else if (type == '*')
+						{
+							if (part.IsComplex()) for (unsigned int k = 0; k < count; k++)	part.cbuf[k] *= p->cbuf[k + id];
+							else				 for (unsigned int k = 0; k < count; k++)	part.buf[k] *= p->buf[k + id];
+						}
+					}
+					else
+					{
+						memcpy(part.buf, p->logbuf + id * bufBlockSize, part.nSamples*bufBlockSize);
+					}
 				}
 			}
+			if (out.tmark == 0. && out.nSamples == 0) // the very first time
+				out = part;
+			else if (count > 0 && part.nSamples > 0) // if count==0, don't add part (which might be leftover from the previous round)
+				out.AddChain(part);
 		}
-		if (out.tmark==0. && out.nSamples==0) // the very first time
-			out = part;
-		else if (count>0 && part.nSamples>0) // if count==0, don't add part (which might be leftover from the previous round)
-			out.AddChain(part);
-	}
-	anc0 = anc1;
-	} while (im<thistmark.size() || is<sectmark.size() );
+		anc0 = anc1;
+	} while (im < thistmark.size() || is < sectmark.size());
 	*this = out.ConnectChains();
 }
 
 CTimeSeries& CTimeSeries::ConnectChains()
 {
 	CTimeSeries *p(this), out(fs);
-	if (p==NULL || p->chain==NULL) return *this;
-	if (tmark>0)
+	if (p == NULL || p->chain == NULL) return *this;
+	if (tmark > 0)
 	{
 		double shift(tmark);
-		for (; p; p=p->chain)	p->tmark -= shift;
+		for (; p; p = p->chain)	p->tmark -= shift;
 		ConnectChains();
-		p=this;
-		for (; p; p=p->chain)	p->tmark += shift;
+		p = this;
+		for (; p; p = p->chain)	p->tmark += shift;
 		return *this;
 	}
-	while(1)
+	while (1)
 	{
 		CTimeSeries part(fs);
 		if (IsComplex()) part.SetComplex();
@@ -1715,8 +1738,8 @@ CTimeSeries& CTimeSeries::ConnectChains()
 			// if nSamples so far is the same as the following chain tmark, it means continuing (i.e., the chain consolidated)
 			// "Being the same" is too restrictive. Allow error margin of 2.
 			// 7/18/2016 bjk
-			if (tp->chain!=NULL && fabs(tp->chain->tmark/1000.*fs - count ) <=2 )
-				tp=tp->chain;
+			if (tp->chain != NULL && fabs(tp->chain->tmark / 1000.*fs - count) <= 2)
+				tp = tp->chain;
 			else
 				break;
 		}
@@ -1724,21 +1747,21 @@ CTimeSeries& CTimeSeries::ConnectChains()
 		part.UpdateBuffer(count);
 		int offset(0);
 		while (1) {
-			memcpy(part.logbuf+offset, p->buf, p->nSamples*bufBlockSize);
+			memcpy(part.logbuf + offset, p->buf, p->nSamples*bufBlockSize);
 			offset += p->nSamples*bufBlockSize;
-			if (p->chain!=NULL && offset==(int)(p->chain->tmark/1000.*fs+.1)*bufBlockSize)
-				p=p->chain;
+			if (p->chain != NULL && offset == (int)(p->chain->tmark / 1000.*fs + .1)*bufBlockSize)
+				p = p->chain;
 			else
 				break;
 		}
-		if (out.tmark==0. && out.nSamples==0) // the very first time
+		if (out.tmark == 0. && out.nSamples == 0) // the very first time
 			out = part;
 		else
 			out.AddChain(part);
-		if (p->chain==NULL) break;
-		p=p->chain;
+		if (p->chain == NULL) break;
+		p = p->chain;
 	}
-	return (*this=out);
+	return (*this = out);
 }
 
 CSignal& CSignal::Diff(int order)
@@ -1747,11 +1770,11 @@ CSignal& CSignal::Diff(int order)
 	for (unsigned int p = 0; p < nGroups; p++)
 	{
 		q = p * (len - order);
-		for (; q< (p+1)*(len - order); q++)
+		for (; q < (p + 1)*(len - order); q++)
 			buf[q] = buf[q + order + p] - buf[q + p];
 	}
-	if (nGroups>1)
-		UpdateBuffer(nSamples - (len-1)*order);
+	if (nGroups > 1)
+		UpdateBuffer(nSamples - (len - 1)*order);
 	else
 		UpdateBuffer(nSamples - 1);
 	//for (unsigned int k=0; k<nSamples-order; k++)	
@@ -1765,7 +1788,7 @@ CSignal& CSignal::Cumsum()
 	for (unsigned int p = 0; p < nGroups; p++)
 	{
 		unsigned int q = 1 + p * len;
-		for (; q < (p+1)*len; q++)
+		for (; q < (p + 1)*len; q++)
 			buf[q] = buf[q - 1] + buf[q];
 	}
 	return *this;
@@ -1783,8 +1806,8 @@ CTimeSeries& CTimeSeries::operator/=(CTimeSeries &scaleArray)
 
 CSignal& CSignal::reciprocal(void)
 {
-	for (unsigned int k=0; k<nSamples; k++)
-		buf[k] = 1.0/buf[k];
+	for (unsigned int k = 0; k < nSamples; k++)
+		buf[k] = 1.0 / buf[k];
 	return *this;
 }
 
@@ -1801,14 +1824,14 @@ CSignal& CSignal::operator>>=(double delta)
 	if (newtmark < 0) // cut off negative time domain
 	{
 		double pts2remove = newtmark / 1000. * fs;
-		if (pts2remove>nSamples) {	// nothing left
+		if (pts2remove > nSamples) {	// nothing left
 			Reset();
 			return *this;
 		}
 		tmark = 0;
 		nSamples -= (unsigned int)pts2remove;
 		for (unsigned int k = 0; k < nSamples; k++)
-			buf[k] = buf[k + (unsigned int) pts2remove];
+			buf[k] = buf[k + (unsigned int)pts2remove];
 	}
 	tmark += delta;
 	return *this;
@@ -1872,15 +1895,15 @@ CTimeSeries& CTimeSeries::AddChain(CTimeSeries &sec)
 CTimeSeries * CTimeSeries::ExtractDeepestChain(CTimeSeries *dummy)
 {
 	// breaks and returns the deepest chain. Without dummy it would try to return local variable
-	if (chain==NULL) return this;
-	else if (chain->chain==NULL) return BreakChain(dummy);
+	if (chain == NULL) return this;
+	else if (chain->chain == NULL) return BreakChain(dummy);
 	else return chain->ExtractDeepestChain(dummy);
 }
 
 CTimeSeries * CTimeSeries::BreakChain(CTimeSeries *dummy)
 {
 	// returns the broken chain
-	if (chain==NULL) return NULL;
+	if (chain == NULL) return NULL;
 	dummy = chain;
 	chain = NULL;
 	return dummy;
@@ -1889,7 +1912,7 @@ CTimeSeries * CTimeSeries::BreakChain(CTimeSeries *dummy)
 CTimeSeries * CTimeSeries::GetDeepestChain()
 {
 	CTimeSeries *p(this);
-	for (; p->chain; p=p->chain)
+	for (; p->chain; p = p->chain)
 		;
 	return p;
 }
@@ -1908,8 +1931,8 @@ unsigned int CTimeSeries::CountChains(unsigned int *maxlength)
 	// verify again all involved with this 9/18/2018
 	unsigned int maxy(-1), res(1);
 	CTimeSeries *p;
-	for (p=this; p->chain; p=p->chain, res++)
-		maxy = max(p->nSamples,maxy);
+	for (p = this; p->chain; p = p->chain, res++)
+		maxy = max(p->nSamples, maxy);
 	if (maxlength) *maxlength = maxy;
 	return res;
 }
@@ -1949,7 +1972,7 @@ double CTimeSeries::RMS()
 	CTimeSeries *p(this);
 	for (; p; p = p->chain)
 	{
-		for (unsigned int i = 0; i<p->nSamples; ++i, ++count)
+		for (unsigned int i = 0; i < p->nSamples; ++i, ++count)
 			cum += p->buf[i] * p->buf[i];
 	}
 	return _getdB(sqrt(cum / count));
@@ -1963,20 +1986,20 @@ double CTimeSeries::MakeChainless()
 		return newdur;
 
 	CTimeSeries nsig(fs);
-	nsig.UpdateBuffer((unsigned int)round(newdur/1000.*fs));
-	for (CTimeSeries *p=this; p; p=p->chain) {
+	nsig.UpdateBuffer((unsigned int)round(newdur / 1000.*fs));
+	for (CTimeSeries *p = this; p; p = p->chain) {
 		if (p->tmark + p->_dur() <= 0)
 			continue;
-		unsigned int iorg = (unsigned int)( (p->tmark < 0) ? round(-p->tmark/1000.*fs) : 0 );
-		unsigned int inew = (unsigned int) ((p->tmark > 0) ? round(p->tmark/1000.*fs) : 0 );
-		unsigned int cplen = p->nSamples-iorg;
-		if (inew+cplen > nsig.nSamples) {
-			if (p->chain == NULL && inew+cplen == nsig.nSamples+1 && newdur/1000.*fs-nSamples > 0.499999)	// last chain, only 1 sample difference, possile rounding error.
-				nsig.UpdateBuffer(nsig.nSamples+1);
+		unsigned int iorg = (unsigned int)((p->tmark < 0) ? round(-p->tmark / 1000.*fs) : 0);
+		unsigned int inew = (unsigned int)((p->tmark > 0) ? round(p->tmark / 1000.*fs) : 0);
+		unsigned int cplen = p->nSamples - iorg;
+		if (inew + cplen > nsig.nSamples) {
+			if (p->chain == NULL && inew + cplen == nsig.nSamples + 1 && newdur / 1000.*fs - nSamples > 0.499999)	// last chain, only 1 sample difference, possile rounding error.
+				nsig.UpdateBuffer(nsig.nSamples + 1);
 			else
 				throw "Internal error: Buffer overrun detected.";
 		}
-		memcpy(nsig.buf+inew, p->buf+iorg, cplen*sizeof(*buf));
+		memcpy(nsig.buf + inew, p->buf + iorg, cplen * sizeof(*buf));
 	}
 	SwapContents1node(nsig);	// *this gets the chainless signal, nsig gets the chained signal and will be destroyed soon.
 	return newdur;
@@ -1988,7 +2011,7 @@ double CSignal::RMS(unsigned int id0, unsigned int len)
 	if (len == 0) len = nSamples;
 	if (len == 0) return std::numeric_limits<double>::infinity();
 	double cum(0);
-	for (unsigned int k = id0; k<id0 + len; k++)
+	for (unsigned int k = id0; k < id0 + len; k++)
 		cum += buf[k] * buf[k];
 	return _getdB(sqrt(cum / len));
 }
@@ -1996,19 +2019,19 @@ double CSignal::RMS(unsigned int id0, unsigned int len)
 
 CSignal& CSignal::Interp(const CSignal& gains, const CSignal& tmarks)
 {
-	if (gains.nSamples!=tmarks.nSamples)
+	if (gains.nSamples != tmarks.nSamples)
 		throw "The length of both arguments of interp( ) must be the same.";
 	int id1(0), id2;
 	double gain1(0.), slope;
-	int newSampleCount = (int)round(tmarks.buf[tmarks.nSamples-1]/1000.*fs);
+	int newSampleCount = (int)round(tmarks.buf[tmarks.nSamples - 1] / 1000.*fs);
 	Reset();
 	UpdateBuffer(newSampleCount);
-	for (unsigned int i=0; i<tmarks.nSamples; i++)
+	for (unsigned int i = 0; i < tmarks.nSamples; i++)
 	{
-		id2 = (int)round(tmarks.buf[i]/1000.*fs);
-		slope = (gains.buf[i]-gain1) / (id2-id1);
-		for (int j=id1; j<id2; j++)
-			buf[j] = slope * (j-id1) + gain1;
+		id2 = (int)round(tmarks.buf[i] / 1000.*fs);
+		slope = (gains.buf[i] - gain1) / (id2 - id1);
+		for (int j = id1; j < id2; j++)
+			buf[j] = slope * (j - id1) + gain1;
 		gain1 = gains.buf[i];
 		id1 = id2;
 	}
@@ -2018,12 +2041,12 @@ CSignal& CSignal::Interp(const CSignal& gains, const CSignal& tmarks)
 CTimeSeries& CTimeSeries::Squeeze()
 {
 	int nSamplesTotal(0), nSamples0(nSamples);
-	for (CTimeSeries* p(this); p; p=p->chain)
+	for (CTimeSeries* p(this); p; p = p->chain)
 		nSamplesTotal += p->nSamples;
 	UpdateBuffer(nSamplesTotal);
-	nSamplesTotal=nSamples0;
-	for (CTimeSeries* p(chain); p; p=p->chain)
-		memcpy(&buf[nSamplesTotal], p->buf, p->nSamples*sizeof(p->buf[0])),nSamplesTotal+=p->nSamples;
+	nSamplesTotal = nSamples0;
+	for (CTimeSeries* p(chain); p; p = p->chain)
+		memcpy(&buf[nSamplesTotal], p->buf, p->nSamples * sizeof(p->buf[0])), nSamplesTotal += p->nSamples;
 	delete chain;
 	chain = NULL;
 	return *this;
@@ -2032,25 +2055,25 @@ CTimeSeries& CTimeSeries::Squeeze()
 CTimeSeries& CTimeSeries::MergeChains()
 {// This tidy things up by removing unnecessary chains and rearranging them.
 	CTimeSeries temp;
-	if (nSamples==0 && chain) {temp = *chain; chain=NULL; *this = temp; }
+	if (nSamples == 0 && chain) { temp = *chain; chain = NULL; *this = temp; }
 
-	for (CTimeSeries* p(this); p && p->chain; p=p->chain)
+	for (CTimeSeries* p(this); p && p->chain; p = p->chain)
 	{
-		double et = p->tmark+p->_dur();
-		if (et >=p->chain->tmark) // consolidate 
+		double et = p->tmark + p->_dur();
+		if (et >= p->chain->tmark) // consolidate 
 		{
 			temp = *p->chain;
-			int id1 = (int)round((temp.tmark-p->tmark)/1000.*fs); 
+			int id1 = (int)round((temp.tmark - p->tmark) / 1000.*fs);
 			int common = p->nSamples - id1;
 			int id2 = temp.nSamples - common;
-			int oldnSamples(p->nSamples); 
-			p->UpdateBuffer(p->nSamples+temp.nSamples-common);
-			/* overlapping portion */ 
-			for (int i=0; i<common; i++) 
-				p->buf[oldnSamples-common+i] += temp.buf[i];
-			for (unsigned int k=0; k<temp.nSamples-common; k++)
-				p->buf[oldnSamples+k] = temp.buf[common+k];
-			if (temp.chain==NULL)	p->chain = NULL;
+			int oldnSamples(p->nSamples);
+			p->UpdateBuffer(p->nSamples + temp.nSamples - common);
+			/* overlapping portion */
+			for (int i = 0; i < common; i++)
+				p->buf[oldnSamples - common + i] += temp.buf[i];
+			for (unsigned int k = 0; k < temp.nSamples - common; k++)
+				p->buf[oldnSamples + k] = temp.buf[common + k];
+			if (temp.chain == NULL)	p->chain = NULL;
 			else *p->chain = *temp.chain; // deep copy is necessary (we are losing p).
 		}
 	}
@@ -2060,36 +2083,36 @@ CTimeSeries& CTimeSeries::MergeChains()
 CTimeSeries& CTimeSeries::MC(CTimeSeries &out, vector<double> tmarks, int id1, int id2)
 {
 	CTimeSeries parts;
-	double tp1 = ((double)id1/fs)*1000.;
-	double tp2 = ((double)id2/fs)*1000.;
-	for (vector<double>::reverse_iterator iter=tmarks.rbegin(); iter!=tmarks.rend(); iter +=2)
+	double tp1 = ((double)id1 / fs)*1000.;
+	double tp2 = ((double)id2 / fs)*1000.;
+	for (vector<double>::reverse_iterator iter = tmarks.rbegin(); iter != tmarks.rend(); iter += 2)
 	{
-		int idtmark = (int)round((*iter*fs)/1000.);
-		int idendt = (int)round((*(iter+1)*fs)/1000.);
-		if (id1>idendt) continue;
-		vector<double>::reverse_iterator it = iter+2;
-		if (it!=tmarks.rend() && tp2 > *it)
+		int idtmark = (int)round((*iter*fs) / 1000.);
+		int idendt = (int)round((*(iter + 1)*fs) / 1000.);
+		if (id1 > idendt) continue;
+		vector<double>::reverse_iterator it = iter + 2;
+		if (it != tmarks.rend() && tp2 > *it)
 		{// id2 over-reaches beyond the block, we need to limit in within a block
-			if (out.nSamples==0 && out.tmark==0) 
+			if (out.nSamples == 0 && out.tmark == 0)
 				MC(out, tmarks, idtmark, idendt);
 			else
 			{
 				MC(out, tmarks, idtmark, idendt);
-	//			out.AddChain(out);
+				//			out.AddChain(out);
 			}
 		}
 		else // if it does not over-reach
 		{
 			int iBegin = max(idtmark, id1);
-			int iEnd = min(id2, idendt)-1;
-			if (iEnd<iBegin) 
+			int iEnd = min(id2, idendt) - 1;
+			if (iEnd < iBegin)
 				return out; // both two points in the null interval
 			int count = iEnd - iBegin + 1;
 			parts.Reset(fs);
 			parts.UpdateBuffer(count);
 			memcpy(parts.buf, buf + iBegin, sizeof(double)*count);
-			parts.tmark = ((double)iBegin/fs)*1000.;
-			if (out.nSamples==0 && out.tmark==0) out = parts;
+			parts.tmark = ((double)iBegin / fs)*1000.;
+			if (out.nSamples == 0 && out.tmark == 0) out = parts;
 			else out.AddChain(parts);
 			return out;
 		}
@@ -2099,7 +2122,7 @@ CTimeSeries& CTimeSeries::MC(CTimeSeries &out, vector<double> tmarks, int id1, i
 
 CTimeSeries& CTimeSeries::LogOp(CTimeSeries &rhs, int type)
 {
-	for(CTimeSeries *p = this; p; p=p->chain)
+	for (CTimeSeries *p = this; p; p = p->chain)
 		p->body::LogOp(rhs, type);
 	return *this;
 }
@@ -2107,23 +2130,23 @@ CTimeSeries& CTimeSeries::LogOp(CTimeSeries &rhs, int type)
 CTimeSeries& CTimeSeries::removeafter(double timems)
 { // if timems is in the grid, the point is removed (but dur will be until that grid point)
 	CTimeSeries *last;
-	for (CTimeSeries *p(this); p; p=p->chain)
+	for (CTimeSeries *p(this); p; p = p->chain)
 	{
-		if (timems > p->tmark+p->_dur()) {last=p; continue; }
-		else if (timems > p->tmark) 
+		if (timems > p->tmark + p->_dur()) { last = p; continue; }
+		else if (timems > p->tmark)
 		{
 			// no need to worry about p->tmark
 			// all points occuring on and after timems will be removed (dur will still be timems)
 			// if timems exceeds the grid of p->tmark, it won't be removed, so it is ceil.
-			p->nSamples = mceil((timems-p->tmark)*fs/1000.);
+			p->nSamples = mceil((timems - p->tmark)*fs / 1000.);
 		}
 		else
 		{
 			delete[] p;
-			last->chain=NULL;
+			last->chain = NULL;
 			break;
 		}
-		last=p;
+		last = p;
 	}
 	return *this;
 }
@@ -2132,16 +2155,16 @@ CTimeSeries& CTimeSeries::timeshift(double timems)
 { // if timems is in the grid, the point is kept.
 	int chainlevel(0);
 	CTimeSeries *p(this);
-	for (; p ; p=p->chain)
+	for (; p; p = p->chain)
 	{
-		if (timems > p->tmark+p->_dur()) { chainlevel++; continue; }
-		if (timems < p->tmark) 
+		if (timems > p->tmark + p->_dur()) { chainlevel++; continue; }
+		if (timems < p->tmark)
 			p->tmark -= timems;
 		else
 		{
 			// p->tmark should be zero, except for the small off-granular timing based on the difference between timems and p->tmark
 			// the decrease of points will step-up if timems exceeds the grid, so it is ceil.
-			int pointsless = mceil((timems-p->tmark)*fs/1000.);
+			int pointsless = mceil((timems - p->tmark)*fs / 1000.);
 			if (pointsless > 0)
 			{
 				p->nSamples -= pointsless;
@@ -2155,12 +2178,12 @@ CTimeSeries& CTimeSeries::timeshift(double timems)
 	}
 	//all chains at and prior to chainlevel are cleared here.
 	p = this;
-	for (int k(0); k<chainlevel ; k++, p=p->chain)
+	for (int k(0); k < chainlevel; k++, p = p->chain)
 		delete[] p->buf;
-	if (p!=this) // or if chainlevel is non-zero 
+	if (p != this) // or if chainlevel is non-zero 
 	{
 		// Make new chain after chainlevel. If p is NULL (make an empty CTimeSeries object to return);
-		if (!p) {p = new CTimeSeries;}
+		if (!p) { p = new CTimeSeries; }
 		nSamples = p->nSamples;
 		tmark = p->tmark;
 		buf = p->buf;
@@ -2179,7 +2202,7 @@ CTimeSeries CTimeSeries::Extract(double begin_ms, double end_ms)
 
 CTimeSeries& CTimeSeries::Crop(double begin_ms, double end_ms)
 {
-	if (begin_ms == end_ms) {Reset(); return *this;}
+	if (begin_ms == end_ms) { Reset(); return *this; }
 	vector<double> tmarks;
 	if (begin_ms > end_ms) {
 		Crop(end_ms, begin_ms);
@@ -2200,7 +2223,7 @@ CSignal &CSignal::_atmost(unsigned int id, int unsigned len)
 	if (param.IsScalar())
 		limit = param.value();
 	else
-		limit = (id / len<nSamples) ? param.buf[id / len] : std::numeric_limits<double>::infinity();
+		limit = (id / len < nSamples) ? param.buf[id / len] : std::numeric_limits<double>::infinity();
 	for (unsigned int k = id; k < id + len; k++)
 		if (buf[k] > limit) buf[k] = limit;
 	return *this;
@@ -2214,7 +2237,7 @@ CSignal &CSignal::_atleast(unsigned int id, int unsigned len)
 	if (param.IsScalar())
 		limit = param.value();
 	else
-		limit = (id / len<nSamples) ? param.buf[id / len] : -std::numeric_limits<double>::infinity();
+		limit = (id / len < nSamples) ? param.buf[id / len] : -std::numeric_limits<double>::infinity();
 	for (unsigned int k = id; k < id + len; k++)
 		if (buf[k] < limit) buf[k] = limit;
 	return *this;
@@ -2229,7 +2252,7 @@ void CSignal::Dramp(double dur_ms, int beginID)
 	drampFs = 1.e3 / (4.*dur_ms);
 	nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	nSamplesNeeded = min(nSamples, nSamplesNeeded);
-	for (unsigned int i = 0; i<nSamplesNeeded; i++)
+	for (unsigned int i = 0; i < nSamplesNeeded; i++)
 	{
 		x = sin(2 * PI*drampFs*(double)i / (double)fs);
 		buf[beginID + i] = x * x * buf[beginID + i];
@@ -2253,7 +2276,7 @@ int CSignal::maxcc(double *x1, int len1, double *x2, int len2)
 		}
 		buffer[k] = tp;
 	}
-	CSignal temp(buffer+len2, len - 2*len2 + 1);
+	CSignal temp(buffer + len2, len - 2 * len2 + 1);
 	CVar maxid(-1.); // need to initialize
 	temp.parg = (void*)&maxid;
 	temp._max();
@@ -2265,14 +2288,23 @@ CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	CSignals *pratio = (CSignals *)parg;
-	CTimeSeries temp(1.); // to be used only a temporarycarrier to timestretch
-	pratio->next = &temp;
-	int winLen = (int)(692.93 + fs / 34100.*256.);
-	//double devia = 1000.* winLen/2 / fs ;
-	//pratio->chain->tmark -= devia;
+	int count = 0; // the number of pratio chain's
+	for (CTimeSeries *p = pratio; p; p = p->chain)
+		count++;
+	CSignals copy = *pratio;
 	timestretch(id0, len);
 	resample(id0, len);
-	pratio->next = NULL;
+	// If ratio is a constant, at this point we have the correct nSamples.
+	// If not, at this point nSamples is close but different from our intended (original) nSamples.
+	// If ratio is linearly increasing from 0 to the end, we can still fix that. Just run timestretch one more time with the correct target nSamples
+	if (count == 2 && pratio->tmark==0 && pratio->chain->tmark == dur())
+	{
+		CSignals tempratio((double)len / nSamples);
+		parg = (void*)&tempratio;
+		timestretch(id0, len);
+		parg = (void*)&copy;
+	}
+	// If not, there's really no clear way to make the target nSamples a clean and elegant way, just take whatever you have here and move on. 5/11/2019
 	return *this;
 }
 
@@ -2286,103 +2318,173 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	if (len == 0) len = nSamples;
 	CSignals *pratio = (CSignals *)parg;
 	//pratio is either a constant or time sequence of scalars (not relative time)
-	const int winLen = (int)(692.93 + fs /34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
-	int tolerance, synHop = winLen/2;
-	if (pratio->next) // during pitchscale
-		tolerance = synHop/10;
-	else
-		tolerance = synHop/20;
+	const int winLen = (int)(692.93 + fs / 34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
+	int synHop = winLen/2;
+	int tolerance = synHop/20;
 	const int winLenHalf = (int)(winLen / 2. + .5);
 	double *wind = new double[winLen];
 	for (int k = 0; k < winLen; k++)
 		wind[id0 + k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
 	//pratio must be either real constant or T_SEQ then value at each time point is the ratio for that segment
-	CSignal anaWinPos(1, 2), anchpts(1, 2);
+	map<int, double> anchor;
+	vector<int> vanchor;
+	for (CTimeSeries *p = pratio; p; p = p->chain)
+	{
+		vanchor.push_back((int)ceil(p->tmark * fs / 1000)+tolerance);
+		anchor[vanchor.back()] = p->value();
+	}
+	CSignal anchpts(1, 2);
 	CSignal out;
 	out.pf_basic2 = pf_basic2;
 	out.tmark = tmark;
 	int outputLength;
 	CTimeSeries *p;
-	if (pratio->GetType()!=CSIG_TSERIES)
+	double cumTpointsY = 0.;
+	if (pratio->GetType() != CSIG_TSERIES)
 	{
 		outputLength = (int)ceil(pratio->value()*nSamples);
-		anaWinPos.buf[1] = (double)outputLength;
 		anchpts.buf[1] = (double)nSamples;
+		cumTpointsY = (double)outputLength;
 	}
 	else
 	{
 		const unsigned int nTSLayers = pratio->CountChains();
-		anaWinPos.UpdateBuffer(nTSLayers);
 		anchpts.UpdateBuffer(nTSLayers);
-		double cumTpointsY = 0.;
 		p = pratio;
-		anaWinPos.buf[0] = 0;
-		for (unsigned int k = 0; k < nTSLayers - 1; k++, p=p->chain)
+		for (unsigned int k = 0; k < nTSLayers - 1; k++, p = p->chain)
 		{
 			anchpts.buf[k] = ceil(p->tmark * fs / 1000);
 			cumTpointsY += harmonicmean(p->chain->value(), p->value()) * (p->chain->tmark - p->tmark) * fs / 1000;
-			anaWinPos.buf[k+1] = ceil(cumTpointsY);
 		}
 		anchpts.buf[nTSLayers - 1] = ceil(p->tmark * fs / 1000);
-		outputLength = (int)ceil(anaWinPos.buf[nTSLayers - 1]);
+		outputLength = (int)ceil(cumTpointsY);
 	}
-	FILE * fp = fopen("log.txt", "at");
-	fprintf(fp, "anaWinPos pre\t");
-	for (unsigned kk = 0; kk< anaWinPos.nSamples;kk++)
+	int blocksizeIn, nLength = (int)ceil(cumTpointsY / synHop) + 100; // just give some margin
+	int *ingrid = new int[nLength];
+	int *outgrid = new int[nLength];
+	double ratio = 0;
+	ingrid[0] = tolerance;
+	outgrid[0] = 0;
+	double lastInGrid = (double)ingrid[0];
+	vector<int> newtpoints; // new sample indices corresponding to the input indices for the ratio; begins with the second index (i.e., for a constant ratio, only the last index is shown)
+	if (pratio->GetType() != CSIG_TSERIES)
 	{
-		fprintf(fp, "%10.1f\t", anaWinPos.buf[kk]);
+		nLength = (int)ceil(cumTpointsY / synHop)+1;
+		ratio = pratio->value();
+		int k = 1;
+		for (int cumOutTP = 0; k< nLength; k++)
+		{
+			cumOutTP += synHop;
+			outgrid[k] = cumOutTP;
+			lastInGrid += (outgrid[k] - outgrid[k - 1]) / ratio;
+			ingrid[k] = (int)(lastInGrid + .5);
+		}
+		//the last items
+		ingrid[k - 1] = nSamples + tolerance;
+		outgrid[k - 1] = outgrid[k - 2] + (int)((ingrid[k - 1] - ingrid[k - 2]) * ratio + .5);
 	}
-	fprintf(fp, "\n");
-	vector<double> synWinPos(1); // initializing one element with zero
-	synWinPos.reserve(outputLength * 2);
-	while ((int)synWinPos.back() + synHop <= outputLength + winLenHalf)
-		synWinPos.push_back((int)synWinPos.back() + synHop);
-	if (synWinPos.back() > outputLength) synWinPos.back() = outputLength;
+	else
+	{
+		vector<int>::iterator iblockLast = vanchor.begin() + 1; // iterator for input grid used in the ratio calculation below
+		blocksizeIn = *(vanchor.begin() + 1) - *vanchor.begin();
+		for (int cumOutTP = 0, k = 1; ; k++)
+		{
+			auto iblock = upper_bound(vanchor.begin(), vanchor.end(), (int)lastInGrid); // iterator for input time grid in each block
+			blocksizeIn = *iblock - *(iblock - 1);
+			cumOutTP += synHop;
+			outgrid[k] = cumOutTP;
+			double nextIngrid = 0;
+			if (ratio > 0)
+			{ // skipping for the first in the loop
+				nextIngrid = (int)(lastInGrid + (outgrid[k] - outgrid[k - 1]) / ratio + .5);
+				iblock = upper_bound(vanchor.begin(), vanchor.end(), (int)nextIngrid); // iterator for input time grid in each block
+			}
+			if (iblock == vanchor.end())
+			{ // final loop
+				ingrid[k] = nSamples + tolerance;
+				ratio = anchor[vanchor.back()];
+				outgrid[k] = outgrid[k - 1] + (int)((ingrid[k] - ingrid[k - 1]) * ratio + .5);
+				nLength = k;
+				break;
+			}
+			else if (iblock != iblockLast)
+			{ // when ratio changes between blocks
+				auto jt = iblockLast;
+				int ct = *iblockLast - ingrid[k - 1];
+				int cumcount = ct;
+				double cum4ratio = ct * anchor[*iblockLast];
+				double xsdf;
+				for (jt=iblockLast+1; jt < iblock; jt++)
+				{
+					ct = *jt - *(jt - 1);
+					cumcount += ct;
+					xsdf = (anchor[*jt] + anchor[*(jt - 1)]) / 2;
+					cum4ratio += ct * (anchor[*jt] + anchor[*(jt - 1)]) / 2;
+				}
+				ct = (int)nextIngrid - *(jt - 1);
+				cumcount += ct;
+				double rr = anchor[*(jt - 1)] + (anchor[*jt] - anchor[*(jt - 1)]) * ct / (*jt - *(jt - 1));
+				double rr2 = (anchor[*(jt - 1)] + rr) / 2;
+				cum4ratio += ct * rr2;
+				ratio = cum4ratio / cumcount;
+				newtpoints.push_back(outgrid[k - 1] + (int)(((*iblockLast) - ingrid[k - 1]) * ratio + .5));
+				iblockLast = iblock;
+			}
+			else
+			{
+				int locationintheblock = (int)(lastInGrid - *(iblock - 1));
+				ratio = anchor[*(iblock - 1)] + (anchor[*iblock] - anchor[*(iblock - 1)]) * locationintheblock / blocksizeIn;
+			}
+			lastInGrid += (outgrid[k] - outgrid[k - 1]) / ratio;
+			ingrid[k] = (int)(lastInGrid + .5);
+		}
+	}
+	FILE*fp = fopen("c:\\temp\\timestretch_log.txt", "at");
+	fprintf(fp, "=============================================\nfs=%d, Input size=%d\n", fs, nSamples);
 	p = pratio->chain;
-	for (unsigned int k = 1; k < anaWinPos.nSamples && p; k++, p = p->chain)
-		p->tmark *= anaWinPos.buf[k] / anchpts.buf[k];
-	anaWinPos.interp1(anchpts, CSignal(synWinPos));
-	double minFacor = synHop / (anaWinPos.buf[1]- anaWinPos.buf[0]);
 	int lastInPoint = nSamples + winLenHalf + tolerance;
-	int lastOutPoint=0;
-	int additionals = winLenHalf + 2 * tolerance + (int)ceil(1 / minFacor)*winLen;
+	int lastOutPoint = 0;
+	int additionals = winLenHalf + 2 * tolerance + (int)ceil((double)(ingrid[1] - ingrid[0]) / synHop)*winLen;
 	CSignal temp(fs, nSamples + additionals);
 	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
+	fprintf(fp, "winLenHalf = %d, new_in[%d] = old_in[0], new_in[%d] = old_in[%d], new buffer size=%d with zeropadding\n", winLenHalf, winLenHalf + tolerance, nSamples + winLenHalf + tolerance - 1, nSamples - 1, temp.nSamples);
 	*this = temp;
-	for (unsigned k = 0; k < anaWinPos.nSamples; k++)
-		anaWinPos.buf[k] += (double)tolerance;
-	double *pout = (double*)calloc(outputLength, 2 * winLen);
-	double *overlapWind = (double*)calloc(outputLength, 2 * winLen);
+	double *pout = new double[outputLength + 2 * winLen];
+	double *overlapWind = new double[outputLength + 2 * winLen];
+	memset(pout, 0, sizeof(double) * (outputLength + 2 * winLen));
+	memset(overlapWind, 0, sizeof(double) * (outputLength + 2 * winLen));
 	int xid0, del = 0;
-	unsigned k = 0;
-	int tp1, tp2;
-	for (auto yid0 : synWinPos)
+	fprintf(fp, "id:\tingrid\tourgrid\tratio\tdiv  \ttol\t(input)\t\t\t(output)\t\tautocorr. range\t\tmaxid\tdel(next)\n");
+	for (int m = 0; m < nLength; m++)
 	{
-		xid0 = (int)anaWinPos.buf[k] + del;
+		xid0 = ingrid[m] + del;
+		int yid0 = outgrid[m];
 		for (int p = 0; p < winLen; p++)
 		{
 			pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
 			overlapWind[(int)yid0 + p] += wind[p];
 		}
-		// last frame; no cross correlation
-		if (k < anaWinPos.nSamples - 1)
+		double ratio0 = (double)(outgrid[m + 1] - outgrid[m]) / (ingrid[m + 1] - ingrid[m]);
+		if (m < nLength - 1)
 		{
-			tp1 = (int)(anaWinPos.buf[k + 1] - anaWinPos.buf[k]);
-			tp2 = (int)(synWinPos[k+1] - yid0);
-			// Cross correlation between x(nextAnaWinRan) and x(currAnaWinRan + synHop)
-			int maxid = maxcc(buf + (int)anaWinPos.buf[k + 1] - tolerance, winLen + 2 * tolerance, buf + (int)anaWinPos.buf[k] + del + synHop, winLen);
-			double ratio = (double)tp2 / tp1;
-			double div = 10 + (ratio - 1) * 10;
+			double div = 10 + (ratio0 - 1) * 10;
 			double tol = (double)synHop / div;
 			tolerance = (int)(tol + .5);
-			fprintf(fp, "%d: tp1=%d, tp2=%d, diff=%d, ratio=%5.2f, tolerance=%d, maxid=%d\n", k, tp1, tp2, tp2 - tp1, (double)tp2/tp1, tolerance, maxid);
+			fprintf(fp, "%3d: %6d/%6d %5.2f %8.1f %4d\t(%6d:%6d)(%6d:%6d)(%d:%d)(%d:%d) ", m, ingrid[m], outgrid[m],
+				ratio0, div, tolerance, xid0, xid0 + winLen, yid0, yid0 + winLen, 
+				ingrid[m + 1] - tolerance, ingrid[m + 1] + winLen + 2 * tolerance - 1, ingrid[m] + del + synHop, ingrid[m] + winLen - 1);
+			int maxid = maxcc(buf + ingrid[m + 1] - tolerance, winLen + 2 * tolerance, buf + ingrid[m] + del + synHop, winLen);
+			fprintf(fp, "%d ", maxid);
 			del = tolerance - maxid + 1;
+			fprintf(fp, "%6d\n", del);
 		}
-		k++;
+		else
+		{
+			fprintf(fp, "%3d: %6d/%6d %5.2f \t\t\t\t(%6d:%6d)(%6d:%6d)\n", m, ingrid[m], outgrid[m],
+				ratio0, xid0, xid0 + winLen, yid0, yid0 + winLen);
+		}
 	}
-	fclose(fp);
-	int ddk = (int)anaWinPos.buf[anaWinPos.nSamples - 1] + del;
-	lastOutPoint = (int)synWinPos.back() + lastInPoint - (int)anaWinPos.buf[anaWinPos.nSamples-1] - del;
+	lastOutPoint = outgrid[nLength - 1] + lastInPoint - ingrid[nLength - 1] - del;
 	for (int p = 0; p < outputLength + 2 * winLen; p++)
 	{
 		if (overlapWind[p] > .001)
@@ -2390,13 +2492,37 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	}
 	if (lastOutPoint == 0) lastOutPoint = outputLength;
 	// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
-	out.UpdateBuffer(lastOutPoint- winLenHalf);
-	memcpy(out.buf, pout + winLenHalf, sizeof(double)*out.nSamples);
+	out.UpdateBuffer(lastOutPoint - winLenHalf + del);
+	memcpy(out.buf, pout + winLenHalf - del, sizeof(double)*out.nSamples);
+	if (pratio->GetType() == CSIG_TSERIES)
+	{
+		auto it = newtpoints.begin();
+		for (CTimeSeries *p = pratio->chain; p; p = p->chain, it++)
+		{
+			if (newtpoints.empty())
+			{
+				p->tmark = out.nSamples * 1000. / fs;
+				break;
+			}
+			if (it == newtpoints.end()) //the last time grid
+				p->tmark = out.nSamples, it = newtpoints.begin();
+			else
+				p->tmark = *it;
+			p->tmark /= fs / 1000.;
+		}
+	}
+	else
+		pratio->tmark = out.nSamples;
+	fprintf(fp, "outbuffer from %d to %d copied as the result, size=%d\n", 
+		winLenHalf - del, lastOutPoint - 1, out.nSamples);
+	fclose(fp);
 	out.SetFs(fs);
-	free(overlapWind);
-	free(pout);
+	delete[] overlapWind;
+	delete[] pout;
 	delete[] wind;
-	return *this=out;
+	delete[] ingrid;
+	delete[] outgrid;
+	return *this = out;
 }
 
 CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
@@ -2406,10 +2532,10 @@ CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
 	double drampFs = 1.e3 / (4.*dur_ms);
 	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	nSamplesNeeded = min(nSamples, nSamplesNeeded);
-	for (unsigned int i = 0; i<nSamplesNeeded; i++)
+	for (unsigned int i = 0; i < nSamplesNeeded; i++)
 	{
 		double x = sin(2 * PI * drampFs * i / fs);
-		buf[id0 + i] *= x * x ;
+		buf[id0 + i] *= x * x;
 		buf[id0 + len - i - 1] *= x * x;
 	}
 	return *this;
@@ -2433,7 +2559,7 @@ CSignal& CSignal::Blackman(unsigned int id0, unsigned int len)
 
 double * CSignal::Noise(double dur_ms)
 {
-	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms/1000.*fs);
+	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	double *p = Noise(nSamplesNeeded);
 	return p;
 }
@@ -2442,38 +2568,38 @@ double * CSignal::Noise(unsigned int nsamples)
 {
 	Reset();
 	UpdateBuffer(nsamples); //allocate memory if necessary
-	for (unsigned int i=0; i<nsamples; i++)
+	for (unsigned int i = 0; i < nsamples; i++)
 	{
-		buf[i] = 2.*((double)rand()/(double)RAND_MAX-.5);
-//		buf[i] = _double_to_24bit(x);
+		buf[i] = 2.*((double)rand() / (double)RAND_MAX - .5);
+		//		buf[i] = _double_to_24bit(x);
 	}
 	return buf;
 }
 
-double * CSignal::Noise2 (double dur_ms)
+double * CSignal::Noise2(double dur_ms)
 { //Gaussian noise
-	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms/1000.*fs);
+	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	double *p = Noise2(nSamplesNeeded);
 	return p;
 }
 
-double * CSignal::Noise2 (unsigned int nsamples)
+double * CSignal::Noise2(unsigned int nsamples)
 { //Gaussian noise
 	double fac, r, v1, v2, sum(0.);
 	Reset();
 	UpdateBuffer(nsamples); //allocate memory if necessary
-	for (unsigned int i=0; i<nsamples; i++)
+	for (unsigned int i = 0; i < nsamples; i++)
 	{
 		do {
 			do {
-					v1 = (2.0 * (double)rand()/(double)RAND_MAX ) - 1.0;
-					v2 = (2.0 * (double)rand()/(double)RAND_MAX ) - 1.0;
-					r = (v1*v1) + (v2*v2);
-				} while (r >= 1.0);
+				v1 = (2.0 * (double)rand() / (double)RAND_MAX) - 1.0;
+				v2 = (2.0 * (double)rand() / (double)RAND_MAX) - 1.0;
+				r = (v1*v1) + (v2*v2);
+			} while (r >= 1.0);
 			fac = sqrt(-2.0 * log(r) / r);
-		} while (v2*fac>=1.0 || v2*fac<=-1.0);
-		buf[i] = v2*fac;
-		sum += v2*fac;
+		} while (v2*fac >= 1.0 || v2 * fac <= -1.0);
+		buf[i] = v2 * fac;
+		sum += v2 * fac;
 	}
 	return buf;
 }
@@ -2483,17 +2609,17 @@ double * CSignal::fm(double midFreq, double fmWidth, double fmRate, int nsamples
 	double t;
 	Reset();
 	UpdateBuffer(nsamples); //allocate memory if necessary
-	for (int i=0; i<nsamples; i++)
+	for (int i = 0; i < nsamples; i++)
 	{
-		t = (double)i/(double)fs;
-		buf[i] = sin(2*PI*t*midFreq-fmWidth/fmRate*cos(2*PI*(fmRate*t+beginFMPhase)));
+		t = (double)i / (double)fs;
+		buf[i] = sin(2 * PI*t*midFreq - fmWidth / fmRate * cos(2 * PI*(fmRate*t + beginFMPhase)));
 	}
 	return buf;
 }
 
 double * CSignal::fm(double midFreq, double fmWidth, double fmRate, double dur_ms, double beginFMPhase)
-{   
-	int nSamplesNeeded = (int)round(dur_ms/1000.*fs); 
+{
+	int nSamplesNeeded = (int)round(dur_ms / 1000.*fs);
 	double *p = fm(midFreq, fmWidth, fmRate, nSamplesNeeded, beginFMPhase);
 	return p;
 }
@@ -2505,27 +2631,27 @@ double * CSignal::Tone(vector<double> freqs, unsigned int len)
   // 7/24/2016 bjk
 	Reset();
 	UpdateBuffer(len); //allocate memory if necessary
-	double t(0), tgrid(1./fs);
+	double t(0), tgrid(1. / fs);
 	buf[0] = 0;
-	if (freqs.size()==2)
+	if (freqs.size() == 2)
 	{
-		double duration((double)len/(double)fs),  glidelta(freqs[1] - freqs[0]);
-		double f1(freqs[0]), f2(freqs[1]), ratio(f2/f1);
-		for (unsigned int k(1); k<len; k++)
+		double duration((double)len / (double)fs), glidelta(freqs[1] - freqs[0]);
+		double f1(freqs[0]), f2(freqs[1]), ratio(f2 / f1);
+		for (unsigned int k(1); k < len; k++)
 		{
 			t += tgrid;
-//			buf[k] = sin(2*PI*t*(f1/log(ratio)*pow(ratio, t/duration)));
-			buf[k] = sin(2*PI*t*(freqs[0]+glidelta/2./duration*t));
+			//			buf[k] = sin(2*PI*t*(f1/log(ratio)*pow(ratio, t/duration)));
+			buf[k] = sin(2 * PI*t*(freqs[0] + glidelta / 2. / duration * t));
 		}
 	}
 	else
 	{
 		double fval(freqs[0]);
-		for (unsigned int k(1); k<len; k++)
+		for (unsigned int k(1); k < len; k++)
 		{
-			fval = (freqs[k]*tgrid + fval*t) / (t + tgrid);
+			fval = (freqs[k] * tgrid + fval * t) / (t + tgrid);
 			t += tgrid;
-			buf[k] = sin(2*PI*fval*t);
+			buf[k] = sin(2 * PI*fval*t);
 		}
 	}
 	return buf;
@@ -2533,7 +2659,7 @@ double * CSignal::Tone(vector<double> freqs, unsigned int len)
 
 double * CSignal::Tone(vector<double> freqs, double dur_ms)
 {
-	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms/1000.*fs);
+	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	double *p = Tone(freqs, nSamplesNeeded);
 	return p;
 }
@@ -2542,14 +2668,14 @@ double * CSignal::Tone(double freq, unsigned int nsamples, double beginPhase)
 {
 	Reset();
 	UpdateBuffer(nsamples); //allocate memory if necessary
-	for (unsigned int i=0; i<nsamples; i++)
-		buf[i] = sin(2*PI*(freq*(double)i/(double)fs+beginPhase));
+	for (unsigned int i = 0; i < nsamples; i++)
+		buf[i] = sin(2 * PI*(freq*(double)i / (double)fs + beginPhase));
 	return buf;
 }
 
 double * CSignal::Tone(double freq, double dur_ms, double beginPhase)
 {
-	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms/1000.*fs);
+	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	double *p = Tone(freq, nSamplesNeeded, beginPhase);
 	return p;
 }
@@ -2562,30 +2688,30 @@ CSignal& CSignal::Hilbert(unsigned int id0, unsigned int len)
 //To get the envelope, get the sqrt of x*x (original signal) plus hilbertx*hilbertx
 	if (len == 0) len = nSamples;
 
-	fftw_complex *in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * len);
-	fftw_complex *mid = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * len);
-	fftw_complex *out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * len);
-	memset(in, 0, len*sizeof(fftw_complex));
-	memset(mid, 0, len*sizeof(fftw_complex));
-	memset(out, 0, len*sizeof(fftw_complex));
+	fftw_complex *in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * len);
+	fftw_complex *mid = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * len);
+	fftw_complex *out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * len);
+	memset(in, 0, len * sizeof(fftw_complex));
+	memset(mid, 0, len * sizeof(fftw_complex));
+	memset(out, 0, len * sizeof(fftw_complex));
 
 	// FFT
-	for (unsigned int k=0; k<len; k++) in[k][0] = buf[k+id0];
+	for (unsigned int k = 0; k < len; k++) in[k][0] = buf[k + id0];
 	fftw_plan p1 = fftw_plan_dft_1d(len, in, mid, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(p1);
 
-	memset(in, 0, len*sizeof(fftw_complex));
+	memset(in, 0, len * sizeof(fftw_complex));
 	// converting halfcomplex array to complex array
-	int half = len/2 + len%2;
+	int half = len / 2 + len % 2;
 	in[0][0] = mid[0][0];
 
-	for (int k(1); k<half; ++k) 
+	for (int k(1); k < half; ++k)
 	{
 		in[k][0] = 2 * mid[k][0];
 		in[k][1] = 2 * mid[k][1];
 	}
 
-	if (len%2 == 0)	// len is even
+	if (len % 2 == 0)	// len is even
 		in[half][0] = mid[half][0];
 	// leave the rest zero
 
@@ -2596,12 +2722,12 @@ CSignal& CSignal::Hilbert(unsigned int id0, unsigned int len)
 	fftw_destroy_plan(p1);
 	fftw_destroy_plan(p2);
 
-	for (unsigned int k(0); k<len; ++k)
+	for (unsigned int k(0); k < len; ++k)
 	{// scale back down since the resulting array is scaled by len.
 //		buf[k+id0] = out[k][0] / len;	// This line fills buf with the identical signal with the input
 		buf[k + id0] = out[k][1] / len;	// This line is about the imaginary part of the analytic signal.
 	}
-	fftw_free(in); 
+	fftw_free(in);
 	fftw_free(out);
 	return *this;
 }
@@ -2616,7 +2742,7 @@ CSignal& CSignal::movespec(unsigned int id0, unsigned int len)
 	const complex<double> j(0.0, 1.0);
 	complex<double> datum;
 	double val = shift.value();
-	for (unsigned int k = 0; k<nSamples; k++)
+	for (unsigned int k = 0; k < nSamples; k++)
 	{
 		datum = (copy.buf[k] + buf[k] * j) * exp(j * val *  2. * PI * t);
 		buf[k] = real(datum);
@@ -2632,9 +2758,9 @@ CSignal& CSignal::HilbertEnv(unsigned int id0, unsigned int len)
 	memcpy(copy.buf, buf + id0, len * bufBlockSize);
 	copy.Hilbert(); // making it a phase-shifted version
 	SetComplex();
-	for (unsigned int k = id0; k < id0+len; k++) buf[2*k+1] = copy.buf[k-id0];
+	for (unsigned int k = id0; k < id0 + len; k++) buf[2 * k + 1] = copy.buf[k - id0];
 	out.UpdateBuffer(len);
-	for (unsigned int k = id0; k<id0+len; k++) out.buf[k-id0] = abs(cbuf[k]);
+	for (unsigned int k = id0; k < id0 + len; k++) out.buf[k - id0] = abs(cbuf[k]);
 	SetReal();
 	memcpy(buf + id0, out.buf, len * bufBlockSize);
 	return *this;
@@ -2649,7 +2775,7 @@ double * CSignal::HilbertEnv(int len)
 	vector<complex<double>> data;
 	data.resize(nSamples);
 	int k(0);
-	const complex<double> j(0.0,1.0); 
+	const complex<double> j(0.0,1.0);
 	for (vector<complex<double>>::iterator it=data.begin(); it!=data.end(); it++)
 	{
 		*it = copy.buf[k] + buf[k] * j;
@@ -2666,25 +2792,25 @@ CTimeSeries& CTimeSeries::ReplaceBetweenTPs(CTimeSeries &newsig, double t1, doub
 
 	CTimeSeries *p(this);
 	CTimeSeries copy(*this);
-	double samplegrid = 1./fs;
-	double deviationfromgrid = t1-((double)(int)(t1*fs))/fs;
+	double samplegrid = 1. / fs;
+	double deviationfromgrid = t1 - ((double)(int)(t1*fs)) / fs;
 	bool inbet(false); // true means t1 is in between chains.
-	for (p=this; p && !inbet; p=p->chain)
+	for (p = this; p && !inbet; p = p->chain)
 	{
-		if (t1>p->tmark+p->_dur() && p->chain && t1<p->chain->tmark)
-			inbet=true;
+		if (t1 > p->tmark + p->_dur() && p->chain && t1 < p->chain->tmark)
+			inbet = true;
 	}
-	if (t1>0. && fabs(deviationfromgrid)>1.e-8 && deviationfromgrid>-samplegrid && deviationfromgrid < samplegrid) 
+	if (t1 > 0. && fabs(deviationfromgrid) > 1.e-8 && deviationfromgrid > -samplegrid && deviationfromgrid < samplegrid)
 		t1 -= 1000.*samplegrid;  // because its in ms
 	Crop(0, t1);
 	if (inbet)
 		newsig >>= t1 - (tmark + _dur());
-	if (newsig.chain) {delete newsig.chain; newsig.chain = NULL;}
+	if (newsig.chain) { delete newsig.chain; newsig.chain = NULL; }
 	*this += &newsig;
 	//if t2 coincides with the sampling grid, don't take that point here (it will be taken twice)
-	deviationfromgrid = t2-((double)(int)(t2*fs))/fs;
+	deviationfromgrid = t2 - ((double)(int)(t2*fs)) / fs;
 	// deviationfromgrid of zero can masquerade as a very small number
-	if (fabs(deviationfromgrid)>1.e-8 && deviationfromgrid>-samplegrid && deviationfromgrid < samplegrid)
+	if (fabs(deviationfromgrid) > 1.e-8 && deviationfromgrid > -samplegrid && deviationfromgrid < samplegrid)
 		t2 += 1000.*samplegrid;  // because its in ms
 	copy.Crop(t2, std::numeric_limits<double>::infinity());
 	*this += &copy;
@@ -2698,7 +2824,7 @@ CTimeSeries& CTimeSeries::NullIn(double tpoint)
 	for (CTimeSeries *p = this; p; p = p->chain)
 	{
 		if (p->endt() < tp) continue;
-		int count = (int)((tp - p->tmark) * fs / 1000+.5);
+		int count = (int)((tp - p->tmark) * fs / 1000 + .5);
 		CTimeSeries *temp = p->chain;
 		CTimeSeries *newchain = new CTimeSeries(fs);
 		newchain->UpdateBuffer(p->nSamples - count);
@@ -2714,7 +2840,7 @@ CTimeSeries& CTimeSeries::NullIn(double tpoint)
 
 CTimeSeries& CTimeSeries::Insert(double timept, CTimeSeries &newchunk)
 {
-	int id ;
+	int id;
 	// Be careful, this is not a virtual function. So, when called from CSignals, this is a pointer to CSignal
 	// casting won't work---i.e., you cannot declare it like this---CSignal *p((CSignal*)this)
 	CTimeSeries copy(*this), out(*this);
@@ -2724,35 +2850,35 @@ CTimeSeries& CTimeSeries::Insert(double timept, CTimeSeries &newchunk)
 	// 3/10/2019
 	if (IsAudioOnAt(timept))
 	{
-		for (; p; p=p->chain)
+		for (; p; p = p->chain)
 		{
-			if (timept > p->tmark+p->_dur() && timept < p->chain->tmark)
+			if (timept > p->tmark + p->_dur() && timept < p->chain->tmark)
 				break;
 		}
-			// The line below looks precarious but when IsNull is true
-			// if timept > p->endt(), then it has at least one p->chain available
-			// so let's not worry about p->chain being NULL
-		//at this point, p->chain and all forward need to time-shift right.
-		p=p->chain; 
+		// The line below looks precarious but when IsNull is true
+		// if timept > p->endt(), then it has at least one p->chain available
+		// so let's not worry about p->chain being NULL
+	//at this point, p->chain and all forward need to time-shift right.
+		p = p->chain;
 		*p >>= insertduration;
 
 		*this = copy;
 		//Now, *this is prepared (the new signal buffer can be inserted)
-		for (p=&newchunk;  p; p=p->chain)
+		for (p = &newchunk; p; p = p->chain)
 			p->tmark += timept;
 		*this += newchunk;
 		return *this;
 	}
 	else
 	{
-		for (bool done(0); p; p=p->chain)
+		for (bool done(0); p; p = p->chain)
 		{
-			if (!done && timept >= p->tmark && timept <= p->tmark+p->_dur())
+			if (!done && timept >= p->tmark && timept <= p->tmark + p->_dur())
 			{
 				CTimeSeries *orgchain(chain);
 				CTimeSeries *trailingchain = new CTimeSeries(fs);
-				id = (int)((timept-p->tmark) * fs/1000. +.5);
-				int lenTrailingchain(p->nSamples-id);
+				id = (int)((timept - p->tmark) * fs / 1000. + .5);
+				int lenTrailingchain(p->nSamples - id);
 				// divide p into the point prior to id and after id.
 				trailingchain->UpdateBuffer(lenTrailingchain);
 				memcpy(trailingchain->buf, &buf[id], sizeof(double)*lenTrailingchain);
@@ -2773,8 +2899,8 @@ CTimeSeries& CTimeSeries::Insert(double timept, CTimeSeries &newchunk)
 
 double * CSignal::Truncate(double time_ms1, double time_ms2)
 { // Returns integer buffer pointer, to "extract" a signals object, use Take() member function
-	int id1 = (int)round(time_ms1/1000.*fs);
-	int id2 = (int)round(time_ms2/1000.*fs)-1;
+	int id1 = (int)round(time_ms1 / 1000.*fs);
+	int id2 = (int)round(time_ms2 / 1000.*fs) - 1;
 	return Truncate(id1, id2);
 }
 
@@ -2782,35 +2908,35 @@ double * CSignal::Truncate(int id1, int id2, int code)
 {
 	if (nSamples == 0) throw "internal error: Truncate()";
 	id1 = max(0, id1);
-	if (id1>id2) {
+	if (id1 > id2) {
 		nSamples = 0;
 		return buf;
 	}
 	if (code)
 	{
 		// This will not work, if the signal has null portion in the middle and id1 and id2 cover beyond the null portion... 7/15/2016 bjk
-		if (tmark>0)
+		if (tmark > 0)
 		{
 			CSignal copy(*this);
 			double _tmark(copy.tmark);
 			copy.tmark = 0;
-			id1 -= (int)(_tmark/1000.*fs+.5);
-			id2 -= (int)(_tmark/1000.*fs+.5);
+			id1 -= (int)(_tmark / 1000.*fs + .5);
+			id2 -= (int)(_tmark / 1000.*fs + .5);
 			copy.Truncate(id1, id2);
 			copy.tmark = _tmark;
 			*this = copy;
 			return buf;
 		}
 	}
-	if (id2>(int)nSamples-1) id2 = (int)nSamples-1;
-	nSamples = max(0,id2-id1+1);
-	memmove(buf, logbuf+id1*bufBlockSize, nSamples*bufBlockSize);
+	if (id2 > (int)nSamples - 1) id2 = (int)nSamples - 1;
+	nSamples = max(0, id2 - id1 + 1);
+	memmove(buf, logbuf + id1 * bufBlockSize, nSamples*bufBlockSize);
 	return buf;
 }
 
 double * CSignal::Silence(double dur_ms)
 {
-	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms/1000.*fs);
+	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	double *p = Silence(nSamplesNeeded);
 	return p;
 }
@@ -2821,13 +2947,13 @@ double * CSignal::Silence(unsigned int nsamples)
 	UpdateBuffer(nsamples); //allocate memory if necessary
 	if (nsamples < 0)
 		return NULL;
-	memset((void*)buf, 0, nsamples*sizeof(double));
+	memset((void*)buf, 0, nsamples * sizeof(double));
 	return buf;
 }
 
 double * CSignal::DC(double dur_ms)
 {
-	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms/1000.*fs);
+	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
 	double *p = DC(nSamplesNeeded);
 	return p;
 }
@@ -2856,34 +2982,34 @@ bool CTimeSeries::IsAudioOnAt(double timept)
 
 int CSignal::GetType() const
 {
-	if (nSamples==0) // empty
+	if (nSamples == 0) // empty
 	{
-		if (tmark==0.)	
+		if (tmark == 0.)
 			return CSIG_EMPTY;
-		else			
-			return CSIG_NULL;	
+		else
+			return CSIG_NULL;
 	}
-	else if (fs==2) // string
+	else if (fs == 2) // string
 		return CSIG_STRING;
 	else if (nSamples == 1)
 		return CSIG_SCALAR;
-	else if (fs>2) // audio
+	else if (fs > 2) // audio
 		return CSIG_AUDIO;
 	else
 		return CSIG_VECTOR;
 }
 
-bool CSignal::IsSingle() const 
+bool CSignal::IsSingle() const
 {
 	int type = GetType();
 	if (nSamples != 1) return false;
-	return (type == CSIG_SCALAR || type == CSIG_STRING || type == CSIG_AUDIO || type == CSIG_TSERIES) ;
+	return (type == CSIG_SCALAR || type == CSIG_STRING || type == CSIG_AUDIO || type == CSIG_TSERIES);
 }
 
 template <class T>
 int dcomp(const void * arg1, const void * arg2)
 {
-	if (*(T*)arg1>*(T*)arg2)	return 1;
+	if (*(T*)arg1 > *(T*)arg2)	return 1;
 	else if (*(T*)arg1 == *(T*)arg2) return 0;
 	else	return -1;
 }
@@ -2891,7 +3017,7 @@ int dcomp(const void * arg1, const void * arg2)
 template <class T>
 int dcompR(const void * arg1, const void * arg2)
 {
-	if (*(T*)arg1<*(T*)arg2)	return 1;
+	if (*(T*)arg1 < *(T*)arg2)	return 1;
 	else if (*(T*)arg1 == *(T*)arg2) return 0;
 	else	return -1;
 }
@@ -2901,16 +3027,16 @@ CSignal& CSignal::sort(unsigned int id0, unsigned int len)
 	if (bufBlockSize == 8)
 	{
 		if (*(double*)parg > 0)
-			qsort(logbuf + id0*bufBlockSize, len, bufBlockSize, dcomp<double>);
+			qsort(logbuf + id0 * bufBlockSize, len, bufBlockSize, dcomp<double>);
 		else
-			qsort(logbuf + id0*bufBlockSize, len, bufBlockSize, dcompR<double > );
+			qsort(logbuf + id0 * bufBlockSize, len, bufBlockSize, dcompR<double >);
 	}
 	else if (bufBlockSize == 1)
 	{
 		if (*(double*)parg > 0)
-			qsort(logbuf + id0*bufBlockSize, len, bufBlockSize, dcomp<unsigned char>);
+			qsort(logbuf + id0 * bufBlockSize, len, bufBlockSize, dcomp<unsigned char>);
 		else
-			qsort(logbuf + id0*bufBlockSize, len, bufBlockSize, dcompR<unsigned char>);
+			qsort(logbuf + id0 * bufBlockSize, len, bufBlockSize, dcompR<unsigned char>);
 	}
 	else
 		throw "internal error--this shouldn't happen. CSignal::sort";
@@ -2920,8 +3046,8 @@ CSignal& CSignal::sort(unsigned int id0, unsigned int len)
 CSignal& CSignal::SAM(double modRate, double modDepth, double initPhase)
 {
 	double *env = new double[nSamples];
-	for (unsigned int k = 0; k<nSamples; k++)
-		env[k] = (1. + modDepth*sin(2 * PI*(k * modRate / fs + initPhase - .25))) / (1. + modDepth);
+	for (unsigned int k = 0; k < nSamples; k++)
+		env[k] = (1. + modDepth * sin(2 * PI*(k * modRate / fs + initPhase - .25))) / (1. + modDepth);
 	Modulate(env, nSamples);
 	delete[] env;
 	return *this;
@@ -2945,7 +3071,7 @@ int CTimeSeries::GetType() const
 {
 	// as of 6/12/2018 tseq only supports with scalars
 	// still as of 6/20/2018 
-	if (tmark>0 && nSamples == 1) return CSIG_TSERIES;
+	if (tmark > 0 && nSamples == 1) return CSIG_TSERIES;
 	if (chain && nSamples == 1)	return CSIG_TSERIES;
 	return CSignal::GetType();
 }
@@ -2966,6 +3092,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 	//This doesn't mean real "resampling" because this does not change fs.
 	//pratio < 1 means generate more samples (interpolation)-->longer duration and lower pitch
 	//pratio > 1 means downsample--> shorter duration and higher pitch
+	//On return, pratio is set with the actual ratio (incoming size / result size) for each chain
 	if (len == 0) len = nSamples;
 	CSignals *pratio = (CSignals *)parg;
 	char errstr[256] = {};
@@ -2973,11 +3100,11 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 	float *data_out, *data_in = new float[nSamples];
 	int errcode;
 	SRC_STATE* handle = src_new(SRC_SINC_MEDIUM_QUALITY, 1, &errcode);
+	for (unsigned int k = 0; k < nSamples; k++) data_in[k] = (float)buf[k];
 	conv.data_in = data_in;
-	for (unsigned int k = 0; k < nSamples; k++) conv.data_in[k] = (float)buf[k];
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
-		conv.src_ratio_initial = conv.src_ratio = 1. / pratio->value();
+		conv.src_ratio = 1. / pratio->value();
 		conv.input_frames = nSamples;
 		conv.output_frames = (long)(nSamples * conv.src_ratio + .5);
 		conv.data_out = data_out = new float[conv.output_frames];
@@ -3011,50 +3138,45 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
 			cum += (int)((p->chain->tmark - p->tmark) * fs / 1000 * p->value());
 		outbuffer.reserve(cum);
-		conv.end_of_input = 0;
 		int lastSize = 1, lastPt = 0;
 		data_out = new float[lastSize];
-		conv.src_ratio_initial = pratio->value();
+		conv.src_ratio = pratio->value(); // maybe not necessary 5/5
 		long inputSamplesLeft = (long)nSamples;
+		int orgSampleCounts = 0;
 		//assume that pratio time sequence is well prepared--
 		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
 		{
+			conv.end_of_input = 0;
 			unsigned int i1, i2;
+			double ratio_mean;
+			int inBuffersize, outBuffersize;
 			if (p->value() == p->chain->value())
-				conv.src_ratio_mean = 1./p->value();
+				conv.src_ratio = ratio_mean = 1. / p->value();
 			else
-				conv.src_ratio_mean = 1./(2 * p->value()*p->chain->value() / (p->value() + p->chain->value())); // harmonic mean
-			int _fs = (int)(fs / conv.src_ratio_mean + .5);
+			{
+				src_set_ratio(handle, 1./ p->value());
+				conv.src_ratio = 1. / p->chain->value();
+				ratio_mean = (2 * 1. / p->value()*1. / p->chain->value() / (1. / p->value() + 1. / p->chain->value())); // harmonic mean
+			}
 			//current p covers from p->tmark to p->chain->tmark
 			if (!p->chain->chain)
 				conv.input_frames = inputSamplesLeft;
 			else
 			{
 				//current p covers from p->tmark to p->chain->tmark
-				if (p->fs == fs)
-				{
-					i1 = (int)(p->tmark * fs / 1000);
-					i2 = (int)(p->chain->tmark * fs / 1000);
-				}
-				else
-				{
-					i1 = (int)(p->tmark * _fs / 1000);
-					i2 = (int)(p->chain->tmark * _fs / 1000);
-				}
-				unsigned int nSampleBlock = i2 - i1;
-				conv.input_frames = nSampleBlock;
+				i1 = (int)(p->tmark * fs / 1000);
+				i2 = (int)(p->chain->tmark * fs / 1000);
+				conv.input_frames = i2 - i1;
 			}
-			conv.output_frames = (long)(conv.input_frames * conv.src_ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
+			conv.output_frames = (long)(conv.input_frames * ratio_mean + .5); // when the begining and ending ratio is different, use the harmonic mean for the estimate.
 			if (conv.output_frames > lastSize)
 			{
 				delete[] data_out;
 				data_out = new float[lastSize = conv.output_frames + 20000];//reserve the buffer size big enough to avoid memory crash, but find out a better than this.... 3/20/2019
 			}
-			if (nSamples - (lastPt + conv.input_frames) < 100)
-				conv.end_of_input = 1;
 			conv.data_out = data_out;
-			conv.src_ratio = 1. / p->chain->value();
 			errcode = src_process(handle, &conv);
+			inBuffersize = conv.input_frames_used;
 			if (errcode)
 			{
 				std::string errout;
@@ -3063,14 +3185,31 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 				delete[] data_in;	delete[] data_out;
 				return *this;
 			}
+			outBuffersize = conv.output_frames_gen;
 			for (int k = 0; k < conv.output_frames_gen; k++)
 				outbuffer.push_back(data_out[k]);
-			lastPt += conv.input_frames;
+			lastPt += conv.input_frames_used;
 			if (p->chain->chain)
 			{
 				conv.data_in = &data_in[lastPt];
 				inputSamplesLeft -= conv.input_frames_used;
 			}
+			while (conv.input_frames)
+			{
+				conv.src_ratio = 1./p->chain->value();
+				conv.data_in = &data_in[lastPt];
+				conv.input_frames -= conv.input_frames_used;
+				//conv.output_frames -= conv.output_frames_gen;
+				conv.end_of_input = conv.input_frames==0? 1: 0;
+				errcode = src_process(handle, &conv);
+				inBuffersize += conv.input_frames_used;
+				outBuffersize += conv.output_frames_gen;
+				for (int k = 0; k < conv.output_frames_gen; k++)
+					outbuffer.push_back(data_out[k]);
+				lastPt += conv.input_frames_used;
+			}
+			src_reset(handle);
+			p->chain->tmark = p->tmark + 1000. / fs * outBuffersize;
 		}
 		UpdateBuffer((unsigned int)outbuffer.size());
 		memcpy(buf, &outbuffer[0], sizeof(double)*outbuffer.size());
@@ -3090,12 +3229,12 @@ void CTimeSeries::UpSample(int cc)
 
 void CSignal::UpSample(int cc)
 {
-	if (cc==1) return;
+	if (cc == 1) return;
 	int newLength = nSamples * cc;
 	CSignal temp(fs*cc);
 	temp.UpdateBuffer(newLength);
 	memset((void*)temp.buf, 0, sizeof(double)*newLength);
-	for (unsigned int i=0; i<nSamples; i++)
+	for (unsigned int i = 0; i < nSamples; i++)
 		temp.buf[i*cc] = buf[i];
 	*this = temp;
 }
@@ -3108,12 +3247,12 @@ void CTimeSeries::DownSample(int cc)
 
 void CSignal::DownSample(int cc)
 {
-	if (cc==1) return;
+	if (cc == 1) return;
 	unsigned int newLength = (unsigned int)ceil((double)nSamples / cc);
-	CSignal temp(fs/cc);
+	CSignal temp(fs / cc);
 	temp.UpdateBuffer(newLength);
 	unsigned int k;
-	for (k=0; cc*k<nSamples; k++)
+	for (k = 0; cc*k < nSamples; k++)
 		temp.buf[k] = buf[cc*k];
 	temp.nSamples = k;
 	*this = temp;
@@ -3123,13 +3262,13 @@ void CSignal::DownSample(int cc)
 int CSignal::DecFir(const CSignal& coeff, int offset, int nChan)
 {// assumption: nSamples is a multiple of nChan
 	unsigned int i, j, nItems = nSamples / nChan; // length of filtering output
-	double xx, *out = new double[nItems+1];
-	for (i = offset; i<nSamples; i += nChan)
+	double xx, *out = new double[nItems + 1];
+	for (i = offset; i < nSamples; i += nChan)
 	{
 		xx = coeff.buf[0] * buf[i];
-		for (j = nChan; j<coeff.nSamples && i >= j; j += nChan)
+		for (j = nChan; j < coeff.nSamples && i >= j; j += nChan)
 			xx += coeff.buf[j] * buf[i - j];
-		out[(i-offset)/nChan] = xx;
+		out[(i - offset) / nChan] = xx;
 	}
 	for (i = offset; i < nSamples; i += nChan)
 		buf[i] = out[(i - offset) / nChan];
@@ -3169,14 +3308,14 @@ CSignal& CSignal::_dynafilter(CSignal *TSEQ_num, CSignal * TSEQ_den, unsigned in
 		CTimeSeries *qNext = q->chain;
 		unsigned int tsInd;
 		vector<double> num0, den0;
-		vector<double> num(p->nSamples,0), den(p->nSamples, 0);
+		vector<double> num(p->nSamples, 0), den(p->nSamples, 0);
 		vector<double> num1, den1;
 		while (pNext || qNext)
 		{
 			if (p)	num0 = p->ToVector();
 			else { num0.clear();  num0.push_back(1.); }
 			if (q)	den0 = q->ToVector();
-			else {	den0.clear();  den0.push_back(1.); }
+			else { den0.clear();  den0.push_back(1.); }
 			if (pNext) num1 = pNext->ToVector();
 			else { num1.clear();  num1.push_back(1.); }
 			if (qNext) den1 = qNext->ToVector();
@@ -3293,7 +3432,7 @@ CSignal& CSignal::dynaAR(unsigned int id0, unsigned int len)
 	}
 	//For now, TSden is evenly interpolated across len 10/6/2018
 	int order = (int)pvectors.back().front();
-	if (order==0)
+	if (order == 0)
 		throw "AR filter cannot have the coefficient for 0 delay.";
 	order *= -1;
 	double *out = new double[len];
@@ -3357,7 +3496,7 @@ CSignal& CSignal::conv(unsigned int id0, unsigned int len)
 	for (unsigned int k = 0; k < out.nSamples; k++)
 	{
 		double tp = 0.;
-		for (int p(0), q(0); p<(int)nSamples; p++)
+		for (int p(0), q(0); p < (int)nSamples; p++)
 		{
 			if ((q = k - p) < 0) continue;
 			if (p < (int)nSamples && q < (int)parray2->nSamples)
@@ -3409,12 +3548,12 @@ void CSignal::Filter(unsigned int nTabs, double *num, double *den)
 	if (IsComplex())
 	{
 		complex<double> xx, *out = new complex<double>[nSamples];
-		for (i = 0; i<nSamples; i++)
+		for (i = 0; i < nSamples; i++)
 		{
 			xx = num[0] * cbuf[i];
-			for (j = 1; j<nTabs && i >= j; j++)
+			for (j = 1; j < nTabs && i >= j; j++)
 				xx += num[j] * cbuf[i - j];
-			for (j = 1; j<nTabs && i >= j; j++)
+			for (j = 1; j < nTabs && i >= j; j++)
 				xx -= den[j] * out[i - j];
 			out[i] = xx;
 		}
@@ -3433,12 +3572,12 @@ void CSignal::Filter(unsigned int nTabs, double *num, double *den)
 			}
 		}
 		double xx, *out = new double[nSamples];
-		for (i = 0; i<nSamples; i++)
+		for (i = 0; i < nSamples; i++)
 		{
 			xx = num[0] * buf[i];
-			for (j = 1; j<nTabs && i >= j; j++)
+			for (j = 1; j < nTabs && i >= j; j++)
 				xx += num[j] * buf[i - j];
-			for (j = 1; j<nTabs && i >= j; j++)
+			for (j = 1; j < nTabs && i >= j; j++)
 				xx -= den[j] * out[i - j];
 			out[i] = xx;
 		}
@@ -3457,7 +3596,7 @@ CSignal& CSignal::filtfilt(unsigned int id0, unsigned int len)
 	den = coeffs.back();
 
 	CSignal temp(fs), temp2(fs), out(fs);
-	unsigned int nfact = (unsigned int)( 3 * (max(num.size(), den.size()) - 1));
+	unsigned int nfact = (unsigned int)(3 * (max(num.size(), den.size()) - 1));
 	temp.Silence((unsigned int)nfact);
 	temp += this;
 	temp2.Silence((unsigned int)nfact);
@@ -3483,8 +3622,8 @@ void CSignal::ReverseTime()
 {
 	CSignal temp(*this);
 	double *tempBuf = temp.GetBuffer();
-	for (unsigned int i=0; i<nSamples ; i++)
-		tempBuf[nSamples-i-1]=buf[i];
+	for (unsigned int i = 0; i < nSamples; i++)
+		tempBuf[nSamples - i - 1] = buf[i];
 	*this = temp;
 }
 
@@ -3504,10 +3643,10 @@ CSignal& CSignal::IIR(unsigned int id0, unsigned int len)
 	int order = (int)**it; it++;
 	double *freqs = *it; it++;
 	double passRipple_dB = **it; it++;
-	double stopFreqORAttenDB = **it; 
+	double stopFreqORAttenDB = **it;
 
-	double *den = new double [2*order+1];
-	double *num = new double [2*order+1];
+	double *den = new double[2 * order + 1];
+	double *num = new double[2 * order + 1];
 
 	// To obtaine the filter coefficients, the object must be a scalar, the sample rate. 
 	// Then on success of this call , this object has the buffer of a and b (den and num) in that order.
@@ -3535,20 +3674,22 @@ CSignal& CSignal::IIR(unsigned int id0, unsigned int len)
 			sprintf(errstr, "Unknown error, code=%d", res);
 		}
 		throw errstr;
-	} else {
+	}
+	else {
 		res = 1;
 		if (IsScalar()) {
 			if (type & 1)
-				UpdateBuffer(2*order+2);
+				UpdateBuffer(2 * order + 2);
 			else
-				UpdateBuffer(4*order+2);
-			memcpy(buf, den, sizeof(*buf)*(nSamples/2));
-			memcpy(buf+(nSamples/2), num, sizeof(*buf)*(nSamples/2));
-		} else {
+				UpdateBuffer(4 * order + 2);
+			memcpy(buf, den, sizeof(*buf)*(nSamples / 2));
+			memcpy(buf + (nSamples / 2), num, sizeof(*buf)*(nSamples / 2));
+		}
+		else {
 			if (type & 1)
-				Filter(order+1, num, den);
+				Filter(order + 1, num, den);
 			else
-				Filter(2*order+1, num, den);
+				Filter(2 * order + 1, num, den);
 		}
 	}
 	delete[] den; delete[] num;
@@ -3561,8 +3702,8 @@ std::string CSignal::string()
 	unsigned int k;
 	std::string out;
 	out.resize(nSamples);
-	for (k=0; k<nSamples && strbuf[k]; k++)
-		out[k] = *(strbuf+k);
+	for (k = 0; k < nSamples && strbuf[k]; k++)
+		out[k] = *(strbuf + k);
 	out.resize(k);
 	return out;
 }
@@ -3579,7 +3720,7 @@ CSignal &CSignal::SetString(const char *str)
 {
 	Reset(2);
 	bufBlockSize = 1;
-	UpdateBuffer((int)strlen(str)+1);
+	UpdateBuffer((int)strlen(str) + 1);
 	strcpy(strbuf, str);
 	return *this;
 }
@@ -3588,7 +3729,7 @@ CSignal &CSignal::SetString(const char c)
 {
 	Reset(2);
 	bufBlockSize = 1;
-	if (c==0) return *this;
+	if (c == 0) return *this;
 	UpdateBuffer(2);
 	memset(strbuf, 0, 2);
 	strbuf[0] = c;
@@ -3603,9 +3744,9 @@ CTimeSeries& CTimeSeries::each_sym(double(*fn)(double))
 	else if (GetType() == CSIG_AUDIO)
 	{
 		for (CTimeSeries *p = this; p; p = p->chain)
-			for (unsigned int k(0); k<p->nSamples; k++)
+			for (unsigned int k(0); k < p->nSamples; k++)
 			{
-				if (p->buf[k]<0)
+				if (p->buf[k] < 0)
 					p->buf[k] = -fn(-p->buf[k]);
 				else
 					p->buf[k] = fn(p->buf[k]);
@@ -3616,32 +3757,32 @@ CTimeSeries& CTimeSeries::each_sym(double(*fn)(double))
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::each(double (*fn)(double))
+CTimeSeries& CTimeSeries::each(double(*fn)(double))
 {
-	if (GetType()==CSIG_VECTOR || GetType()==CSIG_SCALAR)
-		body::each(fn); 
-	else if (GetType()==CSIG_AUDIO || GetType() == CSIG_TSERIES)
+	if (GetType() == CSIG_VECTOR || GetType() == CSIG_SCALAR)
+		body::each(fn);
+	else if (GetType() == CSIG_AUDIO || GetType() == CSIG_TSERIES)
 	{
-		for (CTimeSeries *p=this; p; p=p->chain)
-			for (unsigned int k(0); k<p->nSamples; k++)
+		for (CTimeSeries *p = this; p; p = p->chain)
+			for (unsigned int k(0); k < p->nSamples; k++)
 				p->buf[k] = fn(p->buf[k]);
 	}
 	else
-		throw "each()--only for vector/scalar or audio"; 
+		throw "each()--only for vector/scalar or audio";
 	return *this;
 }
 
 CTimeSeries & CTimeSeries::MFFN(double(*fn)(double), complex<double>(*cfn)(complex<double>))
 {
-	if (nSamples==0) return *this;
+	if (nSamples == 0) return *this;
 	if (GetType() == CSIG_VECTOR || GetType() == CSIG_SCALAR)
 		body::mathFunForbidNegative(fn, cfn);
 	else if (GetType() == CSIG_AUDIO)
 	{
 		for (CTimeSeries *p = this; p; p = p->chain)
-			for (unsigned int k(0); k<p->nSamples; k++)
+			for (unsigned int k(0); k < p->nSamples; k++)
 			{
-				if (p->buf[k]<0)
+				if (p->buf[k] < 0)
 					p->buf[k] = -fn(-p->buf[k]);
 				else
 					p->buf[k] = fn(p->buf[k]);
@@ -3655,17 +3796,17 @@ CTimeSeries & CTimeSeries::MFFN(double(*fn)(double), complex<double>(*cfn)(compl
 CTimeSeries & CTimeSeries::MFFN(double(*fn)(double, double), complex<double>(*cfn)(complex<double>, complex<double>), const CTimeSeries &param)
 {
 	if (nSamples == 0) return *this;
-	if ( (GetType() == CSIG_VECTOR || GetType() == CSIG_SCALAR) && (param.GetType() == CSIG_VECTOR || param.GetType() == CSIG_SCALAR))
+	if ((GetType() == CSIG_VECTOR || GetType() == CSIG_SCALAR) && (param.GetType() == CSIG_VECTOR || param.GetType() == CSIG_SCALAR))
 		body::mathFunForbidNegative(fn, cfn, param);
 	else if (GetType() == CSIG_AUDIO)
 	{
 		if (param.GetType() == CSIG_AUDIO) throw "The operation cannot perform with both audio operands.";
-		if (param.GetType() == CSIG_SCALAR || (param.nSamples==2 && param.buf[0] == param.buf[1]))
+		if (param.GetType() == CSIG_SCALAR || (param.nSamples == 2 && param.buf[0] == param.buf[1]))
 		{
 			for (CTimeSeries *p = this; p; p = p->chain)
-				for (unsigned int k(0); k<p->nSamples; k++)
+				for (unsigned int k(0); k < p->nSamples; k++)
 				{
-					if (p->buf[k]<0)
+					if (p->buf[k] < 0)
 						p->buf[k] = -fn(-p->buf[k], param.buf[0]);
 					else
 						p->buf[k] = fn(p->buf[k], param.buf[0]);
@@ -3673,14 +3814,14 @@ CTimeSeries & CTimeSeries::MFFN(double(*fn)(double, double), complex<double>(*cf
 		}
 		else if (param.GetType() == CSIG_VECTOR)
 		{
-			if (param.nSamples>2) throw "The interpolated operand feature has not been implemented in this version. Check back.";
+			if (param.nSamples > 2) throw "The interpolated operand feature has not been implemented in this version. Check back.";
 			for (CTimeSeries *p = this; p; p = p->chain)
-				for (unsigned int k(0); k<p->nSamples; k++)
+				for (unsigned int k(0); k < p->nSamples; k++)
 				{
 					double diff = param.buf[1] - param.buf[0];
 					double inc = diff / p->nSamples;
-					double val = param.buf[0] + inc *k;
-					if (p->buf[k]<0)
+					double val = param.buf[0] + inc * k;
+					if (p->buf[k] < 0)
 						p->buf[k] = -fn(-p->buf[k], val);
 					else
 						p->buf[k] = fn(p->buf[k], val);
@@ -3693,55 +3834,55 @@ CTimeSeries & CTimeSeries::MFFN(double(*fn)(double, double), complex<double>(*cf
 }
 
 
-CTimeSeries& CTimeSeries::each(complex<double> (*fn)(complex<double>))
+CTimeSeries& CTimeSeries::each(complex<double>(*fn)(complex<double>))
 {
 	if (IsComplex())
-		body::each(fn); 
+		body::each(fn);
 	else
-		throw "each()--expecting complex number"; 
+		throw "each()--expecting complex number";
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::each(double (*fn)(complex<double>))
+CTimeSeries& CTimeSeries::each(double(*fn)(complex<double>))
 {
 	if (IsComplex())
-		body::each(fn); 
+		body::each(fn);
 	else
-		throw "each()--expecting complex number"; 
+		throw "each()--expecting complex number";
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::each(double (*fn)(double, double), body &arg2)
+CTimeSeries& CTimeSeries::each(double(*fn)(double, double), body &arg2)
 {
-	if (GetType()==CSIG_VECTOR || GetType()==CSIG_SCALAR)
-		body::each(fn,arg2); 
-	else if (GetType()==CSIG_AUDIO)
+	if (GetType() == CSIG_VECTOR || GetType() == CSIG_SCALAR)
+		body::each(fn, arg2);
+	else if (GetType() == CSIG_AUDIO)
 	{
-		if (arg2.nSamples==1) 
+		if (arg2.nSamples == 1)
 		{
 			double val = arg2.value();
-			for (CTimeSeries *p=this; p; p=p->chain)
-				for (unsigned int k(0); k<p->nSamples; k++)
+			for (CTimeSeries *p = this; p; p = p->chain)
+				for (unsigned int k(0); k < p->nSamples; k++)
 					p->buf[k] = fn(val, p->buf[k]);
 		}
 		else
 		{
-			for (CTimeSeries *p=this; p; p=p->chain)
-				for (unsigned int i=0; i<min(nSamples, arg2.nSamples); ++i)
-					p->buf[i] = fn(p->buf[i], arg2.buf[i]); 
+			for (CTimeSeries *p = this; p; p = p->chain)
+				for (unsigned int i = 0; i < min(nSamples, arg2.nSamples); ++i)
+					p->buf[i] = fn(p->buf[i], arg2.buf[i]);
 		}
 	}
 	else
-		throw "each()--only for vector/scalar or audio"; 
+		throw "each()--only for vector/scalar or audio";
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::each(complex<double> (*fn)(complex<double>, complex<double>), body &arg2)
+CTimeSeries& CTimeSeries::each(complex<double>(*fn)(complex<double>, complex<double>), body &arg2)
 {
 	if (IsComplex())
-		body::each(fn, arg2);  
+		body::each(fn, arg2);
 	else
-		throw "each()--expecting complex number"; 
+		throw "each()--expecting complex number";
 	return *this;
 }
 
@@ -3760,65 +3901,65 @@ int CTimeSeries::WriteAXL(FILE* fp)
 	CTimeSeries *p(this);
 	size_t res;
 	unsigned int nChains = CountChains();
-	res = fwrite((void*)&fs, sizeof(fs),1,fp);
-	res = fwrite((void*)&nChains, sizeof(nChains),1,fp);
-	for (unsigned int k=0; k<nChains; k++, p=p->chain)
+	res = fwrite((void*)&fs, sizeof(fs), 1, fp);
+	res = fwrite((void*)&nChains, sizeof(nChains), 1, fp);
+	for (unsigned int k = 0; k < nChains; k++, p = p->chain)
 	{
-		res = fwrite((void*)&p->nSamples, sizeof(nSamples),1,fp);
-		res = fwrite((void*)&p->tmark, sizeof(tmark),1,fp);
-		res = fwrite((void*)p->buf, p->bufBlockSize,p->nSamples,fp);
+		res = fwrite((void*)&p->nSamples, sizeof(nSamples), 1, fp);
+		res = fwrite((void*)&p->tmark, sizeof(tmark), 1, fp);
+		res = fwrite((void*)p->buf, p->bufBlockSize, p->nSamples, fp);
 	}
 	return (int)res;
 }
 
 int CTimeSeries::IsTimeSignal()
 { // Assume that CSignal and next have the same type, except for null or empty
-	if (fs==1 || fs==2) return 0;
+	if (fs == 1 || fs == 2) return 0;
 	return 1;
-//	if (GetType() == CSIG_AUDIO || GetType() == CSIG_TSERIES) return 1;
+	//	if (GetType() == CSIG_AUDIO || GetType() == CSIG_TSERIES) return 1;
 }
 
 CSignals::CSignals()
-: next(NULL)
+	: next(NULL)
 {
 }
 
 CSignals::CSignals(bool b)
-: next(NULL)
+	: next(NULL)
 {
 	Reset(1);
 	bufBlockSize = 1; // logical array
-	UpdateBuffer(1); 
+	UpdateBuffer(1);
 	logbuf[0] = b;
 }
 
 CSignals::CSignals(int sampleRate)
-:next(NULL)
+	:next(NULL)
 {
-	SetFs(max(sampleRate,0));
+	SetFs(max(sampleRate, 0));
 }
 
 CSignals::CSignals(double value)
-:next(NULL)
+	: next(NULL)
 {
 	SetFs(1);
 	SetValue(value);
 }
 
 CSignals::CSignals(const CSignals& src)
-:next(NULL)
+	:next(NULL)
 {
 	*this = src;
 }
 
 CSignals::CSignals(const CTimeSeries& src)
-:next(NULL)
+	: next(NULL)
 {
 	*this = src;
 }
 
 CSignals::CSignals(double *y, int len)
-:next(NULL)
+	: next(NULL)
 {
 	SetFs(1);
 	UpdateBuffer(len);
@@ -3836,7 +3977,7 @@ CSignals::~CSignals()
 }
 
 CSignals::CSignals(std::string str)
-:next(NULL)
+	:next(NULL)
 {
 	SetString(str.c_str());
 }
@@ -3859,13 +4000,13 @@ void CSignals::SetNextChan(CTimeSeries *second)
 	}
 }
 
-void CSignals::SetValue(double v) 
+void CSignals::SetValue(double v)
 {
 	Reset(1);
 	body::SetValue(v);
 }
 
-void CSignals::SetValue(complex<double> v) 
+void CSignals::SetValue(complex<double> v)
 {
 	Reset(1);
 	body::SetValue(v);
@@ -3884,7 +4025,7 @@ CSignals& CSignals::Reset(int fs2set)	// Empty all data fields - sets nSamples t
 CSignals CSignals::basic(double (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt)
 {
 	CSignals newout = CTimeSeries::basic(pf_basic, popt);
-	for (vector<CTimeSeries>::iterator it = newout.outarg.begin(); it!=newout.outarg.end(); it++)
+	for (vector<CTimeSeries>::iterator it = newout.outarg.begin(); it != newout.outarg.end(); it++)
 		newout.outarg2.push_back(*it);
 	if (next != NULL)
 	{
@@ -3955,7 +4096,7 @@ CSignals& CSignals::operator=(const CTimeSeries& rhs)
 CSignals& CSignals::operator=(const CSignals& rhs)
 {   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
 	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
-	if (this != &rhs) 
+	if (this != &rhs)
 	{
 		CTimeSeries::operator=(rhs);
 		SetNextChan(rhs.next);
@@ -3972,16 +4113,16 @@ CSignals& CSignals::operator-(void)	// Unary minus
 	return *this;
 }
 
-CSignals& CSignals::operator+=(const double con) 
+CSignals& CSignals::operator+=(const double con)
 {
-	CSignals _sec(con); 
-	return (*this+=(_sec)); 
+	CSignals _sec(con);
+	return (*this += (_sec));
 }
 
 CSignals& CSignals::operator+=(CTimeSeries &sec)
 {
-	CSignals _sec(sec); 
-	return (*this+=(_sec)); 
+	CSignals _sec(sec);
+	return (*this += (_sec));
 }
 
 CSignals& CSignals::operator+=(CSignals &sec)
@@ -4010,10 +4151,10 @@ const CSignals& CSignals::operator+=(CSignals *yy)
 	return *this;
 }
 
-CSignals& CSignals::operator*=(const double con) 
+CSignals& CSignals::operator*=(const double con)
 {
-	CSignals _sec(con); 
-	return (*this*=(_sec)); 
+	CSignals _sec(con);
+	return (*this *= (_sec));
 }
 
 CSignals& CSignals::operator*=(CSignals &sec)
@@ -4073,11 +4214,11 @@ CVar& CVar::setcell(unsigned int id, CVar &sec)
 	if (GetType() != CSIG_EMPTY && GetType() != CSIG_CELL)
 		throw "cannot add a cell member to a non-cell variable.";
 	if (id < cell.size() + 1)
-		cell[id-1] = sec; //replace existing cell 
+		cell[id - 1] = sec; //replace existing cell 
 	else
 	{
 		CVar tp;
-		for (size_t k = cell.size(); k < id-1; k++)
+		for (size_t k = cell.size(); k < id - 1; k++)
 			cell.push_back(tp);
 		appendcell(sec);
 	}
@@ -4094,7 +4235,7 @@ CSignals& CSignals::reciprocal(void)
 CSignals& CSignals::operator>>=(const double delta)
 {
 	CTimeSeries::operator>>=(delta);
-	if (next)	*next>>=delta;
+	if (next)	*next >>= delta;
 	return *this;
 }
 
@@ -4119,12 +4260,12 @@ CSignals& CSignals::Insert(double timept, CSignals &newchunk)
 	return *this;
 }
 
-CSignal& CSignal::Modulate (double *env, unsigned int lenEnv, unsigned int beginID)
+CSignal& CSignal::Modulate(double *env, unsigned int lenEnv, unsigned int beginID)
 {
 	// Modulate this object with env 
 	// If lenEnv is greater than nSamples, then the samples in env after nSamples are ignored.
 	// beginID indicates the index of buf to start Modulate
-	for (unsigned int k = beginID; k<min(nSamples,lenEnv+beginID); k++)
+	for (unsigned int k = beginID; k < min(nSamples, lenEnv + beginID); k++)
 		buf[k] *= env[k - beginID];
 	return *this;
 }
@@ -4158,7 +4299,7 @@ CTimeSeries& CTimeSeries::Modulate(CTimeSeries env)
 			}
 			else
 			{
-				unsigned int countsSkip = (unsigned int)( (qq->tmark-t1) * fs / 1000. );
+				unsigned int countsSkip = (unsigned int)((qq->tmark - t1) * fs / 1000.);
 				pp->Modulate(qq->buf, qq->nSamples, countsSkip + 1);
 			}
 		}
@@ -4186,8 +4327,8 @@ double * CSignals::Mag()
 	CSignal out(*this);
 	if (!IsComplex()) return buf; // if real, return as is.
 	out.UpdateBuffer(nSamples);
-	for (unsigned int k(0); k<nSamples; k++) 		
-		out.buf[k] = sqrt(buf[2*k]*buf[2*k]+buf[2*k+1]*buf[2*k+1]);
+	for (unsigned int k(0); k < nSamples; k++)
+		out.buf[k] = sqrt(buf[2 * k] * buf[2 * k] + buf[2 * k + 1] * buf[2 * k + 1]);
 	SetReal();
 	memcpy(buf, out.buf, sizeof(double)*nSamples);
 	return buf;
@@ -4200,35 +4341,35 @@ CSignal CSignals::Angle()
 	double *x1 = buf;
 	double *x2 = next->buf;
 	out.UpdateBuffer(nSamples);
-	for (unsigned int i=0; i<nSamples; i++)
-		buf[i] = atan(x2[i]/x1[i]);
+	for (unsigned int i = 0; i < nSamples; i++)
+		buf[i] = atan(x2[i] / x1[i]);
 	return *this;
 }
 
 void CSignals::DownSample(int cc)
 {
 	CTimeSeries::DownSample(cc);
-	if (next!=NULL) next->DownSample(cc);
+	if (next != NULL) next->DownSample(cc);
 }
 
 void CSignals::UpSample(int cc)
 {
 	CTimeSeries::UpSample(cc);
-	if (next!=NULL) next->UpSample(cc);
+	if (next != NULL) next->UpSample(cc);
 }
 
 CSignals &CSignals::transpose1()
-{ 
-	CTimeSeries::transpose1(); 
-	if (next) 
-		next->transpose1(); 
-	return *this; 
+{
+	CTimeSeries::transpose1();
+	if (next)
+		next->transpose1();
+	return *this;
 }
 
 CSignals& CSignals::LogOp(CSignals &rhs, int type)
 {
-	CTimeSeries::LogOp(rhs,type);
-	if (next) next->LogOp(rhs,type);
+	CTimeSeries::LogOp(rhs, type);
+	if (next) next->LogOp(rhs, type);
 	return *this;
 }
 
@@ -4240,12 +4381,12 @@ double CSignals::MakeChainless()
 		fs = next->GetFs();
 	}
 	CTimeSeries::MakeChainless();
-	if (next!=NULL) 
+	if (next != NULL)
 	{
 		next->MakeChainless();
 		int diff = nSamples - next->nSamples;
 		CSignals silenc(fs);
-		if (diff>0) // next is shorter (next needs padding)
+		if (diff > 0) // next is shorter (next needs padding)
 			next->UpdateBuffer(nSamples);
 		else
 			UpdateBuffer(next->nSamples);
@@ -4260,35 +4401,35 @@ CSignals &CSignals::each_sym(double(*fn)(double))
 	return *this;
 }
 
-CSignals &CSignals::each(double (*fn)(double))
+CSignals &CSignals::each(double(*fn)(double))
 {
 	CTimeSeries::each(fn);
 	if (next) 	next->each(fn);
 	return *this;
 }
 
-CSignals &CSignals::each(complex<double> (*fn)(complex<double>))
+CSignals &CSignals::each(complex<double>(*fn)(complex<double>))
 {
 	CTimeSeries::each(fn);
 	if (next) 	next->each(fn);
 	return *this;
 }
 
-CSignals &CSignals::each(double (*fn)(complex<double>))
+CSignals &CSignals::each(double(*fn)(complex<double>))
 {
 	CTimeSeries::each(fn);
 	if (next) 	next->each(fn);
 	return *this;
 }
 
-CSignals &CSignals::each(double (*fn)(double, double), body &arg2)
+CSignals &CSignals::each(double(*fn)(double, double), body &arg2)
 {
 	CTimeSeries::each(fn, arg2);
 	if (next) 	next->each(fn, arg2);
 	return *this;
 }
 
-CSignals &CSignals::each(complex<double> (*fn)(complex<double>, complex<double>), body &arg2)
+CSignals &CSignals::each(complex<double>(*fn)(complex<double>, complex<double>), body &arg2)
 {
 	CTimeSeries::each(fn, arg2);
 	if (next) 	next->each(fn, arg2);
@@ -4312,7 +4453,7 @@ CSignals & CSignals::MFFN(double(*fn)(double, double), complex<double>(*cfn)(com
 
 //No error handling--Don't use this constructor unless you are really sure it can't go wrong
 CSignals::CSignals(const char* wavname)
-:next(NULL)
+	:next(NULL)
 {
 	char errstr[256];
 	Wavread(wavname, errstr);
@@ -4321,93 +4462,99 @@ CSignals::CSignals(const char* wavname)
 int CSignals::Wavread(const char *wavname, char *errstr)
 {
 	SNDFILE *wavefileID;
-	SF_INFO sfinfo ;
-	sf_count_t count ;
-	if ((wavefileID = sf_open (wavname, SFM_READ, &sfinfo)) == NULL)
-	{	sprintf(errstr, "Unable to open audio file '%s'\n", wavname);
-		sf_close (wavefileID) ;
-		return NULL;	}
-	if (sfinfo.channels>2) { strcpy(errstr, "Up to 2 channels (L R) are allowed in AUX--we have two ears, dude!"); return NULL;}
+	SF_INFO sfinfo;
+	sf_count_t count;
+	if ((wavefileID = sf_open(wavname, SFM_READ, &sfinfo)) == NULL)
+	{
+		sprintf(errstr, "Unable to open audio file '%s'\n", wavname);
+		sf_close(wavefileID);
+		return NULL;
+	}
+	if (sfinfo.channels > 2) { strcpy(errstr, "Up to 2 channels (L R) are allowed in AUX--we have two ears, dude!"); return NULL; }
 	Reset(sfinfo.samplerate);
 	SetNextChan(NULL); // Cleans up existing next
-	if (sfinfo.channels==1)
+	if (sfinfo.channels == 1)
 	{
 		UpdateBuffer((int)sfinfo.frames);
-		count = sf_read_double (wavefileID, buf, sfinfo.frames);  // common.h
+		count = sf_read_double(wavefileID, buf, sfinfo.frames);  // common.h
 	}
 	else
 	{
 		double *buffer = new double[(unsigned int)sfinfo.channels*(int)sfinfo.frames];
-		count = sf_read_double (wavefileID, buffer, sfinfo.channels*sfinfo.frames);  // common.h
-		double (*buf3)[2];
+		count = sf_read_double(wavefileID, buffer, sfinfo.channels*sfinfo.frames);  // common.h
+		double(*buf3)[2];
 		next = new CTimeSeries(sfinfo.samplerate);
 		int m(0);
-		buf3 = (double (*)[2])&buffer[m++];
+		buf3 = (double(*)[2])&buffer[m++];
 		UpdateBuffer((int)sfinfo.frames);
-		for (unsigned int k=0; k<sfinfo.frames; k++)			buf[k] = buf3[k][0];
-		buf3 = (double (*)[2])&buffer[m++];
+		for (unsigned int k = 0; k < sfinfo.frames; k++)			buf[k] = buf3[k][0];
+		buf3 = (double(*)[2])&buffer[m++];
 		next->UpdateBuffer((int)sfinfo.frames);
-		for (unsigned int k=0; k<sfinfo.frames; k++)			next->buf[k] = buf3[k][0];
+		for (unsigned int k = 0; k < sfinfo.frames; k++)			next->buf[k] = buf3[k][0];
 		delete[] buffer;
 	}
-	sf_close (wavefileID) ;
+	sf_close(wavefileID);
 	return 1;
 }
 
 int CSignals::Wavwrite(const char *wavname, char *errstr, std::string wavformat)
 {
 	MakeChainless();
-	SF_INFO sfinfo ;
+	SF_INFO sfinfo;
 	SNDFILE *wavefileID;
-	sfinfo.channels = (next) ? 2 : 1; 
-	if (wavformat.length()==0)
+	sfinfo.channels = (next) ? 2 : 1;
+	if (wavformat.length() == 0)
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_16; // default
-	else if (wavformat=="8")
+	else if (wavformat == "8")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_U8;
-	else if (wavformat=="16")
+	else if (wavformat == "16")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_16;
-	else if (wavformat=="24")
+	else if (wavformat == "24")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_24;
-	else if (wavformat=="32")
+	else if (wavformat == "32")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_32;
-	else if (wavformat=="ulaw")
+	else if (wavformat == "ulaw")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_ULAW;
-	else if (wavformat=="alaw")
+	else if (wavformat == "alaw")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_ALAW;
-	else if (wavformat=="adpcm1")
+	else if (wavformat == "adpcm1")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_IMA_ADPCM;
-	else if (wavformat=="adpcm2")
+	else if (wavformat == "adpcm2")
 		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_MS_ADPCM;
-//	else if (wavformat=="vorbis")
-//		sfinfo.format = SF_FORMAT_OGG + SF_FORMAT_VORBIS; // not available ...  ogg.c requires external lib which I don't have yet. bjkwon 03/19/2016
+	//	else if (wavformat=="vorbis")
+	//		sfinfo.format = SF_FORMAT_OGG + SF_FORMAT_VORBIS; // not available ...  ogg.c requires external lib which I don't have yet. bjkwon 03/19/2016
 	else
-	{	sprintf(errstr, "Supported waveformat---8, 16, 24, 32, ulaw, alaw, adpcm1 or adpcm2.\n");
-		return NULL;	}
+	{
+		sprintf(errstr, "Supported waveformat---8, 16, 24, 32, ulaw, alaw, adpcm1 or adpcm2.\n");
+		return NULL;
+	}
 	sfinfo.frames = nSamples;
 	sfinfo.samplerate = fs;
 	sfinfo.sections = sfinfo.seekable = 1;
-	if ((wavefileID = sf_open (wavname, SFM_WRITE, &sfinfo)) == NULL)
-	{	sprintf(errstr, "Unable to open/write audio file to '%s'\n", wavname);
-		sf_close (wavefileID) ;
-		return NULL;	}
-	if (sfinfo.channels==1)
+	if ((wavefileID = sf_open(wavname, SFM_WRITE, &sfinfo)) == NULL)
+	{
+		sprintf(errstr, "Unable to open/write audio file to '%s'\n", wavname);
+		sf_close(wavefileID);
+		return NULL;
+	}
+	if (sfinfo.channels == 1)
 		sf_writef_double(wavefileID, buf, nSamples);
 	else
 	{
 		double *buffer = new double[(unsigned int)sfinfo.channels*nSamples];
-		double (*buf3)[2];
+		double(*buf3)[2];
 		int m(0);
 		// it should not be p && m<2 but just m<2, because p will never be NULL (why? next is CTimeSeries, not CSignals)
-		for (CSignals *p = this; p && m<2; p=(CSignals*)p->next, m++)
+		for (CSignals *p = this; p && m < 2; p = (CSignals*)p->next, m++)
 		{
-			buf3 = (double (*)[2])&buffer[m];
-			for (unsigned int k=0; k<nSamples; k++)			
+			buf3 = (double(*)[2])&buffer[m];
+			for (unsigned int k = 0; k < nSamples; k++)
 				buf3[k][0] = p->buf[k];
 		}
 		sf_writef_double(wavefileID, buffer, nSamples);
 		delete[] buffer;
 	}
-	sf_close (wavefileID) ;
+	sf_close(wavefileID);
 	return 1;
 }
 #endif // NO_SF
@@ -4423,7 +4570,7 @@ INT_PTR CSignals::PlayArray(char *errstr)
 
 INT_PTR CSignals::PlayArray(int DevID, char *errstr)
 { // returns a negative number if error occurrs
-	return PlayArray(DevID, 0, NULL, 2, errstr); 
+	return PlayArray(DevID, 0, NULL, 2, errstr);
 	// This is how you play in blocking mode (specify 2 for the nProgReport even though you are not utilizing any messaging back to hWnd.. This is just due to the way wavBuffer2snd is written in waves.cpp)
 	// Jan 19, 2013. BJ Kwon
 }
@@ -4436,7 +4583,7 @@ INT_PTR CSignals::PlayArray(int DevID, UINT userDefinedMsgID, HWND hApplWnd, dou
 	int nSamples4Block = (int)(*block_dur_ms / (1000. / (double)fs) + .5);
 	*block_dur_ms = (double)nSamples4Block *1000. / (double)fs;
 	double _nBlocks = (double)nSamples / nSamples4Block;
-	int nBlocks = max(2,(int)ceil(_nBlocks));
+	int nBlocks = max(2, (int)ceil(_nBlocks));
 	return PlayArray(DevID, userDefinedMsgID, hApplWnd, nBlocks, errstr, loop);
 }
 
@@ -4453,8 +4600,8 @@ INT_PTR CSignals::PlayArrayNext(INT_PTR pWP, int DevID, UINT userDefinedMsgID, d
 {// returns a negative number if error occurrs
  // This play the sound by specified block duration, generating event notification in every block
  // block_dur_ms is adjusted by the quantization of fs. Therefore, user should check if it has beend adjusted during this call.
- 	int nSamples4Block = (int)(*block_dur_ms/(1000./(double)fs)+.5);
-	*block_dur_ms = (double) nSamples4Block *1000. /(double)fs;
+	int nSamples4Block = (int)(*block_dur_ms / (1000. / (double)fs) + .5);
+	*block_dur_ms = (double)nSamples4Block *1000. / (double)fs;
 	double _nBlocks = (double)nSamples / nSamples4Block;
 	int nBlocks = (int)_nBlocks;
 	if (_nBlocks - (double)nBlocks > 0.1) nBlocks++;
@@ -4474,21 +4621,21 @@ short * CSignals::makebuffer(int &nChan)
 {	//For now this is only 16-bit playback (Sep 2008)
 	short *Buffer2Play;
 	MakeChainless();
-	if (next!=NULL)
+	if (next != NULL)
 	{
 		double *buf2 = next->buf;
-		Buffer2Play = new short[nSamples*2];
-		for (unsigned int i=0; i<nSamples; ++i) {
-			Buffer2Play[i*2] = (short)(_double_to_24bit(buf[i]) >> 8);
-			Buffer2Play[i*2+1] = (short)(_double_to_24bit(buf2[i]) >> 8);
+		Buffer2Play = new short[nSamples * 2];
+		for (unsigned int i = 0; i < nSamples; ++i) {
+			Buffer2Play[i * 2] = (short)(_double_to_24bit(buf[i]) >> 8);
+			Buffer2Play[i * 2 + 1] = (short)(_double_to_24bit(buf2[i]) >> 8);
 		}
-		nChan=2;
+		nChan = 2;
 	}
 	else
 	{
 		Buffer2Play = new short[nSamples];
 		_double_to_short(buf, Buffer2Play, nSamples);
-		nChan=1;
+		nChan = 1;
 	}
 	return Buffer2Play;
 }
@@ -4513,9 +4660,9 @@ CSignal CSignal::FFT(unsigned int id0, unsigned int len)
 	fftw_complex *out;
 	fftw_plan p;
 
-	in = (double*) fftw_malloc(sizeof(double) * len);
-	out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * fftRealsize);
-	memcpy(in, buf+id0, sizeof(double)*len);
+	in = (double*)fftw_malloc(sizeof(double) * len);
+	out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * fftRealsize);
+	memcpy(in, buf + id0, sizeof(double)*len);
 
 	p = fftw_plan_dft_r2c_1d(fftsize, in, out, FFTW_ESTIMATE);
 	fftw_execute(p);
@@ -4525,18 +4672,18 @@ CSignal CSignal::FFT(unsigned int id0, unsigned int len)
 	res.SetComplex();
 	memcpy(res.cbuf, out, sizeof(*cbuf)*fftRealsize);
 	complex<double> *tp = reinterpret_cast<complex<double> *> (out);
-	for (int k(1); k<fftRealsize; k++)
-		res.cbuf[fftsize -k] = conj(tp[k]);
+	for (int k(1); k < fftRealsize; k++)
+		res.cbuf[fftsize - k] = conj(tp[k]);
 
-// For verification
-//	double *out2 = (double*)fftw_malloc(sizeof(double) * len);
-//	fftw_plan p2 = fftw_plan_dft_c2r_1d(len, out, out2, FFTW_ESTIMATE);
-//	fftw_execute(p2);
-//	fftw_destroy_plan(p2);
-//	fftw_free(out2);
+	// For verification
+	//	double *out2 = (double*)fftw_malloc(sizeof(double) * len);
+	//	fftw_plan p2 = fftw_plan_dft_c2r_1d(len, out, out2, FFTW_ESTIMATE);
+	//	fftw_execute(p2);
+	//	fftw_destroy_plan(p2);
+	//	fftw_free(out2);
 
 	fftw_destroy_plan(p);
-	fftw_free(in); 
+	fftw_free(in);
 	fftw_free(out);
 	return res;
 }
@@ -4580,7 +4727,7 @@ CSignal CSignal::iFFT(unsigned int id0, unsigned int len)
 	else
 	{
 		res.SetComplex();
-		fftw_complex *out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fftsize+1));
+		fftw_complex *out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fftsize + 1));
 		in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * fftsize);
 		memcpy(in, cbuf + id0, sizeof(*cbuf)*fftsize);
 		p = fftw_plan_dft_1d(fftsize, in, out, FFTW_BACKWARD, FFTW_ESTIMATE);
@@ -4626,7 +4773,7 @@ int CSignals::ReadAXL(FILE* fp, bool logical, char *errstr)
 	fseek(fp, 0, SEEK_END);
 	unsigned int endp = ftell(fp);
 	fseek(fp, res2, SEEK_SET);
-	for (unsigned int k=0; k < nChains; k++)
+	for (unsigned int k = 0; k < nChains; k++)
 	{
 		unsigned int cum(0), _nSamples;
 		CTimeSeries readsig(fs);
@@ -4670,14 +4817,14 @@ int CSignals::WriteAXL(FILE* fp)
 map<double, double> CTimeSeries::showtseries()
 {
 	map<double, double> out;
-	bool nullchain = nSamples==0;
+	bool nullchain = nSamples == 0;
 	if (nullchain)
 		for (CTimeSeries *p = this; p; p = p->chain)
 			if (p->nSamples) throw "T_SERIES NULL not consistent.";
 			else out[-p->tmark] = 0;
 	else
 		for (CTimeSeries *p = this; p; p = p->chain)
-			if (p->nSamples==0) throw "T_SERIES NULL not consistent.";
+			if (p->nSamples == 0) throw "T_SERIES NULL not consistent.";
 			else out[p->tmark] = p->value();
 	return out;
 }
@@ -4698,12 +4845,12 @@ bool CVar::IsGO() const
 }
 
 CVar&  CVar::length()
-{ 
-	if (IsGO()) 
+{
+	if (IsGO())
 	{
 		if (fs == 3) SetValue((double)nSamples);
 		else SetValue(1.);
-	} 
+	}
 	else
 		basic(pf_basic = &CSignal::length);
 	return *this;
@@ -4716,8 +4863,8 @@ bool CVar::IsAudioObj()
 	CSignals type = strut["type"];
 	if (type.GetType() != CSIG_STRING) return false;
 	//The text content may be audio_playback or audio_playback (inactive)
-	if (type.string().find("audio_playback")!=0) return false;
-	return true; 
+	if (type.string().find("audio_playback") != 0) return false;
+	return true;
 }
 
 CVar::CVar()
@@ -4751,7 +4898,7 @@ CVar& CVar::Reset(int fs2set)
 
 int CVar::GetType()
 {
-	if (fs==3)
+	if (fs == 3)
 		return CSIG_HDLARRAY;
 	if (!cell.empty())
 		return CSIG_CELL;

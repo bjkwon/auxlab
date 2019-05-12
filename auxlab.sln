@@ -16,7 +16,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sigproc-st", "sigproc3.vcxp
 	ProjectSection(ProjectDependencies) = postProject
 		{E9095213-F9BB-4EAF-9358-0905EBC3865C} = {E9095213-F9BB-4EAF-9358-0905EBC3865C}
 		{3CCD832E-3192-424E-822E-58465B77499D} = {3CCD832E-3192-424E-822E-58465B77499D}
-		{39579B43-E4ED-473C-86B5-692F2D77BF71} = {39579B43-E4ED-473C-86B5-692F2D77BF71}
 		{B46F0059-DC4E-447E-8406-36A75E31F16A} = {B46F0059-DC4E-447E-8406-36A75E31F16A}
 	EndProjectSection
 EndProject
@@ -39,8 +38,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "auxp", "auxp.vcxproj", "{DA14DBAE-B8D7-44AE-92A5-6BD55B55DF64}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bjcommon", "bjcommon.vcxproj", "{3CCD832E-3192-424E-822E-58465B77499D}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libsamplerate", "libsamplerate.vcxproj", "{39579B43-E4ED-473C-86B5-692F2D77BF71}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -122,14 +119,6 @@ Global
 		{3CCD832E-3192-424E-822E-58465B77499D}.Release|x64.Build.0 = Release|x64
 		{3CCD832E-3192-424E-822E-58465B77499D}.Release|x86.ActiveCfg = Release|Win32
 		{3CCD832E-3192-424E-822E-58465B77499D}.Release|x86.Build.0 = Release|Win32
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Debug|x64.ActiveCfg = Debug|x64
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Debug|x64.Build.0 = Debug|x64
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Debug|x86.ActiveCfg = Debug|Win32
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Debug|x86.Build.0 = Debug|Win32
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Release|x64.ActiveCfg = Release|x64
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Release|x64.Build.0 = Release|x64
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Release|x86.ActiveCfg = Release|Win32
-		{39579B43-E4ED-473C-86B5-692F2D77BF71}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

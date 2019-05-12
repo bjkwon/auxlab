@@ -11,13 +11,6 @@
 **     http://www.mega-nerd.com/SRC/api.html
 */
 
-/* Modified by BJKWON 7/11/2016
-  __declspec(dllexport) is added to each exported function declaration
-
- * Modified for AUXLAB by Bomjun Kwon 3/30/2019
-  src_ratio_initial and src_ratio_mean added
-*/
-
 #ifndef SAMPLERATE_H
 #define SAMPLERATE_H
 
@@ -31,17 +24,15 @@ typedef struct SRC_STATE_tag SRC_STATE ;
 
 /* SRC_DATA is used to pass data to src_simple() and src_process(). */
 typedef struct
-{	
-	float	*data_in, *data_out ; // const specifier removed by bjkwon 3/20/2019
+{	const float	*data_in ;
+	float	*data_out ;
 
 	long	input_frames, output_frames ;
 	long	input_frames_used, output_frames_gen ;
 
 	int		end_of_input ;
 
-	double	src_ratio ; // this is the final ratio (in the block)
-	double	src_ratio_initial;
-	double	src_ratio_mean ;
+	double	src_ratio ;
 } SRC_DATA ;
 
 /*
@@ -61,7 +52,7 @@ typedef long (*src_callback_t) (void *cb_data, float **data) ;
 **	Error returned in *error.
 */
 
-__declspec(dllexport) SRC_STATE* src_new (int converter_type, int channels, int *error) ;
+SRC_STATE* src_new (int converter_type, int channels, int *error) ;
 
 /*
 ** Clone a handle : return an anonymous pointer to a new converter
@@ -77,7 +68,7 @@ SRC_STATE* src_clone (SRC_STATE* orig, int *error) ;
 **	cb_data as first parameter.
 */
 
-__declspec(dllexport) SRC_STATE* src_callback_new (src_callback_t func, int converter_type, int channels,
+SRC_STATE* src_callback_new (src_callback_t func, int converter_type, int channels,
 				int *error, void* cb_data) ;
 
 /*
@@ -85,20 +76,20 @@ __declspec(dllexport) SRC_STATE* src_callback_new (src_callback_t func, int conv
 **	Always returns NULL.
 */
 
-__declspec(dllexport) SRC_STATE* src_delete (SRC_STATE *state) ;
+SRC_STATE* src_delete (SRC_STATE *state) ;
 
 /*
 **	Standard processing function.
 **	Returns non zero on error.
 */
 
-__declspec(dllexport) int src_process (SRC_STATE *state, SRC_DATA *data) ;
+int src_process (SRC_STATE *state, SRC_DATA *data) ;
 
 /*
 **	Callback based processing function. Read up to frames worth of data from
 **	the converter int *data and return frames read or -1 on error.
 */
-__declspec(dllexport) long src_callback_read (SRC_STATE *state, double src_ratio, long frames, float *data) ;
+long src_callback_read (SRC_STATE *state, double src_ratio, long frames, float *data) ;
 
 /*
 **	Simple interface for performing a single conversion from input buffer to
@@ -107,7 +98,7 @@ __declspec(dllexport) long src_callback_read (SRC_STATE *state, double src_ratio
 **	a single buffer worth of audio.
 */
 
-__declspec(dllexport) int src_simple (SRC_DATA *data, int converter_type, int channels) ;
+int src_simple (SRC_DATA *data, int converter_type, int channels) ;
 
 /*
 ** This library contains a number of different sample rate converters,
@@ -118,9 +109,9 @@ __declspec(dllexport) int src_simple (SRC_DATA *data, int converter_type, int ch
 ** the given value. The converters are sequentially numbered from 0 to N.
 */
 
-__declspec(dllexport) const char *src_get_name (int converter_type) ;
-__declspec(dllexport) const char *src_get_description (int converter_type) ;
-__declspec(dllexport) const char *src_get_version (void) ;
+const char *src_get_name (int converter_type) ;
+const char *src_get_description (int converter_type) ;
+const char *src_get_version (void) ;
 
 /*
 **	Set a new SRC ratio. This allows step responses
@@ -128,7 +119,7 @@ __declspec(dllexport) const char *src_get_version (void) ;
 **	Returns non zero on error.
 */
 
-__declspec(dllexport) int src_set_ratio (SRC_STATE *state, double new_ratio) ;
+int src_set_ratio (SRC_STATE *state, double new_ratio) ;
 
 /*
 **	Get the current channel count.
@@ -144,25 +135,25 @@ int src_get_channels (SRC_STATE *state) ;
 **	Returns non zero on error.
 */
 
-__declspec(dllexport) int src_reset (SRC_STATE *state) ;
+int src_reset (SRC_STATE *state) ;
 
 /*
 ** Return TRUE if ratio is a valid conversion ratio, FALSE
 ** otherwise.
 */
 
-__declspec(dllexport) int src_is_valid_ratio (double ratio) ;
+int src_is_valid_ratio (double ratio) ;
 
 /*
 **	Return an error number.
 */
 
-__declspec(dllexport) int src_error (SRC_STATE *state) ;
+int src_error (SRC_STATE *state) ;
 
 /*
 **	Convert the error number into a string.
 */
-__declspec(dllexport) const char* src_strerror (int error) ;
+const char* src_strerror (int error) ;
 
 /*
 ** The following enums can be used to set the interpolator type
@@ -183,11 +174,11 @@ enum
 ** back again.
 */
 
-__declspec(dllexport) void src_short_to_float_array (const short *in, float *out, int len) ;
-__declspec(dllexport) void src_float_to_short_array (const float *in, short *out, int len) ;
+void src_short_to_float_array (const short *in, float *out, int len) ;
+void src_float_to_short_array (const float *in, short *out, int len) ;
 
-__declspec(dllexport) void src_int_to_float_array (const int *in, float *out, int len) ;
-__declspec(dllexport) void src_float_to_int_array (const float *in, int *out, int len) ;
+void src_int_to_float_array (const int *in, float *out, int len) ;
+void src_float_to_int_array (const float *in, int *out, int len) ;
 
 
 #ifdef __cplusplus
