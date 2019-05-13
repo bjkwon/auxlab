@@ -316,11 +316,17 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 {
 	//check qualifers
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals param;
+	CVar param, paramopt;
 	string fname;
 	try {
 		CAstSig tp(past);
 		param = tp.Compute(p);
+		if (p->next)
+		{
+			paramopt = tp.Compute(p->next);
+			if (paramopt.strut.empty())
+				throw past->ExceptionMsg(p, fnsigs, "Third parameter, if used, must be a struct variable.");
+		}
 		int type = param.GetType();
 		if (type!= CSIG_TSERIES && type != CSIG_SCALAR)
 			throw past->ExceptionMsg(p, fnsigs, "parameter must be either a scalar or a time sequence.");
@@ -369,6 +375,8 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 		else if (fname == "pitchscale") past->Sig.pf_basic2 = &CSignal::pitchscale;
 		else if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
 		else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
+		for (auto it = paramopt.strut.begin(); it != paramopt.strut.end(); it++)
+			param.strut[(*it).first] = (*it).second;
 		past->Sig.basic(past->Sig.pf_basic2, &param);
 		if (param.IsString())
 			throw past->ExceptionMsg(pnode, ("Error in respeed:" + param.string()).c_str());
@@ -2125,11 +2133,6 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_isaudioat;
 	built_in_funcs.push_back(pp);
 
-	pp.name = "respeed";
-	pp.funcsignature = "(audio_signal, playback_rate_change_ratio)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
-	built_in_funcs.push_back(pp);
-
 	// end narg 2 and 2
 
 	pp.narg1 = 1;	pp.narg2 = 1;
@@ -2275,15 +2278,20 @@ void CAstSigEnv::InitBuiltInFunctionList()
 	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_matrix;
 	built_in_funcs.push_back(pp);
 
+	pp.narg1 = 2;	pp.narg2 = 3;
 	pp.name = "timestretch";
-	pp.funcsignature = "(array, ratio)";
+	pp.funcsignature = "(array, ratio [, optional])";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
 	built_in_funcs.push_back(pp);
 	pp.name = "pitchscale";
-	pp.funcsignature = "(array, ratio)";
+	pp.funcsignature = "(array, ratio [, optional])";
 	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
 	built_in_funcs.push_back(pp);
-	
+	pp.name = "respeed";
+	pp.funcsignature = "(audio_signal, playback_rate_change_ratio [, optional])";
+	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
+	built_in_funcs.push_back(pp);
+
 	pp.narg1 = 3;	pp.narg2 = 3;
 	pp.name = "interp";
 	pp.funcsignature = "(refX, refY, query_x_points)";

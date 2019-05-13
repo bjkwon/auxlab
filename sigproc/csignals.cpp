@@ -2316,9 +2316,22 @@ double harmonicmean(double x1, double x2)
 CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	CSignals *pratio = (CSignals *)parg;
+	CVar *pratio = (CVar *)parg;
+	int winLen = (int)(692.93 + fs / 34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
+	if (!pratio->strut.empty())
+	{
+		auto finder = pratio->strut.find("windowsize");
+		if (finder != pratio->strut.end())
+			winLen = (int)(*finder).second.value();
+		if (winLen < 50 || winLen>4096 * 2)
+		{
+			std::string errout;
+			sformat(errout, "windowsize must be >= 50 or <= 8192");
+			pratio->SetString(errout.c_str());
+			return *this;
+		}
+	}
 	//pratio is either a constant or time sequence of scalars (not relative time)
-	const int winLen = (int)(692.93 + fs / 34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
 	int synHop = winLen/2;
 	int tolerance = synHop/20;
 	const int winLenHalf = (int)(winLen / 2. + .5);
@@ -2439,22 +2452,18 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 			ingrid[k] = (int)(lastInGrid + .5);
 		}
 	}
-	FILE*fp = fopen("c:\\temp\\timestretch_log.txt", "at");
-	fprintf(fp, "=============================================\nfs=%d, Input size=%d\n", fs, nSamples);
 	p = pratio->chain;
 	int lastInPoint = nSamples + winLenHalf + tolerance;
 	int lastOutPoint = 0;
 	int additionals = winLenHalf + 2 * tolerance + (int)ceil((double)(ingrid[1] - ingrid[0]) / synHop)*winLen;
 	CSignal temp(fs, nSamples + additionals);
 	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
-	fprintf(fp, "winLenHalf = %d, new_in[%d] = old_in[0], new_in[%d] = old_in[%d], new buffer size=%d with zeropadding\n", winLenHalf, winLenHalf + tolerance, nSamples + winLenHalf + tolerance - 1, nSamples - 1, temp.nSamples);
 	*this = temp;
 	double *pout = new double[outputLength + 2 * winLen];
 	double *overlapWind = new double[outputLength + 2 * winLen];
 	memset(pout, 0, sizeof(double) * (outputLength + 2 * winLen));
 	memset(overlapWind, 0, sizeof(double) * (outputLength + 2 * winLen));
 	int xid0, del = 0;
-	fprintf(fp, "id:\tingrid\tourgrid\tratio\tdiv  \ttol\t(input)\t\t\t(output)\t\tautocorr. range\t\tmaxid\tdel(next)\n");
 	for (int m = 0; m < nLength; m++)
 	{
 		xid0 = ingrid[m] + del;
@@ -2470,18 +2479,8 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 			double div = 10 + (ratio0 - 1) * 10;
 			double tol = (double)synHop / div;
 			tolerance = (int)(tol + .5);
-			fprintf(fp, "%3d: %6d/%6d %5.2f %8.1f %4d\t(%6d:%6d)(%6d:%6d)(%d:%d)(%d:%d) ", m, ingrid[m], outgrid[m],
-				ratio0, div, tolerance, xid0, xid0 + winLen, yid0, yid0 + winLen, 
-				ingrid[m + 1] - tolerance, ingrid[m + 1] + winLen + 2 * tolerance - 1, ingrid[m] + del + synHop, ingrid[m] + winLen - 1);
 			int maxid = maxcc(buf + ingrid[m + 1] - tolerance, winLen + 2 * tolerance, buf + ingrid[m] + del + synHop, winLen);
-			fprintf(fp, "%d ", maxid);
 			del = tolerance - maxid + 1;
-			fprintf(fp, "%6d\n", del);
-		}
-		else
-		{
-			fprintf(fp, "%3d: %6d/%6d %5.2f \t\t\t\t(%6d:%6d)(%6d:%6d)\n", m, ingrid[m], outgrid[m],
-				ratio0, xid0, xid0 + winLen, yid0, yid0 + winLen);
 		}
 	}
 	lastOutPoint = outgrid[nLength - 1] + lastInPoint - ingrid[nLength - 1] - del;
@@ -2511,11 +2510,6 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 			p->tmark /= fs / 1000.;
 		}
 	}
-	else
-		pratio->tmark = out.nSamples;
-	fprintf(fp, "outbuffer from %d to %d copied as the result, size=%d\n", 
-		winLenHalf - del, lastOutPoint - 1, out.nSamples);
-	fclose(fp);
 	out.SetFs(fs);
 	delete[] overlapWind;
 	delete[] pout;
@@ -3140,7 +3134,6 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 		outbuffer.reserve(cum);
 		int lastSize = 1, lastPt = 0;
 		data_out = new float[lastSize];
-		conv.src_ratio = pratio->value(); // maybe not necessary 5/5
 		long inputSamplesLeft = (long)nSamples;
 		int orgSampleCounts = 0;
 		//assume that pratio time sequence is well prepared--
@@ -3151,7 +3144,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 			double ratio_mean;
 			int inBuffersize, outBuffersize;
 			if (p->value() == p->chain->value())
-				conv.src_ratio = ratio_mean = 1. / p->value();
+				src_set_ratio(handle, conv.src_ratio = ratio_mean = 1. / p->value());
 			else
 			{
 				src_set_ratio(handle, 1./ p->value());
@@ -3199,7 +3192,6 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 				conv.src_ratio = 1./p->chain->value();
 				conv.data_in = &data_in[lastPt];
 				conv.input_frames -= conv.input_frames_used;
-				//conv.output_frames -= conv.output_frames_gen;
 				conv.end_of_input = conv.input_frames==0? 1: 0;
 				errcode = src_process(handle, &conv);
 				inBuffersize += conv.input_frames_used;
