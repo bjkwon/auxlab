@@ -159,7 +159,7 @@ public:
 	double mean(unsigned int id0 = 0, unsigned int len = 0) { if (len == 0) len = nSamples; return sum(id0, len) / (double)len; }
 	double stdev(unsigned int id0 = 0, unsigned int len = 0);
 
-protected:
+
 	void* parg;
 };
 
@@ -280,8 +280,6 @@ public:
 	double (CSignal::*pf_basic)(unsigned int, unsigned int);
 	CSignal& (CSignal::*pf_basic2)(unsigned int, unsigned int);
 	CSignal (CSignal::*pf_basic3)(unsigned int, unsigned int);
-	CSignal& dynaMA(unsigned int id0, unsigned int len);
-	CSignal& dynaAR(unsigned int id0, unsigned int len);
 
 protected:
 	double _dur() { return (double)nSamples / fs*1000.; }// for backward compatibility 5/18
@@ -293,7 +291,6 @@ private:
 	const CSignal& operator*(const CSignal& sec);
 	const CSignal& operator-(const CSignal& sec);
 	const CSignal& operator/(const CSignal& sec);
-	int maxcc(double *x1, int len1, double *x2, int len2);
 };
 
 class CTimeSeries : public CSignal
@@ -332,8 +329,6 @@ public:
 	CTimeSeries& ReplaceBetweenTPs(CTimeSeries &newsig, double t1, double t2);
 	CTimeSeries& NullIn(double tpoint);
 	CSignal *ChainOrd(unsigned int order);
-	CTimeSeries& dynaMA(CTimeSeries &num);
-	CTimeSeries& dynaAR(CTimeSeries &den);
 
 	CTimeSeries& operator=(const CSignal& rhs);
 	CTimeSeries& operator=(const CTimeSeries& rhs);

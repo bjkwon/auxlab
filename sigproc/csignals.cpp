@@ -7,9 +7,18 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.5
-// Date: 3/30/2019
+// Version: 1.502
+// Date: 5/28/2019
 // 
+//The uggliest code (because of timestretch and pitchscale functions)!!
+//This code should avoid having complex signal processing routines.
+//timestretch and pitchscale functions turned out to be way more complidated than expected.
+//In the future revision, these complex signal processing part should be separated.
+//Also, the quality of this version is not as good as earlier one (not git'ed)--producing somewhat "warbling" sound
+//This is due to the synHop not being constant and adjusted as it goes to precisely honor the input time grid.
+//In the future revision, I will try to make hop constant as much as possible between grids and adjusted toward the grids.
+// 5/28/2019 BJ Kwon
+
 #ifdef _WINDOWS
 #ifndef _MFC_VER // If MFC is used.
 #include <windows.h>
@@ -67,7 +76,7 @@ double quantizetmark(double delta, int fs)
 	//quantize delta based on the fs grid.  3/31/2016. Rev. 5/19/2018
 	if (fs > 1)
 	{
-	int pt = (int)round(delta / 1000 * fs);
+		int pt = (int)round(delta / 1000 * fs);
 		return 1000. * pt / fs;
 	}
 	return delta;
@@ -1937,17 +1946,6 @@ unsigned int CTimeSeries::CountChains(unsigned int *maxlength)
 	return res;
 }
 
-CTimeSeries& CTimeSeries::dynaMA(CTimeSeries &num)
-{
-	return *this;
-}
-
-CTimeSeries& CTimeSeries::dynaAR(CTimeSeries &den)
-{
-	return *this;
-}
-
-
 double CSignals::alldur()
 {
 	double out = CTimeSeries::alldur();
@@ -2260,7 +2258,7 @@ void CSignal::Dramp(double dur_ms, int beginID)
 	}
 }
 
-int CSignal::maxcc(double *x1, int len1, double *x2, int len2)
+static inline int maxcc(double *x1, int len1, double *x2, int len2)
 {
 	const int len = len1 + len2 - 1;
 	double *buffer = new double[len];
@@ -2287,36 +2285,235 @@ int CSignal::maxcc(double *x1, int len1, double *x2, int len2)
 CSignal& CSignal::pitchscale(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	CSignals *pratio = (CSignals *)parg;
-	int count = 0; // the number of pratio chain's
-	for (CTimeSeries *p = pratio; p; p = p->chain)
-		count++;
-	CSignals copy = *pratio;
+	CVar *pratio = (CVar *)parg;
+	vector<unsigned int> sectionlength;
+	unsigned int lastLength = 0;
+	for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
+	{
+		sectionlength.push_back((unsigned int)(p->chain->tmark / 1000.*p->fs)- lastLength);
+		lastLength = sectionlength.back();
+	}
+	CVar copy = *pratio;
+	// Why timestretch-resample, when resample-timestretch would eliminate the need for the second timestretch?
+	// I noticed that resample-timestretch creates more distortion (amplitude ripples across the blocks)
+	// timestretch-resample reduces the ripple significantly. 
+	// If the additional time taken for the second timestretch is the problem, go for resample-timestretch.
+	// 5/27/2019
 	timestretch(id0, len);
 	resample(id0, len);
-	// If ratio is a constant, at this point we have the correct nSamples.
-	// If not, at this point nSamples is close but different from our intended (original) nSamples.
-	// If ratio is linearly increasing from 0 to the end, we can still fix that. Just run timestretch one more time with the correct target nSamples
-	if (count == 2 && pratio->tmark==0 && pratio->chain->tmark == dur())
-	{
-		CSignals tempratio((double)len / nSamples);
-		parg = (void*)&tempratio;
-		timestretch(id0, len);
-		parg = (void*)&copy;
-	}
+	 //If ratio is a constant, at this point we have the correct nSamples.
+	 //If not, at this point nSamples is close but different from our intended (original) nSamples.
+	 //If ratio is linearly increasing from 0 to the end, we can still fix that. Just run timestretch one more time with the correct target nSamples
+	CTimeSeries *p = pratio;
+	if (sectionlength.size()==2)
+		for (auto it = sectionlength.begin(); it!= sectionlength.end(); it++)
+		{
+			if (p->value() != p->chain->value()) // sliding ratio
+			{
+				double newratio = (double)(*it) / ((unsigned int)(p->chain->tmark / 1000.*p->fs) - (unsigned int)(p->tmark / 1000.*p->fs));
+				p->SetValue(newratio);
+				p->chain->SetValue(newratio);
+				((CVar*)parg)->strut = copy.strut;
+				timestretch(id0, len);
+			}
+			p = p->chain;
+		}
 	// If not, there's really no clear way to make the target nSamples a clean and elegant way, just take whatever you have here and move on. 5/11/2019
 	return *this;
 }
 
-double harmonicmean(double x1, double x2)
+static inline double harmonicmean(double x1, double x2)
 {
 	return 2 * x1*x2 / (x1 + x2);
+}
+
+static inline double cal_ingrid(double prev, int id1, int hop, double ratio)
+{
+	double out = prev + hop/ratio;
+	return out;
+}
+
+static inline double cal_harmonic_serise(int length, double r1, double r2)
+{
+	double r = r1 - (r2 - r1) / (length - 1);
+	double increment = (r2 - r1) / (length - 1);
+	double out =0;
+	int k=0;
+	for (; k < length; k++)
+	{
+		r += increment;
+		out += 1. / r;
+	}
+	return out;
+}
+
+static inline int spreader(int nBlocks, double ratio1, double ratio2, int synHop, double *ingrid, double *outgrid)
+{
+	double lastOutPoint = outgrid[nBlocks];
+	double hop = harmonicmean(ratio1, ratio2);
+	if (nBlocks > 2)
+	{
+		hop = (ingrid[nBlocks] - ingrid[0]) / cal_harmonic_serise(nBlocks - 1, ratio1, ratio2);
+		for (int k = 1; k < nBlocks; k++)
+			outgrid[k] = hop * k;
+		double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
+		double increment = (ratio2 - ratio1) / (nBlocks - 2);
+		for (int k = 1; k < nBlocks; k++)
+		{
+			ratio += increment;
+			ingrid[k] = ingrid[k - 1] + hop / ratio;
+		}
+	}
+	else 
+	{ // check this part.... 5/28/2019
+		double delta_ingrid = ingrid[nBlocks] - ingrid[0];
+		nBlocks++;
+		hop = delta_ingrid / cal_harmonic_serise(nBlocks - 1, ratio1, ratio2);
+
+		for (int k = 1; k < nBlocks; k++)
+			outgrid[k] = hop * k;
+		double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
+		double increment = (ratio2 - ratio1) / (nBlocks - 2);
+		for (int k = 1; k < nBlocks; k++)
+		{
+			ratio += increment;
+			ingrid[k] = ingrid[k - 1] + hop / ratio;
+		}
+	}
+
+	return nBlocks;
+}
+
+static inline int get_nLength(int id1, int id2, double ratio1, double ratio2, int synHop, int *ingrid, int *outgrid, int outgridoffset)
+{ // outgrid[0] is always 0
+	int k = 1;
+	double lastInGrid = (double)id1;
+	int blocksizeIn = id2 - id1;
+	int cumOutTP = 0;
+	int nBlocks_est = (int)ceil((id2-id1)*harmonicmean(ratio1,ratio2)/synHop);
+	double *_in = new double[nBlocks_est+50];
+	double *_out = new double[nBlocks_est+50];
+	_in[0] = (double)id1;
+	_out[0] = 0.;
+	bool loop = true;
+	double ratio;
+	while (loop)
+	{
+		while (1)
+		{
+			if (nBlocks_est == 1)
+				ratio = (ratio1 + ratio2) / 2.;
+			else
+				ratio = ratio1 + (ratio2 - ratio1)*(k - 1) / (nBlocks_est - 1);
+			_in[k] = cal_ingrid(_in[k - 1], id1, synHop, ratio);
+			_out[k] = synHop * k;
+			if (_in[k] >= id2)
+				break;
+			k++;
+		}
+		if (k > nBlocks_est + 1)
+		{
+			nBlocks_est = k-1;
+			k = 1;
+		}
+		else
+		{
+			loop = false;
+			nBlocks_est = k;
+			_in[k] = id2;
+			_out[k] = _out[k - 1] + (_in[k] - _in[k - 1]) * ratio2;
+		}
+	}
+	// k is nBlocks; the number of spread-out loops
+	// k-1 complete loops, 1 incomplete loop, 
+	// if the final loop is less than half of synHop, spread the left over across k-1 loops, reduce nLength by one
+	// else "borrow" 
+	int nBlocks = nBlocks_est;
+	// Think about this -- keep remainder as small as possible by nBlocks_est by one
+	double remainder = _out[nBlocks_est] - _out[nBlocks_est - 1];
+	if (remainder >= synHop / 2.)
+		remainder = synHop - remainder;
+	// End of Think about this
+	if (nBlocks > 1)
+	{
+		nBlocks = spreader(nBlocks, ratio1, ratio2, synHop, _in, _out);
+		for (int k = 0; k < nBlocks - 1; k++)
+		{
+			ingrid[k] = (int)(_in[k + 1] + .5);
+			outgrid[k] = outgridoffset + (int)(_out[k + 1] + .5);
+		}
+	}
+	else // nBlocks==1
+	{
+		ingrid[0] = (int)(_in[1] + .5);
+		outgrid[0] = outgridoffset + (int)(_out[1] + .5);
+	}
+	delete[] _in;
+	delete[] _out;
+	return nBlocks;
+}
+
+static inline void stretch(double *pout, double *overlapWind, unsigned int nSamples, double *buf, const CSignal &input2, 
+	int synHop, size_t blockBegin, size_t blockEnd, int *ingr, int *outgr, double *wind,
+	int winLen, int &targetSize, int &lastOutIndex, int &del, size_t gridsize)
+{
+// timestretch_log.py #0
+	const int winLenHalf = (int)(winLen / 2. + .5);
+	int tolerance = ingr[0];
+	int lastInPoint = nSamples + winLenHalf + tolerance;
+// timestretch_log.py #1
+	int xid0;
+// timestretch_log.py #2
+	int nOverlap2 = 0;
+	lastOutIndex = 0;
+	for (size_t m = blockBegin; m < blockEnd; m++)
+	{
+		xid0 = ingr[m] + del;
+		int yid0 = outgr[m];
+		int k = 0;
+		for (; k < winLen; k++)
+		{
+			int xid = xid0 + k;
+			int yid = (int)yid0 + k;
+			pout[yid] += input2.buf[xid] * wind[k];
+			overlapWind[yid] += wind[k];
+			if (xid0 + k == lastInPoint - 1)
+			{
+				nOverlap2++;
+				break;
+			}
+		}
+		lastOutIndex = max(lastOutIndex, (int)yid0 + k);
+		if (m < gridsize - 1)
+		{
+			double ratio0 = (double)(outgr[m + 1] - outgr[m]) / (ingr[m + 1] - ingr[m]);
+			double div = 10 + (ratio0 - 1) * 10;
+			int _synHop = synHop;
+			double tol = (double)_synHop / div;
+			tolerance = (int)(tol + .5);
+			// This is crosscorrelation between the next input block including tolerance regions before & after
+			// and "natural progression of the last copied input segment (from Jonathan Driedger)"
+			int corrIDX1 = ingr[m + 1] - tolerance;
+			int corrIDX2 = ingr[m] + _synHop + del;
+			int len1 = winLen + 2 * tolerance;
+// timestretch_log.py #3
+			int maxid = maxcc(&input2.buf[corrIDX1], len1, &input2.buf[corrIDX2], winLen);
+// timestretch_log.py #4
+			del = tolerance - maxid + 1;
+// timestretch_log.py #5
+		}
+// timestretch_log.py #6
+	}
+// timestretch_log.py #7
+	int lastOutPoint = lastInPoint + outgr[blockEnd] - ingr[blockEnd]  - del; // This is the target
+	targetSize = lastOutPoint - winLenHalf + del - outgr[blockBegin];
 }
 
 CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	CVar *pratio = (CVar *)parg;
+	std::map<std::string, CVar> opt;
 	int winLen = (int)(692.93 + fs / 34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
 	if (!pratio->strut.empty())
 	{
@@ -2330,193 +2527,113 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 			pratio->SetString(errout.c_str());
 			return *this;
 		}
+		opt = pratio->strut;
+		pratio->strut.clear();
 	}
 	//pratio is either a constant or time sequence of scalars (not relative time)
-	int synHop = winLen/2;
-	int tolerance = synHop/20;
-	const int winLenHalf = (int)(winLen / 2. + .5);
-	double *wind = new double[winLen];
-	for (int k = 0; k < winLen; k++)
-		wind[id0 + k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
+	int synHop = winLen / 2;
+	int tolerance = synHop / 20;
 	//pratio must be either real constant or T_SEQ then value at each time point is the ratio for that segment
 	map<int, double> anchor;
 	vector<int> vanchor;
 	for (CTimeSeries *p = pratio; p; p = p->chain)
 	{
-		vanchor.push_back((int)ceil(p->tmark * fs / 1000)+tolerance);
+		vanchor.push_back((int)ceil(p->tmark * fs / 1000) + tolerance);
 		anchor[vanchor.back()] = p->value();
 	}
-	CSignal anchpts(1, 2);
-	CSignal out;
-	out.pf_basic2 = pf_basic2;
-	out.tmark = tmark;
 	int outputLength;
 	CTimeSeries *p;
 	double cumTpointsY = 0.;
+	unsigned int nTSLayers = 1;
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
 		outputLength = (int)ceil(pratio->value()*nSamples);
-		anchpts.buf[1] = (double)nSamples;
 		cumTpointsY = (double)outputLength;
 	}
 	else
 	{
-		const unsigned int nTSLayers = pratio->CountChains();
-		anchpts.UpdateBuffer(nTSLayers);
+		nTSLayers = pratio->CountChains();
 		p = pratio;
 		for (unsigned int k = 0; k < nTSLayers - 1; k++, p = p->chain)
-		{
-			anchpts.buf[k] = ceil(p->tmark * fs / 1000);
 			cumTpointsY += harmonicmean(p->chain->value(), p->value()) * (p->chain->tmark - p->tmark) * fs / 1000;
-		}
-		anchpts.buf[nTSLayers - 1] = ceil(p->tmark * fs / 1000);
 		outputLength = (int)ceil(cumTpointsY);
 	}
-	int blocksizeIn, nLength = (int)ceil(cumTpointsY / synHop) + 100; // just give some margin
-	int *ingrid = new int[nLength];
-	int *outgrid = new int[nLength];
-	double ratio = 0;
+	int nBlocks = (int)ceil(cumTpointsY / synHop);
+	int *ingrid = new int[nTSLayers*(nBlocks + 50)]; // give some margin for CSIG_TSERIES pratio
+	int *outgrid = new int[nTSLayers*(nBlocks + 50)];
 	ingrid[0] = tolerance;
 	outgrid[0] = 0;
-	double lastInGrid = (double)ingrid[0];
 	vector<int> newtpoints; // new sample indices corresponding to the input indices for the ratio; begins with the second index (i.e., for a constant ratio, only the last index is shown)
+	vector<size_t> chainIDX(1,0);
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
-		nLength = (int)ceil(cumTpointsY / synHop)+1;
-		ratio = pratio->value();
-		int k = 1;
-		for (int cumOutTP = 0; k< nLength; k++)
-		{
-			cumOutTP += synHop;
-			outgrid[k] = cumOutTP;
-			lastInGrid += (outgrid[k] - outgrid[k - 1]) / ratio;
-			ingrid[k] = (int)(lastInGrid + .5);
-		}
-		//the last items
-		ingrid[k - 1] = nSamples + tolerance;
-		outgrid[k - 1] = outgrid[k - 2] + (int)((ingrid[k - 1] - ingrid[k - 2]) * ratio + .5);
+		nBlocks = get_nLength(tolerance, nSamples + tolerance, pratio->value(), pratio->value(), synHop, ingrid+1, outgrid+1, 0);
+		chainIDX.push_back(nBlocks-1);
 	}
 	else
 	{
-		vector<int>::iterator iblockLast = vanchor.begin() + 1; // iterator for input grid used in the ratio calculation below
-		blocksizeIn = *(vanchor.begin() + 1) - *vanchor.begin();
-		for (int cumOutTP = 0, k = 1; ; k++)
+		int nBlocksCum = 0;
+		int last_outgridID = 0;
+		for (auto it = vanchor.begin(); it != vanchor.end()-1; it++)
 		{
-			auto iblock = upper_bound(vanchor.begin(), vanchor.end(), (int)lastInGrid); // iterator for input time grid in each block
-			blocksizeIn = *iblock - *(iblock - 1);
-			cumOutTP += synHop;
-			outgrid[k] = cumOutTP;
-			double nextIngrid = 0;
-			if (ratio > 0)
-			{ // skipping for the first in the loop
-				nextIngrid = (int)(lastInGrid + (outgrid[k] - outgrid[k - 1]) / ratio + .5);
-				iblock = upper_bound(vanchor.begin(), vanchor.end(), (int)nextIngrid); // iterator for input time grid in each block
-			}
-			if (iblock == vanchor.end())
-			{ // final loop
-				ingrid[k] = nSamples + tolerance;
-				ratio = anchor[vanchor.back()];
-				outgrid[k] = outgrid[k - 1] + (int)((ingrid[k] - ingrid[k - 1]) * ratio + .5);
-				nLength = k;
-				break;
-			}
-			else if (iblock != iblockLast)
-			{ // when ratio changes between blocks
-				auto jt = iblockLast;
-				int ct = *iblockLast - ingrid[k - 1];
-				int cumcount = ct;
-				double cum4ratio = ct * anchor[*iblockLast];
-				double xsdf;
-				for (jt=iblockLast+1; jt < iblock; jt++)
-				{
-					ct = *jt - *(jt - 1);
-					cumcount += ct;
-					xsdf = (anchor[*jt] + anchor[*(jt - 1)]) / 2;
-					cum4ratio += ct * (anchor[*jt] + anchor[*(jt - 1)]) / 2;
-				}
-				ct = (int)nextIngrid - *(jt - 1);
-				cumcount += ct;
-				double rr = anchor[*(jt - 1)] + (anchor[*jt] - anchor[*(jt - 1)]) * ct / (*jt - *(jt - 1));
-				double rr2 = (anchor[*(jt - 1)] + rr) / 2;
-				cum4ratio += ct * rr2;
-				ratio = cum4ratio / cumcount;
-				newtpoints.push_back(outgrid[k - 1] + (int)(((*iblockLast) - ingrid[k - 1]) * ratio + .5));
-				iblockLast = iblock;
-			}
-			else
-			{
-				int locationintheblock = (int)(lastInGrid - *(iblock - 1));
-				ratio = anchor[*(iblock - 1)] + (anchor[*iblock] - anchor[*(iblock - 1)]) * locationintheblock / blocksizeIn;
-			}
-			lastInGrid += (outgrid[k] - outgrid[k - 1]) / ratio;
-			ingrid[k] = (int)(lastInGrid + .5);
+			nBlocks = get_nLength(*it, *(it+1), anchor[*it], anchor[*(it + 1)], synHop, 
+				ingrid+ last_outgridID +1, outgrid+ last_outgridID +1, outgrid[last_outgridID]);
+			last_outgridID += (nBlocks-1);
+			chainIDX.push_back(last_outgridID);
 		}
 	}
-	p = pratio->chain;
-	int lastInPoint = nSamples + winLenHalf + tolerance;
-	int lastOutPoint = 0;
-	int additionals = winLenHalf + 2 * tolerance + (int)ceil((double)(ingrid[1] - ingrid[0]) / synHop)*winLen;
+	double *wind = new double[winLen];
+	for (int k = 0; k < winLen; k++)
+		wind[id0 + k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
+	CSignal out;
+	out.pf_basic2 = pf_basic2;
+	out.tmark = tmark;
+	int ddd = outgrid[chainIDX.back()];
+	ddd += synHop + 3 * tolerance;
+	out.UpdateBuffer(outgrid[chainIDX.back()]+ synHop + 3 * winLen);
+	int filledID = 0;
+	int cumProcessed = 0, del = 0;
+	const int nOutReserve = outgrid[chainIDX.back() - 1] + winLen;
+	double *pout = new double[nOutReserve];
+	double *overlapWind = new double[nOutReserve];
+	memset(pout, 0, sizeof(double) * nOutReserve);
+	memset(overlapWind, 0, sizeof(double) * nOutReserve);
+	int additionals = synHop + 2 * tolerance + (int)ceil((double)(ingrid[1] - tolerance) / synHop)*winLen;
 	CSignal temp(fs, nSamples + additionals);
-	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
-	*this = temp;
-	double *pout = new double[outputLength + 2 * winLen];
-	double *overlapWind = new double[outputLength + 2 * winLen];
-	memset(pout, 0, sizeof(double) * (outputLength + 2 * winLen));
-	memset(overlapWind, 0, sizeof(double) * (outputLength + 2 * winLen));
-	int xid0, del = 0;
-	for (int m = 0; m < nLength; m++)
+	memcpy(temp.buf + synHop + tolerance, buf, sizeof(double)*nSamples);
+	int targetSize=0, lastOutIndex=0;
+	CTimeSeries *pchain = pratio->chain;
+	for (auto it = chainIDX.begin()+1; it != chainIDX.end(); it++)
 	{
-		xid0 = ingrid[m] + del;
-		int yid0 = outgrid[m];
-		for (int p = 0; p < winLen; p++)
-		{
-			pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
-			overlapWind[(int)yid0 + p] += wind[p];
-		}
-		double ratio0 = (double)(outgrid[m + 1] - outgrid[m]) / (ingrid[m + 1] - ingrid[m]);
-		if (m < nLength - 1)
-		{
-			double div = 10 + (ratio0 - 1) * 10;
-			double tol = (double)synHop / div;
-			tolerance = (int)(tol + .5);
-			int maxid = maxcc(buf + ingrid[m + 1] - tolerance, winLen + 2 * tolerance, buf + ingrid[m] + del + synHop, winLen);
-			del = tolerance - maxid + 1;
-		}
+		int target;
+		stretch(pout, overlapWind, ingrid[*it]-ingrid[0], 
+			buf, temp, synHop, *(it - 1), *it, ingrid, outgrid,
+			wind, winLen, target, lastOutIndex, del, chainIDX.back());
+		targetSize += target;
+		if (pchain) pchain->tmark = targetSize * 1000. / fs;
+		// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
+		// memcpy is done to make the target size from the end of the actual end; i.e., lastOutIndex
+		cumProcessed += ingrid[*it] - ingrid[*(it - 1)];
+		filledID += target;
+		if (pchain) pchain = pchain->chain;
 	}
-	lastOutPoint = outgrid[nLength - 1] + lastInPoint - ingrid[nLength - 1] - del;
-	for (int p = 0; p < outputLength + 2 * winLen; p++)
+	for (int p = 0; p < targetSize; p++)
 	{
 		if (overlapWind[p] > .001)
 			pout[p] /= overlapWind[p];
 	}
-	if (lastOutPoint == 0) lastOutPoint = outputLength;
-	// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
-	out.UpdateBuffer(lastOutPoint - winLenHalf + del);
-	memcpy(out.buf, pout + winLenHalf - del, sizeof(double)*out.nSamples);
-	if (pratio->GetType() == CSIG_TSERIES)
-	{
-		auto it = newtpoints.begin();
-		for (CTimeSeries *p = pratio->chain; p; p = p->chain, it++)
-		{
-			if (newtpoints.empty())
-			{
-				p->tmark = out.nSamples * 1000. / fs;
-				break;
-			}
-			if (it == newtpoints.end()) //the last time grid
-				p->tmark = out.nSamples, it = newtpoints.begin();
-			else
-				p->tmark = *it;
-			p->tmark /= fs / 1000.;
-		}
-	}
+	memcpy(out.buf, pout + lastOutIndex - targetSize + 1, sizeof(double)*targetSize);
+
+// timestretch_log.py #8
 	out.SetFs(fs);
-	delete[] overlapWind;
-	delete[] pout;
+	out.nSamples = filledID;
+	*this = out;
 	delete[] wind;
 	delete[] ingrid;
 	delete[] outgrid;
-	return *this = out;
+	delete[] overlapWind;
+	delete[] pout;
+	return *this;
 }
 
 CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
@@ -3147,7 +3264,7 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 				src_set_ratio(handle, conv.src_ratio = ratio_mean = 1. / p->value());
 			else
 			{
-				src_set_ratio(handle, 1./ p->value());
+				src_set_ratio(handle, 1. / p->value());
 				conv.src_ratio = 1. / p->chain->value();
 				ratio_mean = (2 * 1. / p->value()*1. / p->chain->value() / (1. / p->value() + 1. / p->chain->value())); // harmonic mean
 			}
@@ -3189,10 +3306,10 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 			}
 			while (conv.input_frames)
 			{
-				conv.src_ratio = 1./p->chain->value();
+				conv.src_ratio = 1. / p->chain->value();
 				conv.data_in = &data_in[lastPt];
 				conv.input_frames -= conv.input_frames_used;
-				conv.end_of_input = conv.input_frames==0? 1: 0;
+				conv.end_of_input = conv.input_frames == 0 ? 1 : 0;
 				errcode = src_process(handle, &conv);
 				inBuffersize += conv.input_frames_used;
 				outBuffersize += conv.output_frames_gen;
@@ -3268,102 +3385,6 @@ int CSignal::DecFir(const CSignal& coeff, int offset, int nChan)
 	return 1;
 }
 
-CSignal& CSignal::_dynafilter(CSignal *TSEQ_num, CSignal * TSEQ_den, unsigned int id0, unsigned int len)
-{
-	if (len == 0) len = nSamples;
-	if (IsComplex())
-	{
-		//Do this later if someone requests. 10/9/2018
-	}
-	else
-	{
-		unsigned int tind, tsInd0;
-		double xx, *out = new double[len];
-		CTimeSeries *p = (CTimeSeries *)TSEQ_num, *q = (CTimeSeries *)TSEQ_den;
-		tsInd0 = (unsigned int)(p->tmark / 1000. * fs);
-		while (tsInd0 < id0)
-		{
-			p = p->chain, q = q->chain;
-			if (!p || !q) break;
-			tsInd0 = (unsigned int)(p->tmark / 1000. * fs);
-		}
-		for (tind = id0; tind < tsInd0; tind++)
-		{
-			xx = p->buf[0] * buf[tind];
-			for (unsigned int n = 1; n < p->nSamples && tind >= n; n++)
-				xx += p->buf[n] * buf[tind - n];
-			for (unsigned int n = 1; n < q->nSamples && tind >= n; n++)
-				xx -= q->buf[n] * out[tind - n];
-			out[tind] = xx;
-		}
-		CTimeSeries *pNext = p->chain;
-		CTimeSeries *qNext = q->chain;
-		unsigned int tsInd;
-		vector<double> num0, den0;
-		vector<double> num(p->nSamples, 0), den(p->nSamples, 0);
-		vector<double> num1, den1;
-		while (pNext || qNext)
-		{
-			if (p)	num0 = p->ToVector();
-			else { num0.clear();  num0.push_back(1.); }
-			if (q)	den0 = q->ToVector();
-			else { den0.clear();  den0.push_back(1.); }
-			if (pNext) num1 = pNext->ToVector();
-			else { num1.clear();  num1.push_back(1.); }
-			if (qNext) den1 = qNext->ToVector();
-			else { den1.clear();  den1.push_back(1.); }
-			tsInd = (unsigned int)(pNext->tmark / 1000. * fs);
-			for (; tind < id0 + len && tind < tsInd; tind++)
-			{
-				if (pNext)
-					for (size_t k = 0; k < num1.size(); k++)
-					{
-						double slope1 = (num1[k] - num0[k]) / (tsInd - tsInd0);
-						num[k] = num0[k] + slope1 * (tind - tsInd0);
-					}
-				if (qNext)
-					for (size_t k = 0; k < den1.size(); k++)
-					{
-						double slope2 = (den1[k] - den0[k]) / (tsInd - tsInd0);
-						den[k] = den0[k] + slope2 * (tind - tsInd0);
-					}
-				xx = num[0] * buf[tind];
-				for (unsigned int n = 1; n < num.size() && tind >= n; n++)
-					xx += num[n] * buf[tind - n];
-				for (unsigned int n = 1; n < den.size() && tind >= n; n++)
-					xx -= den[n] * out[tind - n];
-				out[tind] = xx;
-			}
-			if (pNext)
-			{
-				p = p->chain;
-				pNext = p ? p->chain : NULL;
-			}
-			if (qNext)
-			{
-				q = q->chain;
-				qNext = q ? q->chain : NULL;
-			}
-		}
-		//at this point pNext is NULL
-		CTimeSeries temp(1.);
-		CTimeSeries *pLast = p ? p : &temp;
-		CTimeSeries *qLast = q ? q : &temp;
-		for (; tind < id0 + len; tind++)
-		{
-			xx = p->buf[0] * buf[tind];
-			for (unsigned int n = 1; n < pLast->nSamples && tind >= n; n++)
-				xx += pLast->buf[n] * buf[tind - n];
-			for (unsigned int n = 1; n < qLast->nSamples && tind >= n; n++)
-				xx -= qLast->buf[n] * out[tind - n];
-			out[tind] = xx;
-		}
-		delete[] buf;
-		buf = out;
-	}
-	return *this;
-}
-
 CSignal& CSignal::_filter(vector<double> num, vector<double> den, unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
@@ -3400,85 +3421,6 @@ CSignal& CSignal::_filter(vector<double> num, vector<double> den, unsigned int i
 	return *this;
 }
 
-CSignal& CSignal::dynaAR(unsigned int id0, unsigned int len)
-{
-	if (len == 0) len = nSamples;
-	vector<vector<double>> pvectors = *(vector<vector<double>>*)parg;
-	vector<double> TSden;
-	if (pvectors.front().size() == 1)
-		TSden.assign(len, pvectors.front().front());
-	else
-	{
-		vector<int> nCounts = SpreadEvenly(len, pvectors.front().size() - 1);
-		auto ItCount = nCounts.begin();
-		for (auto it = pvectors.front().begin(); it != pvectors.front().end() - 1; it++)
-		{
-			//make linear interpolated sequence from *it to *(it+1) with a length of ItCount
-			for (int k = 0; k < *ItCount; k++)
-			{
-				double slope = (*(it + 1) - *it) / *ItCount;
-				TSden.push_back(*it + slope * k);
-			}
-			ItCount++;
-		}
-	}
-	//For now, TSden is evenly interpolated across len 10/6/2018
-	int order = (int)pvectors.back().front();
-	if (order == 0)
-		throw "AR filter cannot have the coefficient for 0 delay.";
-	order *= -1;
-	double *out = new double[len];
-	memset(out, 0, sizeof(double)*len);
-	auto it = TSden.begin();
-	for (unsigned int m = id0; m < id0 + order; m++)
-		out[m] = buf[m];
-	for (unsigned int m = id0 + order; m < id0 + len; m++)
-	{
-		out[m] = *it * buf[id0 + m - order];
-		it++;
-	}
-	delete[] buf;
-	buf = out;
-	return *this;
-}
-
-CSignal& CSignal::dynaMA(unsigned int id0, unsigned int len)
-{
-	if (len == 0) len = nSamples;
-	vector<vector<double>> pvectors = *(vector<vector<double>>*)parg;
-	vector<double> TSnum;
-	if (pvectors.front().size() == 1)
-		TSnum.assign(len, pvectors.front().front());
-	else
-	{
-		vector<int> nCounts = SpreadEvenly(len, pvectors.front().size() - 1);
-		auto ItCount = nCounts.begin();
-		for (auto it = pvectors.front().begin(); it != pvectors.front().end() - 1; it++)
-		{
-			//make linear interpolated sequence from *it to *(it+1) with a length of ItCount
-			for (int k = 0; k < *ItCount; k++)
-			{
-				double slope = (*(it + 1) - *it) / *ItCount;
-				TSnum.push_back(*it + slope * k);
-			}
-			ItCount++;
-		}
-	}
-	//For now, TSnum is evenly interpolated across len 10/6/2018
-	int order = (int)pvectors.back().front();
-	double *out = new double[len];
-	memset(out, 0, sizeof(double)*len);
-	auto it = TSnum.begin();
-	for (unsigned int m = id0 + order; m < id0 + len; m++)
-	{
-		out[m] = *it * buf[id0 + m - order];
-		it++;
-	}
-	delete[] buf;
-	buf = out;
-	return *this;
-}
-
 CSignal& CSignal::conv(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
@@ -3508,29 +3450,6 @@ CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 	num = coeffs.front();
 	den = coeffs.back();
 	_filter(num, den, id0, len);
-	return *this;
-}
-
-CSignal& CSignal::dynafilter(unsigned int id0, unsigned int len)
-{
-	if (len == 0) len = nSamples;
-	vector<CSignals*> TScoeff = *(vector<CSignals*>*)parg;
-	CSignals * TSnum = TScoeff.front();
-	CSignals * TSden = TScoeff.back();
-	//if TSEQ is a relative time seq, make it to an absolute time seq
-	if (TSnum->fs == 0)
-	{
-		for (CTimeSeries *p = TSnum; p; p = p->chain)
-			p->tmark *= (double)(id0 + len) / fs * 1000;
-		TSnum->fs = fs;
-	}
-	if (TSden->fs == 0)
-	{
-		for (CTimeSeries *p = TSden; p; p = p->chain)
-			p->tmark *= (double)(id0 + len) / fs * 1000;
-		TSden->fs = fs;
-	}
-	_dynafilter(TSnum, TSden, id0, len);
 	return *this;
 }
 

@@ -1266,27 +1266,6 @@ void _decfir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	past->Sig.DecFir(second, offset, nChan);
 }
 
-void _filtDynamic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	past->checkAudioSig(pnode, past->Sig);
-	CSignals sig = past->Sig;
-	string fname = pnode->str;
-	CSignals third, second = past->Compute(p); //second must be tseq
-	third = past->Compute(p->next); // third must be the order
-
-	//turn tseq to vector
-	vector<double> coeff = second.ToVector();
-	vector<double> order(1, third.value());
-	vector<vector<double>> dynamicfilterparams;
-	dynamicfilterparams.push_back(coeff);
-	dynamicfilterparams.push_back(order);
-	if (third.value()<0)
-		sig.basic(sig.pf_basic2 = &CSignal::dynaAR, &dynamicfilterparams);
-	else
-		sig.basic(sig.pf_basic2 = &CSignal::dynaMA, &dynamicfilterparams);
-	past->Sig = sig;
-}
-
 void _conv(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	//For only real (double) arrays 3/4/2019
@@ -1330,13 +1309,7 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	}
 	else
 	{
-		vector<CSignals*> TScoeff;
-		TScoeff.push_back(&second);
-		TScoeff.push_back(&third);
-		if (fname == "filt")
-			sig.basic(sig.pf_basic2 = &CSignal::dynafilter, &TScoeff);
-		else if (fname == "filtfilt")
-			throw past->ExceptionMsg(pnode, fnsigs, "Dynamic filtering cannot be applied to filtfilt");
+		throw past->ExceptionMsg(pnode, fnsigs, "Internal error--leftover from Dynamic filtering");
 	}
 	past->Sig = sig;
 }
@@ -2371,12 +2344,6 @@ void CAstSigEnv::InitBuiltInFunctionList()
 		built_in_func_names.push_back(pp.name); inFunc[pp.name] = _filt;
 		built_in_funcs.push_back(pp);
 	}
-	//For trial only purposes, let's not "publish" this function as a built-in function.
-	pp.narg1 = 2;	pp.narg2 = 3;
-	pp.name = "dynfilt";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_filtDynamic;
-	built_in_funcs.push_back(pp);
-
 #ifndef NO_FFTW
 
 	pp.narg1 = 1;	pp.narg2 = 2;
