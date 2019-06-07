@@ -16,6 +16,7 @@
 #include "showvar.h"
 #include "resource1.h"
 #include "xcom.h"
+#include "wavplay.h"
 #include "histDlg.h"
 #include "TabCtrl.h"
 
@@ -1623,7 +1624,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 						double block = CAstSig::vecast.front()->audio_block_ms;
 						int devID = 0;
 						psig = &(*pVars)[varname];
-						INT_PTR h = psig->PlayArray(devID, WM__AUDIOEVENT, hDlg, &block, errstr);
+						INT_PTR h = PlayArray16(*psig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 0);
 						if (!h)
 						{ // PlayArray will return 0 if unsuccessful due to waveOutOpen failure. For other reasons.....
 							//errstr should show the err msg. Use it if necessary 7/23/2018

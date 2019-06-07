@@ -1817,7 +1817,7 @@ void CPlotDlg::OnMenu(UINT nID)
 				// Below, if this put too low maximum, the progress line may move smoothly, but the playback sound will be choppy.
 				block = max(block, _block);
 				_sig = GetAudioSignal();
-				hAudio = _sig.PlayArray(devID, WM__AUDIOEVENT, hDlg, &block, errstr);
+				hAudio = PlayArray16(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
 				if (!hAudio)
 					MessageBox(errstr, "Cannot play the audio"); // PlayArray fails if waveOutOpen fails
 				else

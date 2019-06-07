@@ -16,6 +16,7 @@
 #include <exception>
 #include <math.h>
 #include <time.h>
+#include "aux_classes.h"
 #include "sigproc.h"
 
 #include <algorithm> // for lowercase

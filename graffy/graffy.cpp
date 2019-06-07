@@ -158,7 +158,7 @@ CGraffyDLL::CGraffyDLL()
 	pglobalEnv = new CAstSigEnv(22050);
 	pctx = new CAstSig(pglobalEnv);
 	pctx->u.application = "graffy";
-	pglobalEnv->InitBuiltInFunctionList();
+	pglobalEnv->InitBuiltInFunctions();
 	pctx->fpmsg.SetGoProperties = SetGOProperties;
 	pctx->fpmsg.RepaintGO = RepaintGO;
 	CAstSig::vecast.push_back(pctx);

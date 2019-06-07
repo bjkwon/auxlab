@@ -16,6 +16,7 @@
 #include <exception>
 #include <math.h>
 #include <time.h>
+#include "aux_classes.h"
 #include "sigproc.h"
 #include "bjcommon.h"
 
@@ -108,23 +109,29 @@ CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
 CAstException::CAstException(CAstSig *pContext, const string s1, const string s2)
 	: pCtx(pContext), str2(s2)
 {
+#ifdef _WINDOWS
 	if (pContext->u.pUDF)
 		pnode = pContext->u.pUDF;
 	else
+#endif
 		pnode = pContext->pAst;
 	//Use this format when you are not sure what pnode to use
 	// Probably it's safe to use this all the time. 
 	//Replace the other constructor CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
 	//with this eventually 3/30/2019
 
+#ifdef _WINDOWS
 	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
 		adjust_AstNode(pnode);
+#endif
 	str1 = pnode->str;
 	str1 += " : ";
 	str1 += s2 + '\n';
 	str1 += s1;
 	outstr = str1;
+#ifdef _WINDOWS
 	if (pCtx && pCtx->u.debug.status == typed_line) return;
+#endif
 	str1.insert(0, "[GOTO_BASE]");
 	if (!pnode) pnode = pCtx->pAst;
 	makeOutStr();
@@ -136,14 +143,18 @@ CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s
 {
 	//Use this format to create an exception message for invalid function definition (and others)
 	//p carries the function name
+#ifdef _WINDOWS
 	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
 		adjust_AstNode(pnode);
+#endif
 	str1 = p->str;
 	str1 += " : ";
 	str1 += s2 + '\n';
 	str1 += s1;
 	outstr = str1;
+#ifdef _WINDOWS
 	if (pCtx && pCtx->u.debug.status == typed_line) return;
+#endif
 	str1.insert(0, "[GOTO_BASE]");
 	if (!p) pnode = pCtx->pAst;
 	makeOutStr();
@@ -158,11 +169,15 @@ CAstException::CAstException(const AstNode *p, CAstSig *pAst, const string s1)
 CAstException::CAstException(const AstNode *p0, CAstSig *pContext, const char* msg)
 	: pCtx(pContext), pnode(p0)
 {
+#ifdef _WINDOWS
 	if (pCtx && !strcmp(pCtx->u.application,"auxcon"))
 		adjust_AstNode(pnode);
+#endif
 	outstr = str1 = msg;
 	//If this is user-typed lines during debugging (F10, F5,... etc), it should just return without going into what's going on in the current UDF.
+#ifdef _WINDOWS
 	if (pCtx && pCtx->u.debug.status == typed_line) return;
+#endif
 	str1.insert(0, "[GOTO_BASE]");
 	if (!pnode) pnode = pCtx->pAst;
 	makeOutStr();
@@ -185,6 +200,7 @@ void CAstException::makeOutStr()
 		char *pstr=NULL;
 		while (tp)
 		{
+#ifdef _WINDOWS
 			if (!tp->u.base.empty())
 			{
 				if (tp->u.base == tp->u.title) // base udf (or "other" udf)
@@ -196,6 +212,7 @@ void CAstException::makeOutStr()
 					lines.push_back(tp->pLast->line);
 				}
 			}
+#endif
 			tp=tp->dad;
 		}
 		if (!strs.empty())

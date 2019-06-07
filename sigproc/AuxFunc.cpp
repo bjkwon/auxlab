@@ -30,15 +30,17 @@
 #include <dirent.h>
 #endif
 
+#include "aux_classes.h"
 #include "sigproc.h"
 #ifndef CISIGPROC
 #include "psycon.tab.h"
 #else
 #include "cipsycon.tab.h"
-//#include "AuxFunc.h"
 #endif
 
 #define WM__AUDIOEVENT	WM_APP + WOM_OPEN
+
+string CAstSigEnv::AppPath = "";
 
 map<double, FILE *> file_ids;
 
@@ -50,7 +52,7 @@ __declspec (dllimport) void _plot(CAstSig *past, const AstNode *pnode, const Ast
 __declspec (dllimport) void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 __declspec (dllimport) void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 __declspec (dllimport) void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-#elif
+#else
 void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
 void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
 void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
@@ -102,7 +104,7 @@ bool CAstSig::IsValidBuiltin(string funcname)
 {
 	if (pEnv->pseudo_vars.find(funcname) != pEnv->pseudo_vars.end())
 		return false;
-	return pEnv->inFunc.find(funcname) != pEnv->inFunc.end();
+	return pEnv->builtin.find(funcname) != pEnv->builtin.end();
 }
 
 void CAstSig::checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg)
@@ -371,9 +373,7 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 				}
 		}
 		fname = pnode->str;
-		if (fname == "timestretch") past->Sig.pf_basic2 = &CSignal::timestretch;
-		else if (fname == "pitchscale") past->Sig.pf_basic2 = &CSignal::pitchscale;
-		else if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
+		if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
 		else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
 		for (auto it = paramopt.strut.begin(); it != paramopt.strut.end(); it++)
 			param.strut[(*it).first] = (*it).second;
@@ -382,7 +382,7 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 			throw past->ExceptionMsg(pnode, ("Error in respeed:" + param.string()).c_str());
 	}
 	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
-	if (fname == "timestretch" || fname == "respeed")
+	if (fname == "respeed")
 	{ // Take care of overlapping chains after processing
 		past->Sig.MergeChains();
 	}
@@ -716,7 +716,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			if (nRepeats<1)
 				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
-		INT_PTR h = audio.PlayArrayNext((INT_PTR)sig.value(), 0, WM__AUDIOEVENT, &block, errstr, nRepeats);
+		INT_PTR h = PlayArrayNext16(audio, (INT_PTR)sig.value(), 0, WM__AUDIOEVENT, &block, errstr, nRepeats);
 		if (!h)
 			past->Sig.SetValue(-1.);
 		else
@@ -746,7 +746,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
 		int devID = 0;
-		INT_PTR h = sig.PlayArray(devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
+		INT_PTR h = PlayArray16(sig, devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
 		if (!h)
 		{ // PlayArray will return 0 if unsuccessful due to waveOutOpen failure. For other reasons.....
 			past->Sig.strut.clear();
@@ -2002,575 +2002,572 @@ void _sel(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 
 }
+typedef  map<string, Cfunction>(_cdecl  *PF) ();
+void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
+{
 
-void CAstSigEnv::InitBuiltInFunctionList()
+}
+void CAstSigEnv::InitBuiltInFunctions()
 {
 	srand((unsigned)time(0) ^ (unsigned int)GetCurrentThreadId());
 
-	CBIF pp;
+	string name;
+	Cfunction ft;
 
-	pp.name = "tone";
-	pp.alwaysstatic = true;
-	pp.funcsignature = "(frequency, duration_in_ms [, initial_phase_between_0&1=0])";
-	pp.narg1 = 2;	pp.narg2 = 3;
-	built_in_func_names.push_back(pp.name);
-	inFunc[pp.name] =  &_tone;
-	built_in_funcs.push_back(pp);
+	name = "tone";
+	ft.alwaysstatic = true;
+	ft.funcsignature = "(frequency, duration_in_ms [, initial_phase_between_0&1=0])";
+	ft.narg1 = 2;	ft.narg2 = 3;
+	ft.func = &_tone;
+	builtin[name] = ft;
 
-	pp.name = "sam";
-	pp.alwaysstatic = false;
-	pp.funcsignature = "(signal, AM_rate[, AM_depth_m, initial_phase_between_0 & 1 = 0])";
-	pp.narg1 = 2;	pp.narg2 = 4;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_sam;
-	built_in_funcs.push_back(pp);
+	name = "sam";
+	ft.alwaysstatic = false;
+	ft.funcsignature = "(signal, AM_rate[, AM_depth_m = 1, initial_phase_between_0 & 1 = 0])";
+	ft.narg1 = 2;	ft.narg2 = 4;
+	ft.func =  &_sam;
+	builtin[name] = ft;
 
-	pp.name = "fm";
-	pp.alwaysstatic = true;
-	pp.funcsignature = "(freq1, freq2, mod_rate, duration, [init_phase=0])";
-	pp.narg1 = 4;	pp.narg2 = 5;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_fm;
-	built_in_funcs.push_back(pp);
+	name = "fm";
+	ft.alwaysstatic = true;
+	ft.funcsignature = "(freq1, freq2, mod_rate, duration, [init_phase=0])";
+	ft.narg1 = 4;	ft.narg2 = 5;
+	ft.func =  &_fm;
+	builtin[name] = ft;
 
-	pp.funcsignature = "(duration_in_ms)";
-	pp.alwaysstatic = true;
-	pp.narg1 = 1;	pp.narg2 = 1;
+	ft.funcsignature = "(duration_in_ms)";
+	ft.alwaysstatic = true;
+	ft.narg1 = 1;	ft.narg2 = 1;
 	const char *f0[] = { "noise", "gnoise", "silence", "dc",0 };
 	for (int k = 0; f0[k]; k++)
 	{
-		pp.name = f0[k];
-		built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_tparamonly;
-		built_in_funcs.push_back(pp);
+		name = f0[k];
+		ft.func =  &_tparamonly;
+		builtin[name] = ft;
 	}
 
-	pp.narg1 = 2;	pp.narg2 = 3;
-	pp.alwaysstatic = true;
-	pp.name = ":";
-	pp.funcsignature = "(scalar:scalar) or (scalar:scalar:scalar)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_colon; 
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 3;
+	ft.alwaysstatic = true;
+	name = ":";
+	ft.funcsignature = "(scalar:scalar) or (scalar:scalar:scalar)";
+	ft.func =  &_colon; 
+	builtin[name] = ft;
 
-	pp.name = "wave";
-	pp.alwaysstatic = true;
-	pp.funcsignature = "(filename)";
-	pp.narg1 = 1;	pp.narg2 = 1;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_wave;
-	built_in_funcs.push_back(pp);
+	name = "wave";
+	ft.alwaysstatic = true;
+	ft.funcsignature = "(filename)";
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.func =  &_wave;
+	builtin[name] = ft;
 
-	pp.name = "wavwrite";
-	pp.alwaysstatic = false;
-	pp.funcsignature = "(audio_signal, filename[, option])";
-	pp.narg1 = 2;	pp.narg2 = 3;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_wavwrite;
-	built_in_funcs.push_back(pp);
+	name = "wavwrite";
+	ft.alwaysstatic = false;
+	ft.funcsignature = "(audio_signal, filename[, option])";
+	ft.narg1 = 2;	ft.narg2 = 3;
+	ft.func =  &_wavwrite;
+	builtin[name] = ft;
 
-	pp.name = "setfs"; // check this... is narg1 one correct?
-	pp.alwaysstatic = true;
-	pp.funcsignature = "(filename)";
-	pp.narg1 = 1;	pp.narg2 = 1;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_setfs;
-	built_in_funcs.push_back(pp);
+	name = "setfs"; // check this... is narg1 one correct?
+	ft.alwaysstatic = true;
+	ft.funcsignature = "(filename)";
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.func =  &_setfs;
+	builtin[name] = ft;
 
-	pp.name = "audio";
-	pp.alwaysstatic = false;
-	pp.funcsignature = "(non_audio_vector)";
-	pp.narg1 = 1;	pp.narg2 = 1;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_audio;
-	built_in_funcs.push_back(pp);
+	name = "audio";
+	ft.alwaysstatic = false;
+	ft.funcsignature = "(non_audio_vector)";
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.func =  &_audio;
+	builtin[name] = ft;
 
-	pp.name = "squeeze"; 
-	pp.alwaysstatic = false;
-	pp.funcsignature = "() ... to remove the null interval";
-	pp.narg1 = 0;	pp.narg2 = 0;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_squeeze; // do this
-	built_in_funcs.push_back(pp);
-
-	pp.name = "decfir";
-	pp.alwaysstatic = false;
-	pp.funcsignature = "(signal, coeff_vector, offset, nChan)";
-	pp.narg1 = 4;	pp.narg2 = 4;
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_decfir; // do this
-	built_in_funcs.push_back(pp);
+	name = "squeeze"; 
+	ft.alwaysstatic = false;
+	ft.funcsignature = "() ... to remove the null interval";
+	ft.narg1 = 0;	ft.narg2 = 0;
+	ft.func =  &_squeeze; // do this
+	builtin[name] = ft;
 
 	// begin narg 2 and 2
-	pp.alwaysstatic = false;
-	pp.narg1 = 2;
-	pp.narg2 = 2;
+	ft.alwaysstatic = false;
+	ft.narg1 = 2;
+	ft.narg2 = 2;
 
-	pp.name = "ramp";
-	pp.funcsignature = "(signal, ramp_duration)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_ramp;
-	built_in_funcs.push_back(pp);
+	name = "ramp";
+	ft.funcsignature = "(signal, ramp_duration)";
+	ft.func =  &_ramp;
+	builtin[name] = ft;
 
-	pp.name = "isaudioat";
-	pp.funcsignature = "(audio_signal, time_pt)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_isaudioat;
-	built_in_funcs.push_back(pp);
+	name = "isaudioat";
+	ft.funcsignature = "(audio_signal, time_pt)";
+	ft.func =  &_isaudioat;
+	builtin[name] = ft;
 
 	// end narg 2 and 2
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.name = "hamming";
-	pp.funcsignature = "(audio_signal)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_hamming;
-	built_in_funcs.push_back(pp);
-	pp.name = "hann";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_blackman;
-	built_in_funcs.push_back(pp);
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.name = "blackman";
-	pp.funcsignature = "(audio_signal, [alpha=0.16])";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_blackman;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	name = "hamming";
+	ft.funcsignature = "(audio_signal)";
+	ft.func = &_hamming;
+	builtin[name] = ft;
+	name = "hann";
+	ft.func = &_blackman;
+	builtin[name] = ft;
+	ft.narg1 = 1;	ft.narg2 = 2;
+	name = "blackman";
+	ft.funcsignature = "(audio_signal, [alpha=0.16])";
+	ft.func = &_blackman;
+	builtin[name] = ft;
 
 #ifndef NO_IIR
-	pp.narg1 = 2;	pp.narg2 = 6;
+	ft.narg1 = 2;	ft.narg2 = 6;
 	const char *f2[] = { "lpf", "hpf", 0 };
-	pp.funcsignature = "(signal, freq, [order=4], [kind=1], [dB_passband_ripple=0.5], [dB_stopband_atten=-40])\n  --- kind: 1 for Butterworth, 2 for Chebyshev, 3 for Elliptic";
+	ft.funcsignature = "(signal, freq, [order=4], [kind=1], [dB_passband_ripple=0.5], [dB_stopband_atten=-40])\n  --- kind: 1 for Butterworth, 2 for Chebyshev, 3 for Elliptic";
 	for (int k = 0; f2[k]; k++)
 	{
-		pp.name = f2[k];
-		built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_iir;
-		built_in_funcs.push_back(pp);
+		name = f2[k];
+		ft.func =  &_iir;
+	builtin[name] = ft;
 	}
-	pp.narg1 = 3;	pp.narg2 = 7;
+	ft.narg1 = 3;	ft.narg2 = 7;
 	const char *f3[] = { "bpf", "bsf", 0 };
-	pp.funcsignature = "(signal, freq, [order=4], [kind=1], [dB_passband_ripple=0.5], [dB_stopband_atten=-40])\n  --- kind: 1 for Butterworth, 2 for Chebyshev, 3 for Elliptic";
+	ft.funcsignature = "(signal, freq, [order=4], [kind=1], [dB_passband_ripple=0.5], [dB_stopband_atten=-40])\n  --- kind: 1 for Butterworth, 2 for Chebyshev, 3 for Elliptic";
 	for (int k = 0; f3[k]; k++)
 	{
-		pp.name = f3[k];
-		built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_iir;
-		built_in_funcs.push_back(pp);
+		name = f3[k];
+		ft.func =  &_iir;
+	builtin[name] = ft;
 	}
 #endif //NO_IIR
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(stereo_signal)";
-	pp.name = "left";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_left; // check 
-	built_in_funcs.push_back(pp);
-	pp.name = "right";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_right; // check 
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(stereo_signal)";
+	name = "left";
+	ft.func =  &_left; // check 
+	builtin[name] = ft;
+	name = "right";
+	ft.func =  &_right; // check 
+	builtin[name] = ft;
 
-	pp.narg1 = 0;	pp.narg2 = 1;
-	pp.name = "std";
-	pp.funcsignature = "(length, [, bias])";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_std; 
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 0;	ft.narg2 = 1;
+	name = "std";
+	ft.funcsignature = "(length, [, bias])";
+	ft.func =  &_std; 
+	builtin[name] = ft;
 
 	
-	pp.narg1 = 2;	pp.narg2 = 2;
+	ft.narg1 = 2;	ft.narg2 = 2;
 	const char *f4[] = { "atleast", "atmost", 0 };
-	pp.funcsignature = "(array_or_value, array_or_value_of_limit)";
+	ft.funcsignature = "(array_or_value, array_or_value_of_limit)";
 	for (int k = 0; f4[k]; k++)
 	{
-		pp.name = f4[k];
-		built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_mostleast;
-		built_in_funcs.push_back(pp);
+		name = f4[k];
+		ft.func = &_mostleast;
+	builtin[name] = ft;
 	}
 
-	pp.narg1 = 1;	pp.narg2 = 1;
+	ft.narg1 = 1;	ft.narg2 = 1;
 	const char *f5[] = { "min", "max", 0 };
-	pp.funcsignature = "(vector) or (scalar1, scalar2, ...)";
+	ft.funcsignature = "(vector) or (scalar1, scalar2, ...)";
 	for (int k = 0; f5[k]; k++)
 	{
-		pp.name = f5[k];
-		built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_minmax;
-		built_in_funcs.push_back(pp);
+		name = f5[k];
+		ft.func =  &_minmax;
+	builtin[name] = ft;
 	}
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(array)";
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(array)";
 	const char *f6[] = { "sum", "mean", "length", 0 };
 	for (int k = 0; f6[k]; k++)
 	{
-		pp.name = f6[k];
-		built_in_func_names.push_back(pp.name); inFunc[pp.name] = _arraybasic;
-		built_in_funcs.push_back(pp);
+		name = f6[k];
+		ft.func = _arraybasic;
+	builtin[name] = ft;
 	}
 
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.funcsignature = "(array [, dimension_either_1_or_2])";
-	pp.name = "size";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_size;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 2;
+	ft.funcsignature = "(array [, dimension_either_1_or_2])";
+	name = "size";
+	ft.func = &_size;
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(graphic_handle)";
-	pp.name = "replicate";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_replicate;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(graphic_handle)";
+	name = "replicate";
+	ft.func = &_replicate;
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.funcsignature = "(array_or_signal[, order=1])";
-	pp.name = "diff";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_diff;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 2;
+	ft.funcsignature = "(array_or_signal[, order=1])";
+	name = "diff";
+	ft.func =  &_diff;
+	builtin[name] = ft;
 
-	pp.narg1 = 2;	pp.narg2 = 2;
-	pp.funcsignature = "(audio_signal)";
-	pp.name = "nullin";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_nullin;
-	built_in_funcs.push_back(pp);
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.name = "contig";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_contig;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 2;
+	ft.funcsignature = "(audio_signal)";
+	name = "nullin";
+	ft.func = &_nullin;
+	builtin[name] = ft;
+	ft.narg1 = 1;	ft.narg2 = 1;
+	name = "contig";
+	ft.func = &_contig;
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(array_or_signal)";
-	pp.name = "cumsum";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_cumsum;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(array_or_signal)";
+	name = "cumsum";
+	ft.func = &_cumsum;
+	builtin[name] = ft;
 
-	pp.funcsignature = "(value)";
-	pp.name = "rand";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_rand;
-	built_in_funcs.push_back(pp);
-	pp.name = "irand";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_irand;
-	built_in_funcs.push_back(pp);
-	pp.name = "randperm";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_randperm;
-	built_in_funcs.push_back(pp);
-	pp.name = "zeros";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_zeros;
-	built_in_funcs.push_back(pp);
-	pp.name = "ones";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_ones;
-	built_in_funcs.push_back(pp);
-	pp.name = "cell";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_cell;
-	built_in_funcs.push_back(pp);
-	pp.name = "clear";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_clear;
-	built_in_funcs.push_back(pp);
+	ft.funcsignature = "(value)";
+	name = "rand";
+	ft.func =  &_rand;
+	builtin[name] = ft;
+	name = "irand";
+	ft.func =  &_irand;
+	builtin[name] = ft;
+	name = "randperm";
+	ft.func =  &_randperm;
+	builtin[name] = ft;
+	name = "zeros";
+	ft.func =  &_zeros;
+	builtin[name] = ft;
+	name = "ones";
+	ft.func =  &_ones;
+	builtin[name] = ft;
+	name = "cell";
+	ft.func =  &_cell;
+	builtin[name] = ft;
+	name = "clear";
+	ft.func = &_clear;
+	builtin[name] = ft;
 
-	pp.narg1 = 2;	pp.narg2 = 2;
-	pp.name = "matrix";
-	pp.funcsignature = "(array, nGroups)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_matrix;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "matrix";
+	ft.funcsignature = "(array, nGroups)";
+	ft.func =  &_matrix;
+	builtin[name] = ft;
 
-	pp.narg1 = 2;	pp.narg2 = 3;
-	pp.name = "timestretch";
-	pp.funcsignature = "(array, ratio [, optional])";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
-	built_in_funcs.push_back(pp);
-	pp.name = "pitchscale";
-	pp.funcsignature = "(array, ratio [, optional])";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
-	built_in_funcs.push_back(pp);
-	pp.name = "respeed";
-	pp.funcsignature = "(audio_signal, playback_rate_change_ratio [, optional])";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "respeed";
+	ft.funcsignature = "(audio_signal, playback_rate_change_ratio)";
+	ft.func = &_time_freq_manipulate;
+	builtin[name] = ft;
 
-	pp.narg1 = 3;	pp.narg2 = 3;
-	pp.name = "interp";
-	pp.funcsignature = "(refX, refY, query_x_points)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_interp1;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 3;	ft.narg2 = 3;
+	name = "interp";
+	ft.funcsignature = "(refX, refY, query_x_points)";
+	ft.func = &_interp1;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = true;
-	pp.narg1 = 1;	pp.narg2 = 0;
-	pp.funcsignature = "(format_string, ...)";
-	pp.name = "sprintf";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_sprintf;
-	built_in_funcs.push_back(pp);
-	pp.name = "fprintf";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_fprintf;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = true;
+	ft.narg1 = 1;	ft.narg2 = 0;
+	ft.funcsignature = "(format_string, ...)";
+	name = "sprintf";
+	ft.func =  &_sprintf;
+	builtin[name] = ft;
+	name = "fprintf";
+	ft.func =  &_fprintf;
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(file_ID)";
-	pp.name = "fclose";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_fclose;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(file_ID)";
+	name = "fclose";
+	ft.func =  &_fclose;
+	builtin[name] = ft;
 
-	pp.narg1 = 2;	pp.narg2 = 2;
-	pp.name = "fopen";
-	pp.funcsignature = "(filename, mode)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_fopen; // check 
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "fopen";
+	ft.funcsignature = "(filename, mode)";
+	ft.func = &_fopen; // check 
+	builtin[name] = ft;
 
-	//where is '#'????
+	ft.narg1 = 0;	ft.narg2 = 0;
+	name = "getfs";
+	ft.funcsignature = "()";
+	ft.func =  &_getfs;
+	builtin[name] = ft;
+	name = "tic";
+	ft.func = &_tictoc;
+	builtin[name] = ft;
+	name = "toc";
+	ft.func = &_tictoc;
+	builtin[name] = ft;
 
-	pp.narg1 = 0;	pp.narg2 = 0;
-	pp.name = "getfs";
-	pp.funcsignature = "()";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_getfs;
-	built_in_funcs.push_back(pp);
-	pp.name = "tic";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tictoc;
-	built_in_funcs.push_back(pp);
-	pp.name = "toc";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tictoc;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(filename)";
+	name = "file";
+	ft.func =  &_file;
+	builtin[name] = ft;
+	name = "include";
+	ft.func =  &_include; // check
+	builtin[name] = ft;
+	name = "fdelete";
+	ft.func =  &_fdelete; // check
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(filename)";
-	pp.name = "file";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_file;
-	built_in_funcs.push_back(pp);
-	pp.name = "include";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_include; // check
-	built_in_funcs.push_back(pp);
-	pp.name = "fdelete";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_fdelete; // check
-	built_in_funcs.push_back(pp); 
+	ft.funcsignature = "(directory_name)";
+	name = "dir";
+	ft.func =  &_dir;
+	builtin[name] = ft;
 
-	pp.funcsignature = "(directory_name)";
-	pp.name = "dir";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_dir;
-	built_in_funcs.push_back(pp);
-
-	pp.alwaysstatic = false;
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(variable)";
+	ft.alwaysstatic = false;
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(variable)";
 	const char *f7[] = { "isempty", "isaudio", "isvector", "isstring", "isstereo", "isbool", "iscell", "isclass", "istseq", 0 };
 	for (int k = 0; f7[k]; k++)
 	{
-		pp.name = f7[k];
-		built_in_func_names.push_back(pp.name); inFunc[pp.name] = _varcheck;
-		built_in_funcs.push_back(pp);
+		name = f7[k];
+		ft.func = _varcheck;
+		builtin[name] = ft;
 	}
 
-	pp.narg1 = 2;	pp.narg2 = 3;
-	pp.funcsignature = "(signal, Numerator_array [, Denominator_array=1 for FIR])";
+	ft.narg1 = 2;	ft.narg2 = 3;
+	ft.funcsignature = "(signal, Numerator_array [, Denominator_array=1 for FIR])";
 	const char *f8[] = { "filt", "filtfilt", 0 };
 	for (int k = 0; f8[k]; k++)
 	{
-		pp.name = f8[k];
-		built_in_func_names.push_back(pp.name); inFunc[pp.name] = _filt;
-		built_in_funcs.push_back(pp);
+		name = f8[k];
+		ft.func = _filt;
+		builtin[name] = ft;
 	}
 #ifndef NO_FFTW
 
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.name = "fft";
-	pp.funcsignature = "(array, [Num_of_FFT_pts=length_of_the_input])";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_fft; // check
-	built_in_funcs.push_back(pp);
-	pp.name = "ifft";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_ifft;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 2;
+	name = "fft";
+	ft.funcsignature = "(array, [Num_of_FFT_pts=length_of_the_input])";
+	ft.func =  &_fft; // check
+	builtin[name] = ft;
+	name = "ifft";
+	ft.func = &_ifft;
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(signal_or_vector)";
-	pp.name = "envelope";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_envelope;
-	built_in_funcs.push_back(pp);
-	pp.name = "hilbert";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_hilbert;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(signal_or_vector)";
+	name = "envelope";
+	ft.func =  &_envelope;
+	builtin[name] = ft;
+	name = "hilbert";
+	ft.func =  &_hilbert;
+	builtin[name] = ft;
 
-	pp.narg1 = 2;	pp.narg2 = 2;
-	pp.name = "movespec";
-	pp.funcsignature = "(audio_signal, frequency_to_shift)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_time_freq_manipulate;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "movespec";
+	ft.funcsignature = "(audio_signal, frequency_to_shift)";
+	ft.func = &_time_freq_manipulate;
+	builtin[name] = ft;
 
-	pp.name = "conv";
-	pp.funcsignature = "(array1, array2)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_conv;
-	built_in_funcs.push_back(pp);
+	name = "conv";
+	ft.funcsignature = "(array1, array2)";
+	ft.func = &_conv;
+	builtin[name] = ft;
 #endif
 
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.funcsignature = "(signal_or_vector [, positive_for_acending_negative_for_descending = 1])";
-	pp.name = "sort";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_sort;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 2;
+	ft.funcsignature = "(signal_or_vector [, positive_for_acending_negative_for_descending = 1])";
+	name = "sort";
+	ft.func =  &_sort;
+	builtin[name] = ft;
 
+	ft.alwaysstatic = false;
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(audio_handle)";
+	name = "pause";
+	ft.func = &_pause_resume;
+	builtin[name] = ft;
+	name = "resume";
+	ft.func = &_pause_resume;
+	builtin[name] = ft;
+	name = "stop";
+	ft.func = &_playstop;
+	builtin[name] = ft;
+	name = "qstop";
+	ft.func = &_playstop;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = false;
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(audio_handle)";
-	pp.name = "pause";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_pause_resume;
-	built_in_funcs.push_back(pp);
-	pp.name = "resume";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_pause_resume;
-	built_in_funcs.push_back(pp);
-	pp.name = "stop";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_playstop;
-	built_in_funcs.push_back(pp);
-	pp.name = "qstop";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_playstop;
-	built_in_funcs.push_back(pp);
+	ft.funcsignature = "(audio_signal [, repeat=1]) or (audio_handle, audio_signal [, repeat=1])";
+	ft.narg1 = 1;	ft.narg2 = 3;
+	name = "play";
+	ft.func =  &_play;
+	builtin[name] = ft;
+	ft.funcsignature = "(audio_signal)";
+	ft.narg1 = 1;	ft.narg2 = 1;
+	name = "vector";
+	ft.func =  &_vector;
+	builtin[name] = ft;
+	name = "dur";
+	ft.func = &_arraybasic;
+	builtin[name] = ft;
+	name = "begint";
+	ft.func = &_arraybasic;
+	builtin[name] = ft;
+	name = "endt";
+	ft.func = &_arraybasic;
+	builtin[name] = ft;
+	name = "rms";
+	ft.func = &_arraybasic;
+	builtin[name] = ft;
+	name = "rmsall";
+	ft.func = &_arraybasic;
+	builtin[name] = ft;
 
-	pp.funcsignature = "(audio_signal [, repeat=1]) or (audio_handle, audio_signal [, repeat=1])";
-	pp.narg1 = 1;	pp.narg2 = 3;
-	pp.name = "play";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_play;
-	built_in_funcs.push_back(pp);
-	pp.funcsignature = "(audio_signal)";
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.name = "vector";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_vector;
-	built_in_funcs.push_back(pp);
-	pp.name = "dur";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_arraybasic;
-	built_in_funcs.push_back(pp);
-	pp.name = "begint";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_arraybasic;
-	built_in_funcs.push_back(pp);
-	pp.name = "endt";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_arraybasic;
-	built_in_funcs.push_back(pp);
-	pp.name = "rms";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_arraybasic;
-	built_in_funcs.push_back(pp);
-	pp.name = "rmsall";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_arraybasic;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = false;
+	ft.narg1 = 1;	ft.narg2 = 1;
+	name = "tsq_isrel";
+	ft.funcsignature = "(tseq)";
+	ft.func = &_tsq_isrel;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = false;
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.name = "tsq_isrel";
-	pp.funcsignature = "(tseq)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_isrel;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 2;
+	name = "tsq_gettimes";
+	ft.funcsignature = "(tseq [, audio_signal])";
+	ft.func = &_tsq_gettimes;//
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.name = "tsq_gettimes";
-	pp.funcsignature = "(tseq [, audio_signal])";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_gettimes;//
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "tsq_settimes";
+	ft.funcsignature = "(tseq, times_vector_or_tseq)";
+	ft.func = &_tsq_settimes;
+	builtin[name] = ft;
 
-	pp.narg1 = 2;	pp.narg2 = 2;
-	pp.name = "tsq_settimes";
-	pp.funcsignature = "(tseq, times_vector_or_tseq)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_settimes;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 1;
+	name = "tsq_getvalues";
+	ft.funcsignature = "(tseq)";
+	ft.func = &_tsq_getvalues;
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.name = "tsq_getvalues";
-	pp.funcsignature = "(tseq)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_getvalues;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "tsq_setvalues";
+	ft.funcsignature = "(tseq, values_matrix)";
+	ft.func = &_tsq_setvalues;
+	builtin[name] = ft;
 
-	pp.narg1 = 2;	pp.narg2 = 2;
-	pp.name = "tsq_setvalues";
-	pp.funcsignature = "(tseq, values_matrix)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_tsq_setvalues;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = true;
+	name = "msgbox";
+	ft.narg1 = 1;	ft.narg2 = 0;
+	ft.funcsignature = "(msg_body_with_printf_style)";
+	ft.func =  &_msgbox;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = true;
-	pp.name = "msgbox";
-	pp.narg1 = 1;	pp.narg2 = 0;
-	pp.funcsignature = "(msg_body_with_printf_style)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_msgbox;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = false;
+	name = "inputdlg";
+	ft.narg1 = 2;	ft.narg2 = 99;
+	ft.funcsignature = "(title, msg_body)";
+	ft.func =  &_inputdlg;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = false;
-	pp.name = "inputdlg";
-	pp.narg1 = 2;	pp.narg2 = 99;
-	pp.funcsignature = "(title, msg_body)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_inputdlg;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = false;
+	ft.narg1 = 1;	ft.narg2 = 2;
+	ft.funcsignature = "(logical_variable) or (logical_variable1, logical_variable2) ";
+	name = "and";
+	ft.func =  &_and;
+	builtin[name] = ft;
+	name = "or";
+	ft.func =  &_or;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = false;
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.funcsignature = "(logical_variable) or (logical_variable1, logical_variable2) ";
-	pp.name = "and";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_and;
-	built_in_funcs.push_back(pp);
-	pp.name = "or";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_or;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = false;
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(string)";
+	name = "str2num";
+	ft.func =  &_str2num;
+	builtin[name] = ft;
+	ft.alwaysstatic = true;
+	name = "eval";
+	ft.func =  &_eval;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = false;
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(string)";
-	pp.name = "str2num";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_str2num;
-	built_in_funcs.push_back(pp);
-	pp.alwaysstatic = true;
-	pp.name = "eval";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_eval;
-	built_in_funcs.push_back(pp);
-
-	pp.narg1 = 1;	pp.narg2 = 1;
-	pp.funcsignature = "(value_or_array)";
+	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(value_or_array)";
 	const char *fmath1[] = { "abs", "sqrt", "conj", "real", "imag", "angle", "sign", "sin", "cos", "tan", "asin", "acos", "atan", "log", "log10", "exp", "round", "fix", "ceil", "floor", 0 };
 	for (int k = 0; fmath1[k]; k++)
 	{
-		pp.name = fmath1[k];
-		built_in_func_names.push_back(pp.name);inFunc[pp.name] =  NULL;
-		built_in_funcs.push_back(pp);
+		name = fmath1[k];
+		ft.func =  NULL;
+		builtin[name] = ft;
 	}
-	pp.narg1 = 2;	pp.narg2 = 2;
-	pp.funcsignature = "(value_or_array, value_or_array)";
+	ft.narg1 = 2;	ft.narg2 = 2;
+	ft.funcsignature = "(value_or_array, value_or_array)";
 	const char *fmath2[] = { "^", "mod", "pow", 0 };
 	for (int k = 0; fmath2[k]; k++)
 	{
-		pp.name = fmath2[k];
-		built_in_func_names.push_back(pp.name);inFunc[pp.name] =  NULL;
-		built_in_funcs.push_back(pp);
+		name = fmath2[k];
+		ft.func =  NULL;
+		builtin[name] = ft;
 	}
 
 #ifdef _WINDOWS
-	pp.alwaysstatic = true;
-	pp.narg1 = 0;	pp.narg2 = 1;
-	pp.name = "figure";
-	pp.funcsignature = "([position(screen_coordinate)]) or (existing_Figure_ID)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_figure;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = true;
+	ft.narg1 = 0;	ft.narg2 = 1;
+	name = "figure";
+	ft.funcsignature = "([position(screen_coordinate)]) or (existing_Figure_ID)";
+	ft.func =  &_figure;
+	builtin[name] = ft;
 
-	pp.alwaysstatic = false;
-	pp.narg1 = 1;	pp.narg2 = 2;
-	pp.name = "axes";
-	pp.funcsignature = "([position]) or (existing_axes_ID)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] =  &_axes;
-	built_in_funcs.push_back(pp);
+	ft.alwaysstatic = false;
+	ft.narg1 = 1;	ft.narg2 = 2;
+	name = "axes";
+	ft.funcsignature = "([position]) or (existing_axes_ID)";
+	ft.func =  &_axes;
+	builtin[name] = ft;
 
-	pp.narg1 = 3;	pp.narg2 = 4;
-	pp.funcsignature = "([graphic_handle], x, y, string)";
-	pp.name = "text";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_text;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 3;	ft.narg2 = 4;
+	ft.funcsignature = "([graphic_handle], x, y, string)";
+	name = "text";
+	ft.func = &_text;
+	builtin[name] = ft;
 
-	pp.narg1 = 1;	pp.narg2 = 4;
-	pp.funcsignature = "([graphic_handle], variable [, options]) or (vector_x, vector_y [, options])";
-	pp.name = "plot";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_plot;
-	built_in_funcs.push_back(pp);
-	pp.name = "line";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_line;
-	built_in_funcs.push_back(pp);
+	ft.narg1 = 1;	ft.narg2 = 4;
+	ft.funcsignature = "([graphic_handle], variable [, options]) or (vector_x, vector_y [, options])";
+	name = "plot";
+	ft.func = &_plot;
+	builtin[name] = ft;
+	name = "line";
+	ft.func = &_line;
+	builtin[name] = ft;
 
-	pp.name = "delete";
-	pp.alwaysstatic = false;
-	pp.funcsignature = "(graphic_handle)";
-	built_in_func_names.push_back(pp.name); inFunc[pp.name] = &_delete_graffy;
-	built_in_funcs.push_back(pp);
+	name = "delete";
+	ft.alwaysstatic = false;
+	ft.funcsignature = "(graphic_handle)";
+	ft.func = &_delete_graffy;
+	builtin[name] = ft;
 #endif // _WINDOWS
 
-	pp.name = "input";
-	pp.alwaysstatic = false;
-	pp.funcsignature = "(prompt_message)";
-	built_in_func_names.push_back(pp.name);inFunc[pp.name] = &aux_input;
-	built_in_funcs.push_back(pp);
+	name = "input";
+	ft.alwaysstatic = false;
+	ft.funcsignature = "(prompt_message)";
+	ft.func = &aux_input;
+	builtin[name] = ft;
 
-	pp.name = "i";
-	pp.alwaysstatic = false;
-	pp.narg1 = pp.narg2 = 0;
-	pp.funcsignature = "";
-	inFunc[pp.name] = &_imaginary_unit;
-	pseudo_vars[pp.name] = pp;
-	pp.name = "e";
-	inFunc[pp.name] = &_natural_log_base;
-	pseudo_vars[pp.name] = pp;
-	pp.name = "pi";
-	inFunc[pp.name] = &_pi;
-	pseudo_vars[pp.name] = pp;
-	//pp.name = "gca";
-	//pseudo_vars[pp.name] = pp;
-	//inFunc[pp.name] = &_gca;
-	//pp.name = "sel";
-	//pseudo_vars[pp.name] = pp;
-	//inFunc[pp.name] = &_sel;
+	name = "i";
+	ft.alwaysstatic = false;
+	ft.narg1 = ft.narg2 = 0;
+	ft.funcsignature = "";
+	ft.func = &_imaginary_unit;
+	pseudo_vars[name] = ft;
+	name = "e";
+	ft.func = &_natural_log_base;
+	pseudo_vars[name] = ft;
+	name = "pi";
+	ft.func = &_pi;
+	pseudo_vars[name] = ft;
+	//name = "gca";
+	//pseudo_vars[name] = pp;
+	//inFunc[name] = &_gca;
+	//name = "sel";
+	//pseudo_vars[name] = pp;
+	//inFunc[name] = &_sel;
+	string fullfilename = CAstSigEnv::AppPath + "aux_builtin_ext64.dll";
+	HANDLE hLib = LoadLibrary(fullfilename.c_str());
+	if (hLib)
+	{
+		PF pt = (PF)GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
+		map<string, Cfunction> res = pt();
+		for (auto it = res.begin(); it != res.end(); it++)
+		{
+			builtin[(*it).first] = (*it).second;
+		}
+	}
 }
 
 void firstparamtrim(string &str)
@@ -2607,10 +2604,9 @@ bool CAstSig::HandlePseudoVar(const AstNode *pnode)
 {
 	string fname = pnode->str;
 	string dummy;
-	if (pEnv->pseudo_vars.find(fname) != pEnv->pseudo_vars.end())
-	{
-		pEnv->inFunc[fname](this, pnode, NULL, dummy);
-	}
+	auto it = pEnv->pseudo_vars.find(fname);
+	if (it != pEnv->pseudo_vars.end())
+		(*it).second.func(this, pnode, NULL, dummy);
 	else
 		return false;
 	return true;
@@ -2641,6 +2637,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 	complex<double>(*cfn1)(complex<double>) = NULL;
 	complex<double>(*cfn2)(complex<double>, complex<double>) = NULL;
 	string fname = pnode->str;
+	auto ft = pEnv->builtin.find(fname);
 	bool structCall = pnode->type == N_STRUCT;
 	AstNode * p(NULL);
 	if (pnode->alt)
@@ -2750,29 +2747,28 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		else if (cfn0) Sig.each(cfn0);
 		break;
 	default: // res should be 0
-		if (pEnv->inFunc.find(fname) != pEnv->inFunc.end())
+		if (ft != pEnv->builtin.end())
 		{
-			auto pos = find(pEnv->built_in_func_names.begin(), pEnv->built_in_func_names.end(), fname) - pEnv->built_in_func_names.begin();
-			fnsigs = fname + pEnv->built_in_funcs[pos].funcsignature;
+			fnsigs = fname + (*ft).second.funcsignature;
 			if (structCall)
 			{
-				if (pEnv->built_in_funcs[pos].alwaysstatic)
+				if ((*ft).second.alwaysstatic)
 					throw ExceptionMsg(p, fname, "Cannot be a member function.");
 				firstparamtrim(fnsigs);
-				nArgs = checkNumArgs(pnode, p, fnsigs, pEnv->built_in_funcs[pos].narg1 - 1, pEnv->built_in_funcs[pos].narg2 - 1);
-				pEnv->inFunc[fname](this, pnode, p, fnsigs);
+				nArgs = checkNumArgs(pnode, p, fnsigs, (*ft).second.narg1 - 1, (*ft).second.narg2 - 1);
+				(*ft).second.func(this, pnode, p, fnsigs);
 			}
 			else
 			{
-				nArgs = checkNumArgs(pnode, p, fnsigs, pEnv->built_in_funcs[pos].narg1, pEnv->built_in_funcs[pos].narg2);
-				if (pEnv->built_in_funcs[pos].alwaysstatic)
-					pEnv->inFunc[fname](this, pnode, p, fnsigs);
+				nArgs = checkNumArgs(pnode, p, fnsigs, (*ft).second.narg1, (*ft).second.narg2);
+				if ((*ft).second.alwaysstatic)
+					(*ft).second.func(this, pnode, p, fnsigs);
 				else
-					pEnv->inFunc[fname](this, pnode, p->next, fnsigs);
+					(*ft).second.func(this, pnode, p->next, fnsigs);
 			}
 		}
 		else
-			throw ExceptionMsg(p, fname, "Not a built-in function.");
+			throw ExceptionMsg(p, fname, "Internal Error (users shouldn't see this error)--Not a built-in function");
 	}
 	Sig.functionEvalRes = true;
 	if (GOpresent(pnode))

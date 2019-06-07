@@ -16,6 +16,7 @@
 #include <map>
 #include <string>
 #include <time.h>
+#include "aux_classes.h"
 #include "sigproc.h"
 using namespace std;
 
@@ -139,3 +140,4 @@ int CAstSig::HandleMathFunc(bool compl, string &fname, double(**fn0)(double), do
 	else
 		return 0;
 }
+

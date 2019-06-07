@@ -16,6 +16,7 @@
 #include <exception>
 #include <math.h>
 #include <time.h>
+#include "aux_classes.h"
 #include "sigproc.h"
 #include "bjcommon.h"
 
@@ -31,16 +32,6 @@
 { FILE*__fp=fopen(FNAME,"at"); fprintf(__fp,STR);	fclose(__fp); }
 
 void UpdateGO(CAstSig &ast, CVar &Sig);
-
-#ifndef AUX_NO_EXTRA
-int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out);
-#else
-int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
-{
-	return 1;
-}
-#endif // AUX_NO_EXTRA
-
 
 void dummy_fun1(CAstSig *a, DEBUG_STATUS b, int line)
 {
@@ -128,48 +119,6 @@ AstNode *CAstSig::findParentNode(AstNode *p, AstNode *pME, bool altonly)
 	}
 	return NULL;
 }
-
-void CAstSig::print_links0(FILE *fp, AstNode *p)
-{
-	while (p)
-	{
-		switch (p->type)
-		{
-		case 285:// T_num
-			fprintf(fp, "0x%x line=%d, type=%d, %f\n", (INT_PTR)p, p->line, p->type, p->dval);
-			break;
-		case 286:// T_num
-			fprintf(fp, "0x%x line=%d, type=%d, %s\n", (INT_PTR)p, p->line, p->type, p->str);
-			break;
-		case 264:// T_WHILE
-		case 265:// T_FOR
-		case 10004:// 
-		case '=':// 
-			fprintf(fp, "0x%x line=%d, type=%d, %s\n", (INT_PTR)p, p->line, p->type, p->str);
-			print_links0(fp, p->child);
-			break;
-		default:
-			fprintf(fp, "0x%x line=%d, type=%d, %s\n", (INT_PTR)p, p->line, p->type, p->str);
-			if (p->child)
-			{
-				if (p->child->type == 285)//T_NUMBER
-					fprintf(fp, "CHILD 0x%x type=%d, %f\n", (INT_PTR)p->child, p->child->type, p->child->dval);
-				else if (p->child->type == 286)//T_NUMBER
-					fprintf(fp, "CHILD 0x%x type=%d, %s\n", (INT_PTR)p->child, p->child->type, p->child->str);
-			}
-			break;
-		}
-		p = p->next;
-	}
-}
-
-void CAstSig::print_links(const char *filename, AstNode *pnode)
-{
-	FILE *fp = fopen(filename, "wt");
-	fprintf(fp, "0x%x type=%d, %s\n", (INT_PTR)pnode, pnode->type, pnode->str);
-	print_links0(fp, pnode);
-	fclose(fp);
-}
 #endif //GRAFFY
 
 CAstSig::CAstSig(const CAstSig &org)
@@ -182,13 +131,6 @@ CAstSig::CAstSig(CAstSigEnv *env) // Use this constructor for auxlab. env has be
 {
 	init();
 	pEnv = env;
-
-	//FILE *fp = fopen("ast_mem_track.txt", "at");
-	//string timeStr;
-	//GetLocalTimeStr(timeStr);
-	//fprintf(fp, "%s CAstSig created 0x%x from pEnv= 0x%x\n", timeStr.c_str(), this, env);
-	//fclose(fp);
-
 }
 //RECOMMENDED CONSTRUCTOR 2  7/8/2017
 //Now (10/10/2018), if this is used not for the temporary variable during func in AuxFunc.cpp, then the validity of commenting out dad = src->dad; should be checked.
@@ -291,11 +233,6 @@ void CAstSig::init()
 
 CAstSig::~CAstSig()
 {
-//	FILE *fp = fopen("ast_mem_track.txt", "at");
-//	string timeStr;
-//	GetLocalTimeStr(timeStr);
-//	fprintf(fp, "%s 0x%x out, pAst=0x%x, %s, fAllocatedAst=%d\n", timeStr.c_str(), this, pAst, Script.c_str(), (int)fAllocatedAst);
-//	fclose(fp);
 	if (fAllocatedAst)
 		yydeleteAstNode(pAst, 0);
 }
@@ -361,7 +298,7 @@ AstNode *CAstSig::SetNewScript(string &emsg, const char *str, const char *premsg
 }
 
 #ifdef NO_PLAYSND // just for psynteg 11.17.2017
-HWND GetHWND_WAVPLAY()
+void * GetHWND_WAVPLAY()
 {return NULL;}
 #endif
 
@@ -719,7 +656,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		}
 	}
 
-#ifdef _DEBUG
+#if defined(_WINDOWS) && defined(_DEBUG)
 	Beep(1000, 50);
 #endif
 
@@ -795,8 +732,6 @@ bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
 	//This depends on the node structure made in psycon.y; 
 	//If you change it, this should be adjusted as well.
 	//look for T_IF, T_FOR and T_WHILE
-	if (p && p->line == 38)
-		Beep(4000, 20);
 	if (!u.pUDF) return false;
 	if (!p)
 	{
@@ -1214,6 +1149,7 @@ AstNode *CAstSig::SetNewScriptFromFile(string &emsg, const char *full_filename, 
 
 typedef  int(_cdecl  *PF) (int, std::string &);
 
+#ifdef _WINDOWS
 string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 {
 	PF pt = (PF)GetProcAddress(h, (LPCSTR)MAKELONG(1, 0)); // ReadAUXP
@@ -1235,6 +1171,7 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 	}
 	return "";
 }
+#endif // _WINDOWS
 
 AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *internaltransport)
 {
@@ -1514,7 +1451,7 @@ CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 
 CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 {
-	int res;
+//	int res;
 	string dummy;
 	if (!pout) pout = &Sig;
 	if (pnode->type == N_HOOK)
@@ -1525,7 +1462,8 @@ CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 		if (p->type == N_HOOK) p = p->child;
 		if (!strcmp(p->str, "sel"))
 		{
-			res = _reserve_sel(this, p, pout);
+			// _reserve_sel is not used any more
+//			res = _reserve_sel(this, p, pout);
 			if (!p->alt)
 			{
 				//pvar = RetrieveVar(pnode, estr);
@@ -1873,9 +1811,10 @@ CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar
 	else
 	{
 		string dummy;
-		if (pEnv->pseudo_vars.find(varname) != pEnv->pseudo_vars.end())
+		auto it = pEnv->pseudo_vars.find(varname);
+		if ( it != pEnv->pseudo_vars.end())
 		{
-			pEnv->inFunc[varname](this, pnode, NULL, dummy);
+			(*it).second.func(this, pnode, NULL, dummy);
 		}
 		else 
 		{
@@ -2816,6 +2755,10 @@ CAstSigEnv &CAstSigEnv::AddPath(const char *path)
 	return *this;
 }
 
+#if !defined(MAX_PATH)
+#define MAX_PATH          260
+#endif
+
 FILE *CAstSig::OpenFileInPath(string fname, string ext, string &fullfilename)
 { // in in out
 	string pathscanned;
@@ -3183,7 +3126,6 @@ CAstSigEnv& CAstSigEnv::operator=(const CAstSigEnv& rhs)
 		AuxPath = rhs.AuxPath;
 		udf = rhs.udf;
 		shutdown = rhs.shutdown;
-		inFunc = rhs.inFunc;
 		glovar = rhs.glovar;
 	}
 	return *this;

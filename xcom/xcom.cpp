@@ -23,6 +23,7 @@
 #include "histDlg.h"
 #include "consts.h"
 #include "xcom.h"
+#include "wavplay.h"
 
 #include "qlparse.h"
 
@@ -1777,7 +1778,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	double block;
 	res = readINIs(iniFile, buf, fs, block, udfpath);
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
-	pglobalEnv->InitBuiltInFunctionList();
+	CAstSigEnv::AppPath = string(mainSpace.AppPath);
+	pglobalEnv->InitBuiltInFunctions();
 	CAstSig cast(pglobalEnv);
 	if (block > 0) cast.audio_block_ms = block;
 
@@ -1786,7 +1788,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	if (strlen(udfpath) > 0 && udfpath[0] != ';') addp += ';';
 	addp += udfpath;
 	pglobalEnv->SetPath(addp.c_str());
-	pglobalEnv->AppPath = mainSpace.AppPath;
 
 	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
 		::MessageBox(hr, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
@@ -1974,14 +1975,14 @@ int xcom::RunTest(const char *infile, const char *intended_result_file, const ch
 			}
 			else if (type == CSIG_AUDIO)
 			{
-				past->Sig.PlayArray(errstr);
+				PlayArray16(past->Sig, 0, 0, NULL, 2, errstr, 1);
 				CSignals tp;
 				if (!tp.Wavread(ref.c_str(), errstr))
 				{
 					oss << "audio file" << ref << " not found line " << lineID;
 					throw oss.str().c_str();
 				}
-				tp.PlayArray(errstr);
+				PlayArray16(tp, 0, 0, NULL, 2, errstr, 1);
 			}
 		}
 	}

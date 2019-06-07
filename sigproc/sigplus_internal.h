@@ -16,6 +16,7 @@
 #include <string.h>
 #include <math.h>
 
+#include "aux_classes.h"
 #include "sigproc.h"
 
 #define MAX_24BIT		(double)0x007fffff
