@@ -2348,8 +2348,10 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	anaHop.Diff();
 	for (unsigned int k = 0; k < anaHop.nSamples; k++)
 		anaHop.buf[k] = synHop / anaHop.buf[k];
+// timestretch_log.py #0
 	double minFac = anaHop._min();
 	int newlen = winLenHalf + 2 * tolerance + (int)ceil(1 / minFac)*winLen;
+// timestretch_log.py #1
 	CSignal temp(fs, nSamples + newlen);
 	memcpy(temp.buf + winLenHalf + tolerance, buf, sizeof(double)*nSamples);
 	int lastInPoint = nSamples + winLenHalf + tolerance;
@@ -2363,6 +2365,7 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	memset(pow, 0, sizeof(double)*(outputLength + 2 * winLen));
 	int xid0, jj, kk, del = 0;
 	unsigned k = 0;
+// timestretch_log.py #2
 	for (auto yid0 : synWinPos)
 	{
 		xid0 = (int)anaWinPos.buf[k] + del;
@@ -2375,13 +2378,21 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 			pout[(int)yid0 + p] += buf[xid0 + p] * wind[p];
 			pow[(int)yid0 + p] += wind[p];
 		}
-		// last frame; no cross correlation
+	// last frame; no cross correlation
 		if (k < anaWinPos.nSamples - 1)
 		{
+			double ratio0 = (synWinPos[k+1] - yid0) / ((int)anaWinPos.buf[k + 1] - (int)anaWinPos.buf[k]);
+			int corrIDX1 = (int)anaWinPos.buf[k + 1] - tolerance;
+			int corrIDX2 = xid0 + synHop + del;
+			int len1 = winLen + 2 * tolerance;
+// timestretch_log.py #3
 			// Cross correlation between x(nextAnaWinRan) and x(currAnaWinRan + synHop)
 			int maxid = maxcc(buf + (int)anaWinPos.buf[k + 1] - tolerance, winLen + 2 * tolerance, buf + (int)anaWinPos.buf[k] + del + synHop, winLen);
+// timestretch_log.py #4
 			del = tolerance - maxid + 1;
+// timestretch_log.py #5
 		}
+// timestretch_log.py #6
 		k++;
 	}
 	for (int p = 0; p < outputLength + 2 * winLen; p++)
@@ -2393,6 +2404,7 @@ CSignal& CSignal::timestretch(unsigned int id0, unsigned int len)
 	// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
 	out.UpdateBuffer(lastOutPount- winLenHalf);
 	memcpy(out.buf, pout + winLenHalf, sizeof(double)*out.nSamples);
+// timestretch_log.py #7
 	out.SetFs(fs);
 	delete[] pout;
 	delete[] pow;
