@@ -9,13 +9,13 @@ import pdb; # call pdb.set_trace() later
 import os
 from shutil import copyfile
 def addfprintf(fname1):
-	copyfile(fname1,'temp_csignals_timestretch_log.cpp')
+	copyfile(fname1,'temp_timestretch_log.cpp')
 	fid = open(fname1)
 	fname2 = fname1 + '2'
 	fid2 = open(fname2, 'w')
 	lineID=0
 	matchID=0
-	newlines = ['\tFILE*fp = fopen(\"c:\\\\temp\\\\timestretch_log.txt\", \"at\");\n\tfprintf(fp, \"=============================================\\nfs=%d, Input size=%d\\n\", input2.GetFs(), nSamples);\n',\
+	newlines = ['\tFILE*fp = fopen(\"c:\\\\temp\\\\timestretch_log1.txt\", \"at\");\n\tfprintf(fp, \"=============================================\\nfs=%d, Input size=%d\\n\", input2.GetFs(), nSamples);\n',\
 	'\tfprintf(fp, \"winLen = %d, winLenHalf = %d\\nnew_buff_in[%d] <== old_in[0], new_buff_in[%d] <== old_in[%d]\\n%d outbuffer allocated with zeropadding\\n\", winLen, winLenHalf, winLenHalf + tolerance, nSamples + winLenHalf + tolerance - 1, nSamples - 1, input2.nSamples);\n',\
 	'\tfprintf(fp, \"loop%8s%8s%7s%5s%3s%15s%15s    %-29s%6s%5s%7s%8s\\n\",\"ingr\", \"outgr\", \"ratio\", \"tol\", \"\", \"INPUT -->\", \"OUTPUT\", \"Input Autocorr w/ next block\", \"maxid\", \"del\", \"Hop_in\", \"Hop_out\");\n',\
 	'\tfprintf(fp, \"%3d:%8d%8d %6.3f%5d   [%6d:%6d]->[%6d:%6d]  (%6d:%6d)(%6d:%6d) \", m, ingr[m], outgr[m], ratio0, tolerance, \n\txid0, xid0 + winLen, yid0, yid0 + winLen, corrIDX1, corrIDX1+len1-1, corrIDX2, corrIDX2+winLen-1);\n',\
@@ -23,7 +23,7 @@ def addfprintf(fname1):
 	'fprintf(fp, \"%4d%7d%7d\\n\", del, ingr[m+1]-ingr[m], outgr[m+1]-outgr[m]);\n',\
 	'else\n\tfprintf(fp, \"%3d:%8d%8d%15s[%6d:%6d]->[%6d:%6d]\\n\", m, ingr[m], outgr[m], "", xid0, xid0 + winLen, yid0, yid0 + winLen);\n',\
 	'\tfclose(fp);\n',\
-	'\tFILE*fp = fopen(\"c:\\\\temp\\\\timestretch_log.txt\", \"at\");\n\tfprintf(fp, \"outbuffer from %d to %d copied as the result, size=%d\\n\", lastOutIndex - targetSize + 1, lastOutIndex, targetSize);\nfclose(fp);\n']
+	'\tFILE*fp = fopen(\"c:\\\\temp\\\\timestretch_log1.txt\", \"at\");\n\tfprintf(fp, \"outbuffer from %d to %d copied as the result, size=%d\\n\", lastOutIndex - targetSize + 1, lastOutIndex, targetSize);\nfclose(fp);\n']
 	# if // timestretch_log.py #0 BEGIN is found, the file is flagged as logging (normal2log set False)
 	# else if // timestretch_log.py #0 is found, the file is flagged as normal (normal2log set True)
 	# else nothing happens.
@@ -62,4 +62,4 @@ def addfprintf(fname1):
 	os.remove(fname1)
 	os.rename(fname2,fname1)
 	
-addfprintf('c:/Users/BJ/Documents/repos/auxlab/sigproc/csignals.cpp')
+addfprintf('c:/Users/BJ/Documents/repos/auxlab/aux_builtin_ext/csignalsExt.cpp')

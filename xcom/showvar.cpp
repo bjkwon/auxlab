@@ -1624,7 +1624,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 						double block = CAstSig::vecast.front()->audio_block_ms;
 						int devID = 0;
 						psig = &(*pVars)[varname];
-						INT_PTR h = PlayArray16(*psig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 0);
+						INT_PTR h = PlayArray16(*psig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
 						if (!h)
 						{ // PlayArray will return 0 if unsuccessful due to waveOutOpen failure. For other reasons.....
 							//errstr should show the err msg. Use it if necessary 7/23/2018

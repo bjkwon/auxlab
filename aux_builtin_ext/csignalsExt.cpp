@@ -94,8 +94,10 @@ static inline double cal_ingrid(double prev, int id1, int hop, double ratio)
 
 static inline double cal_harmonic_serise(int length, double r1, double r2)
 {
-	double r = r1 - (r2 - r1) / (length - 1);
 	double increment = (r2 - r1) / (length - 1);
+	if (increment == 0.)
+		return length / r1;
+	double r = r1 - (r2 - r1) / (length - 1);
 	double out =0;
 	int k=0;
 	for (; k < length; k++)
@@ -106,21 +108,54 @@ static inline double cal_harmonic_serise(int length, double r1, double r2)
 	return out;
 }
 
-static inline int spreader(int nBlocks, double ratio1, double ratio2, int synHop, double *ingrid, double *outgrid)
+static inline int spreader(int nSamples, int nBlocks, int tol, double ratio1, double ratio2, int synHop, int *ingrid, int *outgrid, int remainder)
 {
-	double lastOutPoint = outgrid[nBlocks];
+	double lastOutPoint = outgrid[nBlocks-1]+remainder;
 	double hop = harmonicmean(ratio1, ratio2);
 	if (nBlocks > 2)
 	{
-		hop = (ingrid[nBlocks] - ingrid[0]) / cal_harmonic_serise(nBlocks - 1, ratio1, ratio2);
-		for (int k = 1; k < nBlocks; k++)
-			outgrid[k] = hop * k;
-		double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
-		double increment = (ratio2 - ratio1) / (nBlocks - 2);
-		for (int k = 1; k < nBlocks; k++)
+//		double remainder = outgrid[nBlocks] - outgrid[nBlocks - 1];
+		if (synHop == (int)remainder)
 		{
-			ratio += increment;
-			ingrid[k] = ingrid[k - 1] + hop / ratio;
+			for (int k = 0; k < nBlocks; k++)
+				outgrid[k] = (int)remainder * (k + 1);
+			double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
+			double increment = (ratio2 - ratio1) / (nBlocks - 2);
+			int cum = 19;
+			for (int k = 0; k < nBlocks; k++)
+			{
+				ratio += increment;
+				ingrid[k] = (int)(cum + synHop / ratio);
+				cum = ingrid[k];
+			}
+		}
+		else
+		{
+			int leftover = remainder - remainder / nBlocks * nBlocks;
+			hop = nSamples / cal_harmonic_serise(nBlocks, ratio1, ratio2);
+			int cum1 = 0;
+			double cum2 = (double)tol;
+			double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
+			double increment = (ratio2 - ratio1) / (nBlocks - 2);
+			for (int k = 0; k < nBlocks; k++)
+			{
+				cum1 += (int)round(hop); // must be round-up, and keep nBlocks the same and deduct if remainder is negative
+				ratio += increment;
+				double add2cum2 = hop / ratio;
+				cum2 += add2cum2;
+				if (leftover > 0)
+				{
+					if (k < leftover)
+						cum1++; 
+				}
+				else if (leftover < 0)
+				{
+					if (k - leftover >= nBlocks) 
+						cum1--; 
+				}
+				outgrid[k] = cum1;
+				ingrid[k] = (int)round(cum2);
+			}
 		}
 	}
 	else 
@@ -130,16 +165,15 @@ static inline int spreader(int nBlocks, double ratio1, double ratio2, int synHop
 		hop = delta_ingrid / cal_harmonic_serise(nBlocks - 1, ratio1, ratio2);
 
 		for (int k = 1; k < nBlocks; k++)
-			outgrid[k] = hop * k;
+			outgrid[k] = (int)(hop * k);
 		double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
 		double increment = (ratio2 - ratio1) / (nBlocks - 2);
 		for (int k = 1; k < nBlocks; k++)
 		{
 			ratio += increment;
-			ingrid[k] = ingrid[k - 1] + hop / ratio;
+			ingrid[k] = ingrid[k - 1] + (int)(hop / ratio);
 		}
 	}
-
 	return nBlocks;
 }
 
@@ -149,58 +183,27 @@ static inline int get_nLength(int id1, int id2, double ratio1, double ratio2, in
 	double lastInGrid = (double)id1;
 	int blocksizeIn = id2 - id1;
 	int cumOutTP = 0;
-	int nBlocks_est = (int)ceil((id2-id1)*harmonicmean(ratio1,ratio2)/synHop);
-	double *_in = new double[nBlocks_est+50];
-	double *_out = new double[nBlocks_est+50];
+	double harmean = harmonicmean(ratio1, ratio2);
+	int nBlocks = (int)round((id2-id1)*harmean/synHop);
+	double remainder;
+	remainder = (id2 - id1) - (int)(synHop * nBlocks / harmean);
+	double *_in = new double[nBlocks+50];
+	double *_out = new double[nBlocks+50];
 	_in[0] = (double)id1;
 	_out[0] = 0.;
 	bool loop = true;
-	double ratio;
-	while (loop)
-	{
-		while (1)
-		{
-			if (nBlocks_est == 1)
-				ratio = (ratio1 + ratio2) / 2.;
-			else
-				ratio = ratio1 + (ratio2 - ratio1)*(k - 1) / (nBlocks_est - 1);
-			_in[k] = cal_ingrid(_in[k - 1], id1, synHop, ratio);
-			_out[k] = synHop * k;
-			if (_in[k] >= id2)
-				break;
-			k++;
-		}
-		if (k > nBlocks_est + 1)
-		{
-			nBlocks_est = k-1;
-			k = 1;
-		}
-		else
-		{
-			loop = false;
-			nBlocks_est = k;
-			_in[k] = id2;
-			_out[k] = _out[k - 1] + (_in[k] - _in[k - 1]) * ratio2;
-		}
-	}
-	// k is nBlocks; the number of spread-out loops
-	// k-1 complete loops, 1 incomplete loop, 
-	// if the final loop is less than half of synHop, spread the left over across k-1 loops, reduce nLength by one
-	// else "borrow" 
-	int nBlocks = nBlocks_est;
-	// Think about this -- keep remainder as small as possible by nBlocks_est by one
-	double remainder = _out[nBlocks_est] - _out[nBlocks_est - 1];
+//	double ratio;
 	if (remainder >= synHop / 2.)
 		remainder = synHop - remainder;
 	// End of Think about this
 	if (nBlocks > 1)
 	{
-		nBlocks = spreader(nBlocks, ratio1, ratio2, synHop, _in, _out);
-		for (int k = 0; k < nBlocks - 1; k++)
-		{
-			ingrid[k] = (int)(_in[k + 1] + .5);
-			outgrid[k] = outgridoffset + (int)(_out[k + 1] + .5);
-		}
+		nBlocks = spreader(id2-id1, nBlocks, id1, ratio1, ratio2, synHop,ingrid, outgrid, (int)remainder);
+//		for (int k = 0; k < nBlocks - 1; k++)
+//		{
+//			ingrid[k] = (int)(_in[k + 1] + .5);
+//			outgrid[k] = outgridoffset + (int)(_out[k + 1] + .5);
+//		}
 	}
 	else // nBlocks==1
 	{
@@ -336,7 +339,7 @@ CSignal& CSignalExt::timestretch(unsigned int id0, unsigned int len)
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
 		nBlocks = get_nLength(tolerance, nSamples + tolerance, pratio->value(), pratio->value(), synHop, ingrid+1, outgrid+1, 0);
-		chainIDX.push_back(nBlocks-1);
+		chainIDX.push_back(nBlocks);
 	}
 	else
 	{
@@ -534,80 +537,6 @@ CSignal& CSignalExt::resample(unsigned int id0, unsigned int len)
 	delete[] data_out;
 	return *this;
 }
-/*
-CTimeSeriesExt CTimeSeriesExt::basic(double (CSignalExt::*pf_basic)(unsigned int, unsigned int), void *popt)
-{
-	parg = popt;
-	int _fs = fs == 2 ? 1 : fs;
-	CTimeSeries out(_fs);
-	if (GetType() == CSIG_TSERIES)
-	{
-		out.Reset(1); // 1 means new fs
-		CSignal tp = TSeries2CSignal();
-		out.SetValue((tp.*(this->pf_basic))(0, 0));
-	}
-	else
-	{
-		CTimeSeries tp(_fs);
-		out.tmark = tmark;
-		unsigned int len = Len();
-		CVar additional(_fs);
-		additional.UpdateBuffer(nGroups);
-		additional.nGroups = nGroups;
-		if (fs > 2) // if audio
-		{
-			for (unsigned int k = 0; k < nGroups; k++)
-			{
-				tp.tmark = tmark + round(1000.*k*Len() / fs);
-				tp.SetValue((this->*(this->pf_basic))(k*len, len));
-				out.AddChain(tp);
-				if (parg)
-				{
-					((CVar*)parg)->SetFs(_fs);
-					additional.buf[k] = ((CVar*)parg)->value(); // fed from individual function
-				}
-			}
-		}
-		else
-		{
-			out.UpdateBuffer(nGroups);
-			out.nGroups = nGroups;
-			additional.UpdateBuffer(nGroups);
-			additional.nGroups = nGroups;
-			for (unsigned int k = 0; k < nGroups; k++)
-			{
-				out.buf[k] = (this->*(this->pf_basic))(k*len, len);
-				if (parg)
-				{
-					// In max() or min(), fs information of parg is wiped out by SetValue(). We need to recoever it here.
-					// fs information should be retained because the output is T_SEQ
-					// This may not be a permanent solution for other functions. But it's OK for now. 
-					// Need to think about it again when more functions are added with multiple output args
-					// 9/14/2018s
-					((CVar*)parg)->SetFs(_fs);
-					additional.buf[k] = ((CVar*)parg)->value(); // fed from individual function
-				}
-			}
-		}
-		for (CTimeSeries *p = chain; p; p = p->chain)
-		{
-			p->parg = popt;
-			tp.tmark = p->tmark;
-			tp.SetValue((p->*(this->pf_basic))(0, 0));
-			out.AddChain(tp);
-			if (p->parg)
-			{
-				((CVar*)(p->parg))->tmark = p->tmark;
-				additional.AddChain(*(CVar*)p->parg); // fed from individual function
-			}
-		}
-		if (parg)	*(CVar*)parg = additional;
-	}
-	return out;
-}
-*/
-//For pf_basic2 and pf_basic3, do the same, as above pf_basic, and use parg //9/14/2018
-
 
 CSignalExt::~CSignalExt()
 {
