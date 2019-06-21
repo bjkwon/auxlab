@@ -50,6 +50,9 @@
     <ClInclude Include="$(SrcPath)psycon.yacc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="$(SrcPath)aux_classes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="$(SrcPath)resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>

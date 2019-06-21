@@ -101,7 +101,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call copy_headers.bat sigproc
+		call copy_header.bat aux_classes .\sigproc\
+		call copy_header.bat psycon.yacc .\sigproc\
+	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -121,7 +124,10 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call copy_headers.bat sigproc
+		call copy_header.bat aux_classes .\sigproc\
+		call copy_header.bat psycon.yacc .\sigproc\
+	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -141,7 +147,10 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call copy_headers.bat sigproc
+		call copy_header.bat aux_classes .\sigproc\
+		call copy_header.bat psycon.yacc .\sigproc\
+	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -165,7 +174,10 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call copy_headers.bat sigproc
+		call copy_header.bat aux_classes .\sigproc\
+		call copy_header.bat psycon.yacc .\sigproc\
+	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

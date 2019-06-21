@@ -38,6 +38,7 @@
 #include "cipsycon.tab.h"
 #endif
 
+
 #define WM__AUDIOEVENT	WM_APP + WOM_OPEN
 
 string CAstSigEnv::AppPath = "";
@@ -1801,6 +1802,8 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 				throw past->ExceptionMsg(p, fnsigs, ratio.string().c_str());
 			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), oldFs);
 			past->Sig.SetFs(oldFs);
+			if (past->Sig.next)
+				past->Sig.next->SetFs(oldFs);
 		}
 	}
 	else
@@ -2003,9 +2006,19 @@ void _sel(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 
 }
 typedef  map<string, Cfunction>(_cdecl  *PF) ();
+
 void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
 {
-
+	HANDLE hLib = LoadLibrary(dllname);
+	if (hLib)
+	{
+		PF pt = (PF)GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
+		map<string, Cfunction> res = pt();
+		for (auto it = res.begin(); it != res.end(); it++)
+		{
+			builtin[(*it).first] = (*it).second;
+		}
+	}
 }
 void CAstSigEnv::InitBuiltInFunctions()
 {
@@ -2557,17 +2570,6 @@ void CAstSigEnv::InitBuiltInFunctions()
 	//name = "sel";
 	//pseudo_vars[name] = pp;
 	//inFunc[name] = &_sel;
-	string fullfilename = CAstSigEnv::AppPath + "aux_builtin_ext64.dll";
-	HANDLE hLib = LoadLibrary(fullfilename.c_str());
-	if (hLib)
-	{
-		PF pt = (PF)GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
-		map<string, Cfunction> res = pt();
-		for (auto it = res.begin(); it != res.end(); it++)
-		{
-			builtin[(*it).first] = (*it).second;
-		}
-	}
 }
 
 void firstparamtrim(string &str)

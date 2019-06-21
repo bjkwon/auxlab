@@ -1,0 +1,1 @@
+if not exist .\INCLUDE\%1.h copy %2%1.h .\INCLUDE\%1.h

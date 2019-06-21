@@ -16,6 +16,7 @@
 
 #define MAIN_PROMPT "AUX> "
 #define DEBUG_PROMPT "k> "
+#define AUX_EXT_NAME "aux_ext"
 
 enum DEBUG_KEY
 {

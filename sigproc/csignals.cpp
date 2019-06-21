@@ -1826,14 +1826,6 @@ CTimeSeries& CTimeSeries::operator>>=(double delta)
 			Reset();
 		}
 	}
-	//if (tmark+delta < 0) 
-	//{
-	//	if (p != this) {
-	//		pp->chain = NULL;	// to stop destruction at pp. This has to be done before SwapContents1node() for the cases of this==pp. jhpark 5/29/2012.
-	//		SwapContents1node(*p);	// *p gets *this
-	//		delete p;	// delete from head through pp
-	//	}
-	//}
 	return *this;
 }
 
@@ -2790,6 +2782,25 @@ CTimeSeries * CTimeSeries::AtTimePoint(double timept)
 	return NULL;
 }
 #ifndef NO_RESAMPLE
+static int getSIH(int len, double r1, double r2, int *outlength)
+{
+	double _r1 = 1. / r1;
+	double _r2 = 1. / r2;
+	double ratio_mean = 2. / (1. / _r1 + 1. / _r2);
+	int N = (int)round(len*ratio_mean);
+	*outlength = N;
+	double sum = 0;
+	double ratio;
+	for (int k = 0; k < N; k++)
+	{
+		ratio = _r1 + (_r2 - _r1)*k / N;
+		sum += 1. / ratio;
+	}
+	double  leftover = len - sum;
+	*outlength += (int)round(leftover * ratio);
+	return (int)round(leftover);
+}
+
 CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 {
 	//This doesn't mean real "resampling" because this does not change fs.
@@ -2835,6 +2846,17 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 		//after src_process, the data is transferred to outbuffer (double)--just accumulated.
 		//after all the blocks, outbuffer is memcpy'ed to buf for the output.
 		//3/20/2019
+		//FILE*ff = fopen("c:\\temp\\sdsd.txt", "w");
+		//fprintf(ff, "nSamples=%d, newlen=%d\n", nSamples, newlen);
+		//for (int ll=0; ll<30; ll++)
+		//{
+		//	int error = newlen - harmean0;
+		//	nSamples -= error /2;
+		//	out2 = getSIH(nSamples, pratio->value(), pratio->chain->value(), &harmean);
+		//	newlen = harmean + out2 / 2;
+		//	fprintf(ff, "nSamples=%d, newlen=%d\n", nSamples, newlen);
+		//}
+		//fclose(ff);
 		vector<double> outbuffer;
 		//inspect pratio to estimate the output length
 		int cum = 0, cumID = 0;
@@ -2877,9 +2899,13 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 				data_out = new float[lastSize = conv.output_frames + 20000];//reserve the buffer size big enough to avoid memory crash, but find out a better than this.... 3/20/2019
 			}
 			conv.data_out = data_out;
+			int harmean;
+			int out2 = getSIH(conv.input_frames, p->value(), p->chain->value(), &harmean);
+			int harmean0 = harmean;
+			int newlen = harmean + out2 / 2;
 			errcode = src_process(handle, &conv);
 			inBuffersize = conv.input_frames_used;
-			if (errcode)
+			if ( errcode)
 			{
 				std::string errout;
 				sformat(errout, "Error in block %d--%s", blockCount++, src_strerror(errcode));

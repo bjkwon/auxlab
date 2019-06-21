@@ -1,23 +1,27 @@
+// AUXLAB extention
+//
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
+// Licensed under the Academic Free License version 3.0
+//
+// Project: aux_builtin_ext
+// opaque builtin functions
+// Platform-independent (hopefully) 
+// 
+// Version: 0.9
+// Date: 6/20/2019
+// 
+
 #include "samplerate.h"
 #include "sigprocExt.h"
 #include "bjcommon.h"
 #include <vector>
 #include <map>
 #include <algorithm>
-
-//Moved from sigproc::csignals.cpp
-//The uggliest code (because of timestretch and pitchscale functions)!!
-//This code should avoid having complex signal processing routines.
-//timestretch and pitchscale functions turned out to be way more complidated than expected.
-//In the future revision, these complex signal processing part should be separated.
-//Also, the quality of this version is not as good as earlier one (not git'ed)--producing somewhat "warbling" sound
-//This is due to the synHop not being constant and adjusted as it goes to precisely honor the input time grid.
-//In the future revision, I will try to make hop constant as much as possible between grids and adjusted toward the grids.
-// 5/28/2019 BJ Kwon
+#include <deque>
 
 #define PI 3.141592
 
-static inline int maxcc(double *x1, int len1, double *x2, int len2)
+static inline int maxcc(double *x1, int len1, double *x2, int len2, int prevmaxid)
 {
 	const int len = len1 + len2 - 1;
 	double *buffer = new double[len];
@@ -34,23 +38,35 @@ static inline int maxcc(double *x1, int len1, double *x2, int len2)
 		buffer[k] = tp;
 	}
 	CSignal temp(buffer + len2, len - 2 * len2 + 1);
+	delete[] buffer;
 	CVar maxid(-1.); // need to initialize
 	temp.parg = (void*)&maxid;
 	temp._max();
-	delete[] buffer;
-	return (int)((CVar*)temp.parg)->value();
+	int newmaxid = (int)*maxid.buf;
+	return (int)newmaxid;
 }
 
 CSignal& CSignalExt::pitchscale(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	CVar *pratio = (CVar *)parg;
-	vector<unsigned int> sectionlength;
-	unsigned int lastLength = 0;
+	// If called with repeated tmarks, such as x#[0 .5 .5 1;][1 1 2 2]
+	// adjust it to [0 .5 .5+margin 1;][1 1 2 2]
+	// where margin is one synHop long
+	//6/19/2019
+
+	CTimeSeries *pLast = NULL;
+	for (CTimeSeries *p = pratio; p; p = p->chain)
+		if (!p->chain)
+			pLast = p;
+
 	for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
 	{
-		sectionlength.push_back((unsigned int)(p->chain->tmark / 1000.*p->fs)- lastLength);
-		lastLength = sectionlength.back();
+		if (fabs(p->tmark - p->chain->tmark) < 10.)
+		{
+			p->chain->tmark = -1.;
+			p = p->chain;
+		}
 	}
 	CVar copy = *pratio;
 	// Why timestretch-resample, when resample-timestretch would eliminate the need for the second timestretch?
@@ -59,24 +75,35 @@ CSignal& CSignalExt::pitchscale(unsigned int id0, unsigned int len)
 	// If the additional time taken for the second timestretch is the problem, go for resample-timestretch.
 	// 5/27/2019
 	timestretch(id0, len);
+	vector<double> tmarks0;
+	if (pratio->strut.find("tmarks") != pratio->strut.end())
+		tmarks0 = pratio->strut["tmarks"].ToVector();
+	else
+	{
+		for (CTimeSeries *p = &copy; p; p = p->chain)
+			tmarks0.push_back(p->tmark);
+	}
+	pratio->strut.clear();
 	resample(id0, len);
-	 //If ratio is a constant, at this point we have the correct nSamples.
+	//If ratio is a constant, at this point we have the correct nSamples.
 	 //If not, at this point nSamples is close but different from our intended (original) nSamples.
 	 //If ratio is linearly increasing from 0 to the end, we can still fix that. Just run timestretch one more time with the correct target nSamples
-	CTimeSeries *p = pratio;
-	if (sectionlength.size()==2)
-		for (auto it = sectionlength.begin(); it!= sectionlength.end(); it++)
+	if (pratio->GetType() == CSIG_TSERIES)
+	{
+		double num, den;
+		CTimeSeries *p = pratio;
+		for (auto it=tmarks0.begin(); it!=tmarks0.end()-1; it++, p = p->chain)
 		{
-			if (p->value() != p->chain->value()) // sliding ratio
-			{
-				double newratio = (double)(*it) / ((unsigned int)(p->chain->tmark / 1000.*p->fs) - (unsigned int)(p->tmark / 1000.*p->fs));
-				p->SetValue(newratio);
-				p->chain->SetValue(newratio);
-				((CVar*)parg)->strut = copy.strut;
-				timestretch(id0, len);
-			}
-			p = p->chain;
+			double newratio;
+			den = p->chain->tmark - p->tmark;
+			num = *(it+1) - *it;
+			newratio = num / den;
+			p->SetValue(newratio);
 		}
+		pratio->tmark = -1.;
+		timestretch(id0, len);
+		parg = (void*)pratio;
+	}
 	// If not, there's really no clear way to make the target nSamples a clean and elegant way, just take whatever you have here and move on. 5/11/2019
 	return *this;
 }
@@ -94,6 +121,8 @@ static inline double cal_ingrid(double prev, int id1, int hop, double ratio)
 
 static inline double cal_harmonic_serise(int length, double r1, double r2)
 {
+	if (length == 1)
+		return 1. / r1 + 1. / r2;
 	double increment = (r2 - r1) / (length - 1);
 	if (increment == 0.)
 		return length / r1;
@@ -108,167 +137,225 @@ static inline double cal_harmonic_serise(int length, double r1, double r2)
 	return out;
 }
 
-static inline int spreader(int nSamples, int nBlocks, int tol, double ratio1, double ratio2, int synHop, int *ingrid, int *outgrid, int remainder)
+static inline vector<double> set_synHop_vector(int length, double r1, double r2)
 {
-	double lastOutPoint = outgrid[nBlocks-1]+remainder;
-	double hop = harmonicmean(ratio1, ratio2);
-	if (nBlocks > 2)
+	vector<double> out;
+	if (length == 1)
 	{
-//		double remainder = outgrid[nBlocks] - outgrid[nBlocks - 1];
-		if (synHop == (int)remainder)
-		{
-			for (int k = 0; k < nBlocks; k++)
-				outgrid[k] = (int)remainder * (k + 1);
-			double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
-			double increment = (ratio2 - ratio1) / (nBlocks - 2);
-			int cum = 19;
-			for (int k = 0; k < nBlocks; k++)
-			{
-				ratio += increment;
-				ingrid[k] = (int)(cum + synHop / ratio);
-				cum = ingrid[k];
-			}
-		}
-		else
-		{
-			int leftover = remainder - remainder / nBlocks * nBlocks;
-			hop = nSamples / cal_harmonic_serise(nBlocks, ratio1, ratio2);
-			int cum1 = 0;
-			double cum2 = (double)tol;
-			double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
-			double increment = (ratio2 - ratio1) / (nBlocks - 2);
-			for (int k = 0; k < nBlocks; k++)
-			{
-				cum1 += (int)round(hop); // must be round-up, and keep nBlocks the same and deduct if remainder is negative
-				ratio += increment;
-				double add2cum2 = hop / ratio;
-				cum2 += add2cum2;
-				if (leftover > 0)
-				{
-					if (k < leftover)
-						cum1++; 
-				}
-				else if (leftover < 0)
-				{
-					if (k - leftover >= nBlocks) 
-						cum1--; 
-				}
-				outgrid[k] = cum1;
-				ingrid[k] = (int)round(cum2);
-			}
-		}
+		out.push_back(1. / r1 + 1. / r2);
+		return out;
 	}
-	else 
-	{ // check this part.... 5/28/2019
-		double delta_ingrid = ingrid[nBlocks] - ingrid[0];
-		nBlocks++;
-		hop = delta_ingrid / cal_harmonic_serise(nBlocks - 1, ratio1, ratio2);
+	double increment = (r2 - r1) / (length - 1);
+	//if (increment == 0.)
+	//{
+	//	out.push_back(length / r1);
+	//	return out;
+	//}
+	double r = r1 - (r2 - r1) / (length - 1);
+	double last = 0;
+	int k = 0;
+	for (; k < length; k++)
+	{
+		r += increment;
+		last += 1. / r;
+		out.push_back(last);
+	}
+	return out;
+}
 
-		for (int k = 1; k < nBlocks; k++)
-			outgrid[k] = (int)(hop * k);
-		double ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 2);
-		double increment = (ratio2 - ratio1) / (nBlocks - 2);
-		for (int k = 1; k < nBlocks; k++)
+static double adjust_hop(int length, double ratio, int hop, int &leftover)
+{ // length: the length of the input array
+  // ratio: ratio (such as 1.5 or 2.; for the case of dynamic ratios, put the harmonic mean
+  // hop : [in] nominal hop (384 or 512)
+// returns adjusted hop
+	// new hop shall be (returned_hop)+1 for the first leftover, (returned_hop) for the rest (i.e., leftover+1 through L0
+	int L0 = (int)(round((length * ratio)) / hop);
+	int r0 = (int)(length * ratio) - L0 * hop;
+	//now adjusting hop
+	int a = r0 / L0;
+	leftover = r0 - a * L0;
+	hop += a;
+	return (double)hop;
+}
+
+static inline int spreader(int nSamples, int nBlocks, int tol, double ratio1, double ratio2, int synHop, int *ingrid, int *outgrid)
+{
+	double hmean = harmonicmean(ratio1, ratio2);
+	if (nBlocks <= 1)
+	{
+		ingrid[0] = nSamples + tol;
+		outgrid[0] = (int)( (ingrid[0] - ingrid[-1]) * hmean);
+		return 1;
+	}
+	int winLen = min((int)nSamples / 5, 512);
+	int leftover=0;
+	double hop, ratio, cum2 = 0., cum1 = (double)tol;
+	double increment=0.;
+	hop = nSamples / cal_harmonic_serise(nBlocks, ratio1, ratio2);
+	if (ratio1 != ratio2)
+	{
+		adjust_hop(nSamples, hmean, synHop, leftover); // hop computed earlier taken; output from adjust_hop is ignored
+		ratio = ratio1 - (ratio2 - ratio1) / (nBlocks - 1);
+		increment = (ratio2 - ratio1) / (nBlocks - 1);
+	}
+	else
+	{
+		ratio = ratio1;
+		increment = 0;
+		hop = adjust_hop(nSamples, ratio, synHop, leftover);
+	}
+	if (nBlocks == 1)
+		nBlocks++;
+	for (int k = 0; k < nBlocks; k++)
+	{
+		cum2 += hop; // must be round-up, and keep nBlocks the same and deduct if remainder is negative
+		ratio += increment;
+		double in_diff = hop / ratio;
+		cum1 += in_diff;
+		if (leftover > 0 && k < leftover)
 		{
-			ratio += increment;
-			ingrid[k] = ingrid[k - 1] + (int)(hop / ratio);
+			cum2++;
+			if (ratio1 == ratio2) cum1 += 1 / hmean;
 		}
+		else if (leftover > 0 && k - leftover >= nBlocks)
+		{
+			cum2--;
+			if (ratio1 == ratio2) cum1 -= 1 / hmean;
+		}
+		outgrid[k] = (int)cum2;
+		ingrid[k] = (int)round(cum1);
 	}
 	return nBlocks;
 }
 
-static inline int get_nLength(int id1, int id2, double ratio1, double ratio2, int synHop, int *ingrid, int *outgrid, int outgridoffset)
+static inline int set_time_grids(bool lengthadjust, int id1, int id2, double ratio1, double ratio2, int synHop, int *ingrid, int *outgrid, int outgridoffset)
 { // outgrid[0] is always 0
-	int k = 1;
+	if (lengthadjust) ratio2 = ratio1;
 	double lastInGrid = (double)id1;
 	int blocksizeIn = id2 - id1;
 	int cumOutTP = 0;
 	double harmean = harmonicmean(ratio1, ratio2);
-	int nBlocks = (int)round((id2-id1)*harmean/synHop);
-	double remainder;
-	remainder = (id2 - id1) - (int)(synHop * nBlocks / harmean);
+	int nBlocks = (int)((id2-id1)*harmean/synHop); // this should not be round to make consistent with L0 in adjust_hop()
 	double *_in = new double[nBlocks+50];
 	double *_out = new double[nBlocks+50];
 	_in[0] = (double)id1;
 	_out[0] = 0.;
-	bool loop = true;
-//	double ratio;
-	if (remainder >= synHop / 2.)
-		remainder = synHop - remainder;
-	// End of Think about this
-	if (nBlocks > 1)
-	{
-		nBlocks = spreader(id2-id1, nBlocks, id1, ratio1, ratio2, synHop,ingrid, outgrid, (int)remainder);
-//		for (int k = 0; k < nBlocks - 1; k++)
-//		{
-//			ingrid[k] = (int)(_in[k + 1] + .5);
-//			outgrid[k] = outgridoffset + (int)(_out[k + 1] + .5);
-//		}
-	}
-	else // nBlocks==1
-	{
-		ingrid[0] = (int)(_in[1] + .5);
-		outgrid[0] = outgridoffset + (int)(_out[1] + .5);
-	}
+	nBlocks = spreader(id2-id1, nBlocks, id1, ratio1, ratio2, synHop,ingrid, outgrid);
+	if (outgridoffset>0)
+		for (int k = 0; k < nBlocks; k++)
+			outgrid[k] += outgridoffset;
 	delete[] _in;
 	delete[] _out;
 	return nBlocks;
 }
 
-static inline void stretch(double *pout, double *overlapWind, unsigned int nSamples, double *buf, const CSignal &input2, 
-	int synHop, size_t blockBegin, size_t blockEnd, int *ingr, int *outgr, double *wind,
-	int winLen, int &targetSize, int &lastOutIndex, int &del, size_t gridsize)
+static inline void stretch(bool nostretch, unsigned int nSamples, double *pout, double *overlapWind, const CSignal &input2,
+	int winLen, int synHop, size_t blockBegin, size_t blockEnd, int *ingr, int *outgr,
+	int &targetSize, int &nextOutIndex, int &del, size_t gridsize)
 {
+	winLen = 2 * (outgr[blockBegin+1] - outgr[blockBegin]);
+	double *wind = new double[winLen];
+	for (int k = 0; k < winLen; k++)
+		wind[k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
+
 // timestretch_log.py #0
 	const int winLenHalf = (int)(winLen / 2. + .5);
 	int tolerance = ingr[0];
-	int lastInPoint = nSamples + winLenHalf + tolerance;
+	int lastInPoint = ingr[blockEnd] + synHop;
 // timestretch_log.py #1
-	int xid0;
+	int xid0, yid0;
 // timestretch_log.py #2
 	int nOverlap2 = 0;
-	lastOutIndex = 0;
-	for (size_t m = blockBegin; m < blockEnd; m++)
+	nextOutIndex = 0;
+	int len1 = winLen + 2 * tolerance;
+	int maxid = -1;
+	if (nostretch)
 	{
-		xid0 = ingr[m] + del;
-		int yid0 = outgr[m];
-		int k = 0;
-		for (; k < winLen; k++)
+		int _synHop = outgr[1] - outgr[0];
+		int winLenHalf = winLen / 2;
+		for (size_t m = blockBegin; m < blockEnd-1; m++)
 		{
-			int xid = xid0 + k;
-			int yid = (int)yid0 + k;
-			pout[yid] += input2.buf[xid] * wind[k];
-			overlapWind[yid] += wind[k];
-			if (xid0 + k == lastInPoint - 1)
+			xid0 = ingr[m] + del;
+			yid0 = outgr[m];
+			int xid, yid, k = 0;
+			for (; k < winLen; k++)
 			{
-				nOverlap2++;
-				break;
+				xid = xid0 + k;
+				yid = yid0 + k;
+				pout[yid] += input2.buf[xid] * wind[(k + winLenHalf) % winLen];
+				overlapWind[yid] += wind[ (k + winLenHalf) % winLen];
+				pout[yid] += input2.buf[xid] * wind[k % winLen];
+				overlapWind[yid] += wind[k % winLen];
+			}
+			nextOutIndex = yid0 + k;
+			if (m == blockEnd - 2)
+			{
+				for (; k < winLen + winLenHalf; k++)
+				{
+					xid = xid0 + k;
+					yid = yid0 + k;
+					pout[yid] += input2.buf[xid] * wind[(k + winLenHalf) % winLen];
+					overlapWind[yid] += wind[(k + winLenHalf) % winLen];
+				}
+				int _synHop = outgr[m + 1] - outgr[m];
+				// This is crosscorrelation between the next input block including tolerance regions before & after
+				// and "natural progression of the last copied input segment (from Jonathan Driedger)"
+				int corrIDX1 = ingr[m + 1] - tolerance;
+				int corrIDX2 = ingr[m] + _synHop + del;
+				maxid = maxcc(&input2.buf[corrIDX1], len1, &input2.buf[corrIDX2], winLen, maxid);
+				del = tolerance - maxid + 1;
 			}
 		}
-		lastOutIndex = max(lastOutIndex, (int)yid0 + k);
-		if (m < gridsize - 1)
+	}
+	else
+	{
+		for (size_t m = blockBegin; ; m++)
 		{
-			double ratio0 = (double)(outgr[m + 1] - outgr[m]) / (ingr[m + 1] - ingr[m]);
-			double div = 10 + (ratio0 - 1) * 10;
-			int _synHop = synHop;
-			double tol = (double)_synHop / div;
-			tolerance = (int)(tol + .5);
-			// This is crosscorrelation between the next input block including tolerance regions before & after
-			// and "natural progression of the last copied input segment (from Jonathan Driedger)"
-			int corrIDX1 = ingr[m + 1] - tolerance;
-			int corrIDX2 = ingr[m] + _synHop + del;
-			int len1 = winLen + 2 * tolerance;
+			xid0 = ingr[m] + del;
+			yid0 = outgr[m];
+			int xid, yid, k = 0;
+			for (; k < winLen; k++)
+			{
+				xid = xid0 + k;
+				yid = yid0 + k;
+				pout[yid] += input2.buf[xid] * wind[k];
+				overlapWind[yid] += wind[k];
+				if (blockEnd == gridsize && xid0 + k == lastInPoint - 1)
+				{
+					nOverlap2++;
+					break;
+				}
+			}
+			nextOutIndex = yid0 + k;
+			//		if (m >= blockEnd-1) break;
+			if (m == blockEnd)
+				break;
+			if (1) //(m < gridsize - 1)
+			{
+				int _synHop = outgr[m + 1] - outgr[m];
+				// This is crosscorrelation between the next input block including tolerance regions before & after
+				// and "natural progression of the last copied input segment (from Jonathan Driedger)"
+				int corrIDX1 = ingr[m + 1] - tolerance;
+				int corrIDX2 = ingr[m] + _synHop + del;
 // timestretch_log.py #3
-			int maxid = maxcc(&input2.buf[corrIDX1], len1, &input2.buf[corrIDX2], winLen);
+				maxid = maxcc(&input2.buf[corrIDX1], len1, &input2.buf[corrIDX2], winLen, maxid);
 // timestretch_log.py #4
-			del = tolerance - maxid + 1;
+				del = tolerance - maxid + 1;
+				if (m == gridsize - 1)
+				{
+					if (del > 0 || outgr[m + 1] > nextOutIndex)
+						break;
+				}
 // timestretch_log.py #5
-		}
+			}
 // timestretch_log.py #6
+		}
 	}
 // timestretch_log.py #7
-	int lastOutPoint = lastInPoint + outgr[blockEnd] - ingr[blockEnd]  - del; // This is the target
-	targetSize = lastOutPoint - winLenHalf + del - outgr[blockBegin];
+	targetSize = lastInPoint + outgr[blockEnd] - ingr[blockEnd] - synHop - outgr[blockBegin];
+	if (blockEnd== gridsize && nextOutIndex < targetSize + outgr[blockBegin])
+		nextOutIndex = targetSize + outgr[blockBegin] - 1;
+	delete[] wind;
 }
 
 CSignalExt& CSignalExt::operator=(CSignal& rhs)
@@ -285,7 +372,8 @@ CSignal& CSignalExt::timestretch(unsigned int id0, unsigned int len)
 	if (len == 0) len = nSamples;
 	CVar *pratio = (CVar *)parg;
 	std::map<std::string, CVar> opt;
-	int winLen = (int)(692.93 + fs / 34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
+//	int winLen = (int)(692.93 + fs / 34100.*256.); // window size. 1024 for fs=48000, 618 for fs=10000
+	int winLen = min((int)len/5, 512);
 	if (!pratio->strut.empty())
 	{
 		auto finder = pratio->strut.find("windowsize");
@@ -303,14 +391,39 @@ CSignal& CSignalExt::timestretch(unsigned int id0, unsigned int len)
 	}
 	//pratio is either a constant or time sequence of scalars (not relative time)
 	int synHop = winLen / 2;
-	int tolerance = synHop / 20;
+//	int tolerance = 1024;
+	int tolerance = synHop;
 	//pratio must be either real constant or T_SEQ then value at each time point is the ratio for that segment
 	map<int, double> anchor;
 	vector<int> vanchor;
-	for (CTimeSeries *p = pratio; p; p = p->chain)
+	bool lengthadjust = false;
+	bool returnTmarks = false;
+	//Prepare--if time grid in tmarks for the task are too narrow, give them a rasonable margin.
+	if (pratio->GetType() == CSIG_TSERIES)
 	{
-		vanchor.push_back((int)ceil(p->tmark * fs / 1000) + tolerance);
-		anchor[vanchor.back()] = p->value();
+		//temporary hack---used only in pitchscale()
+		//treating as if CSIG_TSERIES with constant ratio in each interval
+		if (pratio->tmark < 0)
+			lengthadjust = true, pratio->tmark = 0.;
+
+		for (CTimeSeries *p = pratio; p; p = p->chain)
+		{
+			if (p->tmark < 0) // from pitchscale
+			{
+				vanchor.push_back(vanchor.back() + synHop);
+				returnTmarks = true;
+			}
+			else
+				vanchor.push_back((int)ceil(p->tmark * fs / 1000) + tolerance);
+			anchor[vanchor.back()] = p->value();
+		}
+	}
+	else
+	{
+		vanchor.push_back(tolerance);
+		anchor[vanchor.back()] = pratio->value();
+		vanchor.push_back(nSamples + tolerance);
+		anchor[vanchor.back()] = pratio->value();
 	}
 	int outputLength;
 	CTimeSeries *p;
@@ -338,7 +451,7 @@ CSignal& CSignalExt::timestretch(unsigned int id0, unsigned int len)
 	vector<size_t> chainIDX(1,0);
 	if (pratio->GetType() != CSIG_TSERIES)
 	{
-		nBlocks = get_nLength(tolerance, nSamples + tolerance, pratio->value(), pratio->value(), synHop, ingrid+1, outgrid+1, 0);
+		nBlocks = set_time_grids(lengthadjust, tolerance, nSamples + tolerance, pratio->value(), pratio->value(), synHop, ingrid+1, outgrid+1, 0);
 		chainIDX.push_back(nBlocks);
 	}
 	else
@@ -347,46 +460,47 @@ CSignal& CSignalExt::timestretch(unsigned int id0, unsigned int len)
 		int last_outgridID = 0;
 		for (auto it = vanchor.begin(); it != vanchor.end()-1; it++)
 		{
-			nBlocks = get_nLength(*it, *(it+1), anchor[*it], anchor[*(it + 1)], synHop, 
+			nBlocks = set_time_grids(lengthadjust, *it, *(it+1), anchor[*it], anchor[*(it + 1)], synHop,
 				ingrid+ last_outgridID +1, outgrid+ last_outgridID +1, outgrid[last_outgridID]);
-			last_outgridID += (nBlocks-1);
+			last_outgridID += nBlocks;
 			chainIDX.push_back(last_outgridID);
 		}
 	}
-	double *wind = new double[winLen];
-	for (int k = 0; k < winLen; k++)
-		wind[id0 + k] = .5 * (1 - cos(2.0*PI*k / (winLen - 1.0))); //hanning
 	CSignal out;
 	out.pf_basic2 = pf_basic2;
 	out.tmark = tmark;
-	int ddd = outgrid[chainIDX.back()];
-	ddd += synHop + 3 * tolerance;
 	out.UpdateBuffer(outgrid[chainIDX.back()]+ synHop + 3 * winLen);
 	int filledID = 0;
 	int cumProcessed = 0, del = 0;
-	const int nOutReserve = outgrid[chainIDX.back() - 1] + winLen;
+	const int nOutReserve = outgrid[chainIDX.back() - 1] + 2*winLen;
 	double *pout = new double[nOutReserve];
 	double *overlapWind = new double[nOutReserve];
 	memset(pout, 0, sizeof(double) * nOutReserve);
 	memset(overlapWind, 0, sizeof(double) * nOutReserve);
-	int additionals = synHop + 2 * tolerance + (int)ceil((double)(ingrid[1] - tolerance) / synHop)*winLen;
-	CSignal temp(fs, nSamples + additionals);
-	memcpy(temp.buf + synHop + tolerance, buf, sizeof(double)*nSamples);
+	CSignal input(fs, synHop + tolerance); // making the input with zero padding1
+	input += this; // input copied to the new buffer 
+	CSignal secondzeropadds(fs, 2 * tolerance);
+	input += &secondzeropadds; // zero padding2
 	int targetSize=0, lastOutIndex=0;
+	p = pratio;
 	CTimeSeries *pchain = pratio->chain;
 	for (auto it = chainIDX.begin()+1; it != chainIDX.end(); it++)
 	{
 		int target;
-		stretch(pout, overlapWind, ingrid[*it]-ingrid[0], 
-			buf, temp, synHop, *(it - 1), *it, ingrid, outgrid,
-			wind, winLen, target, lastOutIndex, del, chainIDX.back());
+		bool nostretch = p->value() == 1. && pchain->value() == 1;
+		stretch(nostretch, ingrid[*it] - ingrid[0], pout, overlapWind,
+			input, winLen, synHop, *(it - 1), *it, ingrid, outgrid,
+			target, lastOutIndex, del, chainIDX.back());
 		targetSize += target;
 		if (pchain) pchain->tmark = targetSize * 1000. / fs;
 		// remove zeropading at the beginning and ending. Begin at winLenHalf and take outputLength elements
 		// memcpy is done to make the target size from the end of the actual end; i.e., lastOutIndex
 		cumProcessed += ingrid[*it] - ingrid[*(it - 1)];
 		filledID += target;
-		if (pchain) pchain = pchain->chain;
+		p = pchain;
+		if (pchain) {
+			pchain = pchain->chain;
+		}
 	}
 	for (int p = 0; p < targetSize; p++)
 	{
@@ -399,11 +513,21 @@ CSignal& CSignalExt::timestretch(unsigned int id0, unsigned int len)
 	out.SetFs(fs);
 	out.nSamples = filledID;
 	*this = out;
-	delete[] wind;
 	delete[] ingrid;
 	delete[] outgrid;
 	delete[] overlapWind;
 	delete[] pout;
+	if (returnTmarks)
+	{
+		CVar tmarks(1);
+		tmarks.UpdateBuffer((unsigned int)vanchor.size());
+		int jj = 0;
+		for (auto it = vanchor.begin(); it != vanchor.end(); it++)
+		{
+			tmarks.buf[jj++] = (*it - vanchor.front())*1000. / fs;
+		}
+		pratio->strut["tmarks"] = tmarks;
+	}
 	return *this;
 }
 
@@ -417,8 +541,10 @@ CSignal& CSignalExt::resample(unsigned int id0, unsigned int len)
 	CSignals *pratio = (CSignals *)parg;
 	char errstr[256] = {};
 	SRC_DATA conv;
-	float *data_out, *data_in = new float[nSamples];
-	int errcode;
+	float *data_in = new float[nSamples];
+	int lastSize = 1, lastPt = 0;
+	float *data_out = new float[lastSize];
+	int errcode, cum = 0;
 	SRC_STATE* handle = src_new(SRC_SINC_MEDIUM_QUALITY, 1, &errcode);
 	for (unsigned int k = 0; k < nSamples; k++) data_in[k] = (float)buf[k];
 	conv.data_in = data_in;
@@ -454,15 +580,16 @@ CSignal& CSignalExt::resample(unsigned int id0, unsigned int len)
 		//3/20/2019
 		vector<double> outbuffer;
 		//inspect pratio to estimate the output length
-		int cum = 0, cumID = 0;
+		int icum = 0, cumID = 0;
 		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
-			cum += (int)((p->chain->tmark - p->tmark) * fs / 1000 * p->value());
-		outbuffer.reserve(cum);
+			icum += (int)((p->chain->tmark - p->tmark) * fs / 1000 * p->value());
+		outbuffer.reserve(icum);
 		int lastSize = 1, lastPt = 0;
 		data_out = new float[lastSize];
 		long inputSamplesLeft = (long)nSamples;
 		int orgSampleCounts = 0;
 		//assume that pratio time sequence is well prepared--
+		deque<double> store;
 		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
 		{
 			conv.end_of_input = 0;
@@ -527,7 +654,14 @@ CSignal& CSignalExt::resample(unsigned int id0, unsigned int len)
 				lastPt += conv.input_frames_used;
 			}
 			src_reset(handle);
-			p->chain->tmark = p->tmark + 1000. / fs * outBuffersize;
+			store.push_back(1000. / fs * outBuffersize);
+		}
+		double cum = 0;
+		for (CTimeSeries *p = pratio; p && p->chain; p = p->chain)
+		{
+			cum += store.front();
+			p->chain->tmark = cum;
+			store.pop_front();
 		}
 		UpdateBuffer((unsigned int)outbuffer.size());
 		memcpy(buf, &outbuffer[0], sizeof(double)*outbuffer.size());
@@ -563,7 +697,7 @@ CTimeSeriesExt& CTimeSeriesExt::basic(CSignal& (CSignalExt::*pf_exe2)(unsigned i
 		for (CTimeSeriesExt *p = chain; p; p = p->chain)
 		{
 			p->parg = popt;
-			(p->*(this->pf_basic2))(0, p->nSamples);
+			(p->*(this->pf_exe2))(0, p->nSamples);
 		}
 	}
 	return *this;
@@ -571,11 +705,11 @@ CTimeSeriesExt& CTimeSeriesExt::basic(CSignal& (CSignalExt::*pf_exe2)(unsigned i
 
 CSignalsExt& CSignalsExt::basic(CSignal& (CSignalExt::*pf_exe2)(unsigned int, unsigned int), void *popt)
 {
-	CTimeSeriesExt::basic(pf_basic2, popt);
+	CTimeSeriesExt::basic(pf_exe2, popt);
 	if (next != NULL)
 	{
-		next->pf_basic2 = pf_basic2;
-		next->basic(pf_basic2, popt);
+		next->pf_exe2 = pf_exe2;
+		next->basic(pf_exe2, popt);
 	}
 	parg = nullptr;
 	return *this;
@@ -583,11 +717,51 @@ CSignalsExt& CSignalsExt::basic(CSignal& (CSignalExt::*pf_exe2)(unsigned int, un
 
 CVar &CSignalsExt::make_CVar()
 {
-	if (nSamples>0)
-		ref.body::operator=(*this);
 	ref.body::operator=(*this);
 	ref.CSignal::operator=(*this);
-	ref.chain = (CTimeSeries*)chain;
-	ref.next = (CTimeSeries*)next;
+	CTimeSeries *pchain = (CTimeSeries*)chain;
+	while (pchain)
+	{
+		ref.AddChain(*pchain);
+		pchain = pchain->chain;
+	}
+	CTimeSeries *pnext = (CTimeSeries*)next;
+	if (next)
+	{
+		pchain = (CTimeSeries*)next->chain;
+		while (pchain)
+		{
+			pnext->AddChain(*pchain);
+			pchain = pchain->chain;
+		}
+		pnext->chain = NULL;
+		ref.SetNextChan(pnext);
+	}
 	return ref;
+}
+//
+//CTimeSeries& CTimeSeriesExt::make_CTimeSeries(const CTimeSeriesExt& rhs)
+//{
+//	CSignalExt::operator=(rhs);
+//	CTimeSeries *p = (CTimeSeries*)rhs.chain;
+//	while (p)
+//	{
+//		ref.AddChain(*p);
+//		p = p->chain;
+//	}
+//	return *output;
+//}
+
+CSignal& CSignalExt::operator=(const CSignalExt& rhs)
+{
+	if (this != &rhs)
+	{
+		fs = rhs.fs;
+		tmark = rhs.tmark;
+		UpdateBuffer(rhs.nSamples);
+		nGroups = rhs.nGroups;
+		bufBlockSize = rhs.bufBlockSize;
+		memcpy(logbuf, rhs.logbuf, rhs.nSamples *bufBlockSize);
+	}
+	return *this;
 }

@@ -109,6 +109,12 @@
     <Lib>
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
+    <PreBuildEvent>
+      <Command>copy_header.bat audstr .\bjcommon\</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy_header.bat psycon.yacc .\sigproc\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -129,6 +135,12 @@
       <TargetMachine>MachineX64</TargetMachine>
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
+    <PreBuildEvent>
+      <Command>copy_header.bat audstr .\bjcommon\</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy_header.bat psycon.yacc .\sigproc\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -152,6 +164,12 @@
     <Lib>
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
+    <PreBuildEvent>
+      <Command>copy_header.bat audstr .\bjcommon\</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy_header.bat psycon.yacc .\sigproc\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -176,6 +194,12 @@
       <TargetMachine>MachineX64</TargetMachine>
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
+    <PreBuildEvent>
+      <Command>copy_header.bat audstr .\bjcommon\</Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy_header.bat psycon.yacc .\sigproc\</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="$(SrcPath)audstr.cpp" />

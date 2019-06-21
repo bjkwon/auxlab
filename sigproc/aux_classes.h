@@ -417,7 +417,7 @@ public:
 	vector<CSignals*> showallchildren();
 	vector<CSignals> outarg2;
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_WINDLL)
 
 #ifndef NO_SF
 	CSignals(const char* wavname);

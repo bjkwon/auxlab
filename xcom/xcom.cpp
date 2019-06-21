@@ -1731,7 +1731,7 @@ LRESULT CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
-	char buf[256];
+	char buf[256], auxextdllname[256];
 	int res;
 	string addp, emsg;
 	vector<string> tar;
@@ -1763,10 +1763,14 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	sprintf(mainSpace.AppPath, "%s%s", drive, dir);
 	sprintf(moduleName, "%s%s", fname, ext);
 	getVersionString(fullmoduleName, mainSpace.AppVersion, sizeof(mainSpace.AppVersion));
+	strcpy(auxextdllname, mainSpace.AppPath);
+	strcat(auxextdllname, AUX_EXT_NAME);
 #ifndef WIN64
 	sprintf(buf, "AUXLAB %s [AUdio syntaX Console]", mainSpace.AppVersion);
+	strcat(auxextdllname, "32");
 #else
 	sprintf(buf, "AUXLAB %s (x64) [AUdio syntaX Console]", mainSpace.AppVersion);
+	strcat(auxextdllname, "64");
 #endif
 	SetConsoleTitle(buf);
 
@@ -1780,6 +1784,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	CAstSigEnv::AppPath = string(mainSpace.AppPath);
 	pglobalEnv->InitBuiltInFunctions();
+	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
 	CAstSig cast(pglobalEnv);
 	if (block > 0) cast.audio_block_ms = block;
 

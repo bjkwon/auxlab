@@ -116,7 +116,10 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_headers.bat bjcommon_win bjcommon graffy wavplay</Command>
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat psycon.yacc .\sigproc\
+	  call copy_header.bat audstr .\bjcommon\
+	  call copy_header.bat aux_classes .\sigproc\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -141,8 +144,11 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_headers.bat bjcommon_win bjcommon graffy wavplay</Command>
-    </PreBuildEvent>
+       <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat psycon.yacc .\sigproc\
+	  call copy_header.bat audstr .\bjcommon\
+	  call copy_header.bat aux_classes .\sigproc\</Command>
+   </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -165,7 +171,10 @@
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
     </Link>
     <PreBuildEvent>
-      <Command>copy_headers.bat bjcommon_win bjcommon graffy wavplay</Command>
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat psycon.yacc .\sigproc\
+	  call copy_header.bat audstr .\bjcommon\
+	  call copy_header.bat aux_classes .\sigproc\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -194,7 +203,10 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_headers.bat bjcommon_win bjcommon graffy wavplay</Command>
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat psycon.yacc .\sigproc\
+	  call copy_header.bat audstr .\bjcommon\
+	  call copy_header.bat aux_classes .\sigproc\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -209,6 +221,7 @@
     <ClCompile Include="$(SrcPath)Built_in_Funcs.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(SrcPath)aux_classes.h" />
     <ClInclude Include="$(SrcPath)psycon.tab.h" />
     <ClInclude Include="$(SrcPath)psycon.yacc.h" />
     <ClInclude Include="$(SrcPath)resource.h" />

@@ -28,8 +28,6 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="auxp\tscale.aux" />
-    <None Include="auxp\fscale.aux" />
     <None Include="auxp\f3_channel_stereo_mono.aux" />
   </ItemGroup>
 </Project>
