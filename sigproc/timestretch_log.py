@@ -4,7 +4,7 @@
 # Two things to remember 
 # 1) provide // timestretch_log.py #_ to the lines to insert the fprintf lines to in csignals.cpp
 # 2) provide the lines for fprintf (and more lines such as fopen, fclose and lines with braces as needed) for each // timestretch_log.py #_ line provided, for the newlines variable below, one for each line
-# BJ Kwon 5/20/2019
+# BJ Kwon 6/17/2019
 import pdb; # call pdb.set_trace() later 
 import os
 from shutil import copyfile
@@ -23,7 +23,7 @@ def addfprintf(fname1):
 	'fprintf(fp, \"%4d%7d%7d\\n\", del, ingr[m+1]-ingr[m], outgr[m+1]-outgr[m]);\n',\
 	'else\n\tfprintf(fp, \"%3d:%8d%8d%10s[%6d:%6d]->[%6d:%6d]\\n\", m, ingr[m], outgr[m], "", xid0, xid0 + winLen, yid0, yid0 + winLen);\n',\
 	'\tfclose(fp);\n',\
-	'\tFILE*fp = fopen(\"c:\\\\temp\\\\timestretch_log1.txt\", \"at\");\n\tfprintf(fp, \"outbuffer from %d to %d copied as the result, size=%d\\n\", lastOutIndex - targetSize + 1, lastOutIndex, targetSize);\nfclose(fp);\n']
+	'\tFILE*fp = fopen(\"c:\\\\temp\\\\timestretch_log.txt\", \"at\");\n\tfprintf(fp, \"outbuffer from %d to %d copied as the result, size=%d\\n\", lastOutIndex - targetSize + 1, lastOutIndex, targetSize);\nfclose(fp);\n']
 	# if // timestretch_log.py #0 BEGIN is found, the file is flagged as logging (normal2log set False)
 	# else if // timestretch_log.py #0 is found, the file is flagged as normal (normal2log set True)
 	# else nothing happens.
