@@ -116,10 +116,10 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
-	  call copy_header.bat psycon.yacc .\sigproc\
-	  call copy_header.bat audstr .\bjcommon\
-	  call copy_header.bat aux_classes .\sigproc\</Command>
+      <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
+	  call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\
+	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -145,9 +145,9 @@
     </Lib>
     <PreBuildEvent>
        <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
-	  call copy_header.bat psycon.yacc .\sigproc\
-	  call copy_header.bat audstr .\bjcommon\
-	  call copy_header.bat aux_classes .\sigproc\</Command>
+	  call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
+	  call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\
+	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -172,9 +172,9 @@
     </Link>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
-	  call copy_header.bat psycon.yacc .\sigproc\
-	  call copy_header.bat audstr .\bjcommon\
-	  call copy_header.bat aux_classes .\sigproc\</Command>
+	  call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
+	  call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\
+	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -204,9 +204,9 @@
     </Lib>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
-	  call copy_header.bat psycon.yacc .\sigproc\
-	  call copy_header.bat audstr .\bjcommon\
-	  call copy_header.bat aux_classes .\sigproc\</Command>
+	  call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
+	  call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\
+	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

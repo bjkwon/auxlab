@@ -101,9 +101,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>call copy_headers.bat sigproc
-		call copy_header.bat aux_classes .\sigproc\
-		call copy_header.bat psycon.yacc .\sigproc\
+      <Command>
+		SET D = $(AuxlabRepoDir)
+		call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\
 	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -125,8 +125,8 @@
     </Lib>
     <PreBuildEvent>
       <Command>call copy_headers.bat sigproc
-		call copy_header.bat aux_classes .\sigproc\
-		call copy_header.bat psycon.yacc .\sigproc\
+		call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\
+		call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
 	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -148,8 +148,8 @@
     </Link>
     <PreBuildEvent>
       <Command>call copy_headers.bat sigproc
-		call copy_header.bat aux_classes .\sigproc\
-		call copy_header.bat psycon.yacc .\sigproc\
+		call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\
+		call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
 	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -175,8 +175,8 @@
     </Lib>
     <PreBuildEvent>
       <Command>call copy_headers.bat sigproc
-		call copy_header.bat aux_classes .\sigproc\
-		call copy_header.bat psycon.yacc .\sigproc\
+		call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\
+		call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
 	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>

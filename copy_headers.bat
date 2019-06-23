@@ -1,1 +1,8 @@
-for %%x in (%*) do if not exist .\INCLUDE\%%x.h copy .\%%x\%%x.h .\INCLUDE\
+IF EXIST auxlab.sln (
+	SET AUXLABREPODIR=".\"
+) ELSE (
+	SET AUXLABREPODIR="..\AUXLAB\"
+)
+for %%x in (%*) do if not exist %AUXLABREPODIR%INCLUDE\%%x.h (
+copy %AUXLABREPODIR%%%x\%%x.h %AUXLABREPODIR%INCLUDE\
+)

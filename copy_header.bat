@@ -1,1 +1,9 @@
-if not exist .\INCLUDE\%1.h copy %2%1.h .\INCLUDE\%1.h
+IF EXIST auxlab.sln (
+	SET AUXLABREPODIR=".\"
+) ELSE (
+	SET AUXLABREPODIR="..\AUXLAB\"
+)
+if not exist %AUXLABREPODIR%INCLUDE\%1.h (
+COPY %2%1.h %AUXLABREPODIR%INCLUDE\
+)
+
