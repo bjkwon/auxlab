@@ -408,7 +408,7 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 		for (; ;)
 		{
 			double dtp;
-			if (chunkID0 == idLast - 1)
+			if (chunkID0 >= idLast - 1)
 				break;
 			if (chunkID1 > (int)p->nSamples) chunkID1 = (int)p->nSamples;
 			if (chunkID1 - chunkID0 <= 1)
