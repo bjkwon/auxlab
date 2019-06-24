@@ -37,25 +37,33 @@ void _double_to_short(double* dint, short* pshort, int len)
 	for (int i = 0; i < len; i++)
 		pshort[i] = (short)(_double_to_24bit(dint[i]) >> 8);
 }
-short * makebuffer(CSignals sig, int &nChan)
+short * makebuffer(const CSignals &sig, int &nChan, int &length)
 {	//For now this is only 16-bit playback (Sep 2008)
 	short *Buffer2Play;
-	sig.MakeChainless();
-	if (sig.next)
+	CSignals *psig;
+	if (sig.chain)
 	{
-		double *buf2 = sig.next->buf;
-		Buffer2Play = new short[sig.nSamples * 2];
-		for (unsigned int i = 0; i < sig.nSamples; ++i) 
+		psig = new CSignals(sig);
+		psig->MakeChainless();
+	}
+	else
+		psig = (CSignals*)&sig;
+	length = psig->nSamples;
+	if (psig->next)
+	{
+		double *buf2 = psig->next->buf;
+		Buffer2Play = new short[psig->nSamples * 2];
+		for (unsigned int i = 0; i < psig->nSamples; ++i) 
 		{
-			Buffer2Play[i * 2] = (short)(_double_to_24bit(sig.buf[i]) >> 8);
+			Buffer2Play[i * 2] = (short)(_double_to_24bit(psig->buf[i]) >> 8);
 			Buffer2Play[i * 2 + 1] = (short)(_double_to_24bit(buf2[i]) >> 8);
 		}
 		nChan = 2;
 	}
 	else
 	{
-		Buffer2Play = new short[sig.nSamples];
-		_double_to_short(sig.buf, Buffer2Play, sig.nSamples);
+		Buffer2Play = new short[psig->nSamples];
+		_double_to_short(psig->buf, Buffer2Play, psig->nSamples);
 		nChan = 1;
 	}
 	return Buffer2Play;
@@ -76,15 +84,17 @@ INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND 
 {// Re-do error treatment 6/1/2016 bjk
 	errstr[0] = 0;
 	int nChan, ecode(MMSYSERR_NOERROR);
-	short *Buffer2Play = makebuffer(sig, nChan);
-	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, sig.nSamples, nChan, sig.GetFs(), userDefinedMsgID, hApplWnd, nProgReport, loop, errstr);
+	int length;
+	short *Buffer2Play = makebuffer(sig, nChan, length);
+	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(), userDefinedMsgID, hApplWnd, nProgReport, loop, errstr);
 }
 
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop)
 {
 	errstr[0] = 0;
+	int length;
 	int nChan, ecode(MMSYSERR_NOERROR);
-	short *Buffer2Play = makebuffer(sig, nChan);
+	short *Buffer2Play = makebuffer(sig, nChan, length);
 	return QueuePlay(pWP, DevID, Buffer2Play, sig.nSamples, nChan, userDefinedMsgID, nProgReport, errstr, loop);
 }
 
