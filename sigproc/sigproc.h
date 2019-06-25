@@ -407,7 +407,7 @@ public:
 	CVar &eval_indexing(const AstNode *pInd, CVar &indSig);
 	CVar &TID_indexing(AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
-	CVar &extract(const AstNode *pnode, body &isig);
+	CVar &extract(const AstNode *pnode, CTimeSeries &isig);
 	CVar &TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
 	CVar &TimeExtract(const AstNode *pnode, AstNode *p);
 };

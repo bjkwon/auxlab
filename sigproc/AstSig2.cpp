@@ -355,7 +355,7 @@ CVar &CDeepProc::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	return pbase->Sig;
 }
 
-CVar &CDeepProc::extract(const AstNode *pnode, body &isig)
+CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 {
 	//pinout comes with input and makes the output
 	//At the end, Sig is updated with pinout
@@ -363,7 +363,7 @@ CVar &CDeepProc::extract(const AstNode *pnode, body &isig)
 	//Instead of throw an exception, errstr is copy'ed. Return value should be ignored.
 	// For success, errstr stays empty.
 	CSignals out((level.psigBase)->GetFs());
-	CSignals *p = &out;
+	CTimeSeries *p = &out;
 	ostringstream outstream;
 	out.UpdateBuffer(isig.nSamples);
 	//CSignal::Min() makes a vector
@@ -422,11 +422,58 @@ CVar &CDeepProc::extract(const AstNode *pnode, body &isig)
 			}
 		}
 		out.SetReal();
-		if (pbase->Sig.GetType() == CSIG_VECTOR || pbase->Sig.GetType() == CSIG_AUDIO)
+		if (pbase->Sig.GetType() == CSIG_VECTOR)
 		{
 			int id(0);
 			for (unsigned int k = 0; k < isig.nSamples; k++)
 				out.buf[id++] = (level.psigBase)->buf[(int)isig.buf[k] - 1];
+		}
+		else if (pbase->Sig.GetType() == CSIG_AUDIO)
+		{
+			CTimeSeries *_pisig = &isig;
+			while (_pisig)
+			{
+				int cum(0), id(0), lastid = -2;
+				vector<int> size2reserve;
+				for (unsigned int k = 0; k < _pisig->nSamples; k++)
+				{
+					id = (int)_pisig->buf[k];
+					if (id - lastid > 1)
+					{
+						if (lastid > 0) size2reserve.push_back(lastid);
+						size2reserve.push_back(id);
+					}
+					lastid = id;
+				}
+				size2reserve.push_back((int)_pisig->buf[_pisig->nSamples - 1]);
+				auto it = size2reserve.begin();
+				p->UpdateBuffer(*(it + 1) - *it + 1);
+				p->tmark = _pisig->tmark;
+				it++; it++;
+				lastid = (int)_pisig->buf[0] - 1;
+				for (unsigned int i = 0; i < _pisig->nSamples; i++)
+				{
+					id = (int)_pisig->buf[i] - 1;
+					if (id - lastid > 1)
+					{
+						cum = 0;
+						CSignals *pchain = new CSignals(pbase->Sig.GetFs());
+						pchain->UpdateBuffer(*(it + 1) - *it + 1);
+						pchain->tmark = (double)id / pbase->Sig.GetFs() * 1000.;
+						p->chain = pchain;
+						p = pchain;
+						it++; it++;
+					}
+					p->buf[cum++] = (level.psigBase)->buf[id];
+					lastid = id;
+				}
+				_pisig = _pisig->chain;
+				if (_pisig)
+				{
+					p->chain = new CTimeSeries;
+					p = p->chain;
+				}
+			}
 		}
 	}
 	out.nGroups = isig.nGroups;
@@ -494,29 +541,46 @@ CVar &CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 	CVar rhs = pbase->Compute(pRHS);
 	if (rhs.IsScalar())
 	{
-		for (unsigned k = 0; k < isig.nSamples; k++)
-			level.psigBase->buf[(int)isig.buf[k] - 1] = rhs.value();
+		//go through chains 6/24/2019
+		CTimeSeries *p = level.psigBase;
+		CTimeSeries *pisig = &isig;
+		while (p)
+		{
+			for (unsigned k = 0; k < pisig->nSamples; k++)
+				p->buf[(int)pisig->buf[k] - 1] = rhs.value();
+			p = p->chain;
+			pisig = pisig->chain;
+		}
 	}
 	else if (pbase->searchtree(pRHS, T_REPLICA))
 	{
-		if (level.psigBase->IsTimeSignal()) // Check this part 9/4/2018
+		//go through chains 6/24/2019
+		CTimeSeries *p = level.psigBase;
+		CTimeSeries *pisig = &isig;
+		while (p)
 		{
-			// consolidate chained rhs with lhs
-			for (CTimeSeries *cts = &rhs; cts; cts = cts->chain)
+			if (p->IsTimeSignal()) // Check this part 9/4/2018
 			{
-				// id translated from tmark for each chain
-				id = (unsigned int)(cts->tmark / 1000. * cts->GetFs());
-				memcpy(level.psigBase->buf + id, cts->buf, cts->nSamples * sizeof(double));
+				// consolidate chained rhs with lhs
+				for (CTimeSeries *cts = &rhs; cts; cts = cts->chain)
+				{
+					// id translated from tmark for each chain
+					id = (unsigned int)(cts->tmark / 1000. * cts->GetFs());
+					memcpy(p->buf + id, cts->buf, cts->nSamples * sizeof(double));
+				}
 			}
-		}
-		else
-		{
-			for (unsigned k = 0; k < isig.nSamples; k++)
-				level.psigBase->buf[(int)isig.buf[k] - 1] = rhs.buf[k];
+			else
+			{
+				for (unsigned k = 0; k < pisig->nSamples; k++)
+					p->buf[(int)pisig->buf[k] - 1] = rhs.buf[k];
+			}
+			p = p->chain;
+			pisig = pisig->chain;
 		}
 	}
 	else if (rhs.IsEmpty())
 	{
+		//do we need to go through chains??? 6/24/2019
 		pbase->insertreplace(pLHS, level.psigBase, rhs, isig);
 		pbase->Sig.Reset();
 	}

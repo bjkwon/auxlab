@@ -1368,15 +1368,29 @@ void CAstSig::interweave_indices(CVar &isig, CVar &isig2, unsigned int len)
 void CAstSig::index_array_satisfying_condition(CVar &isig)
 { // input: isig, logical array
   // output: isig, a new array of indices satisfying the condition
-	int count = 0;
-	for (unsigned int k = 0; k < isig.nSamples; k++)
-		if (isig.logbuf[k]) count++;
+	CTimeSeries *p = &isig;
 	CVar out;
-	out.UpdateBuffer(count);
-	out.nGroups = isig.nGroups;
-	count = 0;
-	for (unsigned int k = 0; k < isig.nSamples; k++)
-		if (isig.logbuf[k]) out.buf[count++] = k + 1;
+	CTimeSeries *p_out = &out;
+	while (p)
+	{
+		int count = 0;
+		for (unsigned int k = 0; k < p->nSamples; k++)
+			if (p->logbuf[k]) count++;
+		CSignal part;
+		part.UpdateBuffer(count);
+		part.nGroups = p->nGroups;
+		part.tmark = p->tmark;
+		count = 0;
+		for (unsigned int k = 0; k < p->nSamples; k++)
+			if (p->logbuf[k]) part.buf[count++] = k + 1;
+		*p_out = part;
+		p = p->chain;
+		if (p)
+		{
+			p_out->chain = new CTimeSeries;
+			p_out = p_out->chain;
+		}
+	}
 	isig = out;
 }
 
