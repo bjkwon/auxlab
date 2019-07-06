@@ -114,6 +114,7 @@
     <Lib>
       <AdditionalDependencies>
       </AdditionalDependencies>
+      <AdditionalLibraryDirectories>mpglib-static.lib;libmp3lame-static.lib;lame.lib;</AdditionalLibraryDirectories>
     </Lib>
     <PreBuildEvent>
       <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay
@@ -144,11 +145,11 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-       <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
 	  call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
 	  call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\
 	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
-   </PreBuildEvent>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

@@ -27,6 +27,7 @@
 
 #include "qlparse.h"
 
+
 char iniFile[256];
 
 double playbackblock(100.);
@@ -1728,6 +1729,7 @@ LRESULT CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 {
 	return CallNextHookEx(NULL, code, wParam, lParam);
 }
+
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {

@@ -2227,12 +2227,10 @@ CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 		Compute(p);
 		pgo = NULL;
 		blockCell(pnode, Sig);
-		Sig.LogOp(rsig, pnode->type);
 		if (Sig.IsString())
-		{
-			Sig.SetFs(1); // body::MakeLogical (which is part of LogOp) doesn't turn a string into a logical
-			Sig.nSamples--; // get rid of the null space.
-		}
+			Sig.SetValue((double)((CSignal)Sig == (CSignal)rsig));
+		else
+			Sig.LogOp(rsig, pnode->type);
 		break;
 	case T_LOGIC_NOT:
 		blockCell(pnode, Sig);

@@ -16,6 +16,7 @@
 #include "bjcommon_win.h"
 #include "resource1.h"
 #include <commctrl.h>  // includes the common control header
+#include "htmlhelp.h"
 
 void CreateHyperLink(HWND hwndControl);
 
@@ -55,7 +56,7 @@ BOOL AboutDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	char buf[256], fullmoduleName[MAX_PATH];
  	char drive[16], dir[256], ext[8], buffer[MAX_PATH], AppPath[MAX_PATH];
 	wchar_t wbuf[128];
-	HWND hPic;
+	HWND hPic, hHelp;
 	switch (umsg)
 	{
 	case WM_INITDIALOG:
@@ -64,7 +65,7 @@ BOOL AboutDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
  		_splitpath(fullmoduleName, drive, dir, buffer, ext);
  		sprintf (AppPath, "%s%s", drive, dir);
 		getVersionString(fullmoduleName, buffer, sizeof(buffer));
-		swprintf(wbuf, 128, L"AUXLAB %s © 2009--2018", makewidechar(buffer));
+		swprintf(wbuf, 128, L"AUXLAB %s © 2009--2019", makewidechar(buffer));
 		SetDlgItemTextW(hDlg, IDC_VERSTR, wbuf);
 		for (int k(IDS_STRING109); k<=IDS_STRING111; k++)
 		{
@@ -72,13 +73,14 @@ BOOL AboutDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 			EditPrintf(GetDlgItem(hDlg, IDC_DISCLAIMER), "%s\n", buf);
 			EditPrintf(GetDlgItem(hDlg, IDC_DISCLAIMER), "\n");
 		}
-		for (int k(IDS_CREDIT1); k<=IDS_CREDIT11; k++)
+		for (int k(IDS_CREDIT1); k<=IDS_CREDIT8; k++)
 		{
 			LoadString (hInst, k, buf, sizeof(buf));
 			EditPrintf(GetDlgItem(hDlg, IDC_CREDITS), "%s\n", buf);
 		}
 		CreateHyperLink(GetDlgItem(hDlg, IDC_BRMLINK));
 		CreateHyperLink(GetDlgItem(hDlg, IDC_WEBLINK));
+		CreateHyperLink(GetDlgItem(hDlg, IDC_ONLINE_HELP));
 		break;
 	case WM_SHOWWINDOW:
 		hPic = GetDlgItem(hDlg, IDC_ABOUTICON);
@@ -111,9 +113,18 @@ Gave up and used the subclassed static control from SSpoke. 7/7/2016 bjk
 			LoadString(hInst, IDS_BRMLINK, buf, sizeof(buf));
 			ShellExecute(NULL, "open", buf, NULL, NULL, SW_SHOWNORMAL);
 			break;
+		case IDC_ONLINE_HELP:
+			LoadString(hInst, IDS_ONLINE_HELP, buf, sizeof(buf));
+			ShellExecute(NULL, "open", buf, NULL, NULL, SW_SHOWNORMAL);
+			break;
 		case IDC_WEBLINK:
 			LoadString(hInst, IDS_WEBLINK, buf, sizeof(buf));
 			ShellExecute(NULL, "open", buf, NULL, NULL, SW_SHOWNORMAL);
+			break;
+		case IDC_CHM:
+			hHelp = HtmlHelp( GetDesktopWindow(), "auxlab.chm", HH_DISPLAY_TOPIC, NULL);
+			if (!hHelp)
+				MessageBox(hDlg, "auxlab.chm not found", "AUXLAB-About", 0);
 			break;
 		case IDOK:
 		case IDCANCEL:

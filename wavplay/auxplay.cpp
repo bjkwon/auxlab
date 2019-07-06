@@ -7,8 +7,8 @@
 // Library to play audio signals 
 // For Windows only
 // 
-// Version: 1.503
-// Date: 6/6/2019
+// Version: 1.6
+// Date: 7/6/2019
 // 
 
 #include "wavplay.h"
@@ -51,6 +51,13 @@ short * makebuffer(const CSignals &sig, int &nChan, int &length)
 	length = psig->nSamples;
 	if (psig->next)
 	{
+		if (psig->next->chain)
+			psig->next->MakeChainless();
+		//if psig and psig->next have different length, match them
+		if (psig->nSamples > psig->next->nSamples)
+			psig->next->UpdateBuffer(psig->nSamples);
+		else if (psig->nSamples < psig->next->nSamples)
+			psig->UpdateBuffer(psig->next->nSamples);
 		double *buf2 = psig->next->buf;
 		Buffer2Play = new short[psig->nSamples * 2];
 		for (unsigned int i = 0; i < psig->nSamples; ++i) 

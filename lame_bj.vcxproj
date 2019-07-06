@@ -20,10 +20,10 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{DA14DBAE-B8D7-44AE-92A5-6BD55B55DF64}</ProjectGuid>
+    <ProjectGuid>{4F6374F8-E7E4-4C92-A14D-171869C19798}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>auxp</RootNamespace>
-    <ProjectName>auxp</ProjectName>
+    <RootNamespace>lame_bj</RootNamespace>
+    <ProjectName>lame_bj</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -113,7 +113,11 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>LAME_BJ_INTERNAL;_WINDLL;HAVE_MPGLIB;HAVE_CONFIG_H;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>mpglib-static.lib;libmp3lame-static.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -145,15 +149,25 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="$(SrcPath)dllmain.cpp" />
+    <ClCompile Include="$(SrcPath)brhist.c" />
+    <ClCompile Include="$(SrcPath)get_audio.c" />
+    <ClCompile Include="$(SrcPath)lametime.c" />
+    <ClCompile Include="$(SrcPath)lame_main.c" />
+    <ClCompile Include="$(SrcPath)main.c" />
+    <ClCompile Include="$(SrcPath)parse.c" />
+    <ClCompile Include="$(SrcPath)timestatus.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(SrcPath)resource.h" />
+    <ClInclude Include="$(SrcPath)brhist.h" />
+    <ClInclude Include="$(SrcPath)get_audio.h" />
+    <ClInclude Include="$(SrcPath)lametime.h" />
+    <ClInclude Include="$(SrcPath)main.h" />
+    <ClInclude Include="$(SrcPath)parse.h" />
+    <ClInclude Include="$(SrcPath)timestatus.h" />
+    <ClInclude Include="$(SrcPath)resource1.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="$(SrcPath)auxp.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="auxp\f2_channel_stereo_mono.aux" />
+    <ResourceCompile Include="$(SrcPath)lame_bj.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

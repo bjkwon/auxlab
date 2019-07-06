@@ -61,7 +61,7 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,5,0,4
+ FILEVERSION 2,6,0,0
  PRODUCTVERSION 1,0,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
@@ -78,7 +78,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "Auditory Professional, Inc"
-            VALUE "FileVersion", "2.5.0.4"
+            VALUE "FileVersion", "2.6.0.0"
             VALUE "InternalName", "graffy"
             VALUE "LegalCopyright", "Copyright (C) 2019"
             VALUE "ProductName", "graffy Dynamic Link Library"
@@ -153,7 +153,8 @@ BEGIN
         MENUITEM "S&pectrum(F4)",               IDM_SPECTRUM
         MENUITEM SEPARATOR
         MENUITEM "&Play [space bar]",           IDM_PLAY
-        MENUITEM "&Save As [keypad /]",         IDM_WAVWRITE
+        MENUITEM "&Save As .wav [keypad /]",    IDM_WAVWRITE
+        MENUITEM "Sa&ve As .mp3 [keypad .]",    IDM_MP3WRITE
         MENUITEM SEPARATOR
     END
 END

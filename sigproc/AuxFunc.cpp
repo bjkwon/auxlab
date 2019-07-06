@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.5
-// Date: 3/15/2019
+// Version: 1.6
+// Date: 7/6/2019
 // 
 #include <math.h>
 #include <stdlib.h>
@@ -38,6 +38,7 @@
 #include "cipsycon.tab.h"
 #endif
 
+#include "lame_bj.h"
 
 #define WM__AUDIOEVENT	WM_APP + WOM_OPEN
 
@@ -652,6 +653,46 @@ void _setfs(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	if (fs<500.) throw past->ExceptionMsg(p, "Sample rate should be at least 500 Hz.");
 	past->FsFixed=true;
 	past->pEnv->Fs = (int)fs; //Sample rate adjusted
+}
+
+void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	past->checkAudioSig(p, past->Sig);
+	string option;
+	string filename;
+	CSignals third;
+	try {
+		CAstSig tp(past);
+		tp.Compute(p);
+		tp.checkString(p, tp.Sig);
+		if (tp.Sig.string().empty())
+			throw tp.ExceptionMsg(p, "Empty filename");
+		filename = tp.Sig.string();
+		if (p->next != NULL)
+		{
+			third = tp.Compute(p->next);
+			tp.checkString(p->next, (CVar)third);
+			option = third.string();
+		}
+	}
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
+	trim(filename, ' ');
+	size_t pdot = filename.rfind('.');
+	string extension = filename.substr(pdot + 1);
+	if (extension == "mp3")
+	{
+		past->Sig.MakeChainless();
+		char errStr[256] = { 0 };
+		int res = write_mp3(past->Sig.nSamples, past->Sig.buf, past->Sig.next ? past->Sig.next->buf : NULL, past->Sig.GetFs(), filename.c_str(), errStr);
+		if (!res)
+			throw past->ExceptionMsg(p, errStr);
+	}
+	else if (extension == "wav")
+	{
+
+	}
+	else
+		throw past->ExceptionMsg(p, "unknown audio file extension. Must be .wav or .mp3");
 }
 
 void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1775,6 +1816,7 @@ void _tparamonly(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		throw past->ExceptionMsg(p, fnsigs, "Internal error 3426.");
 }
 
+
 void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	/*! \brief wave(filename)
@@ -1817,8 +1859,9 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 { // Decide the convention when multiple lines input is coming... currently making cell array output... do I want to keep it this way? 2/21/2018 bjk
 	past->checkString(pnode, past->Sig);
 	string fullpath, content;
-	char fname[MAX_PATH], ext[MAX_PATH];
+	char fname[MAX_PATH], ext[MAX_PATH], errStr[256] = { 0 };
 	FILE *fp(NULL);
+	int res;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
 	fp = past->OpenFileInPath(past->ComputeString(p), "", fullpath);
 	_splitpath(past->ComputeString(p).c_str(), NULL, NULL, fname, ext);
@@ -1831,13 +1874,35 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			_wave(past, pnode, p, fnsigs);
 #endif // NO_SF
 		}
+		else if (string(_strlwr(ext)) == ".mp3")
+		{
+			int len, ffs, nChans;
+			read_mp3_header(fullpath.c_str(), &len, &nChans, &ffs, errStr);
+			past->Sig.SetFs(ffs);
+			past->Sig.UpdateBuffer(len);
+			if (nChans>1)
+				past->Sig.SetNextChan(&past->Sig);
+			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
+				throw past->ExceptionMsg(p, fnsigs, errStr);
+		}
+		else if (string(_strlwr(ext)) == ".aiff")
+		{
+			int len, ffs, nChans;
+			read_aiff_header(fullpath.c_str(), &len, &nChans, &ffs, errStr);
+			past->Sig.SetFs(ffs);
+			past->Sig.UpdateBuffer(len);
+			if (nChans > 1)
+				past->Sig.SetNextChan(&past->Sig);
+			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
+				throw past->ExceptionMsg(p, fnsigs, errStr);
+		}
 		else if (GetFileText(fullpath.c_str(), "rb", content))
 		{
 			past->Sig.Reset();
 			vector<string> line;
 			size_t nLines = str2vect(line, content.c_str(), "\r\n");
 			char buf[256];
-			int dataSize(16), nItems, res;
+			int dataSize(16), nItems;
 			for (size_t k = 0; k < nLines; k++)
 			{
 				nItems = countDeliminators(line[k].c_str(), " \t");
@@ -1856,6 +1921,8 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			}
 		}
 	}
+	else
+		throw past->ExceptionMsg(p, fnsigs, "cannot open file");
 }
 
 void _tsq_isrel(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
@@ -2078,6 +2145,13 @@ void CAstSigEnv::InitBuiltInFunctions()
 	ft.funcsignature = "(audio_signal, filename[, option])";
 	ft.narg1 = 2;	ft.narg2 = 3;
 	ft.func =  &_wavwrite;
+	builtin[name] = ft;
+
+	name = "write";
+	ft.alwaysstatic = false;
+	ft.funcsignature = "(audio_signal, filename[, option])";
+	ft.narg1 = 2;	ft.narg2 = 3;
+	ft.func = &_write;
 	builtin[name] = ft;
 
 	name = "setfs"; // check this... is narg1 one correct?

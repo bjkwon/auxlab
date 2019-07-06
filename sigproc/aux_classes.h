@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.503
-// Date: 6/4/2019
+// Version: 1.6
+// Date: 7/6/2019
 // 
 #pragma once
 
@@ -168,8 +168,8 @@ public:
 	// Retrieve signal characteristics (single channel ONLY)
 	int GetType() const; 
 	double RMS(unsigned int id0 = 0, unsigned int len = 0);
-	int GetFs() const {return fs; };
-	void SetFs(int  newfs) {fs = newfs; };
+	int GetFs() const {return fs;};
+	void SetFs(int  newfs);
 	double* GetBuffer() {return buf;}
 	double length(unsigned int id0 = 0, unsigned int len = 0);
 	double dur(unsigned int id0 = 0, unsigned int len = 0);
@@ -421,7 +421,8 @@ public:
 
 #ifndef NO_SF
 	CSignals(const char* wavname);
-	int Wavwrite(const char *wavname, char *errstr, std::string wavformat="");
+	int Wavwrite(const char *wavname, char *errstr, std::string wavformat = "");
+	int mp3write(const char *filename, char *errstr, std::string wavformat = "");
 	int Wavread(const char *wavname, char *errstr);
 #endif // NO_SF
 #endif //_WINDOWS

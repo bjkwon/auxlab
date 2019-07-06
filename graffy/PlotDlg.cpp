@@ -7,8 +7,8 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.5
-// Date: 3/30/2019
+// Version: 1.504
+// Date: 7/5/2019
 // 
 
 /* Note on multiple axes situation,
@@ -132,6 +132,7 @@ void CPlotDlg::OnClose()
 {
 	// Instead of calling DestroyWindow(), post the message to message loop (either in Auxtra.cpp or plotThread.cpp) and properly delete the figure (and reduce theApp.nFigures by 1)
 //	PostMessage(WM_DESTROY);
+	StopPlay(hAudio, true);
 	PostMessage(WM_QUIT);
 
 	/* axes and texts shouldn't be deleted here. Why?
@@ -225,6 +226,7 @@ void CPlotDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 #endif
 #ifndef NO_SF
 	case IDM_WAVWRITE:
+	case IDM_MP3WRITE:
 #endif
 	case IDM_SPECTROGRAM:
 	case IDM_ZOOMSELECT:
@@ -1873,6 +1875,23 @@ void CPlotDlg::OnMenu(UINT nID)
 		}
 #endif
 		return;
+
+	case IDM_MP3WRITE:
+#ifndef NO_PLAYSND
+		fullfname[0] = 0;
+		fileDlg.InitFileDlg(hDlg, hInst, "");
+		_sig = GetAudioSignal();
+		if (fileDlg.FileSaveDlg(fullfname, fname, "MP3 file (*.MP3)\0*.mp3\0", "mp3"))
+		{
+			if (!_sig.mp3write(fullfname, errstr))	MessageBox(errstr);
+		}
+		else
+		{
+			if (GetLastError() != 0) GetLastErrorStr(errstr), MessageBox(errstr, "Filesave dialog box error");
+		}
+#endif
+		return;
+		
 	}
 	InvalidateRect(NULL);
 }

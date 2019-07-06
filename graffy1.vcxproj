@@ -109,7 +109,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;iir.lib;version.lib;winmm.lib;libsamplerate$(PlatformArchitecture)st.lib;bjcommon_win.lib;bjcommon.lib;sigproc.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;iir.lib;version.lib;winmm.lib;libsamplerate$(PlatformArchitecture)st.lib;bjcommon_win.lib;bjcommon.lib;sigproc.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
       <AdditionalOptions>/ignore:4049,4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -127,12 +127,12 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>LINK_STATIC_SIGPROC;LINK_STATIC_SIGPROC;WIN64;WIN32;GRAFFY_INTERNAL;_DEBUG;_WINDOWS;_USRDLL;GRAFFY_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>LINK_STATIC_SIGPROC;WIN64;WIN32;GRAFFY_INTERNAL;_DEBUG;_WINDOWS;_USRDLL;GRAFFY_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;winmm.lib;sigproc.lib;version.lib;bjcommon_win.lib;bjcommon.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;winmm.lib;sigproc.lib;version.lib;bjcommon_win.lib;bjcommon.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
       <IgnoreSpecificDefaultLibraries>LIBCMTD.lib</IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/ignore:4049,4217 %(AdditionalOptions)</AdditionalOptions>
@@ -158,7 +158,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;version.lib;winmm.lib;bjcommon_win.lib;bjcommon.lib;sigproc.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;version.lib;winmm.lib;bjcommon_win.lib;bjcommon.lib;sigproc.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
       <AdditionalOptions>/ignore:4049,4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -183,7 +183,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;winmm.lib;sigproc.lib;version.lib;bjcommon_win.lib;bjcommon.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;wavplay.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;iir.lib;winmm.lib;sigproc.lib;version.lib;bjcommon_win.lib;bjcommon.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
       <IgnoreSpecificDefaultLibraries>LIBCMT.lib</IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/ignore:4049,4217 %(AdditionalOptions)</AdditionalOptions>

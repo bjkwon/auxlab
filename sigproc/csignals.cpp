@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.503
-// Date: 6/4/2019
+// Version: 1.6
+// Date: 7/5/2019
 // 
 
 #ifdef _WINDOWS
@@ -41,6 +41,7 @@
 #endif
 
 #include "wavplay.h"
+#include "lame_bj.h"
 
 
 /* To-do
@@ -957,6 +958,23 @@ CSignal CSignal::size(unsigned int id0, unsigned int len)
 		((CVar*)parg)->SetValue((double)ilen);
 	return *this;
 }
+
+void CSignal::SetFs(int  newfs)
+{  // the old data (the content of buf) should be retained; don't call Reset() carelessly.
+	if (bufBlockSize == 1 && newfs != fs)
+	{// Trying to convert a data type with a byte size to double size
+		double *newbuf = new double[nSamples];
+		memset(newbuf, 0, sizeof(double)*nSamples);
+		if (IsLogical())
+			for (unsigned int k = 0; k < nSamples; k++)
+				if (logbuf[k]) newbuf[k] = 1.;
+		delete buf;
+		buf = newbuf;
+		bufBlockSize = sizeof(double);
+	}
+	fs = newfs; 
+}
+
 
 CSignal& CSignal::Reset(int fs2set)	// Empty all data fields - sets nSamples to 0.
 {
@@ -4024,6 +4042,16 @@ int CSignals::Wavread(const char *wavname, char *errstr)
 	}
 	sf_close(wavefileID);
 	return 1;
+}
+
+int CSignals::mp3write(const char *filename, char *errstr, std::string wavformat)
+{
+	MakeChainless();
+	char errStr[256];
+	int res = write_mp3(nSamples, buf, next ? next->buf : NULL, fs, filename, errStr);
+	if (res==0)
+		sprintf(errstr, "error in write_mp3");
+	return res;
 }
 
 int CSignals::Wavwrite(const char *wavname, char *errstr, std::string wavformat)
