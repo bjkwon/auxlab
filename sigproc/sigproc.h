@@ -122,7 +122,7 @@ public:
 	bool newrecruit;
 	UDF& operator=(const UDF& rhs);
 	UDF() {	pAst = NULL; newrecruit = false;	};
-	~UDF() {};
+	virtual ~UDF() {};
 };
 
 class Cfunction
@@ -152,7 +152,7 @@ public:
 	map<string, Cfunction> builtin;
 
 	CAstSigEnv(const int fs = 1);
-	~CAstSigEnv();
+	virtual ~CAstSigEnv();
 	CAstSigEnv& operator=(const CAstSigEnv& rhs);
 	CAstSigEnv &SetPath(const char *path);
 	CAstSigEnv &AddPath(const char *path);

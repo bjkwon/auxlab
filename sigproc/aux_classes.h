@@ -106,7 +106,6 @@ public:
 	double mean(unsigned int id0 = 0, unsigned int len = 0) { if (len == 0) len = nSamples; return sum(id0, len) / (double)len; }
 	double stdev(unsigned int id0 = 0, unsigned int len = 0);
 
-
 	void* parg;
 };
 
@@ -153,7 +152,6 @@ public:
 	void DownSample(int q);
 	void UpSample(int p);
 	CSignal& Reset(int  fs2set=0);
-	virtual void Dramp(double dur_ms, int beginID=0);
 	void ReverseTime();
 	CSignal& Interp(const CSignal& gains, const CSignal& tmarks);
 	CSignal& reciprocal(void);	// Multiplicative inverse
@@ -163,7 +161,7 @@ public:
 	bool operator == (double rhs);
 	bool operator == (string rhstr);
 	CSignal& operator+=(CSignal *yy); // Concatenation
-	virtual CSignal& operator>>=(double delta);
+	CSignal& operator>>=(double delta);
 
 	// Retrieve signal characteristics (single channel ONLY)
 	int GetType() const; 
@@ -191,7 +189,6 @@ public:
 #ifndef NO_IIR
 	CSignal& IIR(unsigned int id0 = 0, unsigned int len = 0); 
 #endif // NO_IIR
-
 
 	bool IsScalar() const { return (GetType() == CSIG_SCALAR); }
 	bool IsVector() const {return (GetType() == CSIG_SCALAR || GetType() == CSIG_VECTOR);}
@@ -233,7 +230,6 @@ protected:
 	int fs;
 private:
 	CSignal& _filter(vector<double> num, vector<double> den, unsigned int id0 = 0, unsigned int len = 0);
-	CSignal& _dynafilter(CSignal *TSEQ_num, CSignal * TSEQ_den, unsigned int id0 = 0, unsigned int len = 0);
 	const CSignal& operator+(const CSignal& sec);
 	const CSignal& operator*(const CSignal& sec);
 	const CSignal& operator-(const CSignal& sec);
@@ -325,7 +321,7 @@ public:
 	CTimeSeries(double value); // construct a scalar with the specified value ---is it necessary? 5/19/2018
 	CTimeSeries(const CSignal& src); 
 	CTimeSeries(const CTimeSeries& src);
-	~CTimeSeries();
+	virtual ~CTimeSeries();
 
 	double alldur();
 
@@ -457,7 +453,7 @@ public:
 	CVar(const CSignals& src);
 	CVar(const CVar& src);
 	CVar();
-	~CVar();
+	virtual ~CVar();
 };
 
 #endif // AUX_CLASSES

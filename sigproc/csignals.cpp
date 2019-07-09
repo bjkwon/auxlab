@@ -2220,24 +2220,6 @@ CSignal &CSignal::_atleast(unsigned int id, int unsigned len)
 	return *this;
 }
 
-void CSignal::Dramp(double dur_ms, int beginID)
-{
-	// Cosine square ramping and damping of the array
-	double x, drampFs;
-	unsigned int nSamplesNeeded;
-
-	drampFs = 1.e3 / (4.*dur_ms);
-	nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
-	nSamplesNeeded = min(nSamples, nSamplesNeeded);
-	for (unsigned int i = 0; i < nSamplesNeeded; i++)
-	{
-		x = sin(2 * PI*drampFs*(double)i / (double)fs);
-		buf[beginID + i] = x * x * buf[beginID + i];
-		buf[nSamples - i - 1] = x * x * buf[nSamples - i - 1];
-	}
-}
-
-
 CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
