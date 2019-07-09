@@ -141,14 +141,11 @@
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command> SET TMP = $(AuxlabRepoDir)
-	  call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy lame_bj
-		call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command> 
+	  call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat audstr bjcommon\
+		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -166,13 +163,10 @@
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy lame_bj
-		call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat audstr bjcommon\
+		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
-    <PostBuildEvent>
-      <Command>
-      </Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -193,8 +187,9 @@
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy lame_bj
-		call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat audstr bjcommon\
+		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes psycon.yacc graffy lame_bj </Command>
@@ -220,8 +215,9 @@
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy lame_bj
-		call copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat audstr bjcommon\
+		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes psycon.yacc graffy lame_bj</Command>

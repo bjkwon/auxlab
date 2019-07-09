@@ -661,7 +661,7 @@ static void write2textfile(FILE * fid, CVar *psig)
 	{
 		for (unsigned int k = 0; k < psig->nSamples; k++)
 			fprintf(fid, "%c ", psig->logbuf[k]);
-		fprintf(fid, "%n");
+		fprintf(fid, "\n");
 	}
 	else if (psig->IsAudioObj()) // audio
 	{
@@ -673,7 +673,7 @@ static void write2textfile(FILE * fid, CVar *psig)
 			for (unsigned int k = 0; k < psig->nSamples; k++)
 				fprintf(fid, "%7.4f ", psig->next->buf[k]);
 		}
-		fprintf(fid, "%n");
+		fprintf(fid, "\n");
 	}
 	else if (!psig->cell.empty())
 	{
@@ -684,8 +684,35 @@ static void write2textfile(FILE * fid, CVar *psig)
 	{
 		for (unsigned int k = 0; k < psig->nSamples; k++)
 			fprintf(fid, "%g ", psig->buf[k]);
-		fprintf(fid, "%n");
+		fprintf(fid, "\n");
 	}
+}
+
+void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	past->checkAudioSig(p, past->Sig);
+	string option;
+	string filename;
+	CSignals third;
+	try {
+		CAstSig tp(past);
+		tp.Compute(p);
+		tp.checkString(p, tp.Sig);
+		if (tp.Sig.string().empty())
+			throw tp.ExceptionMsg(p, "Empty filename");
+		filename = tp.Sig.string();
+		if (p->next!=NULL)
+		{
+			third = tp.Compute(p->next);
+			tp.checkString(p->next, (CVar)third);
+			option = third.string();
+		}
+	}
+	catch (const CAstException &e) {	throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());	}
+	filename = past->MakeFilename(filename, "wav");
+	char errStr[256];
+	if (!past->Sig.Wavwrite(filename.c_str(), errStr, option))
+		throw past->ExceptionMsg(p, errStr);
 }
 
 void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -724,7 +751,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	}
 	else if (extension == "wav")
 	{
-		_wavwrite(past, pnode, p, fnsig);
+		_wavwrite(past, pnode, p, fnsigs);
 	}
 	else if (extension == "txt")
 	{
@@ -732,38 +759,11 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		if (!fid)
 			throw past->ExceptionMsg(p, "File creation error");
 		write2textfile(fid, &past->Sig);
+		fclose(fid);
 	}
 	else
 		throw past->ExceptionMsg(p, "unknown audio file extension. Must be .wav or .mp3");
 }
-
-void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	past->checkAudioSig(p, past->Sig);
-	string option;
-	string filename;
-	CSignals third;
-	try {
-		CAstSig tp(past);
-		tp.Compute(p);
-		tp.checkString(p, tp.Sig);
-		if (tp.Sig.string().empty())
-			throw tp.ExceptionMsg(p, "Empty filename");
-		filename = tp.Sig.string();
-		if (p->next!=NULL)
-		{
-			third = tp.Compute(p->next);
-			tp.checkString(p->next, (CVar)third);
-			option = third.string();
-		}
-	}
-	catch (const CAstException &e) {	throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());	}
-	filename = past->MakeFilename(filename, "wav");
-	char errStr[256];
-	if (!past->Sig.Wavwrite(filename.c_str(), errStr, option))
-		throw past->ExceptionMsg(p, errStr);
-}
-
 
 #endif // NO_SF
 
