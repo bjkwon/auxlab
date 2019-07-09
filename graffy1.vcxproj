@@ -118,7 +118,8 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
-	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
+	  call copy_header.bat aux_classes sigproc\
+	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -142,7 +143,8 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
-	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
+	  call copy_header.bat aux_classes sigproc\
+	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -167,7 +169,8 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
-	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
+	  call copy_header.bat aux_classes sigproc\
+	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -193,7 +196,8 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
-	  call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\</Command>
+	  call copy_header.bat aux_classes sigproc\
+	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
