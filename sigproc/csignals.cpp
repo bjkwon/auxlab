@@ -64,7 +64,7 @@ void filter(int nTabs, double *num, int length, double *in, double *out);
 
 #define DOUBLE2SHORT(x)	((short)(max(min((x),1),-1)*(double)0x007fff))
 
-double quantizetmark(double delta, int fs)
+static double quantizetmark(double delta, int fs)
 {
 	//quantize delta based on the fs grid.  3/31/2016. Rev. 5/19/2018
 	if (fs > 1)
@@ -75,15 +75,13 @@ double quantizetmark(double delta, int fs)
 	return delta;
 }
 
-
-
-double _getdB(double x)
+static double _getdB(double x)
 {
 	// 3 dB is added to make rms of full scale sinusoid 0 dB
 	return 20 * log10(x) + 3.0103;
 }
 
-void SwapCSignalsPutScalarSecond(CSignals &sig1, CSignals &sig2)
+static void SwapCSignalsPutScalarSecond(CSignals &sig1, CSignals &sig2)
 {
 	if (!sig1.IsStereo() && sig2.IsStereo())
 	{
@@ -143,6 +141,155 @@ body& body::operator=(const body& rhs)
 		bufBlockSize = rhs.bufBlockSize;
 		nGroups = rhs.nGroups;
 		memcpy(buf, rhs.buf, nSamples*bufBlockSize);
+	}
+	return *this;
+}
+
+CSignal& CSignal::operator=(const body& rhs)
+{ // Used only in AuxFunc.cpp 12/30/2017
+	if (this != &rhs)
+	{
+		Reset();
+		if (rhs.nSamples > 0)
+			body::operator=(rhs);
+	}
+	return *this;
+}
+CSignal& CSignal::operator=(const CSignal& rhs)
+{   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
+	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
+	if (this != &rhs)
+	{
+		Reset(rhs.fs);
+		if (rhs.fs > 0)
+			tmark = quantizetmark(rhs.tmark, rhs.fs);
+		else // this way, quantize is skipped for t-seq with relative tmarks.
+		{
+			tmark = rhs.tmark;
+			SetFs(0);
+		}
+		pf_basic = rhs.pf_basic;
+		pf_basic2 = rhs.pf_basic2;
+		pf_basic3 = rhs.pf_basic3;
+		if (rhs.nSamples > 0)
+			body::operator=(rhs);
+	}
+	return *this;
+}
+CVar& CVar::operator=(const CSignals& rhs)
+{
+	if (this != &rhs)
+		CSignals::operator=(rhs);
+	return *this;
+}
+
+CVar& CVar::operator=(const CVar& rhs)
+{   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
+	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
+	if (this != &rhs)
+	{
+		CSignals::operator=(rhs);
+		cell = rhs.cell;
+		strut = rhs.strut;
+		struts = rhs.struts;
+	}
+	return *this;
+}
+bool CSignals::operator==(const CSignals &rhs)
+{
+	if (!CTimeSeries::operator==(rhs)) return false;
+	if (next)
+		if (rhs.next) return (*next == *rhs.next);
+		else return false;
+	return true;
+}
+
+bool CSignals::operator==(double rhs)
+{
+	return *this == CSignals(rhs);
+}
+
+bool CSignals::operator==(std::string rhstr)
+{
+	return *this == CSignals(rhstr);
+}
+
+CTimeSeries& CTimeSeries::operator=(const CSignal& rhs)
+{
+	CSignal::operator=(rhs);
+	return *this;
+}
+
+bool CSignal::operator==(const CSignal &rhs)
+{
+	if (rhs.bufBlockSize != bufBlockSize) return false;
+	if (rhs.fs != fs) return false;
+	if (rhs.nSamples != nSamples) return false;
+	if (bufBlockSize == 1)
+		for (unsigned int k = 0; k < nSamples; k++)
+		{
+			if (logbuf[k] != rhs.logbuf[k]) return false;
+		}
+	else if (bufBlockSize == 8)
+		for (unsigned int k = 0; k < nSamples; k++)
+		{
+			if (buf[k] != rhs.buf[k]) return false;
+		}
+	else //if (bufBlockSize == 16)
+		for (unsigned int k = 0; k < nSamples; k++)
+		{
+			if (cbuf[k] != rhs.cbuf[k]) return false;
+		}
+	return true;
+}
+
+bool CSignal::operator==(double rhs)
+{
+	return *this == CSignal(rhs);
+}
+
+bool CSignal::operator==(std::string rhstr)
+{
+	return *this == CSignal(rhstr);
+}
+
+
+CTimeSeries& CTimeSeries::operator=(const CTimeSeries& rhs)
+{
+	if (this != &rhs)
+	{
+		CSignal::operator=(rhs);
+		outarg = rhs.outarg;
+		if (rhs.chain)
+		{
+			chain = new CTimeSeries;
+			*chain = *rhs.chain;
+		}
+		else
+		{
+			delete chain;
+			chain = NULL;
+		}
+	}
+	return *this;
+}
+
+CSignals& CSignals::operator=(const CTimeSeries& rhs)
+{
+	if (this != &rhs)
+		CTimeSeries::operator=(rhs);
+	return *this;
+}
+
+CSignals& CSignals::operator=(const CSignals& rhs)
+{   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
+	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
+	if (this != &rhs)
+	{
+		CTimeSeries::operator=(rhs);
+		SetNextChan(rhs.next);
+		outarg = rhs.outarg;
+		outarg2 = rhs.outarg2;
 	}
 	return *this;
 }
@@ -1017,17 +1164,6 @@ void CTimeSeries::SetChain(double time_shifted)
 	}
 }
 
-CSignal& CSignal::operator=(const body& rhs)
-{ // Used only in AuxFunc.cpp 12/30/2017
-	if (this != &rhs)
-	{
-		Reset();
-		if (rhs.nSamples > 0)
-			body::operator=(rhs);
-	}
-	return *this; // return self-reference so cascaded assignment works
-}
-
 const CSignal& CSignal::operator+(const CSignal& sec)
 { // Exception handling is yet to be done 3/8/2019
   //Currently only for real arrays. 3/8
@@ -1118,34 +1254,6 @@ const CSignal& CSignal::operator/(const CSignal& sec)
 			buf[k] /= sec.buf[k];
 	}
 	return *this;
-}
-
-CSignal& CSignal::operator=(const CSignal& rhs)
-{   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
-	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
-	if (this != &rhs)
-	{
-		Reset(rhs.fs);
-		if (rhs.fs > 0)
-			tmark = quantizetmark(rhs.tmark, rhs.fs);
-		else // this way, quantize is skipped for t-seq with relative tmarks.
-		{
-			tmark = rhs.tmark;
-			SetFs(0);
-		}
-		pf_basic = rhs.pf_basic;
-		pf_basic2 = rhs.pf_basic2;
-		pf_basic3 = rhs.pf_basic3;
-		if (rhs.nSamples > 0)
-			body::operator=(rhs);
-	}
-	return *this;
-}
-
-CTimeSeries& CTimeSeries::operator=(const CSignal& rhs)
-{
-	CSignal::operator=(rhs);
-	return *this; // return self-reference so cascaded assignment works
 }
 
 void CTimeSeries::SwapContents1node(CTimeSeries &sec)
@@ -1298,40 +1406,6 @@ CTimeSeries& CTimeSeries::operator+=(CTimeSeries *yy)
 	}
 	return *this;
 }
-
-bool CSignal::operator==(const CSignal &rhs)
-{
-	if (rhs.bufBlockSize != bufBlockSize) return false;
-	if (rhs.fs != fs) return false;
-	if (rhs.nSamples != nSamples) return false;
-	if (bufBlockSize == 1)
-		for (unsigned int k = 0; k < nSamples; k++)
-		{
-			if (logbuf[k] != rhs.logbuf[k]) return false;
-		}
-	else if (bufBlockSize == 8)
-		for (unsigned int k = 0; k < nSamples; k++)
-		{
-			if (buf[k] != rhs.buf[k]) return false;
-		}
-	else //if (bufBlockSize == 16)
-		for (unsigned int k = 0; k < nSamples; k++)
-		{
-			if (cbuf[k] != rhs.cbuf[k]) return false;
-		}
-	return true;
-}
-
-bool CSignal::operator==(double rhs)
-{
-	return *this == CSignal(rhs);
-}
-
-bool CSignal::operator==(std::string rhstr)
-{
-	return *this == CSignal(rhstr);
-}
-
 double CSignal::dur(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
@@ -1845,26 +1919,6 @@ CTimeSeries& CTimeSeries::operator>>=(double delta)
 		}
 	}
 	return *this;
-}
-
-CTimeSeries& CTimeSeries::operator=(const CTimeSeries& rhs)
-{
-	if (this != &rhs)
-	{
-		CSignal::operator=(rhs);
-		outarg = rhs.outarg;
-		if (rhs.chain)
-		{
-			chain = new CTimeSeries;
-			*chain = *rhs.chain;
-		}
-		else
-		{
-			delete chain;
-			chain = NULL;
-		}
-	}
-	return *this; // return self-reference so cascaded assignment works
 }
 
 CTimeSeries& CTimeSeries::AddChain(CTimeSeries &sec)
@@ -3615,26 +3669,6 @@ CSignals CSignals::RMS()
 	return newout;
 }
 
-CSignals& CSignals::operator=(const CTimeSeries& rhs)
-{
-	if (this != &rhs)
-		CTimeSeries::operator=(rhs);
-	return *this;
-}
-
-CSignals& CSignals::operator=(const CSignals& rhs)
-{   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
-	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
-	if (this != &rhs)
-	{
-		CTimeSeries::operator=(rhs);
-		SetNextChan(rhs.next);
-		outarg = rhs.outarg;
-		outarg2 = rhs.outarg2;
-	}
-	return *this; // return self-reference so cascaded assignment works
-}
-
 CSignals& CSignals::operator-(void)	// Unary minus
 {
 	CTimeSeries::operator-();
@@ -3695,26 +3729,6 @@ CSignals& CSignals::operator*=(CSignals &sec)
 		else			*next *= sec;
 	return *this;
 }
-
-bool CSignals::operator==(const CSignals &rhs)
-{
-	if (!CTimeSeries::operator==(rhs)) return false;
-	if (next)
-		if (rhs.next) return (*next == *rhs.next);
-		else return false;
-	return true;
-}
-
-bool CSignals::operator==(double rhs)
-{
-	return *this == CSignals(rhs);
-}
-
-bool CSignals::operator==(std::string rhstr)
-{
-	return *this == CSignals(rhstr);
-}
-
 int CSignals::IsTimeSignal()
 { // Assume that CTimeSeries and next have the same type, except for null or empty
 	if (CTimeSeries::IsTimeSignal()) return 1;
@@ -4387,22 +4401,4 @@ int CVar::GetTypePlus()
 		return res;
 }
 
-CVar& CVar::operator=(const CSignals& rhs)
-{
-	if (this != &rhs)
-		CSignals::operator=(rhs);
-	return *this;
-}
 
-CVar& CVar::operator=(const CVar& rhs)
-{   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
-	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
-	if (this != &rhs)
-	{
-		CSignals::operator=(rhs);
-		cell = rhs.cell;
-		strut = rhs.strut;
-		struts = rhs.struts;
-	}
-	return *this; // return self-reference so cascaded assignment works
-}

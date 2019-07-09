@@ -180,9 +180,6 @@ public:
 	CSignal& sort(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& conv(unsigned int id0, unsigned int len = 0);
 	CSignal& dramp(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal& timestretch(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal& pitchscale(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal& dynafilter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filter(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& filtfilt(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal& resample(unsigned int id0 = 0, unsigned int len = 0);
@@ -197,7 +194,6 @@ public:
 	bool IsString() const {return (fs == 2 && nSamples>0);}
 	bool IsLogical() const {return (bufBlockSize==1 && fs != 2);} // logical can be either audio or non-audio, so GetType() of logical array will not tell you whether that's logical or not.
 	bool IsComplex() const  { return (bufBlockSize==2*sizeof(double)); } 
-	int IsNull(double timept);
 	CSignal& Modulate(double *env, unsigned int lenEnv, unsigned int beginID=0);
 	CSignal& SAM(double modRate, double modDepth, double initPhase);
 
@@ -208,10 +204,9 @@ public:
 	CSignal(const CSignal& src); // copy constructor
 	CSignal(double *y, int  len);
 	CSignal(vector<double> vv); 
-	CSignal(FILE* fp);
 	CSignal(string str); // make a string CSignal
 
-	virtual ~CSignal();	// standard destructor
+	virtual ~CSignal();	
 
 	string string();
 	char *getString(char *str, const int size);
@@ -387,7 +382,6 @@ public:
 	CSignals& ReplaceBetweenTPs(CSignals &newsig, double t1, double t2);
 	CSignals& LogOp(CSignals &rhs, int type);
 	CSignals& SAM(double modRate, double modDepth, double initPhase);
-	CSignals& Windowing(std::string type, double opt);
 
 	CSignals& NullIn(double tpoint);
 
@@ -409,8 +403,6 @@ public:
 	CSignals & MFFN(double(*fn)(double), complex<double>(*cfn)(complex<double>));
 	CSignals & MFFN(double(*fn)(double, double), complex<double>(*cfn)(complex<double>, complex<double>), const CSignals &param);
 
-	CSignals* getchildren(vector<CSignals*> *out);
-	vector<CSignals*> showallchildren();
 	vector<CSignals> outarg2;
 
 #if defined(_WINDOWS) || defined(_WINDLL)
@@ -455,5 +447,68 @@ public:
 	CVar();
 	virtual ~CVar();
 };
+
+class carray
+{
+public:
+	union {
+		vector<double> buf;
+		complex<double> cbuf;
+		vector<bool> logbuf;
+		vector<char> strbuf;
+	};
+	virtual ~carray() {};
+};
+
+class caudio
+{
+public:
+	carray buf1;
+	carray buf2;
+	int fs;
+	double tmark;
+	virtual ~caudio() {};
+};
+
+class ctseq
+{
+public:
+	carray buf1;
+	int fs;
+	double tmark;
+	virtual ~ctseq() {};
+};
+
+class ctseries
+{
+public:
+	vector<caudio> block;
+	enum type
+	{
+		audio,
+		non_audio,
+	};
+};
+
+class cvarsimple : public ctseries
+{
+public:
+	string name;
+};
+
+class cvar 
+{
+public:
+	vector<cvarsimple> member;
+};
+
+class ccell
+{
+public:
+	vector<cvar> member;
+};
+
+
+
 
 #endif // AUX_CLASSES
