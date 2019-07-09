@@ -655,6 +655,39 @@ void _setfs(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	past->pEnv->Fs = (int)fs; //Sample rate adjusted
 }
 
+static void write2textfile(FILE * fid, CVar *psig)
+{
+	if (psig->bufBlockSize==1)
+	{
+		for (unsigned int k = 0; k < psig->nSamples; k++)
+			fprintf(fid, "%c ", psig->logbuf[k]);
+		fprintf(fid, "%n");
+	}
+	else if (psig->IsAudioObj()) // audio
+	{
+		for (unsigned int k = 0; k < psig->nSamples; k++)
+			fprintf(fid, "%7.4f ", psig->buf[k]);
+		if (psig->next)
+		{
+			fprintf(fid, "\n");
+			for (unsigned int k = 0; k < psig->nSamples; k++)
+				fprintf(fid, "%7.4f ", psig->next->buf[k]);
+		}
+		fprintf(fid, "%n");
+	}
+	else if (!psig->cell.empty())
+	{
+		for (auto cel : psig->cell)
+			write2textfile(fid, &cel);
+	}
+	else
+	{
+		for (unsigned int k = 0; k < psig->nSamples; k++)
+			fprintf(fid, "%g ", psig->buf[k]);
+		fprintf(fid, "%n");
+	}
+}
+
 void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkAudioSig(p, past->Sig);
@@ -679,7 +712,9 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	trim(filename, ' ');
 	size_t pdot = filename.rfind('.');
 	string extension = filename.substr(pdot + 1);
-	if (extension == "mp3")
+	if (extension.empty())
+		throw past->ExceptionMsg(p, "The extension Must be specified .wav .mp3 or .txt");
+	else if (extension == "mp3")
 	{
 		past->Sig.MakeChainless();
 		char errStr[256] = { 0 };
@@ -689,7 +724,14 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	}
 	else if (extension == "wav")
 	{
-
+		_wavwrite(past, pnode, p, fnsig);
+	}
+	else if (extension == "txt")
+	{
+		FILE* fid = fopen(filename.c_str(), "wt");
+		if (!fid)
+			throw past->ExceptionMsg(p, "File creation error");
+		write2textfile(fid, &past->Sig);
 	}
 	else
 		throw past->ExceptionMsg(p, "unknown audio file extension. Must be .wav or .mp3");
