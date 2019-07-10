@@ -18,6 +18,7 @@
 
 #include <windows.h>
 #include "sigproc.h"
+#include "caux.h"
 
 class AUD_PLAYBACK
 {
@@ -45,6 +46,7 @@ int GetDevCaps(UINT_PTR id);
 //In order to play in blocking mode, put PlayAsynch16(sig, devID, 0, NULL, 2, errstr);
 //  Specify 2 for the nProgReport even though you are not utilizing any messaging back to hWnd..
 //  This is just due to the way wavBuffer2snd is written in wavplay.cpp  Jan 19, 2013. BJ Kwon
+INT_PTR PlayArray16(const ctimesig &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop);
 INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop);
 INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, char *errstr, int loop);
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, double *block_dur_ms, char *errstr, int loop);

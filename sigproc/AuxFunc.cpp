@@ -848,6 +848,8 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			p->sig.strut["durPlayed"] = CSignals(0.);
 			past->Sig = p->sig; //only to return to xcom
 		}
+
+
 	}
 }
 
@@ -870,6 +872,13 @@ void _playstop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 		//double remaining = fname == "qstop" ? 0. : 350.;
 		//past->Sig.strut["remainingDuration"] = CSignals(remaining);
 	}
+	ctimesig ssig(44100);
+	ssig.tone(500, 1000);
+	double block = past->audio_block_ms;
+	char errstr[256] = {};
+	int nRepeats(1);
+
+	INT_PTR hh = PlayArray16(ssig, 0, WM__AUDIOEVENT, GetHWND_WAVPLAY(), &block, errstr, 1);
 }
 
 void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)

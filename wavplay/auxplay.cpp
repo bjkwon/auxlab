@@ -75,6 +75,73 @@ short * makebuffer(const CSignals &sig, int &nChan, int &length)
 	}
 	return Buffer2Play;
 }
+short * makebuffer(const ctimesig &sig, int &nChan, int &length)
+{
+	short *Buffer2Play;
+	ctimesig *psig = (ctimesig *)&sig;
+	length = 0;
+	// assume that there's no null portion between blocks, so ignore tmarks for now.
+	//for (ctimesig *p = psig;p;p=p->chain)
+	//{
+	//	length += p->pdata->size();
+	//}
+	length += sig.pdata->size();
+	//if (sig.chain)
+	//{
+	//	psig = new CSignals(sig);
+	//	psig->MakeChainless();
+	//}
+	//else
+		psig = (ctimesig*)&sig;
+//	if (sig.block.front().right && !sig.block.front().right->buf.empty())
+	{
+		//if (psig->next->chain)
+		//	psig->next->MakeChainless();
+		////if psig and psig->next have different length, match them
+		//if (psig->nSamples > psig->next->nSamples)
+		//	psig->next->UpdateBuffer(psig->nSamples);
+		//else if (psig->nSamples < psig->next->nSamples)
+		//	psig->UpdateBuffer(psig->next->nSamples);
+		//double *buf2 = psig->next->buf;
+		//Buffer2Play = new short[psig->nSamples * 2];
+		//for (unsigned int i = 0; i < psig->nSamples; ++i)
+		//{
+		//	Buffer2Play[i * 2] = (short)(_double_to_24bit(psig->buf[i]) >> 8);
+		//	Buffer2Play[i * 2 + 1] = (short)(_double_to_24bit(buf2[i]) >> 8);
+		//}
+		nChan = 2;
+	}
+//	else
+	{
+		Buffer2Play = new short[length];
+		int cum = 0;
+		ctimesig *p = psig;
+//		for (ctimesig *p = psig; p; p = p->chain)
+		{
+			_double_to_short(&p->pdata->front(), Buffer2Play+cum, p->pdata->size());
+			cum += p->pdata->size();
+		}
+		nChan = 1;
+	}
+	return Buffer2Play;
+}
+
+INT_PTR PlayArray16(const ctimesig &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
+{
+	int fs = sig.fs;
+	
+	int nSamples4Block = (int)(*block_dur_ms / (1000. / fs) + .5);
+	*block_dur_ms = nSamples4Block * 1000. / fs;
+	double _nBlocks = (double)sig.pdata->size()/ nSamples4Block;
+	int nBlocks = max(2, (int)ceil(_nBlocks));
+//	return PlayArray16(sig, DevID, userDefinedMsgID, hApplWnd, nBlocks, errstr, loop);
+	errstr[0] = 0;
+	int nChan, ecode(MMSYSERR_NOERROR);
+	int length;
+	short *Buffer2Play = makebuffer(sig, nChan, length);
+	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.fs, 
+		userDefinedMsgID, hApplWnd, nBlocks, loop, errstr);
+}
 
 INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
 {// returns a negative number if error occurrs
@@ -93,7 +160,8 @@ INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND 
 	int nChan, ecode(MMSYSERR_NOERROR);
 	int length;
 	short *Buffer2Play = makebuffer(sig, nChan, length);
-	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(), userDefinedMsgID, hApplWnd, nProgReport, loop, errstr);
+	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(), 
+		userDefinedMsgID, hApplWnd, nProgReport, loop, errstr);
 }
 
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop)

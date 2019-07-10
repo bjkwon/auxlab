@@ -1739,9 +1739,10 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 		MessageBox((char*)pvar, "audio out error", 0);
 		break;
 	default: // status updates
+		if (pvar) // for ctseries, pvar is not done yet
 		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 		{
-			if ((*it).second == pvar->value())
+			if (pvar->nSamples>0 && (*it).second == pvar->value())
 			{
 				(*it).second.strut["durLeft"].buf[0] = pvar->strut["durLeft"].value();
 				(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durPlayed"].value();
