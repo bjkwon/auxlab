@@ -19,11 +19,11 @@ public:
 		string * pstrbuf;
 	};
 	carray();
+	carray & operator=(const carray &rhs);
 //	carray(const carray&);
-	carray(double x, int len) { 
+	carray(double *arr, int len) { 
 		type = real; 
-		double *pv = new double[len];
-		pdata = &vector<double>(pv, pv + len);
+		pdata = new vector<double>(arr, arr + len);
 	};
 	carray(complex<double> x, int len) { 
 		type = complex; 
@@ -36,6 +36,7 @@ public:
 		type = logical; plogbuf = new vector<bool>;  plogbuf->reserve(len);
 	};
 	 ~carray();
+	 void reset() { if (pdata) { delete pdata; pdata = NULL; } };
 	enum
 	{
 		real,
@@ -54,6 +55,7 @@ public:
 	caudio(int _fs);
 //	caudio(const caudio&copy);
 	caudio(int _fs, int len);
+	caudio & operator=(const caudio &rhs);
 	caudio & tone(double freq, double dur, double beginPhase=0);
 	~caudio();
 };

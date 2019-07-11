@@ -28,6 +28,30 @@ carray::~carray()
 		delete pdata; pdata = NULL;
 	}
 }
+carray & carray::operator=(const carray &rhs)
+{ // copy operator
+	if (this != &rhs)
+	{
+		reset();
+		pdata = rhs.pdata;
+	}
+	//switch (rhs.type)
+	//{
+	//case real:
+	//	pdata = rhs.pdata;
+	//	break;
+	//case complex:
+	//	cbuf = copy.cbuf;
+	//	break;
+	//case text:
+	//	strbuf = copy.strbuf;
+	//	break;
+	//case logical:
+	//	logbuf = copy.logbuf;
+	//	break;
+	//}
+	return *this;
+}
 //carray::carray(const carray&copy)
 //{
 	//switch (copy.type)
@@ -64,22 +88,25 @@ caudio::caudio(int _fs, int len)
 }
 caudio::~caudio()
 {
-	if (pdata)
+}
+caudio & caudio::operator=(const caudio &rhs)
+{
+	if (this!=&rhs)
 	{
-		delete pdata; pdata = NULL;
+		carray::operator=(*(carray*)&rhs);
+		fs = rhs.fs;
+		tmark = rhs.tmark;
 	}
+	return *this;
 }
 
 caudio & caudio::tone(double freq, double dur_ms, double beginPhase)
 {
 	size_t nsamples = (size_t) round(dur_ms / 1000.*fs);
 	pdata->reserve(nsamples);
-	vector<double> out;
-
 	for (unsigned int k = 0; k < nsamples; k++)
 	{
 		double val = sin(2 * PI*(freq* k / fs + beginPhase));
-		out.push_back(val);
 		pdata->push_back(val);
 	}
 	return *this;
@@ -103,10 +130,6 @@ ctimesig::ctimesig(int _fs)
 }
 ctimesig::~ctimesig()
 {
-	if (pdata)
-	{
-		delete pdata; pdata = NULL;
-	}
 	//for (auto &plock : block)
 	//	delete plock;
 	//if (chain)

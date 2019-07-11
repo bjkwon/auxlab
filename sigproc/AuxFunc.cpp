@@ -872,6 +872,12 @@ void _playstop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 		//double remaining = fname == "qstop" ? 0. : 350.;
 		//past->Sig.strut["remainingDuration"] = CSignals(remaining);
 	}
+	double *doubleraw = new double[100];
+	for (int k = 0; k < 100; k++)
+		doubleraw[k] = sin(2 * PI * 500 * k / 44100.);
+	carray ssig2(doubleraw, 100);
+
+
 	ctimesig ssig(44100);
 	ssig.tone(500, 1000);
 	double block = past->audio_block_ms;
