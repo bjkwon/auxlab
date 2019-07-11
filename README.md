@@ -1,12 +1,13 @@
 
 # AUXLAB  
+version 1.6
   
 AUXLAB is as an integrative computing environment, created for scientists, engineers, and technicians who are working with audio signals. It allows you to generate and modify signals and execute computations on them. Its appearance mimics MATLAB and the syntax, AUX (**AU**ditory synta**X**) was derived from MATLAB; therefore, it is an easy-to-use tool for anyone familiar with MATLAB. However, because AUX dramatically simplifies coding for audio signals and signal processing, prior knowledge of MATLAB shouldn't be a prerequisite. Any professional or student who studies, plays and deals with sounds, particularly those in the fields that are considered "less quantitative," such as music, psychology, or linguistics, can learn coding easily with AUX. It is free software.  
   
 # For those who want to try it out  
 ##1. Installation  
   
-The stand-alone package of AUXLAB is currently available only for Windows OS (Windows 7, 8 and 10). No special installation is required. Download the zip file and run the exe after unzipping it. [Download here](http://auditorypro.com/download/auxlab/auxlab.html)  
+The stand-alone package of AUXLAB is currently available only for Windows OS (Windows 7, 8 and 10). No special installation is required. Download the zip file from the [release page](https://github.com/bjkwon/auxlab/releases)  
   
 You might need Microsoft Visual C++ Redistributable for Visual Studio 2015, such as [vc_redist.x86.exe or vc_redist.x64.exe](https://www.microsoft.com/en-us/download/details.aspx?id=48145), depending on your machine, if you don't already have them installed in your system.  
   
@@ -14,7 +15,7 @@ You might need Microsoft Visual C++ Redistributable for Visual Studio 2015, such
   
 Here's the link to [online help](http://auxlab.org/help/AUXLAB.html).  
 Here's the repository to the html files and index files to make chm. [link](http://github.com/bjkwon/auxlab-help.git)  
-Tutorial videos on YouTube--> [link](https://www.youtube.com/playlist?list=PL3oVyjivNwSemikPL_pP3gqz8Ud3wqXkR)  
+Tutorial videos on YouTube--> [link](https://www.youtube.com/playlist?list=PL3oVyjivNwSemikPL_pP3gqz8Ud3wqXkR) or search for "AUXLAB tutorials" 
   
 # How to compile and link  
   
@@ -33,7 +34,8 @@ Specify the directory of the local repository on line 5 and the directory for th
 | bjcommon | Common functions | No |  
 | bjcommon_win | Common functions and classes specific to Win API | Yes |  
 | auxlab | Main application | Yes |  
-| auxp | Private user-defined functions |Yes |  
+| auxp | Private user-defined functions | Yes |
+| aux_builtin_ext | Private built-in functions | No |
 | graffy | Graphic library to display signals |Yes |  
 | qlparse | Line parser to handle file string with full path, with or without a space |No|  
 | sigproc | Signal generation and processing, including parser and tokenizer |No|  
@@ -46,6 +48,7 @@ Specify the directory of the local repository on line 5 and the directory for th
 | libsndfile | Erik de Castro Lopo | 1.0.26 |  
 | libsamplerate* | Erik de Castro Lopo |0.1.9 |  
 | ELLF | Stephen L Moshier (iir.lib; IIR filter design used in sigproc) |2014-10-03 release|  
+| LAME | Lame project | 3.1 |
 
 libsamplerate has been slightly modified by BJ Kwon for better interfacing to auxlab conventions.
   
