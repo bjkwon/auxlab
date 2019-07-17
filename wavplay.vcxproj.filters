@@ -23,6 +23,9 @@
     <ClCompile Include="$(SrcPath)auxplay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)record.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="$(SrcPath)wavplay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

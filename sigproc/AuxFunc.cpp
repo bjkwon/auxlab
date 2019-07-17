@@ -770,6 +770,13 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 #ifdef _WINDOWS
 #ifndef NO_PLAYSND
 
+void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	char errstr[256] = {};
+	double block = past->audio_block_ms;
+	past->Compute(p);
+	Capture((int)past->Sig.value(), WM__AUDIOEVENT, GetHWND_WAVPLAY(), 22050, 1, 16, &block, errstr);
+}
 void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CVar sig = past->Sig;
@@ -2527,6 +2534,9 @@ void CAstSigEnv::InitBuiltInFunctions()
 	ft.narg1 = 1;	ft.narg2 = 3;
 	name = "play";
 	ft.func =  &_play;
+	builtin[name] = ft;
+	name = "record";
+	ft.func = &_record;
 	builtin[name] = ft;
 	ft.funcsignature = "(audio_signal)";
 	ft.narg1 = 1;	ft.narg2 = 1;

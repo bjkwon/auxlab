@@ -1713,8 +1713,14 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 {
 	// Note: Audioplayback handle pvar is not a pointer like a graphic handle.
 	// The variables in Vars are only copies. So, we need to update the values here for WOM_DOWN and WOM_CLOSE
+	CVar captured;
 	switch (code)
 	{
+	case WIM_OPEN:
+		EnableDlgItem(hDlg, IDC_STOP, 1);
+		break;
+	case WIM_CLOSE:
+		break;
 	case WOM_OPEN:
 		EnableDlgItem(hDlg, IDC_STOP, 1);
 		nPlaybackCount++;
@@ -1738,7 +1744,15 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 	case -1:
 		MessageBox((char*)pvar, "audio out error", 0);
 		break;
-	default: // status updates
+	case WIM_DATA:
+		// This is where record callback function is invoked.
+		// Create a CVar variable with the captured data.
+		// First, transfer captured wave buffer to buf of the CVar variable.
+
+		captured.
+
+		break;
+	default: // status updates either WIM_DATA or WOM_DONE
 		if (pvar) // for ctseries, pvar is not done yet
 		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 		{

@@ -133,7 +133,7 @@ CWavePlay::CWavePlay()
 	threadID = GetCurrentThreadId();
 	wfx.wFormatTag = WAVE_FORMAT_PCM;
 	wfx.wBitsPerSample = 16;
-	wfx.cbSize = 16;
+	wfx.cbSize = 0;
 }
 
 CWavePlay::~CWavePlay()
