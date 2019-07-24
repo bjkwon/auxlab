@@ -442,7 +442,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 		}
 	}
 	past->Sig.strut.clear();
-	in.block = past->audio_block_ms;
+	in.block = CAstSig::play_block_ms;
 	in.rt = rt;
 	in.threadCaller = GetCurrentThreadId();
 	in.hWndAppl = hWndApp;

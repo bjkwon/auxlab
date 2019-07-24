@@ -34,8 +34,12 @@ int _double_to_24bit(double x)
 }
 void _double_to_short(double* dint, short* pshort, int len)
 {
+	short ss;
 	for (int i = 0; i < len; i++)
+	{
+		ss = (short)(_double_to_24bit(dint[i]) >> 8);
 		pshort[i] = (short)(_double_to_24bit(dint[i]) >> 8);
+	}
 }
 short * makebuffer(const CSignals &sig, int &nChan, int &length)
 {	//For now this is only 16-bit playback (Sep 2008)

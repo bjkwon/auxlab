@@ -47,12 +47,19 @@ typedef void (*PFUN) (const vector<CAstSig*> &);
 xcom mainSpace;
 vector<CAstSig*> xcomvecast;
 vector<CAstSig*> CAstSig::vecast = xcomvecast;
+double CAstSig::play_block_ms = 300;
+double CAstSig::record_block_ms = 300;
+short CAstSig::play_bytes = 2;
+short CAstSig::record_bytes = 2;
 
 CWndDlg wnd;
 CShowvarDlg mShowDlg(NULL, NULL);
 CHistDlg mHistDlg;
 void* soundplayPt;
 double block;
+int playbytes; // Audio playback wave format 1, 2 or 3 for 8, 16, or 24 bits
+int recordbytes; // Audio record wave format 1, 2 or 3 for 8, 16, or 24 bits
+
 
 vector<string> aux_reserves;
 void init_aux_reserves()
@@ -168,21 +175,19 @@ WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRect *rtHi
 	return ret;
 }
 
-int readINIs(const char *fname, char *estr_dummy, int &fs, double &_block, char *path)
-{//in, in, out, out, in/out
+int readINIs(const char *fname, char *estr_dummy, int &fs, char *path)
+{//in, in, out, in/out
 	string strRead;
 	int val;
-	double dval;
 	int res = ReadINI (estr_dummy, fname, "SAMPLE RATE", strRead);
-	if (res>0 && sscanf(strRead.c_str(), "%d", &val)!=EOF && val >10)	
+	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF && val > 500)
 		fs = val;
-	else																
-		fs = DEFAULT_FS;
+	else
+		fs = CAstSig::DefaultFs;
 	res = ReadINI (estr_dummy, fname, "PLAYBACK BLOCK SIZE MILLISEC", strRead);
-	if (res>0 && sscanf(strRead.c_str(), "%lf", &dval)!=EOF && dval >10.)	
-		_block = dval;
-	else																
-		_block = DEFAULT_PLAY_BLOCK_MS;
+	double dval;
+	if (res>0 && sscanf(strRead.c_str(), "%lf", &dval)!=EOF && dval > 20.)
+		CAstSig::play_block_ms = dval;
 	if (ReadINI (estr_dummy, fname, "PATH", strRead)>=0)
 		strcat(path, strRead.c_str());
 	return 1;
@@ -245,7 +250,7 @@ void closeXcom(const char *AppPath)
 	}
 	else
 		pathnotapppath.append(pcast->GetPath());
-	int res = writeINIs(iniFile, estr, pcast->pEnv->Fs, pcast->audio_block_ms, pathnotapppath.c_str());
+	int res = writeINIs(iniFile, estr, pcast->pEnv->Fs, CAstSig::play_block_ms, pathnotapppath.c_str());
 	delete pcast->pEnv;
 
 	CRect rt1, rt2, rt3;
@@ -345,16 +350,6 @@ unsigned int WINAPI histThread (PVOID var)
 	return 0;
 }
 
-CWndDlg *GetCWndDlg(HWND hwnd)
-{
-	for (vector<CWndDlg*>::iterator it = cellviewdlg.begin(); it != cellviewdlg.end(); it++)
-	{
-		if ((*it)->hDlg == hwnd)
-			return *it;
-	}
-	return NULL;
-}
-
 unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 {
 	bool win7 = isWin7() ? true : false;
@@ -423,47 +418,17 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 
 	MSG msg ;
 	HACCEL hAcc = LoadAccelerators (hModule, MAKEINTRESOURCE(IDR_XCOM_ACCEL));
-
-	//FILE *fpp = fopen("c:\\temp\\rec","wt"); 
-	//fclose(fpp);
-
-	exc.push_back(WM_NCHITTEST);
-	exc.push_back(WM_SETCURSOR);
-	exc.push_back(WM_MOUSEMOVE);
-	exc.push_back(WM_NCMOUSEMOVE);
-	exc.push_back(WM_WINDOWPOSCHANGING);
-	exc.push_back(WM_WINDOWPOSCHANGED);
-	exc.push_back(WM_CTLCOLORDLG);
-	exc.push_back(WM_NCPAINT);
-	exc.push_back(WM_GETMINMAXINFO);
-	exc.push_back(WM_MOVE);
-	exc.push_back(WM_MOVING);
-	exc.push_back(WM_PAINT);
-	exc.push_back(WM_NCMOUSEMOVE);
-	exc.push_back(WM_ERASEBKGND);
-	exc.push_back(WM_TIMER);
-//	bool printthis;
-
 	while (GetMessage (&msg, NULL, 0, 0))
 	{
 		if (msg.message==WM__ENDTHREAD) 
 			_endthreadex(33);
-//		printthis = spyWM(msg.hwnd, msg.message, msg.wParam, msg.lParam, "c:\\temp\\rec", exc, "showvar MessageLoop")>0;
-//		if (printthis) fpp=fopen("c:\\temp\\rec","at"); 
 		if (!TranslateAccelerator(mShowDlg.hDlg, hAcc, &msg))
 		{
-	//		if (!IsDialogMessage(msg.hwnd, &msg)) // This should not be used....why?? 4/2/2018
 			{
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
-//			if (printthis)  fprintf(fpp, "TranslateMessage/DispatchMessage\n"); 
 		}
-		//else
-		//{
-		//	if (printthis)  fprintf(fpp, "TranslateAccelerator_mShowDlg.hDlg success.\n"); 
-		//}
-//		if (printthis) fclose(fpp);
 	}
 	hShowvarThread=NULL;
 	return 0;
@@ -1784,13 +1749,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	GetComputerName(buf, &dw);
 	sprintf(iniFile, "%s%s_%s.ini", mainSpace.AppPath, fname, buf);
 	double block;
-	res = readINIs(iniFile, buf, fs, block, udfpath);
+	res = readINIs(iniFile, buf, fs, udfpath);
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	CAstSigEnv::AppPath = string(mainSpace.AppPath);
 	pglobalEnv->InitBuiltInFunctions();
 	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
 	CAstSig cast(pglobalEnv);
-	if (block > 0) cast.audio_block_ms = block;
 
 	//	cast.Reset(fs,""); //	mainSpace.cast.Sig.Reset(fs); is wrong...
 	addp = mainSpace.AppPath;

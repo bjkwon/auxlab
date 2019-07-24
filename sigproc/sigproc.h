@@ -220,6 +220,7 @@ public:
 	int nextBreakPoint;
 	int currentLine;
 	int nargin, nargout;
+	map<string, CVar*> static_vars;
 	CDebugStatus debug;
 	map<HWND, RECT> rt2validate;
 	const char* application;
@@ -239,6 +240,10 @@ public:
 	static void cleanup_nodes(CAstSig *beginhere = NULL);
 	static vector<CAstSig*> vecast;
 	static bool graffyPrepared;
+	static double play_block_ms;
+	static double record_block_ms;
+	static short play_bytes; // waveform format 1, 2 or 3 bytes for 8, 16 or 24 bits
+	static short record_bytes; // waveform format 1, 2 or 3 bytes for 8, 16 or 24 bits
 	static bool IsStatement(const AstNode *p);
 	static bool IsCondition(const AstNode *p);
 	static bool IsLooping(const AstNode *p);
@@ -282,7 +287,6 @@ public:
 	CVar replica;
 	double endpoint;
 	bool fExit, fContinue;
-	double audio_block_ms;
 	goaction setgo;
 
 private:
@@ -310,6 +314,7 @@ private:
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
 
 public:
+	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar *pOutVars);
 	CVar &ConditionalOperation(const AstNode *pnode, AstNode *p);
 	int updateGO(CVar &ref);
 	void ClearVar(AstNode *pnode, CVar *psig);
@@ -333,7 +338,7 @@ public:
 	bool need2repaintnow(const AstNode *pnode, AstNode *p = NULL);
 	bool GOpresent(const AstNode *pnode, AstNode *p = NULL);
 	bool isthisUDFscope(const AstNode *pnode, AstNode *p=NULL);
-	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase = NULL);
+	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase, CVar *pStaticVars=NULL);
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase=NULL);
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);

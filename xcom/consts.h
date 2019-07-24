@@ -10,9 +10,6 @@
 // Version: 1.495
 // Date: 12/13/2018
 // 
-#define DEFAULT_FS	22050
-#define DEFAULT_PLAY_BLOCK_MS	100.
-
 #define HISTORY_FILENAME	"_history"
 
 #define LOGHISTORY(MSG) { FILE* __fp_ = fopen(mHistDlg.logfilename,"at"); if (__fp_) { fprintf(__fp_,"%s\n", (MSG)); fclose(__fp_); } else { char __temp[256]; sprintf(__temp, "NOT FOUND: %s", mHistDlg.logfilename); ::MessageBox(mHistDlg.hDlg, __temp, "LOGHISTORY", 0); } }

@@ -44,6 +44,8 @@
 
 string CAstSigEnv::AppPath = "";
 
+//extern double CAstSig::play_block_ms;
+
 map<double, FILE *> file_ids;
 
 #ifdef _WINDOWS
@@ -770,12 +772,75 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 #ifdef _WINDOWS
 #ifndef NO_PLAYSND
 
-void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _start(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	char errstr[256] = {};
-	double block = past->audio_block_ms;
-	past->Compute(p);
-	Capture((int)past->Sig.value(), WM__AUDIOEVENT, GetHWND_WAVPLAY(), 22050, 1, 16, &block, errstr);
+	CVar sig = past->Sig;
+	if (!sig.IsScalar())
+		throw past->ExceptionMsg(pnode, fnsigs, "Argument must be a scalar.");
+	if (sig.strut["type"].string() == "audio_record")
+	{
+		int devID = (int)sig.strut["dev"].value();
+		int nChans = (int)sig.strut["nChan"].value();
+		string callbackname = sig.strut["callback"].string();
+		double block = sig.strut["block"].value();
+		double duration = sig.strut["dur_ms"].value();
+		Capture(devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, &block, errstr);
+	}
+	else
+		throw past->ExceptionMsg(pnode, fnsigs, "start() applies only to audio_record.");
+}
+void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	double block = CAstSig::record_block_ms;
+	double duration = -1;
+	int nArgs = 0, devID = 0, nChans = 1;
+	string callbackname = "default__callback";
+	for (const AstNode *cp = p; cp; cp = cp->next)
+		++nArgs;
+	switch (nArgs)
+	{
+	case 5:
+		past->Compute(p->next->next->next->next);
+		if (!past->Sig.IsScalar())
+			throw past->ExceptionMsg(pnode, fnsigs, "The fifth argument must be a constant representing the block size for the callback in milliseconds.");
+		block = past->Sig.value();
+	case 4:
+		past->Compute(p->next->next->next);
+		if (!past->Sig.IsScalar())
+			throw past->ExceptionMsg(pnode, fnsigs, "The fourth argument is either 1 (mono) or 2 (stereo) for recording.");
+		nChans = (int)past->Sig.value();
+		if (nChans!=1 && nChans!=2)
+			throw past->ExceptionMsg(pnode, fnsigs, "The fourth argument is either 1 (mono) or 2 (stereo) for recording.");
+	case 3:
+		past->Compute(p->next->next);
+		if (!past->Sig.IsScalar())
+			throw past->ExceptionMsg(pnode, fnsigs, "The fourth argument must be a constant representing the duration to record, -1 means indefinite duration until stop is called.");
+		duration = past->Sig.value();
+	case 2:
+		past->Compute(p->next);
+		if (!past->Sig.IsString())
+			throw past->ExceptionMsg(pnode, fnsigs, "The second argument must be the file name (may include the path) of the callback function.");
+		callbackname = past->Sig.string();
+	case 1:
+		past->Compute(p);
+		if (!past->Sig.IsScalar())
+			throw past->ExceptionMsg(pnode, fnsigs, "The first argument must be a constant (integer) representing the device ID.");
+		devID = (int)past->Sig.value();
+		break;
+	case 0:
+		break;
+	}
+	srand((unsigned)time(0));
+	past->Sig.SetValue((double)rand());
+	past->Sig.strut["dev"] = CVar((double)devID);
+	past->Sig.strut["fs"] = CVar((double)past->pEnv->Fs);
+	past->Sig.strut["type"] = CVar(string("audio_record"));
+	past->Sig.strut["id"] = CVar(past->Sig.value());
+	past->Sig.strut["callback"] = callbackname;
+	past->Sig.strut["nChan"] = CVar((double)nChans);
+	past->Sig.strut["dur_ms"] = CVar(duration);
+	past->Sig.strut["block"] = CVar(block);
 }
 void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -783,7 +848,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	//sig must be either an audio signal or an audio handle.
 	char errstr[256] = {};
 	int nRepeats(1);
-	double block = past->audio_block_ms;
+	double block = CAstSig::play_block_ms;
 	if (sig.GetType() != CSIG_AUDIO)
 	{
 		if (!sig.IsScalar())
@@ -855,12 +920,10 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			p->sig.strut["durPlayed"] = CSignals(0.);
 			past->Sig = p->sig; //only to return to xcom
 		}
-
-
 	}
 }
 
-void _playstop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _stop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
@@ -868,24 +931,20 @@ void _playstop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	string fname = past->pAst->str;
 	if (!p)
 		fname = past->pAst->alt->str;
-	bool res = StopPlay((INT_PTR)sig.value(), fname == "qstop");
-	if (!res)
+	if (sig.strut["type"].string() == "audio_playback" && (fname == "qstop" || fname == "stop"))
 	{
-		past->Sig.strut.clear();
-		past->Sig.SetValue(-1.);
+		if (!StopPlay((INT_PTR)sig.value(), fname == "qstop"))
+		{
+			past->Sig.strut.clear();
+			past->Sig.SetValue(-1.);
+		}
+	}
+	else if (sig.strut["type"].string() == "audio_record" && fname == "stop")
+	{
+
 	}
 	else
-	{
-		//double remaining = fname == "qstop" ? 0. : 350.;
-		//past->Sig.strut["remainingDuration"] = CSignals(remaining);
-	}
-	ctimesig ssig(44100);
-	ssig.tone(500, 1000);
-	double block = past->audio_block_ms;
-	char errstr[256] = {};
-	int nRepeats(1);
-
-	INT_PTR hh = PlayArray16(ssig, 0, WM__AUDIOEVENT, GetHWND_WAVPLAY(), &block, errstr, 1);
+		throw past->ExceptionMsg(pnode, fnsigs, "stop() applies only to audio_playback or audio_record.");
 }
 
 void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -896,12 +955,20 @@ void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string
 	string fname = past->pAst->str;
 	if (!p)
 		fname = past->pAst->alt->str;
-	bool res = PauseResumePlay((INT_PTR)sig.value(), fname == "resume");
-	if (!res)
+	if (sig.strut["type"].string() == "audio_playback")
 	{
-		past->Sig.strut.clear();
-		past->Sig.SetValue(-1.);
+		if (!PauseResumePlay((INT_PTR)sig.value(), fname == "resume"))
+		{
+			past->Sig.strut.clear();
+			past->Sig.SetValue(-1.);
+		}
 	}
+	else if (sig.strut["type"].string() == "audio_record")
+	{
+
+	}
+	else
+		throw past->ExceptionMsg(pnode, fnsigs, "pause() or resume() applies only to audio_playback or audio_record.");
 }
 
 #endif // NO_PLAYSND
@@ -2524,10 +2591,13 @@ void CAstSigEnv::InitBuiltInFunctions()
 	ft.func = &_pause_resume;
 	builtin[name] = ft;
 	name = "stop";
-	ft.func = &_playstop;
+	ft.func = &_stop;
 	builtin[name] = ft;
 	name = "qstop";
-	ft.func = &_playstop;
+	ft.func = &_stop;
+	builtin[name] = ft;
+	name = "start";
+	ft.func = &_start;
 	builtin[name] = ft;
 
 	ft.funcsignature = "(audio_signal [, repeat=1]) or (audio_handle, audio_signal [, repeat=1])";
@@ -2535,10 +2605,14 @@ void CAstSigEnv::InitBuiltInFunctions()
 	name = "play";
 	ft.func =  &_play;
 	builtin[name] = ft;
+	ft.funcsignature = "(devID [=0], callbackfunction_text [=""], recording_duration [=-1;indefinite], mono1_or_stereo2 [=1], callback_duration_ms [=setting in ini])";
+	ft.alwaysstatic = true;
+	ft.narg1 = 0;	ft.narg2 = 5;
 	name = "record";
 	ft.func = &_record;
 	builtin[name] = ft;
 	ft.funcsignature = "(audio_signal)";
+	ft.alwaysstatic = false;
 	ft.narg1 = 1;	ft.narg2 = 1;
 	name = "vector";
 	ft.func =  &_vector;

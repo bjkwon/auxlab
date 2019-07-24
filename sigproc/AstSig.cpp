@@ -226,7 +226,7 @@ void CAstSig::init()
 	dad = NULL;
 
 	FsFixed = false;
-	audio_block_ms = 300;
+	CAstSig::play_block_ms = 300;
 	pgo = NULL;
 	Tick0 = 1;
 }
@@ -436,8 +436,108 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 	return *this;
 }
 
+bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar *pOutVars)
+{
+	u.currentLine = pCalling->line; // ? 10/18/2018
+	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
-bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
+	CAstSigEnv tempEnv(*pEnv);
+	son = new CAstSig(&tempEnv);
+	son->u = u;
+	son->u.title = pCalling->str;
+	son->u.debug.status = null;
+	son->SetVar("in", pStaticVars);
+	son->SetVar("out", pOutVars);
+	son->lhs = lhs;
+	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
+	son->fpmsg = fpmsg;
+	auto itUDF = pEnv->udf.find(pCalling->str);
+	if (itUDF != pEnv->udf.end())
+	{
+		son->u.pUDF = (*itUDF).second.pAst;
+		son->u.pUDF_base = son->u.pUDF;
+		son->u.base = son->u.pUDF->str;
+	}
+	//else
+	//{
+	//	auto jtUDF = pEnv->udf.find(u.base); // if this is to be a local udf, base should be ready through a previous iteration.
+	//	if (jtUDF == pEnv->udf.end())
+	//		throw ExceptionMsg(pCalling, "Internal error! CheckPrepareCallUDF()", "supposed to be a local udf, but AstNode with that name not prepared");
+	//	son->u.pUDF_base = (*jtUDF).second.pAst;
+	//	son->u.base = u.base; // this way, base can maintain through iteration.
+	//	son->u.pUDF = (*pEnv->udf.find(u.base)).second.local[pCalling->str].pAst;
+	//}
+	son->pAst = son->u.pUDF_base->child->next;
+	//output argument string list
+	son->u.argout.clear();
+	AstNode *pOutParam = son->u.pUDF->alt;
+	if (pOutParam) {
+		if (pOutParam->type == N_VECTOR)
+			for (AstNode *pf = pOutParam->child; pf; pf = pf->next)
+				son->u.argout.push_back(pf->str);
+		else
+		{
+			ostringstream out("Internal error!UDF output should be alt and N_VECTOR");
+			out << pOutParam->type;
+			throw ExceptionMsg(pOutParam, out.str().c_str());
+		}
+	}
+	//Checking requested output arguments vs formal output arguments
+	if (lhs)
+	{
+		ostringstream oss;
+		AstNode *p = lhs->type == N_VECTOR ? lhs->alt : lhs;
+		for (son->u.nargout = 0; p && p->line == lhs->line; p = p->next, son->u.nargout++) {}
+		if (son->u.nargout > (int)son->u.argout.size()) {
+			oss << "Maximum number of return arguments for function '" << u.pUDF->str << "' is " << son->u.argout.size() << ".";
+			throw ExceptionMsg(u.pUDF, oss.str().c_str());
+		}
+	}
+	else
+		son->u.nargout = (int)son->u.argout.size(); // probably not correct
+	// at this point son->u.nargout should be one
+
+	//If the line invoking the udf res = var.udf(arg1, arg2...), binding of the first arg, var, is done separately via pBase. The rest, arg1, arg2, ..., are done below with pf->next
+	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
+	//No need for input param binding
+	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
+	CAstSig::vecast.push_back(son);
+	//son->SetVar("_________",pStaticVars); // how can I add static variables here???
+	size_t nArgout = son->CallUDF(pCalling, NULL);
+	// output parameter binding
+	vector<CVar *> holder;
+	size_t cnt = 0;
+	// output argument transfer from son to this
+	// there is only one output argument
+	if (!lhs)	// no output parameter specified. --> first formal output arg goes to ans
+	{
+		Sig = son->Vars[son->u.argout.front()];
+	}
+	else
+	{
+		SetVar(lhs->str, &son->Vars[son->u.argout.front()]);
+	}
+	*pOutVars = son->Vars[son->u.argout.front()];
+	if ((son->u.debug.status == stepping || son->u.debug.status == continuing) && u.debug.status == null)
+	{ // no b.p set in the main udf, but in these conditions, as the local udf is finishing, the stepping should continue in the main udf, or debug.status should be set progress, so that the debugger would be properly exiting as it finishes up in CallUDF()
+		u.debug.GUI_running = true;
+		if (son->u.debug.status == stepping) // b.p. set in a local udf
+			u.debug.status = stepping;
+		else // b.p. set in other udf 
+			u.debug.status = progress;
+	}
+	delete son;
+	son = NULL;
+	u.pLastRead = NULL;
+	if (pgo) pgo->functionEvalRes = true;
+	Sig.functionEvalRes = true;
+	//	if (need2repaintnow(pCalling)) // or maybe pBase??
+	fpmsg.RepaintGO(this);
+	CAstSig::vecast.pop_back(); // move here????? to make purgatory work...
+	return true;
+}
+
+bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pStaticVars)
 {
 	if (!pCalling->str)
 		throw ExceptionMsg(pCalling, "Internal error! CheckPrepareCallUDF()");
@@ -516,6 +616,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase)
 	}
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
 	CAstSig::vecast.push_back(son);
+	//son->SetVar("_________",pStaticVars); // how can I add static variables here???
 	size_t nArgout = son->CallUDF(pCalling, pBase);
 	// output parameter binding
 	vector<CVar *> holder;
@@ -657,7 +758,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 	}
 
 #if defined(_WINDOWS) && defined(_DEBUG)
-	Beep(1000, 50);
+//	Beep(1000, 50);
 #endif
 
 //	CAstSig::print_links("aux2_son_inCallUDF.txt", son->pAst->next);
@@ -1235,6 +1336,8 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *in
 			char buf[256];
 			sprintf(buf, " in %s", fullpath.c_str());
 			emsg += buf;
+			auto fd = pEnv->udf.find(udf_filename);
+			pEnv->udf.erase(fd);
 			return NULL;
 		}
 	}
@@ -1764,6 +1867,7 @@ vector<CVar> CAstSig::Compute(void)
 			{
 				res.push_back(Compute(p));
 				p = p->next;
+				lhs = NULL; // to clear lhs from the last statement in the block 7/23/2019
 			}
 		}
 		else

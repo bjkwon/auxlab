@@ -18,13 +18,16 @@
 
 vector<CAstSig*> xcomvecast;
 vector<CAstSig*> CAstSig::vecast = xcomvecast;
+double CAstSig::play_block_ms = 300;
+double CAstSig::record_block_ms = 300;
+short CAstSig::play_bytes = 2;
+short CAstSig::record_bytes = 2;
 
 HINSTANCE hInst;
 CPlotDlg* childfig;
 GRAPHY_EXPORT HWND hPlotDlgCurrent;
 
 #define WM_PLOT_DONE	WM_APP+328
-
 
 HANDLE mutexPlot;
 HANDLE hEvent;
@@ -424,17 +427,11 @@ void thread4Plot(PVOID var)
 			break;
 		if (!TranslateAccelerator(in->cfig->m_dlg->hDlg, in->hAccel, &msg))
 		{
-			//if (msg.message == WM_KEYDOWN)
-			//	if (msg.message == WM_KEYDOWN && msg.wParam == 17 && GetParent(msg.hwnd) == in->cfig->m_dlg->hDlg) // Left control key for window size adjustment
-			//		msg.hwnd = in->cfig->m_dlg->hDlg;
 			if (!IsDialogMessage(msg.hwnd, &msg))
 			{
-				//				SpyGetMessage(msg, "track.txt", wmstr, dum, "Dispatching ");
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
-			//			else
-			//				SpyGetMessage2(msg, "track.txt", wmstr, dum, "Dialog ");
 		}
 	}
 	CloseFigure(in->fig);
@@ -486,7 +483,6 @@ GRAPHY_EXPORT HANDLE OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, i
 
 GRAPHY_EXPORT int CloseFigure(HANDLE h)
 {
-	//	delete h;
 	return theApp.closeFigure(h);
 }
 

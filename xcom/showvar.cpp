@@ -36,8 +36,7 @@ extern CWndDlg wnd;
 extern CShowvarDlg mShowDlg;
 extern char udfpath[4096];
 extern void* soundplayPt;
-extern double playbackblock;
-extern vector<CAstSig*> xcomvecast;
+//extern vector<CAstSig*> xcomvecast;
 
 HANDLE hEvent;
 extern CHistDlg mHistDlg;
@@ -57,6 +56,7 @@ vector<cfigdlg*> plots;
 #define WM__NEWDEBUGDLG	WM_APP+0x2000
 
 #define WM__AUDIOEVENT	WM_APP + WOM_OPEN
+#define WM__STOP_RECORD						WM_APP+122
 #define PROPCHANGED 0x2020
 
 CAstSig * CDebugDlg::pAstSig = NULL;
@@ -86,6 +86,7 @@ uintptr_t hDebugThread(NULL);
 uintptr_t hDebugThread2(NULL);
 
 void ValidateFig(const char* scope);
+void Back2BaseScope(int closeauxcon);
 
 unsigned int WINAPI debugThread2 (PVOID var) ;
 
@@ -244,7 +245,7 @@ CFigure * CShowvarDlg::newFigure(CRect rt, string title, const char *varname, GR
 {
 	pin->hIcon = LoadImage(hInst, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0);
 	pin->hWndAppl = hDlg;
-	pin->block = CAstSig::vecast.front()->audio_block_ms;
+	pin->block = CAstSig::play_block_ms;
 	pin->scope = pcast->u.title.empty() ? "base workspace" : pcast->u.title;
 	pin->rt = rt;
 	pin->caption = title;
@@ -1621,7 +1622,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 					if (ListView_GetItemState(lvnkeydown->hdr.hwndFrom, k, LVIS_SELECTED))
 					{
 						ListView_GetItemText(lvnkeydown->hdr.hwndFrom, k, 0, varname, 256);
-						double block = CAstSig::vecast.front()->audio_block_ms;
+						double block = CAstSig::play_block_ms;
 						int devID = 0;
 						psig = &(*pVars)[varname];
 						INT_PTR h = PlayArray16(*psig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
@@ -1709,17 +1710,107 @@ void CShowvarDlg::UpdateProp(string varname, CVar *pvar, string propname)
 	}
 }
 
+static vector<int> recordingEvent;
+typedef struct
+{
+	short devID;
+	bool closing = 0;
+	DWORD recordingThread;
+	int fs;
+	int len_buffer;
+	char *buffer;
+	char callbackfilename[256];
+} rFormat;
+map<int, rFormat *> recorders;
+
+static inline void les2d_array(short *src, int count, double *dest, double normfact)
+{
+	short	value;
+	while (--count >= 0)
+	{
+		value = src[count];
+		dest[count] = (double)value * normfact;
+	};
+}
+static inline void sc2d_array(signed char *src, int count, double *dest, double normfact)
+{
+	while (--count >= 0)
+		dest[count] = ((double)src[count]) * normfact;
+} /* sc2d_array */
+static inline void uc2d_array(unsigned char *src, int count, double *dest, double normfact)
+{
+	while (--count >= 0)
+		dest[count] = (((int)src[count]) - 128) * normfact;
+}
+typedef	void	tribyte;
+static inline int32_t
+psf_get_le24(uint8_t *ptr, int offset)
+{
+	int32_t value;
+
+	value = ((uint32_t)ptr[offset + 2]) << 24;
+	value += ptr[offset + 1] << 16;
+	value += ptr[offset] << 8;
+	return value;
+} /* psf_get_le24 */
+static inline void let2d_array(tribyte *src, int count, double *dest, double normfact)
+{
+	unsigned char	*ucptr;
+	int				value;
+
+	ucptr = ((unsigned char*)src) + 3 * count;
+	while (--count >= 0)
+	{
+		ucptr -= 3;
+		value = psf_get_le24(ucptr, 0);
+		dest[count] = ((double)value) * normfact;
+	};
+} /* let2d_array */
 void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 {
 	// Note: Audioplayback handle pvar is not a pointer like a graphic handle.
 	// The variables in Vars are only copies. So, we need to update the values here for WOM_DOWN and WOM_CLOSE
+	static CVar *pvar_callbackinput;
+	static CVar *pvar_callbackoutput = NULL;
+	static AstNode *pCallbackUDF;
 	CVar captured;
+	rFormat * precorder;
+	string emsg;
 	switch (code)
 	{
 	case WIM_OPEN:
-		EnableDlgItem(hDlg, IDC_STOP, 1);
+	{
+		precorder = (rFormat*)pvar;
+		int id = rand();
+		recordingEvent.push_back(id);
+		recorders[id] = precorder;
+		//checking if specified callback file is legit
+		if (pCallbackUDF=pcast->ReadUDF(emsg, precorder->callbackfilename))
+		{ 
+			pvar_callbackinput = new CVar(1);
+			pvar_callbackoutput = new CVar(1);
+			pvar_callbackinput->strut["fs"] = CVar((double)precorder->fs);
+			pvar_callbackinput->strut["dev"] = CVar((double)precorder->devID);
+			srand((unsigned)time(0));
+			pvar_callbackinput->strut["id"] = CVar((double)rand());
+			pvar_callbackinput->strut["index"] = CVar((double)0.);
+			pcast->ReadUDF(emsg, precorder->callbackfilename);
+			pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+		}
+		else
+		{
+			MessageBox(emsg.c_str(), precorder->callbackfilename);
+			// callback not found; 1) delete pvar_callbackinput
+			delete pvar_callbackinput;
+			// 2) close the thread
+			precorder->closing = true;
+			PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
+		}
 		break;
+	}
 	case WIM_CLOSE:
+		delete pvar_callbackinput;
+		delete pvar_callbackoutput;
 		break;
 	case WOM_OPEN:
 		EnableDlgItem(hDlg, IDC_STOP, 1);
@@ -1749,10 +1840,45 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 		// Create a CVar variable with the captured data.
 		// First, transfer captured wave buffer to buf of the CVar variable.
 
-		captured.
-
+		//find the correct id
+		{
+			precorder = (rFormat*)pvar;
+			char *recordbuffer = precorder->buffer;
+			CVar in(1);
+			captured.SetFs((int)pvar_callbackinput->strut["fs"].value());
+			captured.UpdateBuffer(precorder->len_buffer);
+			//double cal = 1. / 0x7f;
+			//uc2d_array((unsigned char*)precorder->buffer, precorder->len_buffer, captured.buf, cal);
+			//double cal = 1. / 0x7fff;
+			//les2d_array((short*)precorder->buffer, precorder->len_buffer, captured.buf, cal);
+			double cal = 1. / 0x7fffffff;
+			let2d_array((tribyte*)precorder->buffer, precorder->len_buffer, captured.buf, cal);
+			pvar_callbackinput->strut["d_ata"] = captured;
+			pvar_callbackinput->strut["index"] = CVar(pvar_callbackinput->strut["index"].value()+1);
+			try {
+				pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+			}
+			catch (const CAstException &e) {
+				precorder->closing = true;
+				delete pvar_callbackinput;
+				delete pvar_callbackoutput;
+				PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
+				const char *_errmsg = e.outstr.c_str();
+				bool gotobase = false;
+				if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
+					gotobase = true;
+				char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
+				CDebugDlg::pAstSig = NULL;
+				// cleanup_nodes was called with CAstException
+				if (strncmp(errmsg, "Invalid", strlen("Invalid")))
+					cout << "ERROR: " << errmsg << endl;
+				else
+					cout << errmsg << endl;
+				Back2BaseScope(0);
+			}
+		}
 		break;
-	default: // status updates either WIM_DATA or WOM_DONE
+	default: // status updates either or WOM_DONE
 		if (pvar) // for ctseries, pvar is not done yet
 		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 		{
