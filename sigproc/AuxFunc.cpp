@@ -785,10 +785,12 @@ void _start(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		string callbackname = sig.strut["callback"].string();
 		double block = sig.strut["block"].value();
 		double duration = sig.strut["dur_ms"].value();
-		Capture(devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, &block, errstr);
+		if (Capture(devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, &block, errstr)<0)
+			throw past->ExceptionMsg(pnode, fnsigs, errstr);
 	}
 	else
-		throw past->ExceptionMsg(pnode, fnsigs, "start() applies only to audio_record.");
+		throw past->ExceptionMsg(pnode, "", "start() applies only to audio_record.");
+//	past->Sig.Reset();
 }
 void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {

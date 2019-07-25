@@ -111,7 +111,7 @@ void nonnulintervals(CTimeSeries *psig, string &out, bool unit, bool clearout)
 	}
 }
 
-WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRect *rtHistDlg, CRect *rtDebugDlg)
+static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRect *rtHistDlg, CRect *rtDebugDlg)
 {
 	char errStr[256];
 	int tar[4];
@@ -175,35 +175,48 @@ WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRect *rtHi
 	return ret;
 }
 
-int readINIs(const char *fname, char *estr_dummy, int &fs, char *path)
+static int readINIs(const char *fname, char *estr_dummy, int &fs, char *path)
 {//in, in, out, in/out
 	string strRead;
 	int val;
-	int res = ReadINI (estr_dummy, fname, "SAMPLE RATE", strRead);
+	int res = ReadINI (estr_dummy, fname, INI_HEAD_SRATE, strRead);
 	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF && val > 500)
 		fs = val;
 	else
 		fs = CAstSig::DefaultFs;
-	res = ReadINI (estr_dummy, fname, "PLAYBACK BLOCK SIZE MILLISEC", strRead);
+
 	double dval;
+	res = ReadINI (estr_dummy, fname, INI_HEAD_PLAYBLOCK, strRead);
 	if (res>0 && sscanf(strRead.c_str(), "%lf", &dval)!=EOF && dval > 20.)
 		CAstSig::play_block_ms = dval;
+	res = ReadINI(estr_dummy, fname, INI_HEAD_RECBLOCK, strRead);
+	if (res > 0 && sscanf(strRead.c_str(), "%lf", &dval) != EOF && dval > 20.)
+		CAstSig::record_block_ms = dval;
+	res = ReadINI(estr_dummy, fname, INI_HEAD_PLAYBYTES, strRead);
+	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF)
+		CAstSig::play_bytes = val;
+	res = ReadINI(estr_dummy, fname, INI_HEAD_RECBYTES, strRead);
+	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF)
+		CAstSig::record_bytes = val;
 	if (ReadINI (estr_dummy, fname, "PATH", strRead)>=0)
 		strcat(path, strRead.c_str());
 	return 1;
 }
 
 
-int writeINIs(const char *fname, char *estr, int fs, double _block, const char *path)
+static int writeINIs(const char *fname, char *estr, int fs, const char *path)
 {
 	char errStr[256];
-	if (!printfINI (errStr, fname, "SAMPLE RATE", "%d", fs)) {strcpy(estr, errStr); 	return 0;}
-	if (!printfINI (errStr, fname, "PLAYBACK BLOCK SIZE MILLISEC", "%.1f", _block))	{strcpy(estr, errStr);	return 0;}
+	if (!printfINI (errStr, fname, INI_HEAD_SRATE, "%d", fs)) {strcpy(estr, errStr); 	return 0;}
+	if (!printfINI (errStr, fname, INI_HEAD_PLAYBLOCK, "%.1f", CAstSig::play_block_ms)) { strcpy(estr, errStr);	return 0; }
+	if (!printfINI (errStr, fname, INI_HEAD_RECBLOCK, "%.1f", CAstSig::record_block_ms)) { strcpy(estr, errStr);	return 0; }
+	if (!printfINI (errStr, fname, INI_HEAD_PLAYBYTES, "%d", CAstSig::play_bytes)) { strcpy(estr, errStr);	return 0; }
+	if (!printfINI (errStr, fname, INI_HEAD_RECBYTES, "%d", CAstSig::record_bytes))	{strcpy(estr, errStr);	return 0;}
 	if (!printfINI (errStr, fname, "PATH", "%s", path)) {strcpy(estr, errStr); return 0;}
 	return 1;
 }
 
-int writeINI_pos(const char *fname, char *estr, CRect rtMain, CRect rtShowDlg, CRect rtHistDlg)
+static int writeINI_pos(const char *fname, char *estr, CRect rtMain, CRect rtShowDlg, CRect rtHistDlg)
 {
 	char errStr[256];
 	CString str;
@@ -250,7 +263,7 @@ void closeXcom(const char *AppPath)
 	}
 	else
 		pathnotapppath.append(pcast->GetPath());
-	int res = writeINIs(iniFile, estr, pcast->pEnv->Fs, CAstSig::play_block_ms, pathnotapppath.c_str());
+	int res = writeINIs(iniFile, estr, pcast->pEnv->Fs, pathnotapppath.c_str());
 	delete pcast->pEnv;
 
 	CRect rt1, rt2, rt3;
@@ -1748,7 +1761,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	DWORD dw = sizeof(buf);
 	GetComputerName(buf, &dw);
 	sprintf(iniFile, "%s%s_%s.ini", mainSpace.AppPath, fname, buf);
-	double block;
 	res = readINIs(iniFile, buf, fs, udfpath);
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	CAstSigEnv::AppPath = string(mainSpace.AppPath);
@@ -1756,7 +1768,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
 	CAstSig cast(pglobalEnv);
 
-	//	cast.Reset(fs,""); //	mainSpace.cast.Sig.Reset(fs); is wrong...
 	addp = mainSpace.AppPath;
 	if (strlen(udfpath) > 0 && udfpath[0] != ';') addp += ';';
 	addp += udfpath;

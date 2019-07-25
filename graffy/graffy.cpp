@@ -32,6 +32,7 @@ GRAPHY_EXPORT HWND hPlotDlgCurrent;
 HANDLE mutexPlot;
 HANDLE hEvent;
 HWND hWndApp(NULL); // Settings and variables window
+DWORD threadID; // delete this after 7/25/2019
 
 void initLineList(); // from Auxtra.cpp
 

@@ -25,6 +25,8 @@
 #include "wavplay.h"
 
 HWND hLog;
+DWORD threadID;
+
 #define WM__LOG	WM_APP+0x2020
 
 extern xcom mainSpace;
@@ -953,6 +955,8 @@ void CShowvarDlg::InitVarShow(int type, const char *name)
 
 BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 {
+	threadID = GetCurrentThreadId();
+
 	CWndDlg::OnInitDialog(hwndFocus, lParam);
 
 	CRect rtDlg, rt;
@@ -1766,6 +1770,26 @@ static inline void let2d_array(tribyte *src, int count, double *dest, double nor
 		dest[count] = ((double)value) * normfact;
 	};
 } /* let2d_array */
+static inline void fillDoubleBuffer(int len, void *inBuffer, double *outBuffer)
+{
+	double cal;
+	switch (CAstSig::record_bytes)
+	{
+	case 1:
+		cal = 1. / 0x7f;
+		uc2d_array((unsigned char*)inBuffer, len, outBuffer, cal);
+		break;
+	case 2:
+		cal = 1. / 0x7fff;
+		les2d_array((short*)inBuffer, len, outBuffer, cal);
+		break;
+	case 3:
+		cal = 1. / 0x7fffffff;
+		let2d_array((tribyte*)inBuffer, len, outBuffer, cal);
+		break;
+	}
+}
+
 void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 {
 	// Note: Audioplayback handle pvar is not a pointer like a graphic handle.
@@ -1811,6 +1835,9 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 	case WIM_CLOSE:
 		delete pvar_callbackinput;
 		delete pvar_callbackoutput;
+		fp = fopen("log.txt", "at");
+		fprintf(fp, "WIM_CLOSE\n");
+		fclose(fp);
 		break;
 	case WOM_OPEN:
 		EnableDlgItem(hDlg, IDC_STOP, 1);
@@ -1833,7 +1860,7 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 		}
 		break;
 	case -1:
-		MessageBox((char*)pvar, "audio out error", 0);
+		MessageBox((char*)pvar, "Audio device error", 0);
 		break;
 	case WIM_DATA:
 		// This is where record callback function is invoked.
@@ -1847,12 +1874,7 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 			CVar in(1);
 			captured.SetFs((int)pvar_callbackinput->strut["fs"].value());
 			captured.UpdateBuffer(precorder->len_buffer);
-			//double cal = 1. / 0x7f;
-			//uc2d_array((unsigned char*)precorder->buffer, precorder->len_buffer, captured.buf, cal);
-			//double cal = 1. / 0x7fff;
-			//les2d_array((short*)precorder->buffer, precorder->len_buffer, captured.buf, cal);
-			double cal = 1. / 0x7fffffff;
-			let2d_array((tribyte*)precorder->buffer, precorder->len_buffer, captured.buf, cal);
+			fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf);
 			pvar_callbackinput->strut["d_ata"] = captured;
 			pvar_callbackinput->strut["index"] = CVar(pvar_callbackinput->strut["index"].value()+1);
 			try {

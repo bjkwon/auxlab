@@ -2,7 +2,7 @@
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
-    <AuxlabRepoDir>c:\Users\BJ\Documents\repos\auxlab\</AuxlabRepoDir>
+    <AuxlabRepoDir>c:\Users\bjehk\Documents\src\auxlab\</AuxlabRepoDir>
     <SrcPath>$(AuxlabRepoDir)$(RootNamespace)\</SrcPath>
     <BuildDir>c:\devploy\auxlab\</BuildDir>
     <TargetDir>$(BuildDir)</TargetDir>

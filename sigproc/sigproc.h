@@ -239,7 +239,6 @@ public:
 #ifndef GRAFFY
 	static void cleanup_nodes(CAstSig *beginhere = NULL);
 	static vector<CAstSig*> vecast;
-	static bool graffyPrepared;
 	static double play_block_ms;
 	static double record_block_ms;
 	static short play_bytes; // waveform format 1, 2 or 3 bytes for 8, 16 or 24 bits
