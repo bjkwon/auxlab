@@ -21,19 +21,12 @@
 
 using namespace std;
 
-extern DWORD threadID;
-
 char waveErrMsg[256]; // to be used to send message to the main app (OnSoundEvent)
 
 #define MMERRTHROW(X,MM) {rc=X; \
 if (rc!=MMSYSERR_NOERROR) { sprintf(waveErrMsg, "Error in %s\n", #MM); \
 char _estr_[256]; waveOutGetErrorText(rc, _estr_, 256); strcat(waveErrMsg, _estr_); \
-PostThreadMessage(threadID, pWP->msgID, (WPARAM)waveErrMsg, -1); return ;}}
-
-#define MMERRRETURNFALSE(MM) pWP->cleanUp(); char errmsg[256],  sprintf(errmsg, "Error in %s, code=%d\n%s", #MM, rc, _estr_); SendMessage(pWP->hWnd_calling, pWP->msgID,(WPARAM)errmsg,-1); return false;
-
-
-static vector<HWAVEIN> toClose;
+SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)waveErrMsg, -1); return ;}}
 
 //FYI: These two message are sent to different threads.
 #define WM__RETURN		WM_APP+10
@@ -43,9 +36,7 @@ static vector<HWAVEIN> toClose;
 #define DISPATCH_RECORD_INITIATION			WM_APP+120
 #define WM__STOP_RECORD						WM_APP+122
 
-extern HWND hMainAppl;
-
-#ifndef NO_PLAYSND
+#ifndef NO_RECSND
 
 #define OK			0
 #define ERR			-1
@@ -159,8 +150,7 @@ void ThreadCapture(const record_param &p)
 	bool ch(false);
 	bool hist(false);
 
-//	unique_ptr<CWaveRecord> pWP = make_unique<CWaveRecord>();
-	CWaveRecord * pWP = new CWaveRecord;
+	unique_ptr<CWaveRecord> pWP = make_unique<CWaveRecord>();
 	pWP->threadID = GetCurrentThreadId();
 	pWP->wfx.wBitsPerSample = 8 * p.bytes;
 	pWP->totalSamples = lrint(p.duration / 1000.*p.fs) * p.nChans;
@@ -220,7 +210,7 @@ void ThreadCapture(const record_param &p)
 			send2OnSoundEven.buffer = (char*)pwh->lpData;
 			if (!send2OnSoundEven.closing)
 				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_DATA);
-			pWP->recordedSamples += pwh->dwBufferLength;
+			pWP->recordedSamples += pwh->dwBufferLength / (pWP->wfx.wBitsPerSample / 8);
 			if (pWP->recordedSamples < pWP->totalSamples)
 			{
 				pwh->dwFlags = 0;
@@ -233,7 +223,7 @@ void ThreadCapture(const record_param &p)
 				MMERRTHROW(waveInStop(pWP->hwi), "waveInStop")
 				MMERRTHROW(waveInReset(pWP->hwi), "waveInReset")
 				for (int k = 0; k < 2; k++)
-					rc=waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR));
+					MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 				MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
 				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)0, WIM_CLOSE); // send the closing status to the main application 
 				return;
@@ -241,11 +231,11 @@ void ThreadCapture(const record_param &p)
 			break;
 		} 
 	}
-	waveInStop(pWP->hwi);
-	waveInReset(pWP->hwi);
-	for (int k=0; k<2; k++)
-		waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR));
-	waveInClose(pWP->hwi);
+	MMERRTHROW(waveInStop(pWP->hwi), "waveInStop")
+	MMERRTHROW(waveInReset(pWP->hwi), "waveInReset")
+		for (int k=0; k<2; k++)
+			MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
+	MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
 	SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)0, WIM_CLOSE); // send the closing status to the main application 
 }
 
@@ -316,10 +306,8 @@ INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short n
 		carrier.callback = callbackname;
 
 		thread recordingThread(ThreadCapture, carrier);
-//		recordingThread.join();
 
 		MSG msg;
-		FILE*fp;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
 			switch (msg.message)
@@ -330,19 +318,17 @@ INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short n
 				strcat(errmsg, estr);
 				throw errmsg;
 			case DISPATCH_RECORD_INITIATION:
-				fp = fopen("log.txt", "at");
-				fprintf(fp, "DISPATCH_RECORD_INITIATION\n");
-				fclose(fp);
 				recordingThread.detach();
 				return 1; //success
 			}
 		}
 	}
-	catch (const char *emsg)
+	catch (const char *dummy)
 	{
+		dummy;
 		return -1;
 	}
 	return 0; // unlikely to come here
 }
 
-#endif
+#endif //NO_RECSND

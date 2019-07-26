@@ -25,7 +25,6 @@
 #include "wavplay.h"
 
 HWND hLog;
-DWORD threadID;
 
 #define WM__LOG	WM_APP+0x2020
 
@@ -38,7 +37,6 @@ extern CWndDlg wnd;
 extern CShowvarDlg mShowDlg;
 extern char udfpath[4096];
 extern void* soundplayPt;
-//extern vector<CAstSig*> xcomvecast;
 
 HANDLE hEvent;
 extern CHistDlg mHistDlg;
@@ -948,6 +946,7 @@ void CShowvarDlg::InitVarShow(int type, const char *name)
 		::DestroyWindow(GetDlgItem(IDC_SAVE));
 		::DestroyWindow(GetDlgItem(IDC_DEBUGSCOPE));
 		::DestroyWindow(GetDlgItem(IDC_STOP));
+		::DestroyWindow(GetDlgItem(IDC_STOP2));
 		//Do not set the window position here.. it is to be done during ArrangeInit
 		SetWindowText(name);
 	}
@@ -955,8 +954,6 @@ void CShowvarDlg::InitVarShow(int type, const char *name)
 
 BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 {
-	threadID = GetCurrentThreadId();
-
 	CWndDlg::OnInitDialog(hwndFocus, lParam);
 
 	CRect rtDlg, rt;
@@ -975,6 +972,8 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 			(LPARAM)LoadImage(hInst, MAKEINTRESOURCE(IDB_BTM_REFRESH), IMAGE_BITMAP, 25, 25, LR_DEFAULTSIZE));
 		SendDlgItemMessage(IDC_STOP, BM_SETIMAGE, (WPARAM)IMAGE_BITMAP,
 			(LPARAM)LoadImage(hInst, MAKEINTRESOURCE(IDB_BTM_STOP), IMAGE_BITMAP, 25, 25, LR_DEFAULTSIZE));
+		SendDlgItemMessage(IDC_STOP2, BM_SETIMAGE, (WPARAM)IMAGE_BITMAP,
+			(LPARAM)LoadImage(hInst, MAKEINTRESOURCE(IDB_BTM_STOP2), IMAGE_BITMAP, 25, 25, LR_DEFAULTSIZE));
 		SendDlgItemMessage(IDC_DEBUG2, BM_SETIMAGE, (WPARAM)IMAGE_BITMAP,
 			(LPARAM)LoadImage(hInst, MAKEINTRESOURCE(IDB_BTM_DEBUG), IMAGE_BITMAP, 30, 30, LR_DEFAULTSIZE));
 		SendDlgItemMessage(IDC_OPEN, BM_SETIMAGE, (WPARAM)IMAGE_BITMAP,
@@ -1795,124 +1794,136 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 	// Note: Audioplayback handle pvar is not a pointer like a graphic handle.
 	// The variables in Vars are only copies. So, we need to update the values here for WOM_DOWN and WOM_CLOSE
 	static CVar *pvar_callbackinput;
-	static CVar *pvar_callbackoutput = NULL;
+	static CVar *pvar_callbackoutput;
 	static AstNode *pCallbackUDF;
 	CVar captured;
-	rFormat * precorder;
+	rFormat * precorder=NULL;
+	AstNode *p;
+	int id;
 	string emsg;
-	switch (code)
-	{
-	case WIM_OPEN:
-	{
-		precorder = (rFormat*)pvar;
-		int id = rand();
-		recordingEvent.push_back(id);
-		recorders[id] = precorder;
-		//checking if specified callback file is legit
-		if (pCallbackUDF=pcast->ReadUDF(emsg, precorder->callbackfilename))
-		{ 
-			pvar_callbackinput = new CVar(1);
-			pvar_callbackoutput = new CVar(1);
-			pvar_callbackinput->strut["fs"] = CVar((double)precorder->fs);
-			pvar_callbackinput->strut["dev"] = CVar((double)precorder->devID);
-			srand((unsigned)time(0));
-			pvar_callbackinput->strut["id"] = CVar((double)rand());
-			pvar_callbackinput->strut["index"] = CVar((double)0.);
-			pcast->ReadUDF(emsg, precorder->callbackfilename);
-			pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
-		}
-		else
+	try {
+		switch (code)
 		{
-			MessageBox(emsg.c_str(), precorder->callbackfilename);
-			// callback not found; 1) delete pvar_callbackinput
-			delete pvar_callbackinput;
-			// 2) close the thread
-			precorder->closing = true;
-			PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
-		}
-		break;
-	}
-	case WIM_CLOSE:
-		delete pvar_callbackinput;
-		delete pvar_callbackoutput;
-		fp = fopen("log.txt", "at");
-		fprintf(fp, "WIM_CLOSE\n");
-		fclose(fp);
-		break;
-	case WOM_OPEN:
-		EnableDlgItem(hDlg, IDC_STOP, 1);
-		nPlaybackCount++;
-		break;
-	case WOM_CLOSE:
-		nPlaybackCount--;
-		if (!nPlaybackCount)	EnableDlgItem(hDlg, IDC_STOP, 0);
-		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
-		{
-			if ((*it).second == pvar->value())
-			{
-				(*it).second.strut["type"].SetString((pvar->strut["type"].string() + " (inactive)").c_str());
-				UpdateProp((*it).first, &(*it).second, "type");
-				(*it).second.strut["durLeft"].buf[0] = 0.;
-				(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durTotal"].value();
-				UpdateProp((*it).first, &(*it).second, "durLeft");
-				UpdateProp((*it).first, &(*it).second, "durPlayed");
-			}
-		}
-		break;
-	case -1:
-		MessageBox((char*)pvar, "Audio device error", 0);
-		break;
-	case WIM_DATA:
-		// This is where record callback function is invoked.
-		// Create a CVar variable with the captured data.
-		// First, transfer captured wave buffer to buf of the CVar variable.
-
-		//find the correct id
-		{
+		case WIM_OPEN:
+			EnableDlgItem(hDlg, IDC_STOP2, 1);
 			precorder = (rFormat*)pvar;
-			char *recordbuffer = precorder->buffer;
-			CVar in(1);
+			id = rand();
+			recordingEvent.push_back(id);
+			recorders[id] = precorder;
+			//checking if specified callback file is legit
+			if (pCallbackUDF = pcast->ReadUDF(emsg, precorder->callbackfilename))
+			{
+				pvar_callbackinput = new CVar(1);
+				pvar_callbackoutput = new CVar(1);
+				pvar_callbackinput->strut["fs"] = CVar((double)precorder->fs);
+				pvar_callbackinput->strut["dev"] = CVar((double)precorder->devID);
+				srand((unsigned)time(0));
+				pvar_callbackinput->strut["id"] = CVar((double)rand());
+				pvar_callbackinput->strut["index"] = CVar((double)0.);
+				pcast->ReadUDF(emsg, precorder->callbackfilename);
+				pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+			}
+			else
+			{
+				MessageBox(emsg.c_str(), precorder->callbackfilename);
+				// callback not found; 1) delete pvar_callbackinput
+				delete pvar_callbackoutput;
+				delete pvar_callbackinput;
+				// 2) close the thread
+				precorder->closing = true;
+				PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
+			}
+			break;
+		case WIM_DATA:
+			// This is where record callback function is invoked.
+			// Create a CVar variable with the captured data.
+			// First, transfer captured wave buffer to buf of the CVar variable.
+
+			//check the correct id --> is it necessary? 7/25/2019
+			precorder = (rFormat*)pvar;
 			captured.SetFs((int)pvar_callbackinput->strut["fs"].value());
 			captured.UpdateBuffer(precorder->len_buffer);
 			fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf);
 			pvar_callbackinput->strut["d_ata"] = captured;
-			pvar_callbackinput->strut["index"] = CVar(pvar_callbackinput->strut["index"].value()+1);
-			try {
-				pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
-			}
-			catch (const CAstException &e) {
-				precorder->closing = true;
-				delete pvar_callbackinput;
-				delete pvar_callbackoutput;
-				PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
-				const char *_errmsg = e.outstr.c_str();
-				bool gotobase = false;
-				if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
-					gotobase = true;
-				char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
-				CDebugDlg::pAstSig = NULL;
-				// cleanup_nodes was called with CAstException
-				if (strncmp(errmsg, "Invalid", strlen("Invalid")))
-					cout << "ERROR: " << errmsg << endl;
-				else
-					cout << errmsg << endl;
-				Back2BaseScope(0);
-			}
-		}
-		break;
-	default: // status updates either or WOM_DONE
-		if (pvar) // for ctseries, pvar is not done yet
-		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
-		{
-			if (pvar->nSamples>0 && (*it).second == pvar->value())
+			pvar_callbackinput->strut["index"] = CVar(pvar_callbackinput->strut["index"].value() + 1);
+			pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+			break;
+		case WIM_CLOSE:
+			// transfer pcast->Sig to either ans or the designated variable
+			EnableDlgItem(hDlg, IDC_STOP2, 0);
+			p = pcast->pAst;
+			if (pcast->pAst->type == N_BLOCK)
 			{
-				(*it).second.strut["durLeft"].buf[0] = pvar->strut["durLeft"].value();
-				(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durPlayed"].value();
-				UpdateProp((*it).first, &(*it).second, "durLeft");
-				UpdateProp((*it).first, &(*it).second, "durPlayed");
+				while (p->next)
+					p = p->next;
 			}
+			if (CAstSig::IsTID(p) && p->child)
+				pcast->SetVar(p->str, &pcast->Sig);
+			else
+				pcast->SetVar("ans", &pcast->Sig);
+			delete pvar_callbackinput;
+			delete pvar_callbackoutput;
+			Fillup();
+			break;
+		case WOM_OPEN:
+			EnableDlgItem(hDlg, IDC_STOP, 1);
+			nPlaybackCount++;
+			break;
+		case WOM_CLOSE:
+			nPlaybackCount--;
+			if (!nPlaybackCount)	EnableDlgItem(hDlg, IDC_STOP, 0);
+			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
+			{
+				if ((*it).second == pvar->value())
+				{
+					(*it).second.strut["type"].SetString((pvar->strut["type"].string() + " (inactive)").c_str());
+					UpdateProp((*it).first, &(*it).second, "type");
+					(*it).second.strut["durLeft"].buf[0] = 0.;
+					(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durTotal"].value();
+					UpdateProp((*it).first, &(*it).second, "durLeft");
+					UpdateProp((*it).first, &(*it).second, "durPlayed");
+				}
+			}
+			break;
+		case -1:
+			MessageBox((char*)pvar, "Audio device error", 0);
+			break;
+
+		default: // status updates either or WOM_DONE
+			if (pvar) // for ctseries, pvar is not done yet
+				for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
+				{
+					if (pvar->nSamples > 0 && (*it).second == pvar->value())
+					{
+						(*it).second.strut["durLeft"].buf[0] = pvar->strut["durLeft"].value();
+						(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durPlayed"].value();
+						UpdateProp((*it).first, &(*it).second, "durLeft");
+						UpdateProp((*it).first, &(*it).second, "durPlayed");
+					}
+				}
+			break;
 		}
-		break;
+	}
+	catch (const CAstException &e) { // used only for recording
+		if (precorder) // just for sanity check
+		{
+			precorder->closing = true;
+			delete pvar_callbackinput;
+			delete pvar_callbackoutput;
+			PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
+			const char *_errmsg = e.outstr.c_str();
+			bool gotobase = false;
+			if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
+				gotobase = true;
+			char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
+			CDebugDlg::pAstSig = NULL;
+			// cleanup_nodes was called with CAstException
+			if (strncmp(errmsg, "Invalid", strlen("Invalid")))
+				cout << "ERROR: " << errmsg << endl;
+			else
+				cout << errmsg << endl;
+			Back2BaseScope(0);
+		}
 	}
 }
 

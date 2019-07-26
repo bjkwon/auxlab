@@ -790,7 +790,7 @@ void _start(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	}
 	else
 		throw past->ExceptionMsg(pnode, "", "start() applies only to audio_record.");
-//	past->Sig.Reset();
+	past->Sig.Reset();
 }
 void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {

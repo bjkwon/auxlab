@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="$(SrcPath)STOP.bmp" />
+    <Image Include="$(SrcPath)stop2.bmp" />
     <Image Include="$(SrcPath)xcom.bmp" />
     <Image Include="$(SrcPath)xcom.ico" />
     <Image Include="$(SrcPath)xcom.jpg" />
@@ -192,7 +193,7 @@
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes psycon.yacc graffy lame_bj </Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy lame_bj </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -220,7 +221,7 @@
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes psycon.yacc graffy lame_bj</Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy lame_bj</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

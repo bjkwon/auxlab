@@ -94,6 +94,9 @@
     <Image Include="xcom\axl-save.bmp">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="$(SrcPath)stop2.bmp">
+      <Filter>Source Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="$(SrcPath)xcom1.rc">

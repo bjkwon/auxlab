@@ -936,7 +936,7 @@ void xcom::echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 	*/
 
 	AstNode *p;
-;	if (!pnode->suppress)
+	if (!pnode->suppress)
 	{
 		if (!pvar)
 		{
@@ -945,6 +945,7 @@ void xcom::echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			if (!pvar) return; // this filters out a null statement in a block such as a=1; b=100; 500 
 		}
 		if (CAstSig::IsLooping(pnode)) return; // T_IF, T_FOR, T_WHILE
+		if (pvar->IsEmpty()) return;
 		if (CAstSig::IsTID(pnode))
 		{
 			p = pnode->alt;
