@@ -113,7 +113,8 @@ public:
 	HBRUSH OnCtlColor(HDC hdc, HWND hCtrl, int id);
 	void OnNotify(HWND hwnd, int idcc, LPARAM lParam);
 	LRESULT ProcessCustomDraw (NMHDR *lParam);
-	void OnSoundEvent(CVar *pvar, int code);
+	void OnSoundEvent1(CVar *pvar, int code);
+	void OnSoundEvent2(CVar *pvar, int code);
 	void OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin);
 	void OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot);
 	void OnVarChanged(const char *varname=NULL);
@@ -121,12 +122,12 @@ public:
 	void Fillup(map<string, CVar> *Tags=NULL, CSignals *cell=NULL);
 	void fillrowvar(CVar *pvar, string varname);
 	void fillrowvar(vector<CVar *>pvarvect, string varname);
-	void updaterow(int row, int col, CVar *pvar);
+	void updaterow(int row, int col, CVar *pvar, int digits = 14);
 	void UpdateProp(string varname, CVar *pvar, string propname);
 
 	void showtype(CVar *pvar, char *buf);
 	void showsize(CVar *pvar, char *outbuf);
-	void showcontent(CVar *pvar, char *outbuf);
+	void showcontent(CVar *pvar, char *outbuf, int digits=14);
 	void ArrangeControls(map<string, CVar> *Vars, int cx, int cy);
 	void ArrangeControlsInit();
 	CWndDlg * DoesThisVarViewExist(string varname);

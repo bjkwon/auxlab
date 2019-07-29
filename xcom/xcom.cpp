@@ -1093,28 +1093,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	return pTemp ? 1:0;
 }
 
-void xcom::setfs(CAstSig *past, int newfs)
-{
-	if (past->pEnv->Fs == newfs) return;
-	past->pEnv->Fs = newfs; //Sample rate adjusted
-	//variables updated
-	CSignals ratio(1);
-	for (auto &it : past->Vars)
-	{
-		if (it.second.GetType() == CSIG_AUDIO)
-		{
-			CSignals level = it.second.RMS();
-			ratio.SetValue((double)newfs / it.second.GetFs());
-			it.second.basic(it.second.pf_basic2 = &CSignal::resample, &ratio);
-			if (ratio.IsString()) // this means there was an error during resample
-				MessageBox(mShowDlg.hDlg, ratio.string().c_str(), "Error in setfs", 0);
-			it.second.SetFs(newfs);
-			CSignals level2 = it.second.RMS();
-			it.second *= level2.value() / level.value();
-		}
-	}
-}
-
 int xcom::SAVE_axl(CAstSig *past, const char* filename, vector<string> varlist, char *errstr)
 {
 	map<string, CVar>::iterator it;
@@ -1191,7 +1169,9 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		if (!ast->Sig.IsScalar()) throw "only scalar argument allowed";
 		double val = ast->Sig.value();
 		if (val<500.) throw "Sampling rate must be greater than 500 Hz.";
-		setfs(ast, (int)val);
+		string errmsg = ast->adjustfs((int)val);
+		if (!errmsg.empty())
+			MessageBox(mShowDlg.hDlg, errmsg.c_str(), "Error in adjustfs", 0);
 		mShowDlg.pcast = ast;
 		mShowDlg.Fillup();
 		ast->FsFixed = true;

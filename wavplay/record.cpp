@@ -36,7 +36,7 @@ SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)waveErrMsg, -1); return ;}}
 #define DISPATCH_RECORD_INITIATION			WM_APP+120
 #define WM__STOP_RECORD						WM_APP+122
 
-#ifndef NO_RECSND
+#ifndef NO_PLAYSND
 
 #define OK			0
 #define ERR			-1
@@ -79,8 +79,7 @@ public:
 
 	CWaveRecord();
 	~CWaveRecord();
-	int setPlayPoint(int id);
-	int OnBlockDone(WAVEHDR* lpwh);
+	void setPlayPoint(WAVEHDR &wavehr, double &accum);
 	int	cleanUp(int threadIDalreadycut = 0);
 };
 
@@ -106,18 +105,20 @@ int CWaveRecord::cleanUp(int IDcut)
 	return FINISHED_PLAYING_CLEANUP;
 }
 
-int CWaveRecord::setPlayPoint(int id)
+void CWaveRecord::setPlayPoint(WAVEHDR &wavehr, double &accum)
 {
-	wh[id].dwFlags = 0;
-	wh[id].dwBufferLength = wfx.wBitsPerSample / 8 * inBufferLen;
+	int len = inBufferLen;
+	if (accum >= 1) {
+		len++; accum--;
+	}
+	wavehr.dwUser = 0;
+	wavehr.dwFlags = 0;
+	wavehr.dwLoops = 0;
+	wavehr.dwBytesRecorded = 0;
+	wavehr.dwBufferLength = wfx.wBitsPerSample / 8 * wfx.nChannels * len ;
 	// id is waveform header ID; either 0 or 1
-	wh[id].lpData = inBuffer[id];
-	return 0;
-}
-
-int CWaveRecord::OnBlockDone(WAVEHDR* lpwh)
-{
-	return 0;
+	int id = (&wavehr == &wh[0]) ? 0 : 1;
+	wavehr.lpData = inBuffer[id];
 }
 
 typedef struct {
@@ -128,35 +129,32 @@ typedef struct {
 	HWND hWnd_calling;
 	DWORD msgID;
 	DWORD callingThreadID;
+	INT_PTR recordID;
 	double duration;
 	double block_dur_ms;
 	string callback;
 } record_param;
 
-typedef struct
-{
-	short devID;
-	bool closing = 0;
-	DWORD recordingThread;
-	int fs;
-	int len_buffer;
-	char *buffer;
-	char callbackfilename[256];
-} record_identifier;
-
 void ThreadCapture(const record_param &p)
 {
 	MSG        msg;
-	bool ch(false);
-	bool hist(false);
+	int left;
+	double accum;
+	DWORD total=0;
 
 	unique_ptr<CWaveRecord> pWP = make_unique<CWaveRecord>();
 	pWP->threadID = GetCurrentThreadId();
 	pWP->wfx.wBitsPerSample = 8 * p.bytes;
-	pWP->totalSamples = lrint(p.duration / 1000.*p.fs) * p.nChans;
-	pWP->inBufferLen = lrint(p.block_dur_ms / 1000.*p.fs) * p.nChans;
-	pWP->inBuffer[0] = new char[pWP->inBufferLen * p.bytes];
-	pWP->inBuffer[1] = new char[pWP->inBufferLen * p.bytes];
+	if (p.duration > 0)
+		pWP->totalSamples = lrint(p.duration / 1000.*p.fs);
+	else
+		pWP->totalSamples = (std::numeric_limits<int>::max)();
+	pWP->inBufferLen = lrint(p.block_dur_ms / 1000.*p.fs);
+	int nBlocks = pWP->totalSamples / pWP->inBufferLen;
+	left = pWP->totalSamples - nBlocks * pWP->inBufferLen;
+	accum = (double)left / nBlocks - left / nBlocks;
+	pWP->inBuffer[0] = new char[(pWP->inBufferLen + left) * p.bytes* p.nChans]; // just extra margin
+	pWP->inBuffer[1] = new char[(pWP->inBufferLen + left) * p.bytes* p.nChans];
 	pWP->hWnd_calling = p.hWnd_calling;
 	pWP->msgID = p.msgID;
 	pWP->callingThreadID = p.callingThreadID;
@@ -168,7 +166,6 @@ void ThreadCapture(const record_param &p)
 	pWP->devID = p.devID;
 	pWP->callbackname = p.callback;
 
-
 	MMRESULT	rc = waveInOpen(&pWP->hwi, 0, &pWP->wfx, (DWORD_PTR)pWP->threadID, (DWORD_PTR)0, CALLBACK_THREAD);
 	if (rc != MMSYSERR_NOERROR) {
 		PostThreadMessage(pWP->callingThreadID, MM_ERROR, (WPARAM)rc, (LPARAM)"waveInOpen"); return;
@@ -177,7 +174,8 @@ void ThreadCapture(const record_param &p)
 
 	// Insert LOGGING4
 	WAVEHDR *pwh;
-	record_identifier send2OnSoundEven;
+	callback_trasnfer_record send2OnSoundEven;
+	double tico = 0.;
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
 		if (msg.message == WM__STOP_RECORD) break;
@@ -186,20 +184,20 @@ void ThreadCapture(const record_param &p)
 		case WIM_OPEN:
 			strcpy(send2OnSoundEven.callbackfilename, pWP->callbackname.c_str());
 			send2OnSoundEven.devID = pWP->devID;
+			send2OnSoundEven.nChans = p.nChans;
 			send2OnSoundEven.fs = pWP->wfx.nSamplesPerSec;
 			send2OnSoundEven.len_buffer = pWP->inBufferLen;
 			send2OnSoundEven.recordingThread = pWP->threadID;
+			send2OnSoundEven.recordID = p.recordID;
+			send2OnSoundEven.duration = p.duration;
 			SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_OPEN); // send the opening status to the main application 
 				// if its multi-channel(i.e., stereo), inBufferLen must be multiple of nChan, otherwise left-right channels might be swapped around in the middle
-			pWP->wh[0].dwLoops = pWP->wh[1].dwLoops = 0;
 			// block 0
-			pWP->wh[0].dwFlags = 0;
-			pWP->setPlayPoint(0);
+			pWP->setPlayPoint(pWP->wh[0], tico+=accum);
 			MMERRTHROW(waveInPrepareHeader(pWP->hwi, &pWP->wh[0], sizeof(WAVEHDR)), "waveInPrepareHeader")
 			MMERRTHROW(waveInAddBuffer(pWP->hwi, &pWP->wh[0], sizeof(WAVEHDR)), "waveInAddBuffer")
 			// block 1
-			pWP->wh[1].dwFlags = 0;
-			pWP->setPlayPoint(1);
+			pWP->setPlayPoint(pWP->wh[1], tico += accum);
 			MMERRTHROW(waveInPrepareHeader(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInPrepareHeader")
 			MMERRTHROW(waveInAddBuffer(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInAddBuffer")
 			MMERRTHROW(waveInStart(pWP->hwi), "waveOutRestart")
@@ -208,13 +206,25 @@ void ThreadCapture(const record_param &p)
 			pWP->nPlayedBlocks++;
 			pwh = (WAVEHDR *)msg.lParam;
 			send2OnSoundEven.buffer = (char*)pwh->lpData;
+			send2OnSoundEven.len_buffer = pwh->dwBytesRecorded / p.bytes / p.nChans;
+			// If the cummulative incoming data samples exceeds, send2OnSoundEven.len_buffer is adjusted shorter
+			// according to the desired spec in the Capture call and the extra data will be ignored.
+			// note--you might think that you could adjust dwBufferLength of the last pwh
+			// (i.e., if the next block is for the last incoming batch),
+			// but that doesn't work, because of double-buffering, the next pwh adjusting now
+			// is not the next incoming block...so the adjustment should be made through skipping generations
+			// then it'd be hard to track tico... probably not impossible, but not worth it.
+			// 7/26/2019
+			total += send2OnSoundEven.len_buffer;
+			if (total > pWP->totalSamples)
+				pWP->recordedSamples += send2OnSoundEven.len_buffer = pWP->totalSamples - pWP->recordedSamples;
+			else
+				pWP->recordedSamples = total;
 			if (!send2OnSoundEven.closing)
 				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_DATA);
-			pWP->recordedSamples += pwh->dwBufferLength / (pWP->wfx.wBitsPerSample / 8);
 			if (pWP->recordedSamples < pWP->totalSamples)
 			{
-				pwh->dwFlags = 0;
-				pwh->dwBytesRecorded = 0;
+				pWP->setPlayPoint(*pwh, tico += accum);
 				MMERRTHROW(waveInPrepareHeader(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInPrepareHeader")
 				MMERRTHROW(waveInAddBuffer(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInAddBuffer")
 			}
@@ -225,7 +235,7 @@ void ThreadCapture(const record_param &p)
 				for (int k = 0; k < 2; k++)
 					MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 				MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
-				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)0, WIM_CLOSE); // send the closing status to the main application 
+				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_CLOSE); // send the closing status to the main application 
 				return;
 			}
 			break;
@@ -236,15 +246,16 @@ void ThreadCapture(const record_param &p)
 		for (int k=0; k<2; k++)
 			MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 	MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
-	SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)0, WIM_CLOSE); // send the closing status to the main application 
+	SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_CLOSE); // send the closing status to the main application 
 }
 
 
 
-INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, const char *callbackname, double duration, double *block_dur_ms, char *errmsg)
+INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, const char *callbackname, double duration, double *block_dur_ms, INT_PTR recordID, char *errmsg)
 {
 	//This returns error (-1) immediately if waveInGetDevCaps or waveInOpen fails, or any input parameter is improper
 	//Any unsuccessful results from waveInXXXX calls are to be handled during event notification
+	// if there's no error in either waveInGetDevCaps or waveInOpen, it returns the sample rate which might have been adjusted to one of the accepted values.
 	try {
 		char estr[256];
 		WAVEINCAPS cap;
@@ -304,6 +315,7 @@ INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short n
 		carrier.hWnd_calling = hApplWnd;
 		carrier.msgID = userDefinedMsgID;
 		carrier.callback = callbackname;
+		carrier.recordID = recordID;
 
 		thread recordingThread(ThreadCapture, carrier);
 
@@ -319,7 +331,7 @@ INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short n
 				throw errmsg;
 			case DISPATCH_RECORD_INITIATION:
 				recordingThread.detach();
-				return 1; //success
+				return fs; //success
 			}
 		}
 	}
@@ -331,4 +343,4 @@ INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short n
 	return 0; // unlikely to come here
 }
 
-#endif //NO_RECSND
+#endif //NO_PLAYSND

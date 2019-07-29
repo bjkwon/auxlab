@@ -314,6 +314,7 @@ private:
 
 public:
 	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar *pOutVars);
+	string adjustfs(int newfs);
 	CVar &ConditionalOperation(const AstNode *pnode, AstNode *p);
 	int updateGO(CVar &ref);
 	void ClearVar(AstNode *pnode, CVar *psig);

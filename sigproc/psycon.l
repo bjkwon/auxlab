@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.5
-// Date: 3/20/2019
+// Version: 1.61
+// Date: 7/27/2019
 */ 
 
 /* scanner for Psycon syntax parser */
@@ -32,7 +32,7 @@ int appendLexString(void);
 %s PARENTH
 %s BRACE
 %s TSEQ
-ID	[[:alpha:]][[:alnum:]_]{0,512}
+ID	[[:alpha:]_?][[:alnum:]_]{0,512}
 NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 %%
 %{

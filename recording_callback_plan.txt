@@ -1,45 +1,38 @@
 callback function [out1, out2,...] = cbfunc(in)
 // returns to the caller workspace
-in.fs
-in.data // new incoming data buffer
-in.dev
-in.id
-in.index // cumulative index from 0 (when the first callback started) since the beginning
+in.?fs
+in.?data // new incoming data buffer
+in.?dev
+in.?id
+in.?index // cumulative index from 0 (when the first callback started) since the beginning
 
 all variables in this function is static--lingers around between callbacks 
-for a given unique in.id
-
-For stereo recording, callback occurs after BOTH channels are filled.
+for a given unique in.?id
 
 in the calling scope,
-[x1,x2]=record(devID).callback
 
-if the output variable is deleted or goes out of scope from the calling scope, the callback will terminate
+h=record
+h=record(0)
+h=record(0,"callback")
+h=record(0,"callback",2000) // record for 2000 ms 
+h=record(0,"callback",2000,2) // stetero
+h=record(0,"callback",2000,2,500) // the default callback block size is from the setting file (.ini) 
+h=record(0,"callback",-1) // record indefinitely 
 
-x=record
-x=record(0)
-x=record(0,"callback")
-x=record(0,"callback",2000) // record for 2000 ms 
-x=record(0,"callback",2000,2) // stetero
-x=record(0,"callback",2000,2,500) // the default callback block size is from the setting file (.ini) 
-
-h=recorder(0,"callback",2000,2,500)
+h=record(0,"callback",2000,2,500)
 
 y=h.start
 y=h.pause
 y=h.resume
 y=h.stop
 
-h = init_record(devID, "callback", 2, 250)
-res = h.record(2000) // record 2 secondsh = record(-1) // record indefinitely until stop is called
-res = h.stop // stop it
-
 
 The first callback (WIM_OPEN) =============
-in.fs -- sample rate
-in.dev -- device ID
-in.id -- a random value
+in.?fs -- sample rate
+in.?dev -- device ID
+in.id -- a random value for the recorder ID
 in.index = 0
 
-Second callback (the first from WIM_DATA, maybe the second for stereo) =============
-in.data -- CVar object
+Second callback (the first from WIM_DATA) =============
+in.?data -- CVar object
+in.index -- cumulative index for each callback evoked

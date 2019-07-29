@@ -23,8 +23,6 @@
 extern CWndDlg wnd;
 extern CShowvarDlg mShowDlg;
 extern char udfpath[4096];
-extern void* soundplayPt;
-extern double block;
 extern vector<CWndDlg*> cellviewdlg;
 extern vector<UINT> exc;
 

@@ -55,8 +55,7 @@ vector<cfigdlg*> plots;
 
 #define WM__NEWDEBUGDLG	WM_APP+0x2000
 
-#define WM__AUDIOEVENT	WM_APP + WOM_OPEN
-#define WM__STOP_RECORD						WM_APP+122
+#define WM__STOP_RECORD				WM_APP+WOM_CLOSE
 #define PROPCHANGED 0x2020
 
 CAstSig * CDebugDlg::pAstSig = NULL;
@@ -203,21 +202,11 @@ BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				CSignals ratio(1);
-				CAstSig::vecast.front()->pEnv->Fs = newfs; //Sample rate adjusted
-				for (auto &it : CAstSig::vecast.front()->Vars)
+				string errmsg = CAstSig::vecast.front()->adjustfs(newfs);
+				if (!errmsg.empty())
 				{
-					if (it.second.GetType() == CSIG_AUDIO)
-					{
-						CSignals level = it.second.RMS();
-						ratio.SetValue(it.second.GetFs()/ (double)newfs);
-						it.second.basic(it.second.pf_basic2 = &CSignal::resample, &ratio);
-						if (ratio.IsString()) // this means there was an error during resample
-							MessageBox(hDlg, ratio.string().c_str(), "Error in FSDlgProc", 0);
-						it.second.SetFs(newfs);
-						CSignals level2 = it.second.RMS();
-						it.second *= level2.value() / level.value();
-					}
+					MessageBox(mShowDlg.hDlg, errmsg.c_str(), "Consider restarting AUXLAB.", 0);
+					break;
 				}
 				SetDlgItemInt(hDlg, IDC_FS, newfs, 0);
 				mShowDlg.Fillup();
@@ -601,7 +590,8 @@ BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	chHANDLE_DLGMSG (hDlg, WM_COMMAND, cvDlg->OnCommand);
 	chHANDLE_DLGMSG (hDlg, WM_SYSCOMMAND, cvDlg->OnSysCommand);
 	chHANDLE_DLGMSG (hDlg, WM_CLOSE_FIG, cvDlg->OnCloseFig);
-	chHANDLE_DLGMSG(hDlg, WM__AUDIOEVENT, cvDlg->OnSoundEvent);
+	chHANDLE_DLGMSG(hDlg, WM__AUDIOEVENT1, cvDlg->OnSoundEvent1);
+	chHANDLE_DLGMSG(hDlg, WM__AUDIOEVENT2, cvDlg->OnSoundEvent2);
 
 	case WM_APP + PROPCHANGED:
 	{
@@ -1306,6 +1296,8 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 		delete[] longbuffer;
 		break;
 
+	case IDC_STOP2:
+		break;
 	case IDC_STOP:
 		// TEMPORARY HACK... 32799 is IDM_STOP in PlotDlg.cpp in graffy
 		// Not a good way, but other than this, there' no way to make the playback stop
@@ -1628,7 +1620,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 						double block = CAstSig::play_block_ms;
 						int devID = 0;
 						psig = &(*pVars)[varname];
-						INT_PTR h = PlayArray16(*psig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
+						INT_PTR h = PlayArray16(*psig, devID, WM__AUDIOEVENT1, hDlg, &block, errstr, 1);
 						if (!h)
 						{ // PlayArray will return 0 if unsuccessful due to waveOutOpen failure. For other reasons.....
 							//errstr should show the err msg. Use it if necessary 7/23/2018
@@ -1708,105 +1700,120 @@ void CShowvarDlg::UpdateProp(string varname, CVar *pvar, string propname)
 			ListView_GetItemText(((CShowvarDlg*)tp)->hList2, id, 0, buf, sizeof(buf));
 			if (strlen(buf) == 0) break;
 			if (!strcmp(&buf[1], propname.c_str())) 
-			{ ((CShowvarDlg*)tp)->updaterow(id, 3, &pvar->strut[propname]); break; }
+			{ ((CShowvarDlg*)tp)->updaterow(id, 3, &pvar->strut[propname], 4); break; }
 		}
 	}
 }
 
 static vector<int> recordingEvent;
-typedef struct
-{
-	short devID;
-	bool closing = 0;
-	DWORD recordingThread;
-	int fs;
-	int len_buffer;
-	char *buffer;
-	char callbackfilename[256];
-} rFormat;
-map<int, rFormat *> recorders;
+map<int, callback_trasnfer_record *> recorders;
 
-static inline void les2d_array(short *src, int count, double *dest, double normfact)
+static inline void uc2d_array(unsigned char *src, int count, double *dest1, double *dest2, double normfact)
 {
-	short	value;
-	while (--count >= 0)
+	if (dest2)
 	{
-		value = src[count];
-		dest[count] = (double)value * normfact;
-	};
+		int id = count / 2;
+		while (--count >= 0)
+		{
+			dest1[--id] = (((int)src[count--]) - 128) * normfact;
+			dest2[id] = (((int)src[count]) - 128) * normfact;
+		}
+	}
+	else
+	{
+		while (--count >= 0)
+			dest1[count] = (((int)src[count]) - 128) * normfact;
+	}
 }
-static inline void sc2d_array(signed char *src, int count, double *dest, double normfact)
+static inline void les2d_array(short *src, int count, double *dest1, double *dest2, double normfact)
 {
-	while (--count >= 0)
-		dest[count] = ((double)src[count]) * normfact;
-} /* sc2d_array */
-static inline void uc2d_array(unsigned char *src, int count, double *dest, double normfact)
-{
-	while (--count >= 0)
-		dest[count] = (((int)src[count]) - 128) * normfact;
+	if (dest2)
+	{
+		int id = count / 2;
+		while (--count >= 0)
+		{
+			dest1[--id] = src[count--] * normfact;
+			dest2[id] = src[count] * normfact;
+		}
+	}
+	else
+	{
+		while (--count >= 0)
+			dest1[count] = src[count] * normfact;
+	}
 }
-typedef	void	tribyte;
-static inline int32_t
-psf_get_le24(uint8_t *ptr, int offset)
+static inline int32_t psf_get_le24(uint8_t *ptr, int offset)
 {
 	int32_t value;
-
 	value = ((uint32_t)ptr[offset + 2]) << 24;
 	value += ptr[offset + 1] << 16;
 	value += ptr[offset] << 8;
 	return value;
-} /* psf_get_le24 */
-static inline void let2d_array(tribyte *src, int count, double *dest, double normfact)
+}
+static inline void let2d_array(void *src, int count, double *dest1, double *dest2, double normfact)
 {
 	unsigned char	*ucptr;
 	int				value;
-
 	ucptr = ((unsigned char*)src) + 3 * count;
-	while (--count >= 0)
+	if (dest2)
 	{
-		ucptr -= 3;
-		value = psf_get_le24(ucptr, 0);
-		dest[count] = ((double)value) * normfact;
-	};
-} /* let2d_array */
-static inline void fillDoubleBuffer(int len, void *inBuffer, double *outBuffer)
+		int id = count / 2;
+		while (id>0)
+		{
+			ucptr -= 3;
+			value = psf_get_le24(ucptr, 0);
+			dest1[--id] = ((double)value) * normfact;
+			ucptr -= 3;
+			value = psf_get_le24(ucptr, 0);
+			dest2[id] = ((double)value) * normfact;
+		}
+	}
+	else
+	{
+		while (--count >= 0)
+		{
+			ucptr -= 3;
+			value = psf_get_le24(ucptr, 0);
+			dest1[count] = ((double)value) * normfact;
+		}
+	}
+} 
+static inline void fillDoubleBuffer(int len, void *inBuffer, double *outBuffer, double *outBuffer2)
 {
 	double cal;
 	switch (CAstSig::record_bytes)
 	{
 	case 1:
 		cal = 1. / 0x7f;
-		uc2d_array((unsigned char*)inBuffer, len, outBuffer, cal);
+		uc2d_array((unsigned char*)inBuffer, len, outBuffer, outBuffer2, cal);
 		break;
 	case 2:
 		cal = 1. / 0x7fff;
-		les2d_array((short*)inBuffer, len, outBuffer, cal);
+		les2d_array((short*)inBuffer, len, outBuffer, outBuffer2, cal);
 		break;
 	case 3:
 		cal = 1. / 0x7fffffff;
-		let2d_array((tribyte*)inBuffer, len, outBuffer, cal);
+		let2d_array(inBuffer, len, outBuffer, outBuffer2, cal);
 		break;
 	}
 }
-
-void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
+void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 {
-	// Note: Audioplayback handle pvar is not a pointer like a graphic handle.
-	// The variables in Vars are only copies. So, we need to update the values here for WOM_DOWN and WOM_CLOSE
 	static CVar *pvar_callbackinput;
 	static CVar *pvar_callbackoutput;
 	static AstNode *pCallbackUDF;
-	CVar captured;
-	rFormat * precorder=NULL;
+	static double duration; // in seconds
+	callback_trasnfer_record * precorder = NULL;
 	AstNode *p;
 	int id;
 	string emsg;
+	CVar captured, captured2;
 	try {
 		switch (code)
 		{
 		case WIM_OPEN:
 			EnableDlgItem(hDlg, IDC_STOP2, 1);
-			precorder = (rFormat*)pvar;
+			precorder = (callback_trasnfer_record*)pvar;
 			id = rand();
 			recordingEvent.push_back(id);
 			recorders[id] = precorder;
@@ -1815,12 +1822,13 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 			{
 				pvar_callbackinput = new CVar(1);
 				pvar_callbackoutput = new CVar(1);
-				pvar_callbackinput->strut["fs"] = CVar((double)precorder->fs);
-				pvar_callbackinput->strut["dev"] = CVar((double)precorder->devID);
-				srand((unsigned)time(0));
-				pvar_callbackinput->strut["id"] = CVar((double)rand());
-				pvar_callbackinput->strut["index"] = CVar((double)0.);
+				if (precorder->nChans > 1) pvar_callbackoutput->SetNextChan(new CVar(1));
+				pvar_callbackinput->strut["?fs"] = CVar((double)precorder->fs);
+				pvar_callbackinput->strut["?dev"] = CVar((double)precorder->devID);
+				pvar_callbackinput->strut["?id"] = CVar((double)rand());
+				pvar_callbackinput->strut["?index"] = CVar((double)0.);
 				pcast->ReadUDF(emsg, precorder->callbackfilename);
+				duration = precorder->duration/1000.;
 				pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
 			}
 			else
@@ -1833,6 +1841,14 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 				precorder->closing = true;
 				PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
 			}
+			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
+			{
+				if ((*it).second == precorder->recordID)
+				{
+					(*it).second.strut["fs"].SetValue((double)precorder->fs);
+					UpdateProp((*it).first, &(*it).second, "fs");
+				}
+			}
 			break;
 		case WIM_DATA:
 			// This is where record callback function is invoked.
@@ -1840,13 +1856,30 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 			// First, transfer captured wave buffer to buf of the CVar variable.
 
 			//check the correct id --> is it necessary? 7/25/2019
-			precorder = (rFormat*)pvar;
-			captured.SetFs((int)pvar_callbackinput->strut["fs"].value());
+			precorder = (callback_trasnfer_record*)pvar;
+			captured.SetFs((int)pvar_callbackinput->strut["?fs"].value());
 			captured.UpdateBuffer(precorder->len_buffer);
-			fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf);
-			pvar_callbackinput->strut["d_ata"] = captured;
-			pvar_callbackinput->strut["index"] = CVar(pvar_callbackinput->strut["index"].value() + 1);
+			if (pvar_callbackoutput->next) {
+				captured2.SetFs(captured.GetFs());
+				captured.SetNextChan(&captured2);
+				captured.next->UpdateBuffer(precorder->len_buffer);
+				fillDoubleBuffer(2 * precorder->len_buffer, precorder->buffer, captured.buf, captured.next->buf);
+			}
+			else
+				fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
+			pvar_callbackinput->strut["?data"] = captured;
+			pvar_callbackinput->strut["?index"].buf[0]++;
 			pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
+			{
+				if ((*it).second == precorder->recordID)
+				{
+					(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * precorder->len_buffer / precorder->fs;
+					UpdateProp((*it).first, &(*it).second, "durRec");
+					(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
+					UpdateProp((*it).first, &(*it).second, "durLeft");
+				}
+			}
 			break;
 		case WIM_CLOSE:
 			// transfer pcast->Sig to either ans or the designated variable
@@ -1861,55 +1894,35 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 				pcast->SetVar(p->str, &pcast->Sig);
 			else
 				pcast->SetVar("ans", &pcast->Sig);
-			delete pvar_callbackinput;
-			delete pvar_callbackoutput;
-			Fillup();
-			break;
-		case WOM_OPEN:
-			EnableDlgItem(hDlg, IDC_STOP, 1);
-			nPlaybackCount++;
-			break;
-		case WOM_CLOSE:
-			nPlaybackCount--;
-			if (!nPlaybackCount)	EnableDlgItem(hDlg, IDC_STOP, 0);
+			if (pvar_callbackinput) delete pvar_callbackinput;
+			if (pvar_callbackoutput) delete pvar_callbackoutput;
+			precorder = (callback_trasnfer_record*)pvar;
 			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 			{
-				if ((*it).second == pvar->value())
+				if ((*it).second == precorder->recordID)
 				{
-					(*it).second.strut["type"].SetString((pvar->strut["type"].string() + " (inactive)").c_str());
-					UpdateProp((*it).first, &(*it).second, "type");
-					(*it).second.strut["durLeft"].buf[0] = 0.;
-					(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durTotal"].value();
+					(*it).second.strut["durLeft"].buf[0] = 0;
+					(*it).second.strut["durRec"].buf[0] = duration;
 					UpdateProp((*it).first, &(*it).second, "durLeft");
-					UpdateProp((*it).first, &(*it).second, "durPlayed");
 				}
 			}
+			Fillup();
 			break;
 		case -1:
-			MessageBox((char*)pvar, "Audio device error", 0);
-			break;
-
-		default: // status updates either or WOM_DONE
-			if (pvar) // for ctseries, pvar is not done yet
-				for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
-				{
-					if (pvar->nSamples > 0 && (*it).second == pvar->value())
-					{
-						(*it).second.strut["durLeft"].buf[0] = pvar->strut["durLeft"].value();
-						(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durPlayed"].value();
-						UpdateProp((*it).first, &(*it).second, "durLeft");
-						UpdateProp((*it).first, &(*it).second, "durPlayed");
-					}
-				}
+			MessageBox((char*)pvar, "Audio device error (recording)", 0);
 			break;
 		}
 	}
-	catch (const CAstException &e) { // used only for recording
+	catch (const char *estr)
+	{
+		MessageBox(estr, "Audio record error");
+	}
+	catch (const CAstException &e) { 
 		if (precorder) // just for sanity check
 		{
 			precorder->closing = true;
-			delete pvar_callbackinput;
-			delete pvar_callbackoutput;
+			delete pvar_callbackinput; pvar_callbackinput = NULL;
+			delete pvar_callbackoutput; pvar_callbackoutput = NULL;
 			PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
 			const char *_errmsg = e.outstr.c_str();
 			bool gotobase = false;
@@ -1924,6 +1937,51 @@ void CShowvarDlg::OnSoundEvent(CVar *pvar, int code)
 				cout << errmsg << endl;
 			Back2BaseScope(0);
 		}
+	}
+}
+void CShowvarDlg::OnSoundEvent1(CVar *pvar, int code)
+{
+	// Note: Audioplayback handle pvar is not a pointer like a graphic handle.
+	// The variables in Vars are only copies. So, we need to update the values here for WOM_DOWN and WOM_CLOSE
+	switch (code)
+	{
+	case WOM_OPEN:
+		EnableDlgItem(hDlg, IDC_STOP, 1);
+		nPlaybackCount++;
+		break;
+	case WOM_CLOSE:
+		nPlaybackCount--;
+		if (!nPlaybackCount)	EnableDlgItem(hDlg, IDC_STOP, 0);
+		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
+		{
+			if ((*it).second == pvar->value())
+			{
+				(*it).second.strut["type"].SetString((pvar->strut["type"].string() + " (inactive)").c_str());
+				UpdateProp((*it).first, &(*it).second, "type");
+				(*it).second.strut["durLeft"].buf[0] = 0.;
+				(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durTotal"].value();
+				UpdateProp((*it).first, &(*it).second, "durLeft");
+				UpdateProp((*it).first, &(*it).second, "durPlayed");
+			}
+		}
+		break;
+	case -1:
+		MessageBox((char*)pvar, "Audio device error (playback)", 0);
+		break;
+
+	default: // status updates either or WOM_DONE
+		if (pvar) // for ctseries, pvar is not done yet
+			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
+			{
+				if (pvar->nSamples > 0 && (*it).second == pvar->value())
+				{
+					(*it).second.strut["durLeft"].buf[0] = pvar->strut["durLeft"].value();
+					(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durPlayed"].value();
+					UpdateProp((*it).first, &(*it).second, "durLeft");
+					UpdateProp((*it).first, &(*it).second, "durPlayed");
+				}
+			}
+		break;
 	}
 }
 
@@ -2096,7 +2154,7 @@ void CShowvarDlg::showsize(CVar *pvar, char *outbuf)
 	}
 }
 
-void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
+void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 {
 	string arrout;
 	switch (pvar->GetType())
@@ -2153,7 +2211,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 		else if (pvar->IsComplex())
 			showcomplex(outbuf, pvar->cbuf[0]);
 		else
-			sprintf(outbuf, "%s", pvar->valuestr().c_str());
+			sprintf(outbuf, "%s", pvar->valuestr(digits).c_str());
 		break;
 	case CSIG_HANDLE:
 		if (pvar->IsGO())
@@ -2161,10 +2219,10 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 			if (pvar->IsString())
 				sprintf(outbuf, "\"%s\" [Graphic]", pvar->string().c_str());
 			else
-				sprintf(outbuf, "%.0lf [Graphic]", pvar->valuestr().c_str());
+				sprintf(outbuf, "%.0lf [Graphic]", pvar->valuestr().c_str()); // this should be %s ... check 7/28/2019
 		}
 		else if (pvar->IsAudioObj())
-			sprintf(outbuf, "%.0lf [Audioplay]", pvar->valuestr().c_str());
+			sprintf(outbuf, "%s [Audio handle]", pvar->valuestr().c_str());
 		else
 			sprintf(outbuf, "Handle");
 		break;
@@ -2178,7 +2236,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf)
 	}
 }
 
-void CShowvarDlg::updaterow(int row, int col, CVar *pvar)
+void CShowvarDlg::updaterow(int row, int col, CVar *pvar, int digits)
 {
 	//currently col is limited to 3 (content)
 	char buf[4096];
@@ -2188,7 +2246,7 @@ void CShowvarDlg::updaterow(int row, int col, CVar *pvar)
 	int type = pvar->GetType();
 	HWND hList;
 	(type == CSIG_AUDIO || type == CSIG_NULL) ? hList = GetDlgItem(IDC_LIST1) : hList = GetDlgItem(IDC_LIST2);
-	showcontent(pvar, buf);
+	showcontent(pvar, buf, digits);
 	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
 }
 

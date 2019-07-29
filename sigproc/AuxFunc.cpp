@@ -40,11 +40,14 @@
 
 #include "lame_bj.h"
 
-#define WM__AUDIOEVENT	WM_APP + WOM_OPEN
-
 string CAstSigEnv::AppPath = "";
 
-//extern double CAstSig::play_block_ms;
+#ifdef NO_PLAYSND // for aux_builtin_ext
+CAstSig::play_block_ms = 0;
+CAstSig::record_block_ms = 0;
+CAstSig::record_bytes = 0;
+#endif
+
 
 map<double, FILE *> file_ids;
 
@@ -775,22 +778,30 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 void _start(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	char errstr[256] = {};
+	int newfs;
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
 		throw past->ExceptionMsg(pnode, fnsigs, "Argument must be a scalar.");
 	if (sig.strut["type"].string() == "audio_record")
 	{
 		int devID = (int)sig.strut["dev"].value();
-		int nChans = (int)sig.strut["nChan"].value();
+		int nChans = (int)sig.strut["channels"].value();
+		INT_PTR recordID = (INT_PTR)sig.value();
 		string callbackname = sig.strut["callback"].string();
 		double block = sig.strut["block"].value();
-		double duration = sig.strut["dur_ms"].value();
-		if (Capture(devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, &block, errstr)<0)
+		double duration = sig.strut["durLeft"].value() * 1000.;
+		if ((newfs=Capture(devID, WM__AUDIOEVENT2, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, &block, recordID, errstr))<0)
 			throw past->ExceptionMsg(pnode, fnsigs, errstr);
+		past->Sig.strut["active"] = CVar((double)(1 == 1));
 	}
 	else
 		throw past->ExceptionMsg(pnode, "", "start() applies only to audio_record.");
 	past->Sig.Reset();
+	if (newfs != past->pEnv->Fs)
+	{
+		past->pEnv->Fs = newfs;
+		sformat(past->statusMsg, "(NOTE)Sample Rate of AUXLAB Environment is adjusted to %d Hz.", past->pEnv->Fs);
+	}
 }
 void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -836,13 +847,15 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	srand((unsigned)time(0));
 	past->Sig.SetValue((double)rand());
 	past->Sig.strut["dev"] = CVar((double)devID);
-	past->Sig.strut["fs"] = CVar((double)past->pEnv->Fs);
+//	past->Sig.strut["fs"] = CVar((double)past->pEnv->Fs);
 	past->Sig.strut["type"] = CVar(string("audio_record"));
 	past->Sig.strut["id"] = CVar(past->Sig.value());
 	past->Sig.strut["callback"] = callbackname;
-	past->Sig.strut["nChan"] = CVar((double)nChans);
-	past->Sig.strut["dur_ms"] = CVar(duration);
+	past->Sig.strut["channels"] = CVar((double)nChans);
+	past->Sig.strut["durLeft"] = CVar(duration/1000.);
+	past->Sig.strut["durRec"] = CVar(0.);
 	past->Sig.strut["block"] = CVar(block);
+	past->Sig.strut["active"] = CVar((double)(1==0));
 }
 void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -874,7 +887,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			if (nRepeats<1)
 				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
-		INT_PTR h = PlayArrayNext16(audio, (INT_PTR)sig.value(), 0, WM__AUDIOEVENT, &block, errstr, nRepeats);
+		INT_PTR h = PlayArrayNext16(audio, (INT_PTR)sig.value(), 0, WM__AUDIOEVENT1, &block, errstr, nRepeats);
 		if (!h)
 			past->Sig.SetValue(-1.);
 		else
@@ -904,7 +917,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
 		int devID = 0;
-		INT_PTR h = PlayArray16(sig, devID, WM__AUDIOEVENT, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
+		INT_PTR h = PlayArray16(sig, devID, WM__AUDIOEVENT1, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
 		if (!h)
 		{ // PlayArray will return 0 if unsuccessful due to waveOutOpen failure. For other reasons.....
 			past->Sig.strut.clear();

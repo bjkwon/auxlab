@@ -28,6 +28,10 @@
 #include "cipsycon.tab.h"
 #endif
 
+#ifdef NO_PLAYSND // for aux_builtin_ext
+CAstSig::play_block_ms = 0;
+#endif
+
 #define PRINTLOG(FNAME,STR) \
 { FILE*__fp=fopen(FNAME,"at"); fprintf(__fp,STR);	fclose(__fp); }
 
@@ -1566,6 +1570,32 @@ CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 	return Sig;
 }
 
+string CAstSig::adjustfs(int newfs)
+{
+	string out;
+	if (pEnv->Fs == newfs) return out;
+	for (auto &it : Vars)
+	{
+		CSignals ratio(1);
+		if (it.second.GetType() == CSIG_AUDIO)
+		{
+			CSignals level = it.second.RMS();
+			ratio.SetValue(it.second.GetFs() / (double)newfs);
+			it.second.basic(it.second.pf_basic2 = &CSignal::resample, &ratio);
+			if (ratio.IsString()) // this means there was an error during resample
+			{
+				sformat(out, "Error while resampling the variable %s\n[from libsamplerate]%s", it.first.c_str());
+				return out;
+			}
+			it.second.SetFs(newfs);
+			CSignals level2 = it.second.RMS();
+			it.second *= level2.value() / level.value();
+		}
+	}
+	pEnv->Fs = newfs; //Sample rate adjusted
+	return out;
+}
+
 CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 {
 //	int res;
@@ -2084,6 +2114,11 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 	CVar *pres;
 	ostringstream out;
 	AstNode *pUDF;
+	if (pn->type == T_ID || pn->type == N_STRUCT)
+	{
+		if (this==CAstSig::vecast.front() && pn->str[0]=='?') 
+			throw ExceptionMsg(pn, "The caracter '?' cannot be used as a function or variable name in the base workspace.");
+	}
 	if ((pUDF=ReadUDF(emsg, pn->str)))
 	{
 		if (pn->child)

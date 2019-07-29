@@ -1,0 +1,6 @@
+bison psycon.y
+
+//to make a header file
+bison psycon.y --defines
+
+flex -opsycon.yy.c psycon.l

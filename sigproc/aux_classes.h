@@ -66,7 +66,7 @@ public:
 	void Reset();
 
 	double value() const;
-	string valuestr() const;
+	string valuestr(int digits = 14) const;
 	complex<double> cvalue() const;
 	void SetValue(double v);
 	void SetValue(complex<double> v);

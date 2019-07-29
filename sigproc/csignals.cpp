@@ -391,11 +391,11 @@ void body::Reset()
 	bufBlockSize = sizeof(double);
 }
 
-string body::valuestr() const
+string body::valuestr(int digits) const
 { //this doesn't throw. Used for showvar.cpp (avoiding unhandled exceptions)
 	ostringstream out;
 	out.unsetf(ios::floatfield);
-	out.precision(14);
+	out.precision(digits);
 	if (nSamples >= 1)
 	{
 		if (bufBlockSize == 8)	out << buf[0];
@@ -2894,23 +2894,6 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len)
 	else
 	{
 		int blockCount = 0;
-		//libsamplerate takes float buffers, CSignals takes double; so separate input, output buffers should be used.
-		//data_in is just the float version of buf, the input
-		//data_out is the float buffer used in each of the src_process call--smaller buffer is used than data_in
-		//after src_process, the data is transferred to outbuffer (double)--just accumulated.
-		//after all the blocks, outbuffer is memcpy'ed to buf for the output.
-		//3/20/2019
-		//FILE*ff = fopen("c:\\temp\\sdsd.txt", "w");
-		//fprintf(ff, "nSamples=%d, newlen=%d\n", nSamples, newlen);
-		//for (int ll=0; ll<30; ll++)
-		//{
-		//	int error = newlen - harmean0;
-		//	nSamples -= error /2;
-		//	out2 = getSIH(nSamples, pratio->value(), pratio->chain->value(), &harmean);
-		//	newlen = harmean + out2 / 2;
-		//	fprintf(ff, "nSamples=%d, newlen=%d\n", nSamples, newlen);
-		//}
-		//fclose(ff);
 		vector<double> outbuffer;
 		//inspect pratio to estimate the output length
 		int cum = 0, cumID = 0;
@@ -4340,7 +4323,7 @@ bool CVar::IsAudioObj()
 	CSignals type = strut["type"];
 	if (type.GetType() != CSIG_STRING) return false;
 	//The text content may be audio_playback or audio_playback (inactive)
-	if (type.string().find("audio_playback") != 0) return false;
+	if (type.string().find("audio_playback") != 0 && type.string().find("audio_record") != 0) return false;
 	return true;
 }
 

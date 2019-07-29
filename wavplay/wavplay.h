@@ -32,7 +32,25 @@ public:
 	CVar sig;
 	AUD_PLAYBACK() { };
 	~AUD_PLAYBACK() {};
-} ;
+};
+
+typedef struct
+{
+	short devID;
+	short nChans;
+	bool closing = 0;
+	DWORD recordingThread;
+	DWORD recordID;
+	int fs;
+	int len_buffer;
+	double duration; // in duration to record, in milliseconds; -1 if indefinite
+	char *buffer;
+	char callbackfilename[256];
+} callback_trasnfer_record;
+
+
+#define WM__AUDIOEVENT1				WM_APP + WOM_OPEN
+#define WM__AUDIOEVENT2				WM_APP + WOM_OPEN * 2
 
 void TerminatePlay(int quick=1);
 bool StopPlay(INT_PTR pWavePlay, bool quick);
@@ -53,6 +71,6 @@ INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDe
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop);
 INT_PTR PlayBufAsynch16(UINT DevID, short *dataBuffer, int length, int nChan, int fs, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, int loop, char* errstr);
 INT_PTR QueuePlay(INT_PTR pWP, UINT DevID, SHORT *dataBuffer, int length, int nChan, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop);
-INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bits, const char *callbackname, double duration, double *block_dur_ms, char *errmsg);
+int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bits, const char *callbackname, double duration, double *block_dur_ms, INT_PTR recordID, char *errmsg);
 
 #endif

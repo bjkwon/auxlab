@@ -127,7 +127,7 @@ But it's not really useful anyway... WM_NOTIFY shouldn't be used in a cracker...
     ((fn)((int)wParam), 0L)
 
 
-// void OnSoundEvent(CVar *pvar, int code) 
+// void OnSoundEvent1(CVar *pvar, int code) 
 // This is how it's set up in wavplay.cpp
 // code: 
 //		WOM_OPEN when opening the audio event
@@ -137,7 +137,9 @@ But it's not really useful anyway... WM_NOTIFY shouldn't be used in a cracker...
 //		the pointer to the audio handle for each WOM_DONE message
 //		the pointer to the char array if code is -1 ---> Just cast it when using it.
 
-#define HANDLE_WM__AUDIOEVENT(hwnd, wParam, lParam, fn) \
+#define HANDLE_WM__AUDIOEVENT1(hwnd, wParam, lParam, fn) \
+    ((fn)((CVar *)wParam, (int)lParam), 0L)
+#define HANDLE_WM__AUDIOEVENT2(hwnd, wParam, lParam, fn) \
     ((fn)((CVar *)wParam, (int)lParam), 0L)
 
 #define ON_CONTROL(wNotifyCode, id, memberFxn) \
