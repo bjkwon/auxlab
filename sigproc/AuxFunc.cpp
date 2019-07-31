@@ -796,7 +796,9 @@ void _start(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	}
 	else
 		throw past->ExceptionMsg(pnode, "", "start() applies only to audio_record.");
-	past->Sig.Reset();
+	// for a statement, y=h.start, y is not from the RHS directly, but is updated laster after the callback
+	// so we need to block the RHS from affecting the LHS.. Let's use -1 for suppress (to be used in CDeepProc::TID_tag in AstSig2.cpp)
+	past->pAst->suppress = -1; 
 	if (newfs != past->pEnv->Fs)
 	{
 		past->pEnv->Fs = newfs;
@@ -940,6 +942,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 
 void _stop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
+	char errstr[256];
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
 		throw past->ExceptionMsg(pnode, fnsigs, "Argument must be a scalar.");
@@ -956,7 +959,7 @@ void _stop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	}
 	else if (sig.strut["type"].string() == "audio_record" && fname == "stop")
 	{
-
+		StopRecord((int)sig.value(), errstr);
 	}
 	else
 		throw past->ExceptionMsg(pnode, fnsigs, "stop() applies only to audio_playback or audio_record.");

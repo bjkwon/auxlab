@@ -208,7 +208,7 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 					pbase->SetVar(p->str, &tsig);
 				else if (pbase->pgo)
 					pbase->SetVar(p->str, pbase->pgo);
-				else
+				else if (p->suppress!=-1) // for the case of (recorder).start--we should keep RHS from affecting the LHS
 					pbase->SetVar(p->str, &tsig);
 			}
 			else

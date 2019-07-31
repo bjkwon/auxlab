@@ -58,6 +58,7 @@ public:
 	HWND			hWnd_calling;
 	uintptr_t		hThread;
 	DWORD			threadID;
+	DWORD			recID;
 	DWORD			callingThreadID;
 	UINT			msgID;
 	DWORD			totalSamples; // 0 for indefinite recording
@@ -83,11 +84,14 @@ public:
 	int	cleanUp(int threadIDalreadycut = 0);
 };
 
+static vector<CWaveRecord*> recorders;
+
 CWaveRecord::CWaveRecord()
 	: hThread(NULL), bitswidth(1), nPlayedBlocks(0), recordedSamples(0)
 {
 	wfx.wFormatTag = WAVE_FORMAT_PCM;
 	wfx.cbSize = 0;
+	recorders.push_back(this);
 }
 
 CWaveRecord::~CWaveRecord()
@@ -95,6 +99,9 @@ CWaveRecord::~CWaveRecord()
 	// Do we need to free up any memory blocks that were somehow not taken care of?
 	delete[] inBuffer[0];
 	delete[] inBuffer[1];
+	auto it = find(recorders.begin(), recorders.end(), this);
+	if (it != recorders.end())
+		recorders.erase(it);
 }
 
 
@@ -144,6 +151,7 @@ void ThreadCapture(const record_param &p)
 
 	unique_ptr<CWaveRecord> pWP = make_unique<CWaveRecord>();
 	pWP->threadID = GetCurrentThreadId();
+	pWP->recID = p.recordID;
 	pWP->wfx.wBitsPerSample = 8 * p.bytes;
 	if (p.duration > 0)
 		pWP->totalSamples = lrint(p.duration / 1000.*p.fs);
@@ -250,9 +258,24 @@ void ThreadCapture(const record_param &p)
 }
 
 
-
-INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, const char *callbackname, double duration, double *block_dur_ms, INT_PTR recordID, char *errmsg)
+static inline CWaveRecord* findbyID(int id)
 {
+	for (auto it : recorders)
+	{
+		if (it->recID == id)
+			return it;
+	}
+	return NULL;
+}
+
+
+int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, const char *callbackname, double duration, double *block_dur_ms, INT_PTR recordID, char *errmsg)
+{
+	if (findbyID(recordID))
+	{
+		strcpy(errmsg, "Recording in progress.");
+		return -1;
+	}
 	//This returns error (-1) immediately if waveInGetDevCaps or waveInOpen fails, or any input parameter is improper
 	//Any unsuccessful results from waveInXXXX calls are to be handled during event notification
 	// if there's no error in either waveInGetDevCaps or waveInOpen, it returns the sample rate which might have been adjusted to one of the accepted values.
@@ -305,7 +328,6 @@ INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short n
 			throw "Invalid WAVE format";
 
 		record_param carrier;
-
 		carrier.callingThreadID = GetCurrentThreadId();
 		carrier.bytes = bytes;
 		carrier.fs = fs;
@@ -343,4 +365,26 @@ INT_PTR Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short n
 	return 0; // unlikely to come here
 }
 
+bool StopRecord(int recID, char *errstr)
+{
+	if (recID < 0)
+	{
+		for (auto it : recorders)
+			PostThreadMessage(it->threadID, WM__STOP_RECORD, 0, 0);
+		return true;
+	}
+	CWaveRecord * target = findbyID(recID);
+	if (target)
+	{
+		PostThreadMessage(target->threadID, WM__STOP_RECORD, 0, 0);
+		errstr[0] = 0;
+		return true;
+	}
+	strcpy(errstr, "Invalid record identifier");
+	return false;
+}
+bool PauseResumRecord(int recID, bool fOnOff)
+{
+	return false;
+}
 #endif //NO_PLAYSND

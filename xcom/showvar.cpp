@@ -1297,6 +1297,7 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 		break;
 
 	case IDC_STOP2:
+		StopRecord(-1, errstr); // if -1, no need to check success
 		break;
 	case IDC_STOP:
 		// TEMPORARY HACK... 32799 is IDM_STOP in PlotDlg.cpp in graffy
@@ -1798,13 +1799,13 @@ static inline void fillDoubleBuffer(int len, void *inBuffer, double *outBuffer, 
 	}
 }
 void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
-{
+{ // Currently, this doesn't support concurrent recording with multiple devices because of the static variables below.
+  // Think about a better way to do it without using statics... 7/29/2019
 	static CVar *pvar_callbackinput;
 	static CVar *pvar_callbackoutput;
 	static AstNode *pCallbackUDF;
 	static double duration; // in seconds
 	callback_trasnfer_record * precorder = NULL;
-	AstNode *p;
 	int id;
 	string emsg;
 	CVar captured, captured2;
@@ -1825,7 +1826,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 				if (precorder->nChans > 1) pvar_callbackoutput->SetNextChan(new CVar(1));
 				pvar_callbackinput->strut["?fs"] = CVar((double)precorder->fs);
 				pvar_callbackinput->strut["?dev"] = CVar((double)precorder->devID);
-				pvar_callbackinput->strut["?id"] = CVar((double)rand());
+				pvar_callbackinput->strut["?id"] = CVar((double)precorder->recordID);
 				pvar_callbackinput->strut["?index"] = CVar((double)0.);
 				pcast->ReadUDF(emsg, precorder->callbackfilename);
 				duration = precorder->duration/1000.;
@@ -1847,6 +1848,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 				{
 					(*it).second.strut["fs"].SetValue((double)precorder->fs);
 					UpdateProp((*it).first, &(*it).second, "fs");
+					return;
 				}
 			}
 			break;
@@ -1884,26 +1886,19 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 		case WIM_CLOSE:
 			// transfer pcast->Sig to either ans or the designated variable
 			EnableDlgItem(hDlg, IDC_STOP2, 0);
-			p = pcast->pAst;
-			if (pcast->pAst->type == N_BLOCK)
-			{
-				while (p->next)
-					p = p->next;
-			}
-			if (CAstSig::IsTID(p) && p->child)
-				pcast->SetVar(p->str, &pcast->Sig);
-			else
-				pcast->SetVar("ans", &pcast->Sig);
 			if (pvar_callbackinput) delete pvar_callbackinput;
 			if (pvar_callbackoutput) delete pvar_callbackoutput;
+			pvar_callbackinput = NULL;
+			pvar_callbackoutput = NULL;
 			precorder = (callback_trasnfer_record*)pvar;
 			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 			{
 				if ((*it).second == precorder->recordID)
 				{
 					(*it).second.strut["durLeft"].buf[0] = 0;
-					(*it).second.strut["durRec"].buf[0] = duration;
 					UpdateProp((*it).first, &(*it).second, "durLeft");
+					(*it).second.strut["active"].logbuf[0] = false;
+					UpdateProp((*it).first, &(*it).second, "active");
 				}
 			}
 			Fillup();

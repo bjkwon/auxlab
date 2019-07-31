@@ -456,21 +456,9 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
 	auto itUDF = pEnv->udf.find(pCalling->str);
-	if (itUDF != pEnv->udf.end())
-	{
-		son->u.pUDF = (*itUDF).second.pAst;
-		son->u.pUDF_base = son->u.pUDF;
-		son->u.base = son->u.pUDF->str;
-	}
-	//else
-	//{
-	//	auto jtUDF = pEnv->udf.find(u.base); // if this is to be a local udf, base should be ready through a previous iteration.
-	//	if (jtUDF == pEnv->udf.end())
-	//		throw ExceptionMsg(pCalling, "Internal error! CheckPrepareCallUDF()", "supposed to be a local udf, but AstNode with that name not prepared");
-	//	son->u.pUDF_base = (*jtUDF).second.pAst;
-	//	son->u.base = u.base; // this way, base can maintain through iteration.
-	//	son->u.pUDF = (*pEnv->udf.find(u.base)).second.local[pCalling->str].pAst;
-	//}
+	son->u.pUDF = (*itUDF).second.pAst;
+	son->u.pUDF_base = son->u.pUDF;
+	son->u.base = son->u.pUDF->str;
 	son->pAst = son->u.pUDF_base->child->next;
 	//output argument string list
 	son->u.argout.clear();
@@ -2302,9 +2290,9 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 			else	return Sig;
 		}
 		CVar res;
+		lhs = pLast;
 		if (!diggy.level.psigBase)
 		{
-			lhs = pLast;
 			diggy.level.side = 'L';
 			Script = pnode->str;
 			Script += diggy.level.varname;
@@ -2321,7 +2309,6 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// pLast: the node corresponding to psig
 		setgo.frozen = true;
 		diggy.level.side = 'R';
-//		lhs = pLast;
 //		res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
