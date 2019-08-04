@@ -247,7 +247,7 @@ void ThreadCapture(const record_param &p)
 				for (int k = 0; k < 2; k++)
 					MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 				MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
-				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_CLOSE); // send the closing status to the main application 
+				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)send2OnSoundEven.recordID, WIM_CLOSE); // send the closing status to the main application 
 				return;
 			}
 			break;
@@ -258,7 +258,7 @@ void ThreadCapture(const record_param &p)
 		for (int k=0; k<2; k++)
 			MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 	MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
-	SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_CLOSE); // send the closing status to the main application 
+	PostMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)send2OnSoundEven.recordID, WIM_CLOSE); // send the closing status to the main application 
 }
 
 

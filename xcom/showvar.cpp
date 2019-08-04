@@ -1812,6 +1812,9 @@ typedef struct {
 	CVar *pvar_callbackoutput;
 } carrier;
 
+#include <mutex>
+mutex mx;
+
 void AudioCapture(unique_ptr<carrier> pmsg)
 {
 	double duration = pmsg->cbp->duration / 1000.; // in seconds
@@ -1846,6 +1849,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
 				pvar_callbackinput->strut["?data"] = captured;
 				pvar_callbackinput->strut["?index"].buf[0]++;
+				mx.lock();
 				pmsg->pcast->ExcecuteCallback(pmsg->pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
 				for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end(); it++)
 				{
@@ -1857,6 +1861,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durLeft");
 					}
 				}
+				mx.unlock();
 				break;
 			case -1:
 				pmsg->parent->MessageBox((char*)msg.wParam, "Audio device error (recording)", 0);
@@ -1923,6 +1928,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 				car->parent = this;
 				car->pvar_callbackinput = pvar_callbackinput;
 				car->pvar_callbackoutput = pvar_callbackoutput;
+				if (car->cbp->nChans > 1) pvar_callbackoutput->SetNextChan(new CVar);
 				pvar_callbackinput->strut["?index"].SetValue(0.);
 				thread recordingThread(AudioCapture, move(car));
 				recordingThread.detach();
@@ -1950,6 +1956,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 
 		case WIM_CLOSE:
 			// transfer pcast->Sig to either ans or the designated variable
+			mx.lock(); 
 			EnableDlgItem(hDlg, IDC_STOP2, 0);
 			if (pvar_callbackinput) delete pvar_callbackinput;
 			if (pvar_callbackoutput) delete pvar_callbackoutput;
@@ -1958,7 +1965,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 			precorder = (callback_trasnfer_record*)pvar;
 			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 			{
-				if ((*it).second == precorder->recordID)
+				if ((*it).second == (int)pvar)
 				{
 					(*it).second.strut["durLeft"].buf[0] = 0;
 					UpdateProp((*it).first, &(*it).second, "durLeft");
