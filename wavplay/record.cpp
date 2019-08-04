@@ -147,7 +147,7 @@ void ThreadCapture(const record_param &p)
 	MSG        msg;
 	int left;
 	double accum;
-	DWORD total=0;
+	DWORD total = 0;
 
 	unique_ptr<CWaveRecord> pWP = make_unique<CWaveRecord>();
 	pWP->threadID = GetCurrentThreadId();
@@ -183,12 +183,16 @@ void ThreadCapture(const record_param &p)
 	// Insert LOGGING4
 	WAVEHDR *pwh;
 	callback_trasnfer_record send2OnSoundEven;
+	DWORD callbackThread = GetWindowThreadProcessId(pWP->hWnd_calling, NULL);
 	double tico = 0.;
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
 		if (msg.message == WM__STOP_RECORD) break;
 		switch (msg.message)
 		{
+		case WM__RECORDING_THREADID:
+			callbackThread = (DWORD)msg.wParam;
+			break;
 		case WIM_OPEN:
 			strcpy(send2OnSoundEven.callbackfilename, pWP->callbackname.c_str());
 			send2OnSoundEven.devID = pWP->devID;
@@ -229,7 +233,7 @@ void ThreadCapture(const record_param &p)
 			else
 				pWP->recordedSamples = total;
 			if (!send2OnSoundEven.closing)
-				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_DATA);
+				PostThreadMessage(callbackThread, WIM_DATA, (WPARAM)&send2OnSoundEven, 0);
 			if (pWP->recordedSamples < pWP->totalSamples)
 			{
 				pWP->setPlayPoint(*pwh, tico += accum);
@@ -269,7 +273,7 @@ static inline CWaveRecord* findbyID(int id)
 }
 
 
-int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, const char *callbackname, double duration, double *block_dur_ms, INT_PTR recordID, char *errmsg)
+int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, const char *callbackname, double duration, double block_dur_ms, int recordID, char *errmsg)
 {
 	if (findbyID(recordID))
 	{
@@ -333,7 +337,7 @@ int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChan
 		carrier.fs = fs;
 		carrier.nChans = nChans;
 		carrier.duration = duration;
-		carrier.block_dur_ms = *block_dur_ms;
+		carrier.block_dur_ms = block_dur_ms;
 		carrier.hWnd_calling = hApplWnd;
 		carrier.msgID = userDefinedMsgID;
 		carrier.callback = callbackname;

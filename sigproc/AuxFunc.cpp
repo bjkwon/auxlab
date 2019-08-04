@@ -775,36 +775,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 #ifdef _WINDOWS
 #ifndef NO_PLAYSND
 
-void _start(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	char errstr[256] = {};
-	int newfs;
-	CVar sig = past->Sig;
-	if (!sig.IsScalar())
-		throw past->ExceptionMsg(pnode, fnsigs, "Argument must be a scalar.");
-	if (sig.strut["type"].string() == "audio_record")
-	{
-		int devID = (int)sig.strut["dev"].value();
-		int nChans = (int)sig.strut["channels"].value();
-		INT_PTR recordID = (INT_PTR)sig.value();
-		string callbackname = sig.strut["callback"].string();
-		double block = sig.strut["block"].value();
-		double duration = sig.strut["durLeft"].value() * 1000.;
-		if ((newfs=Capture(devID, WM__AUDIOEVENT2, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, &block, recordID, errstr))<0)
-			throw past->ExceptionMsg(pnode, fnsigs, errstr);
-		past->Sig.strut["active"] = CVar((double)(1 == 1));
-	}
-	else
-		throw past->ExceptionMsg(pnode, "", "start() applies only to audio_record.");
-	// for a statement, y=h.start, y is not from the RHS directly, but is updated laster after the callback
-	// so we need to block the RHS from affecting the LHS.. Let's use -1 for suppress (to be used in CDeepProc::TID_tag in AstSig2.cpp)
-	past->pAst->suppress = -1; 
-	if (newfs != past->pEnv->Fs)
-	{
-		past->pEnv->Fs = newfs;
-		sformat(past->statusMsg, "(NOTE)Sample Rate of AUXLAB Environment is adjusted to %d Hz.", past->pEnv->Fs);
-	}
-}
+
 void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	double block = CAstSig::record_block_ms;
@@ -849,7 +820,6 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	srand((unsigned)time(0));
 	past->Sig.SetValue((double)rand());
 	past->Sig.strut["dev"] = CVar((double)devID);
-//	past->Sig.strut["fs"] = CVar((double)past->pEnv->Fs);
 	past->Sig.strut["type"] = CVar(string("audio_record"));
 	past->Sig.strut["id"] = CVar(past->Sig.value());
 	past->Sig.strut["callback"] = callbackname;
@@ -858,6 +828,24 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	past->Sig.strut["durRec"] = CVar(0.);
 	past->Sig.strut["block"] = CVar(block);
 	past->Sig.strut["active"] = CVar((double)(1==0));
+
+	char errstr[256] = {};
+	int newfs, recordID = (int)past->Sig.value();
+	if ((newfs = Capture(devID, WM__AUDIOEVENT2, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, block, recordID, errstr)) < 0)
+		throw past->ExceptionMsg(pnode, fnsigs, errstr);
+	past->Sig.strut["active"] = CVar((double)(1 == 1));
+	if (past->lhs && past->lhs->type == N_VECTOR)
+	{ // [y, h] = record (.....), do output binding here.
+		past->SetVar(past->lhs->alt->next->str, &past->Sig);
+	}
+	// for a statement, y=h.start, y is not from the RHS directly, but is updated laster after the callback
+	// so we need to block the RHS from affecting the LHS.. Let's use -1 for suppress (to be used in CDeepProc::TID_tag in AstSig2.cpp)
+	past->pAst->suppress = -1;
+	if (newfs != past->pEnv->Fs)
+	{
+		past->pEnv->Fs = newfs;
+		sformat(past->statusMsg, "(NOTE)Sample Rate of AUXLAB Environment is adjusted to %d Hz.", past->pEnv->Fs);
+	}
 }
 void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -2613,9 +2601,6 @@ void CAstSigEnv::InitBuiltInFunctions()
 	builtin[name] = ft;
 	name = "qstop";
 	ft.func = &_stop;
-	builtin[name] = ft;
-	name = "start";
-	ft.func = &_start;
 	builtin[name] = ft;
 
 	ft.funcsignature = "(audio_signal [, repeat=1]) or (audio_handle, audio_signal [, repeat=1])";

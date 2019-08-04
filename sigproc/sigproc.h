@@ -311,7 +311,7 @@ private:
 	void replica_prep(CVar *psig);
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2);
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
-
+	void outputbinding(size_t nArgout);
 public:
 	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar *pOutVars);
 	string adjustfs(int newfs);
@@ -365,7 +365,7 @@ public:
 	CVar &NodeMatrix(const AstNode *pnode, AstNode *p);
 	CVar &define_new_variable(const AstNode *pnode, AstNode *pRHS);
 	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
-	CVar *GetVariable(const char *varname, string &fullvarname, CVar *pvar = NULL);
+	CVar *GetVariable(const char *varname, string &fullvarname= string(""), CVar *pvar = NULL);
 	CVar &TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
 	CVar &Eval(AstNode *pnode);
 	CVar &Transpose(const AstNode *pnode, AstNode *p);

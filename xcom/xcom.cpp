@@ -1482,7 +1482,7 @@ bool xcom::IsNowDebugging(CAstSig *pcast)
  // Assumption: pcast must be a part of vecast vector
  // if pcast is not the base instance, which isn't necessarily CAstSig::vecast.front()--because module such as auxcon may put its own as the front point right behind xcom front
 	if (!strcmp(pcast->u.application, "xcom"))
-		return (CAstSig::vecast.size() > 1);
+		return CAstSig::vecast.front()!=pcast;
 	else
 		return (CAstSig::vecast.size() > 2);
 	return false;

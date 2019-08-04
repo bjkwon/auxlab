@@ -450,8 +450,8 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	son->u = u;
 	son->u.title = pCalling->str;
 	son->u.debug.status = null;
-	son->SetVar("in", pStaticVars);
-	son->SetVar("out", pOutVars);
+	son->SetVar("in", pStaticVars); //static--lingering from the previous callback
+	son->SetVar("out", pOutVars); //static--lingering from the previous callback
 	son->lhs = lhs;
 	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
@@ -460,8 +460,7 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	son->u.pUDF_base = son->u.pUDF;
 	son->u.base = son->u.pUDF->str;
 	son->pAst = son->u.pUDF_base->child->next;
-	//output argument string list
-	son->u.argout.clear();
+	son->u.argout.clear(); //output argument string list
 	AstNode *pOutParam = son->u.pUDF->alt;
 	if (pOutParam) {
 		if (pOutParam->type == N_VECTOR)
@@ -474,40 +473,34 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 			throw ExceptionMsg(pOutParam, out.str().c_str());
 		}
 	}
-	//Checking requested output arguments vs formal output arguments
-	if (lhs)
-	{
-		ostringstream oss;
-		AstNode *p = lhs->type == N_VECTOR ? lhs->alt : lhs;
-		for (son->u.nargout = 0; p && p->line == lhs->line; p = p->next, son->u.nargout++) {}
-		if (son->u.nargout > (int)son->u.argout.size()) {
-			oss << "Maximum number of return arguments for function '" << u.pUDF->str << "' is " << son->u.argout.size() << ".";
-			throw ExceptionMsg(u.pUDF, oss.str().c_str());
-		}
-	}
-	else
-		son->u.nargout = (int)son->u.argout.size(); // probably not correct
-	// at this point son->u.nargout should be one
+	son->u.nargout = (int)son->u.argout.size(); 
 
 	//If the line invoking the udf res = var.udf(arg1, arg2...), binding of the first arg, var, is done separately via pBase. The rest, arg1, arg2, ..., are done below with pf->next
 	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
-	//No need for input param binding
+	//No need for input param binding/
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
 	CAstSig::vecast.push_back(son);
 	//son->SetVar("_________",pStaticVars); // how can I add static variables here???
 	size_t nArgout = son->CallUDF(pCalling, NULL);
 	// output parameter binding
-	vector<CVar *> holder;
-	size_t cnt = 0;
-	// output argument transfer from son to this
-	// there is only one output argument
-	if (!lhs)	// no output parameter specified. --> first formal output arg goes to ans
-	{
-		Sig = son->Vars[son->u.argout.front()];
-	}
+	const char *varstr = lhs ? lhs->str : "ans";
+	if (!lhs)
+		SetVar(varstr, &son->Vars[son->u.argout.front()]);
 	else
 	{
-		SetVar(lhs->str, &son->Vars[son->u.argout.front()]);
+		if (lhs->type == N_VECTOR)
+			varstr = lhs->alt->str;
+		SetVar(varstr, &son->Vars[son->u.argout.front()]);
+		//CVar *phandle = GetVariable(lhs->alt->next->str);
+		//if (phandle)
+		//	phandle->strut["cbout"].cell.clear();
+		//else
+		//{
+		//	SetVar(lhs->alt->next->str, new CVar);
+		//	phandle = GetVariable(lhs->alt->next->str);
+		//}
+		//for (auto outvarstr = son->u.argout.begin() + 1; outvarstr != son->u.argout.end(); outvarstr++)
+		//		phandle->strut["cbout"].appendcell(son->Vars[*outvarstr]);
 	}
 	*pOutVars = son->Vars[son->u.argout.front()];
 	if ((son->u.debug.status == stepping || son->u.debug.status == continuing) && u.debug.status == null)
@@ -529,6 +522,36 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	return true;
 }
 
+void CAstSig::outputbinding(size_t nArgout)
+{
+	auto count = 0;
+	AstNode *pp = lhs;
+	if (lhs && lhs->type == N_VECTOR) pp = lhs->alt;
+	for (auto arg : son->u.argout)
+	{
+		if (son->Vars.find(arg) != son->Vars.end())
+		{
+			SetVar(pp->str, &son->Vars[arg]);
+			if (count++ == 0)
+				Sig = son->Vars[arg]; //why is this needed? -- so update go Sig with non-go Sig 2/9/2019
+			pgo = NULL;
+			if (--nArgout == 0) break;
+		}
+		else if (son->GOvars.find(arg) != son->GOvars.end())
+		{
+			if (son->GOvars[arg].size() > 1)
+			{ // need to make an CSIG_HDLARRAY object
+				pgo = MakeGOContainer(son->GOvars[arg]);
+			}
+			else
+				pgo = son->GOvars[arg].front();
+			if (count++ == 0)
+				Sig = *pgo; //Ghost output to console
+			if (--nArgout == 0) break;
+		}
+		pp = pp->next;
+	}
+}
 bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pStaticVars)
 {
 	if (!pCalling->str)
@@ -635,33 +658,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	}
 	else
 	{
-		auto count = 0;
-		AstNode *pp = lhs;
-		if (lhs && lhs->type == N_VECTOR) pp = lhs->alt;
-		for (auto arg : son->u.argout)
-		{
-			if (son->Vars.find(arg) != son->Vars.end())
-			{
-				SetVar(pp->str, &son->Vars[arg]);
-				if (count++ == 0) 
-					Sig = son->Vars[arg]; //why is this needed? -- so update go Sig with non-go Sig 2/9/2019
-				pgo = NULL;
-				if (--nArgout == 0) break;
-			}
-			else if (son->GOvars.find(arg) != son->GOvars.end())
-			{
-				if (son->GOvars[arg].size() > 1)
-				{ // need to make an CSIG_HDLARRAY object
-					pgo = MakeGOContainer(son->GOvars[arg]);
-				}
-				else
-					pgo = son->GOvars[arg].front();
-				if (count++ == 0)
-					Sig = *pgo; //Ghost output to console
-				if (--nArgout == 0) break;
-			}
-			pp = pp->next;
-		}
+		outputbinding(nArgout);
 	}
 	if ((son->u.debug.status == stepping || son->u.debug.status == continuing) && u.debug.status == null)
 	{ // no b.p set in the main udf, but in these conditions, as the local udf is finishing, the stepping should continue in the main udf, or debug.status should be set progress, so that the debugger would be properly exiting as it finishes up in CallUDF()
@@ -2225,6 +2222,7 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 								else
 								{
 									out << "Unknown variable, function, or keyword identifier : " << p->str;
+									if (pn->str) out << " for " << pn->str;
 									throw ExceptionMsg(pn, out.str().c_str());
 								}
 					}
@@ -2447,6 +2445,9 @@ try {
 		}
 		else
 		{
+			if (p->type==N_VECTOR && (pnode->alt!=pnode->tail))
+				throw ExceptionMsg(pnode, "Both LHS and RHS cannot be enclosed by [ ]");
+			if (!lhs && pnode->alt) lhs = (AstNode*)pnode;
 			Compute(p);
 			if (pnode->alt)
 			{

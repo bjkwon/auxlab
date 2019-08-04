@@ -51,12 +51,13 @@ typedef struct
 
 #define WM__AUDIOEVENT1				WM_APP + WOM_OPEN
 #define WM__AUDIOEVENT2				WM_APP + WOM_OPEN * 2
+#define WM__RECORDING_THREADID		WM_APP + 0x7827
 
 void TerminatePlay(int quick=1);
 bool StopPlay(INT_PTR pWavePlay, bool quick);
 bool PauseResumePlay(INT_PTR pWavePlay, bool fOnOff);
 bool StopRecord(int recID, char *errstr);
-bool PauseResumrecord(int recID, bool fOnOff);
+bool PauseResumeRecord(int recID, bool fOnOff, char *errstr);
 void SetHWND_WAVPLAY(HWND hAppl);
 HWND GetHWND_WAVPLAY();
 int WinMMGetVolume(INT_PTR pWavePlay, DWORD &vol, char *errstr);
@@ -73,6 +74,6 @@ INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDe
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop);
 INT_PTR PlayBufAsynch16(UINT DevID, short *dataBuffer, int length, int nChan, int fs, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, int loop, char* errstr);
 INT_PTR QueuePlay(INT_PTR pWP, UINT DevID, SHORT *dataBuffer, int length, int nChan, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop);
-int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bits, const char *callbackname, double duration, double *block_dur_ms, INT_PTR recordID, char *errmsg);
+int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bits, const char *callbackname, double duration, double block_dur_ms, int recordID, char *errmsg);
 
 #endif

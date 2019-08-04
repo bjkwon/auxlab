@@ -20,6 +20,8 @@
 #include "histDlg.h"
 #include "TabCtrl.h"
 
+#include <thread>
+
 #include <cstdlib>
 
 #include "wavplay.h"
@@ -55,7 +57,9 @@ vector<cfigdlg*> plots;
 
 #define WM__NEWDEBUGDLG	WM_APP+0x2000
 
-#define WM__STOP_RECORD				WM_APP+WOM_CLOSE
+#define WM__STOP_RECORD				WM_APP + WOM_CLOSE
+#define WM__RECORDING_THREADID		WM_APP + 0x7827
+
 #define PROPCHANGED 0x2020
 
 CAstSig * CDebugDlg::pAstSig = NULL;
@@ -1798,21 +1802,112 @@ static inline void fillDoubleBuffer(int len, void *inBuffer, double *outBuffer, 
 		break;
 	}
 }
+
+typedef struct {
+	callback_trasnfer_record *cbp;
+	AstNode *pCallbackUDF;
+	CAstSig *pcast;
+	CShowvarDlg *parent;
+	CVar *pvar_callbackinput ;
+	CVar *pvar_callbackoutput;
+} carrier;
+
+void AudioCapture(unique_ptr<carrier> pmsg)
+{
+	double duration = pmsg->cbp->duration / 1000.; // in seconds
+	CVar *pvar_callbackinput = pmsg->pvar_callbackinput;
+	CVar *pvar_callbackoutput = pmsg->pvar_callbackoutput;
+	PostThreadMessage(pmsg->cbp->recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
+
+	int fs = pmsg->cbp->fs;
+
+	callback_trasnfer_record * precorder = NULL;
+	try {
+		CVar captured, captured2;
+		MSG msg;
+		while (GetMessage(&msg, NULL, 0, 0))
+		{
+			switch (msg.message)
+			{
+			case WIM_DATA:
+				// This is where record callback function is invoked.
+				// Create a CVar variable with the captured data.
+				// First, transfer captured wave buffer to buf of the CVar variable.
+				precorder = (callback_trasnfer_record*)msg.wParam;
+				captured.SetFs((int)fs);
+				captured.UpdateBuffer(precorder->len_buffer);
+				if (pvar_callbackoutput->next) {
+					captured2.SetFs(fs);
+					captured.SetNextChan(&captured2);
+					captured.next->UpdateBuffer(precorder->len_buffer);
+					fillDoubleBuffer(2 * precorder->len_buffer, precorder->buffer, captured.buf, captured.next->buf);
+				}
+				else
+					fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
+				pvar_callbackinput->strut["?data"] = captured;
+				pvar_callbackinput->strut["?index"].buf[0]++;
+				pmsg->pcast->ExcecuteCallback(pmsg->pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+				for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end(); it++)
+				{
+					if ((*it).second == precorder->recordID)
+					{
+						(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * precorder->len_buffer / precorder->fs;
+						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durRec");
+						(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
+						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durLeft");
+					}
+				}
+				break;
+			case -1:
+				pmsg->parent->MessageBox((char*)msg.wParam, "Audio device error (recording)", 0);
+				break;
+			}
+		}
+	}
+	catch (const char *estr)
+	{
+		pmsg->parent->MessageBox(estr, "Audio record error");
+	}
+	catch (const CAstException &e) {
+		//TO DO----move this back to OnSoundEvent2... pvar_callbackinput pvar_callbackoutput should be deleted there
+		if (precorder) // just for sanity check
+		{
+			precorder->closing = true;
+			delete pvar_callbackinput; pvar_callbackinput = NULL;
+			delete pvar_callbackoutput; pvar_callbackoutput = NULL;
+			PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
+			const char *_errmsg = e.outstr.c_str();
+			bool gotobase = false;
+			if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
+				gotobase = true;
+			char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
+			CDebugDlg::pAstSig = NULL;
+			// cleanup_nodes was called with CAstException
+			if (strncmp(errmsg, "Invalid", strlen("Invalid")))
+				cout << "ERROR: " << errmsg << endl;
+			else
+				cout << errmsg << endl;
+			Back2BaseScope(0);
+		}
+	}
+}
+
 void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 { // Currently, this doesn't support concurrent recording with multiple devices because of the static variables below.
   // Think about a better way to do it without using statics... 7/29/2019
+	string emsg;
 	static CVar *pvar_callbackinput;
 	static CVar *pvar_callbackoutput;
-	static AstNode *pCallbackUDF;
-	static double duration; // in seconds
+	AstNode *pCallbackUDF;
 	callback_trasnfer_record * precorder = NULL;
 	int id;
-	string emsg;
 	CVar captured, captured2;
 	try {
 		switch (code)
 		{
 		case WIM_OPEN:
+			pvar_callbackinput = new CVar(1);
+			pvar_callbackoutput = new CVar(1);
 			EnableDlgItem(hDlg, IDC_STOP2, 1);
 			precorder = (callback_trasnfer_record*)pvar;
 			id = rand();
@@ -1821,16 +1916,16 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 			//checking if specified callback file is legit
 			if (pCallbackUDF = pcast->ReadUDF(emsg, precorder->callbackfilename))
 			{
-				pvar_callbackinput = new CVar(1);
-				pvar_callbackoutput = new CVar(1);
-				if (precorder->nChans > 1) pvar_callbackoutput->SetNextChan(new CVar(1));
-				pvar_callbackinput->strut["?fs"] = CVar((double)precorder->fs);
-				pvar_callbackinput->strut["?dev"] = CVar((double)precorder->devID);
-				pvar_callbackinput->strut["?id"] = CVar((double)precorder->recordID);
-				pvar_callbackinput->strut["?index"] = CVar((double)0.);
-				pcast->ReadUDF(emsg, precorder->callbackfilename);
-				duration = precorder->duration/1000.;
-				pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+				unique_ptr<carrier> car(new carrier);
+				car->cbp = precorder;
+				car->pCallbackUDF = pCallbackUDF;
+				car->pcast = pcast;
+				car->parent = this;
+				car->pvar_callbackinput = pvar_callbackinput;
+				car->pvar_callbackoutput = pvar_callbackoutput;
+				pvar_callbackinput->strut["?index"].SetValue(0.);
+				thread recordingThread(AudioCapture, move(car));
+				recordingThread.detach();
 			}
 			else
 			{
@@ -1852,37 +1947,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 				}
 			}
 			break;
-		case WIM_DATA:
-			// This is where record callback function is invoked.
-			// Create a CVar variable with the captured data.
-			// First, transfer captured wave buffer to buf of the CVar variable.
 
-			//check the correct id --> is it necessary? 7/25/2019
-			precorder = (callback_trasnfer_record*)pvar;
-			captured.SetFs((int)pvar_callbackinput->strut["?fs"].value());
-			captured.UpdateBuffer(precorder->len_buffer);
-			if (pvar_callbackoutput->next) {
-				captured2.SetFs(captured.GetFs());
-				captured.SetNextChan(&captured2);
-				captured.next->UpdateBuffer(precorder->len_buffer);
-				fillDoubleBuffer(2 * precorder->len_buffer, precorder->buffer, captured.buf, captured.next->buf);
-			}
-			else
-				fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
-			pvar_callbackinput->strut["?data"] = captured;
-			pvar_callbackinput->strut["?index"].buf[0]++;
-			pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
-			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
-			{
-				if ((*it).second == precorder->recordID)
-				{
-					(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * precorder->len_buffer / precorder->fs;
-					UpdateProp((*it).first, &(*it).second, "durRec");
-					(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
-					UpdateProp((*it).first, &(*it).second, "durLeft");
-				}
-			}
-			break;
 		case WIM_CLOSE:
 			// transfer pcast->Sig to either ans or the designated variable
 			EnableDlgItem(hDlg, IDC_STOP2, 0);
