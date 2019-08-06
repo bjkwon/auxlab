@@ -305,7 +305,7 @@ void delete_toDelete(CAstSig *past, CVar *delThis)
 }
 
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{ // Not only the current past, but also all past's from CAstSig::vecast should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
+{ // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
 // 
 	// To delete multiple GO's, delete one by one
 	if (past->pgo->GetType() == CSIG_HDLARRAY)

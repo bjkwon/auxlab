@@ -265,11 +265,6 @@ void ThreadCapture(const record_param &p)
 	for (int k=0; k<2; k++)
 		MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 	MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
-	//SYSTEMTIME lt;
-	//FILE *fp = fopen("mutex.txt", "at");
-	//GetLocalTime(&lt);
-	//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_CLOSE posting from record.cpp %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, pWP->threadID);
-	//fclose(fp);
 }
 
 

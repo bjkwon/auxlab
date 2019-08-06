@@ -32,6 +32,8 @@
 CAstSig::play_block_ms = 0;
 #endif
 
+vector<CAstSig*> xscope;
+
 #define PRINTLOG(FNAME,STR) \
 { FILE*__fp=fopen(FNAME,"at"); fprintf(__fp,STR);	fclose(__fp); }
 
@@ -96,12 +98,12 @@ void CAstSig::cleanup_nodes(CAstSig *beginhere)
 	if (!beginhere) // if called from auxcon, beginhere is NULL, then beginhere should be set to point the last astsig 
 	{
 		nLayersBase++;
-		for (beginhere = vecast.front(); beginhere->son; )
+		for (beginhere = xscope.front(); beginhere->son; )
 			beginhere = beginhere->son;
 	}
-	for (CAstSig *pst = beginhere; vecast.size() > nLayersBase; )
+	for (CAstSig *pst = beginhere; xscope.size() > nLayersBase; )
 	{
-		vecast.pop_back();
+		xscope.pop_back();
 		CAstSig *up = pst->dad;
 		delete pst;
 		up->son = NULL;
@@ -443,7 +445,6 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar *pOutVars)
 {
 	u.currentLine = pCalling->line; // ? 10/18/2018
-	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
 	CAstSigEnv tempEnv(*pEnv);
 	son = new CAstSig(&tempEnv);
@@ -479,7 +480,7 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
 	//No need for input param binding/
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
-	CAstSig::vecast.push_back(son);
+	xscope.push_back(son);
 	//son->SetVar("_________",pStaticVars); // how can I add static variables here???
 	size_t nArgout = son->CallUDF(pCalling, NULL);
 	// output parameter binding
@@ -518,7 +519,7 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	Sig.functionEvalRes = true;
 	//	if (need2repaintnow(pCalling)) // or maybe pBase??
 	fpmsg.RepaintGO(this);
-	CAstSig::vecast.pop_back(); // move here????? to make purgatory work...
+	xscope.pop_back(); // move here????? to make purgatory work...
 	return true;
 }
 
@@ -630,7 +631,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 			son->SetVar(pf->str, &tsig); // variable pf->str is created in the context of son
 	}
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
-	CAstSig::vecast.push_back(son);
+	xscope.push_back(son);
 	//son->SetVar("_________",pStaticVars); // how can I add static variables here???
 	size_t nArgout = son->CallUDF(pCalling, pBase);
 	// output parameter binding
@@ -675,7 +676,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	Sig.functionEvalRes = true;
 //	if (need2repaintnow(pCalling)) // or maybe pBase??
 		fpmsg.RepaintGO(this);
-	CAstSig::vecast.pop_back(); // move here????? to make purgatory work...
+	xscope.pop_back(); // move here????? to make purgatory work...
 	return true;
 }
 //FYI--hangs at hold_at_break_point and ...
@@ -716,8 +717,8 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		}
 	}
 
-	/* When this is called by auxcon, the memory for CAstSig::vecast is different from when called by xcom, so as a temporary measure,
-	fpmsg.ShowVariables now includes CAstSig::vecast.push_back(son) and a duplicate vecast is managed on the xcom side.
+	/* When this is called by auxcon, the memory for xscope is different from when called by xcom, so as a temporary measure,
+	fpmsg.ShowVariables now includes xscope.push_back(son) and a duplicate xscope is managed on the xcom side.
 	-- temporary solution xcom 1.31 12/9/2017 */
 	if (strcmp(u.application, "xcom"))
 		fpmsg.ShowVariables(this);
@@ -770,7 +771,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		if (u.debug.GUI_running == true)
 		{
 			// send to purgatory and standby for another debugging key action, if dad is the base scope
-			if (dad == CAstSig::vecast.front() && u.debug.status == stepping) 
+			if (dad == xscope.front() && u.debug.status == stepping) 
 			{
 				fpmsg.UpdateDebuggerGUI(this, purgatory, -1);
 				fpmsg.HoldAtBreakPoint(this, pLast);
@@ -780,7 +781,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 			//when exiting from a inside udf (whether local or not) to a calling udf with F10 or F11, the calling udf now should have stepping.
 			fpmsg.UpdateDebuggerGUI(this, exiting, -1);
 		}
-		if (CAstSig::vecast.size()>2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
+		if (xscope.size()>2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
 		{//why is this necessary? 10/19/2018----yes this is...2/16/2019
 			if (u.debug.status==stepping && fpmsg.IsCurrentUDFOnDebuggerDeck && !fpmsg.IsCurrentUDFOnDebuggerDeck(Script.c_str()))
 				fpmsg.UpdateDebuggerGUI(this, entering, -1);
@@ -2101,7 +2102,7 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 	AstNode *pUDF;
 	if (pn->type == T_ID || pn->type == N_STRUCT)
 	{
-		if (this==CAstSig::vecast.front() && pn->str[0]=='?') 
+		if (this==xscope.front() && pn->str[0]=='?') 
 			throw ExceptionMsg(pn, "The caracter '?' cannot be used as a function or variable name in the base workspace.");
 	}
 	if ((pUDF=ReadUDF(emsg, pn->str)))

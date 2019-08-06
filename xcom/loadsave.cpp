@@ -192,7 +192,7 @@ int xcom::read_axl_block(FILE *fp, string &varname, CVar *pout, char *errstr, bo
 
 int xcom::load_axl(FILE *fp, char *errstr)
 {
-	CAstSig *pabteg = CAstSig::vecast.back();
+	CAstSig *pabteg = xscope.back();
 	string varname;
 	CVar in;
 	fseek(fp, 0, SEEK_END);

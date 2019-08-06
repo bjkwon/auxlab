@@ -429,7 +429,7 @@ void CDebugDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 #else
 	bool play=true;
 #endif
-	bool debugging = CAstSig::vecast.size()>1;
+	bool debugging = xscope.size()>1;
 	char buf[256];
 	DWORD dw;
 	WORD vcode;
@@ -456,8 +456,8 @@ void CDebugDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	case ID_RUN2CUR:
 		strcpy(buf, "#r2cu ");
 		vcode = VK_F10;
-		for (size_t k=0; k<CAstSig::vecast.size(); k++)
-			CAstSig::vecast.at(k)->pEnv->curLine = ListView_GetSelectionMark(hList)+1;
+		for (size_t k=0; k<xscope.size(); k++)
+			xscope.at(k)->pEnv->curLine = ListView_GetSelectionMark(hList)+1;
 		break;
 
 	case ID_F9: //from accelerator, event should be 1
@@ -554,11 +554,11 @@ void CDebugDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 				breakpoint.erase(it);
 		}
 		_splitpath(fullUDFpath, NULL, NULL, udf_filename, NULL);
-		// There are multiple versions of pEnv's in CAstSig::vecast, so update DebugBreaks across all
+		// There are multiple versions of pEnv's in xscope, so update DebugBreaks across all
 		if (breakpoint.empty())
-			for (auto scope: CAstSig::vecast) scope->pEnv->udf[udf_filename].DebugBreaks.clear();
+			for (auto scope: xscope) scope->pEnv->udf[udf_filename].DebugBreaks.clear();
 		else
-			for (auto scope : CAstSig::vecast) scope->pEnv->udf[udf_filename].DebugBreaks = breakpoint;
+			for (auto scope : xscope) scope->pEnv->udf[udf_filename].DebugBreaks = breakpoint;
 		break;
 
 	//case LVN_KEYDOWN:
@@ -616,7 +616,7 @@ LRESULT CDebugDlg::ProcessCustomDraw (NMHDR *lParam, bool tick)
 			return CDRF_DODEFAULT;
 		}
 		//is this udf tab part of current called udf thread?
-		for (auto scope : CAstSig::vecast)
+		for (auto scope : xscope)
 		{
 			if (scope->u.title == udfname)
 			{

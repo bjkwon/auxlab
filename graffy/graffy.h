@@ -62,6 +62,8 @@
 
 // CFigure, CAxes objects have the proper m_dlg member variable during their instantiation.
 
+extern vector<CAstSig*> xscope;
+
 class CPosition
 {
 public:

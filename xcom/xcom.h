@@ -34,6 +34,8 @@ enum DEBUG_KEY
     debug_Ctrl_F10,
 };
 
+extern vector<CAstSig*> xscope;
+
 class cfigdlg
 {
 public:

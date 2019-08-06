@@ -428,7 +428,7 @@ public:
 	bool functionEvalRes;
 
 	bool IsStruct() const { return (!strut.empty() || !struts.empty()); }
-	bool IsEmpty() const { return (CSignal::GetType() == CSIG_EMPTY && strut.empty() && struts.empty()); }
+	bool IsEmpty() const { return (CSignal::GetType() == CSIG_EMPTY && cell.empty() && strut.empty() && struts.empty()); }
 	bool IsAudioObj();
 	CVar& Reset(int fs2set = 0);
 	int GetType();

@@ -45,8 +45,7 @@ bool moduleLoop(false);
 typedef void (*PFUN) (const vector<CAstSig*> &);
 
 xcom mainSpace;
-vector<CAstSig*> xcomvecast;
-vector<CAstSig*> CAstSig::vecast = xcomvecast;
+extern vector<CAstSig*> xscope;
 double CAstSig::play_block_ms = 300;
 double CAstSig::record_block_ms = 300;
 short CAstSig::play_bytes = 2;
@@ -248,7 +247,7 @@ void closeXcom(const char *AppPath)
 	//When CTRL_CLOSE_EVENT is pressed, you have 5 seconds. That's how Console app works in Windows.
 	// Finish all cleanup work during this time.
 
-	CAstSig *pcast = CAstSig::vecast.front();
+	CAstSig *pcast = xscope.front();
 	char estr[256], buffer[256];
 	const char *sss = pcast->GetPath();
 	const char* pt = strstr(pcast->GetPath(), AppPath); 
@@ -306,7 +305,7 @@ void closeXcom(const char *AppPath)
 	if (!printfINI(estr, iniFile, "DEBUG VIEW", "%d", debugview))
 	{	//do something	
 	}
-	for (vector<CAstSig*>::iterator it = CAstSig::vecast.begin()+1; it != CAstSig::vecast.end(); it++)
+	for (vector<CAstSig*>::iterator it = xscope.begin()+1; it != xscope.end(); it++)
 		delete *it;
 	fclose(stdout);
 	fclose(stdin);
@@ -431,8 +430,6 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 
 	MSG msg ;
 	HACCEL hAcc = LoadAccelerators (hModule, MAKEINTRESOURCE(IDR_XCOM_ACCEL));
-	FILE *fp = fopen("lmouse.txt", "wt");
-	fclose(fp);
 	while (GetMessage (&msg, NULL, 0, 0))
 	{
 		//if (msg.message == WM_LBUTTONDOWN)
@@ -986,7 +983,7 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	string emsg;
 	bool succ(true);
 	if (pTemp == NULL)
-		pContext = CAstSig::vecast.back();
+		pContext = xscope.back();
 	else
 		pContext = pTemp;
 	bool err(false);
@@ -1272,7 +1269,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 					sprintf(buf, "Error accessing for %s module initiation function: %s", tar[0].c_str(), emsg.c_str());
 					throw buf;
 				}
-				pf(CAstSig::vecast); // subclassing so that in the future all the message is routed to ProcessMsg() in the dll.
+				pf(xscope); // subclassing so that in the future all the message is routed to ProcessMsg() in the dll.
 				LoadedModule.push_back(argstr);
 				if (hEventModule) CloseHandle(hEventModule);
 				hEventModule = NULL;
@@ -1365,11 +1362,11 @@ void AuxconGetInputThread(void *var)
 
 void ShowVariables(CAstSig *pastsig)
 {
-	CAstSig *pbase = CAstSig::vecast.front();
-	if (pastsig->dad == pbase && CAstSig::vecast.size() == 1)
+	CAstSig *pbase = xscope.front();
+	if (pastsig->dad == pbase && xscope.size() == 1)
 	{
 		moduleLoop = true;
-		CAstSig::vecast.push_back(pastsig);
+		xscope.push_back(pastsig);
 		if (!hAuxconThread)
 			hAuxconThread = _beginthread(AuxconGetInputThread, 0, (void*)pastsig);
 	}
@@ -1387,12 +1384,12 @@ void Back2BaseScope(int closeauxcon)
 	while (mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_DELETESTRING, 1) != CB_ERR) {}
 	mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL, 0);
 	mShowDlg.debug(exiting, NULL, -1);
-	mShowDlg.pVars = &CAstSig::vecast.front()->Vars;
-	mShowDlg.pGOvars = &CAstSig::vecast.front()->GOvars;
+	mShowDlg.pVars = &xscope.front()->Vars;
+	mShowDlg.pGOvars = &xscope.front()->GOvars;
 	mShowDlg.Fillup();
-	if (CAstSig::vecast.size() > 1)
+	if (xscope.size() > 1)
 	{
-		CAstSig::vecast.pop_back();
+		xscope.pop_back();
 		FlushConsoleInputBuffer(hStdin);
 	}
 	if (closeauxcon)
@@ -1449,7 +1446,7 @@ void HoldAtBreakPoint(CAstSig *pastsig, const AstNode *pnode)
 		case debug_Shift_F5:
 			pastsig->u.debug.status = aborting;
 			mainSpace.need2validate = true;
-			ValidateFig(CAstSig::vecast.front()->u.title.c_str());
+			ValidateFig(xscope.front()->u.title.c_str());
 			throw pastsig;
 		case debug_F5:
 			pastsig->u.debug.status = continuing;
@@ -1487,11 +1484,11 @@ void debug_appl_manager(CAstSig *debugAstSig, DEBUG_STATUS debug_status, int lin
 bool xcom::IsNowDebugging(CAstSig *pcast)
 {// Check if it is running on debugging mode
  // Assumption: pcast must be a part of vecast vector
- // if pcast is not the base instance, which isn't necessarily CAstSig::vecast.front()--because module such as auxcon may put its own as the front point right behind xcom front
+ // if pcast is not the base instance, which isn't necessarily xscope.front()--because module such as auxcon may put its own as the front point right behind xcom front
 	if (!strcmp(pcast->u.application, "xcom"))
-		return CAstSig::vecast.front()!=pcast;
+		return xscope.front()!=pcast;
 	else
-		return (CAstSig::vecast.size() > 2);
+		return (xscope.size() > 2);
 	return false;
 }
 
@@ -1826,7 +1823,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	if (res & 1)
 		MoveWindow(hr, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
 
-	CAstSig::vecast.push_back(&cast);
+	xscope.push_back(&cast);
 	cast.u.application = "xcom";
 //	mainSpace.RunTest("d:\\temp\\auxlabtest.txt", "", "d:\\temp\\reffile.txt");
 	SYSTEMTIME lt;
@@ -1914,7 +1911,7 @@ int xcom::RunTest(const char *infile, const char *intended_result_file, const ch
 	size_t pos;
 	char errstr[256];
 	int lineID = 1;
-	CAstSig *past = CAstSig::vecast.front();
+	CAstSig *past = xscope.front();
 	int type, nsamples, ncols;
 	try {
 		while (getline(file1, cmd))

@@ -176,12 +176,12 @@ LRESULT CALLBACK HookProc2(int code, WPARAM wParam, LPARAM lParam)
 
 void SetGlovar(CVar *cfig)
 {
-	auto jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-	if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+	auto jt = xscope.front()->pEnv->glovar.find("gcf");
+	if (jt != xscope.front()->pEnv->glovar.end())
 	{
 		(*jt).second.clear();
 	}
-	CAstSig::vecast.front()->pEnv->glovar["gcf"].push_back(cfig);
+	xscope.front()->pEnv->glovar["gcf"].push_back(cfig);
 }
 
 BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
@@ -205,7 +205,7 @@ BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				string errmsg = CAstSig::vecast.front()->adjustfs(newfs);
+				string errmsg = xscope.front()->adjustfs(newfs);
 				if (!errmsg.empty())
 				{
 					MessageBox(mShowDlg.hDlg, errmsg.c_str(), "Consider restarting AUXLAB.", 0);
@@ -434,12 +434,12 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 				//For the global variable $gcf, updated whether or not this is named plot.
 				SetGlovar(pgcfNew);
 				string vam;
-				if (CAstSig::vecast.at(res)->GetVariable("gcf", vam) != pgcfNew)
+				if (xscope.at(res)->GetVariable("gcf", vam) != pgcfNew)
 				{
 					//For the regular variable gcf, updated only if this is not named plot.
 					if (pgcfNew->GetFs() != 2)
 					{
-						CAstSig::vecast.at(res)->SetVar("gcf", pgcfNew);
+						xscope.at(res)->SetVar("gcf", pgcfNew);
 						mShowDlg.Fillup();
 					}
 				}
@@ -449,8 +449,8 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 		{
 			if (pmsg->wParam == VK_F2)
 			{
-				map<string, vector<CVar*>>::iterator jt = CAstSig::vecast.front()->pEnv->glovar.find("gcf");
-				if (jt != CAstSig::vecast.front()->pEnv->glovar.end())
+				map<string, vector<CVar*>>::iterator jt = xscope.front()->pEnv->glovar.find("gcf");
+				if (jt != xscope.front()->pEnv->glovar.end())
 				{ // ax must be dual; else ax must have two line objects
 					auto chvector = (*jt).second.front()->struts["children"];
 					size_t nAxes = chvector.size();
@@ -467,7 +467,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 						ViewSpectrum((*jt).second.front());
 					if (nAxes ==2 ||
 						(nAxes == 1 && nLines ==2) )
-						On_F2(pmsg->hwnd, CAstSig::vecast.front());
+						On_F2(pmsg->hwnd, xscope.front());
 					if (FFTpaxExists) 
 						ViewSpectrum((*jt).second.front());
 				}
@@ -718,7 +718,7 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 	switch(status)
 	{
 	case refresh:
-		it = dbmap.find(CAstSig::vecast.back()->u.base);
+		it = dbmap.find(xscope.back()->u.base);
 		// if basename is not yet loaded on debug window, it is end
 		if (it!=dbmap.end())
 			it->second->Debug(debugAstSig, status);
@@ -735,7 +735,7 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 			SendDlgItemMessage(IDC_DEBUGSCOPE, CB_ADDSTRING, 0, (LPARAM)(*scopeStr).c_str());
 //	case progress:
 		SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL, SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCOUNT)-1);
-		pcast = lp = CAstSig::vecast.back(); 
+		pcast = lp = xscope.back(); 
 		// is name already open in DebugDlg or not
 		// but if name is local udf, it should not be checked with dbmap
 		basename = lp->u.base.c_str();
@@ -781,7 +781,7 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 		if (lastDebug) lastDebug->Debug(NULL, status);
 		break;
 	case exiting:
-		//ValidateFig(CAstSig::vecast.front()->u.title.c_str());
+		//ValidateFig(xscope.front()->u.title.c_str());
 		if (debugAstSig) // if called from xcom::cleanup_debug() skip here
 		{
 			//is there cellviewdlg open for the variable(s) in this scope?
@@ -808,7 +808,7 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 		}
 //		else
 		{
-			pcast = CAstSig::vecast.front();
+			pcast = xscope.front();
 			string ss = pcast->u.title;
 			ValidateFig(pcast->u.title.c_str());
 		}
@@ -848,7 +848,7 @@ void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
 	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 	string vam;
-	SetGlovar(CAstSig::vecast.at(res)->GetVariable("gcf",vam));
+	SetGlovar(xscope.at(res)->GetVariable("gcf",vam));
 	//It's better to update gcf before WM__PLOTDLG_CREATED is posted
 	//that way, environment context can be set properly (e.g., main or inside CallSub)
 	//4/24/2017 bjkwon
@@ -1273,7 +1273,7 @@ void CShowvarDlg::OnSysCommand(UINT cmd, int x, int y)
 		DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_ABOUT), GetConsoleWindow(), (DLGPROC)AboutDlg, (LPARAM)hInst);
 		break;
 	case ID_HELP_SYSMENU2:
-		res = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_FS), hDlg, (DLGPROC)FSDlgProc, (LPARAM)&CAstSig::vecast.front()->pEnv->Fs);
+		res = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_FS), hDlg, (DLGPROC)FSDlgProc, (LPARAM)&xscope.front()->pEnv->Fs);
 		break;
 	case ID_HELP_SYSMENU3:
 		OnCommand(IDC_SETPATH, 0, 0);
@@ -1291,9 +1291,6 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	vector<HANDLE> figs;
 	char *longbuffer, errstr[256];
 	static char fullfname[256], fname[256];
-	FILE *fp;
-	SYSTEMTIME lt;
-	static DWORD thr = GetCurrentThreadId();
 	switch(idc)
 	{
 	//case ID_HELP1: 
@@ -1310,7 +1307,7 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 			addp = AppPath;
 			addp += ';';
 			addp += longbuffer;
-			&CAstSig::vecast.front()->pEnv->SetPath(addp.c_str());
+			&xscope.front()->pEnv->SetPath(addp.c_str());
 		}
 		delete[] longbuffer;
 		break;
@@ -1318,10 +1315,6 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	case IDC_STOP2:
 //		if (!recording_closing) break;
 		stop_requested = true;
-		fp = fopen("mutex.txt", "at");
-		GetLocalTime(&lt);
-		fprintf(fp, "[%02d:%02d:%02d:%03d]  STOP button clicked %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
-		fclose(fp);
 		EnableDlgItem(hDlg, IDC_STOP2, 0);
 		StopRecord(-1, errstr); // if -1, no need to check success
 		Fillup();
@@ -1352,18 +1345,18 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 
 	case IDC_OPEN:
 		axlfullfname[0] = axlfname[0] = 0;
-		//if (fileOpenSaveDlg.FileOpenDlg(axlfullfname, axlfname, "AUXLAB Data file (*.AXL)\0*.axl\0", "axl"))
-		//{
-		//	string name;
-		//	fp = CAstSig::vecast.front()->OpenFileInPath(axlfullfname, "axl", name);
-		//	if (mainSpace.load_axl(fp, errstr) == 0)
-		//		printf("File %s reading error----%s.\n", axlfullfname, errstr);
-		//	else
-		//	{
-		//		fclose(fp);
-		//		mShowDlg.Fillup();
-		//	}
-		//}
+		if (fileOpenSaveDlg.FileOpenDlg(axlfullfname, axlfname, "AUXLAB Data file (*.AXL)\0*.axl\0", "axl"))
+		{
+			string name;
+			fp = xscope.front()->OpenFileInPath(axlfullfname, "axl", name);
+			if (mainSpace.load_axl(fp, errstr) == 0)
+				printf("File %s reading error----%s.\n", axlfullfname, errstr);
+			else
+			{
+				fclose(fp);
+				mShowDlg.Fillup();
+			}
+		}
 		break;
 
 	case IDC_SAVE:
@@ -1371,7 +1364,7 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 		if (fileOpenSaveDlg.FileSaveDlg(axlfullfname, axlfname, "AUXLAB Data file (*.AXL)\0*.axl\0", "axl"))
 		{
 			vector<string> varlist; // empty vector will save all variables.
-			if (mainSpace.SAVE_axl(CAstSig::vecast.back(), axlfullfname, varlist, errstr)<=0)
+			if (mainSpace.SAVE_axl(xscope.back(), axlfullfname, varlist, errstr)<=0)
 				MessageBox(errstr, "File Save Error");
 		}
 		break;
@@ -1850,7 +1843,10 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	callback_trasnfer_record * precorder = NULL;
 	try {
 		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, pmsg->cbp.callbackfilename))
+		{
 			pvar_callbackinput->strut["?index"].SetValue(0.);
+			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+		}
 		else
 		{
 			if (emsg.empty())
@@ -1897,14 +1893,8 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
 				pvar_callbackinput->strut["?data"] = captured;
 				pvar_callbackinput->strut["?index"].buf[0]++;
-				//fp = fopen("mutex.txt", "at");
-				//GetLocalTime(&lt);
-				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_DATA mx 1 %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
 			//	mx.lock();
-				//GetLocalTime(&lt);
-				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_DATA mx 2 %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
 				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
-				//fclose(fp);
 				for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end() && loop; it++)
 				{
 					if ((*it).second == precorder->recordID)
@@ -1917,26 +1907,15 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					}
 				}
 			//	mx.unlock();
-				//fp = fopen("mutex.txt", "at");
-				//GetLocalTime(&lt);
-				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_DATA mx 3 %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
-				//fclose(fp);
 				if (stop_requested)
 				{
 					if (pvar_callbackinput) delete pvar_callbackinput;
 					if (pvar_callbackoutput) delete pvar_callbackoutput;
 					pmsg->parent->Fillup();
-					//fp = fopen("mutex.txt", "at");
-					//fprintf(fp, "alternate ending\n");
-					//fclose(fp);
 					return;
 				}
 				break;
 			case WIM_CLOSE:
-				//fp = fopen("mutex.txt", "at");
-				//GetLocalTime(&lt);
-				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_CLOSE posted mx 11\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
-				//fclose(fp);
 				//	mx.lock();
 				if (pvar_callbackinput) delete pvar_callbackinput;
 				if (pvar_callbackoutput) delete pvar_callbackoutput;

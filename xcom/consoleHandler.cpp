@@ -224,7 +224,7 @@ try {
 				fprintf(fp, "in[].EventType = %d\n", in[k].EventType);
 		fclose(fp);
 */
-		if (CAstSig::vecast.size()>1)
+		if (xscope.size()>1)
 			checkdebugkey(in, nRec);
 		//nRec can be greater than one when 1) control-v is pressed (for processed input), or 2) debug command string is dispatched from OnNotify of debugDlg, or 3) maybe in other occassions
 		for (UINT k=0; k<nRec; k++)

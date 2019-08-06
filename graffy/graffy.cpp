@@ -16,8 +16,7 @@
 #include <string.h>
 #include <algorithm>
 
-vector<CAstSig*> xcomvecast;
-vector<CAstSig*> CAstSig::vecast = xcomvecast;
+extern vector<CAstSig*> xscope;
 double CAstSig::play_block_ms = 300;
 double CAstSig::record_block_ms = 300;
 short CAstSig::play_bytes = 2;
@@ -165,7 +164,7 @@ CGraffyDLL::CGraffyDLL()
 	pglobalEnv->InitBuiltInFunctions();
 	pctx->fpmsg.SetGoProperties = SetGOProperties;
 	pctx->fpmsg.RepaintGO = RepaintGO;
-	CAstSig::vecast.push_back(pctx);
+	xscope.push_back(pctx);
 
 
 #ifndef WIN64
