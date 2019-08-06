@@ -51,7 +51,12 @@ typedef struct
 
 #define WM__AUDIOEVENT1				WM_APP + WOM_OPEN
 #define WM__AUDIOEVENT2				WM_APP + WOM_OPEN * 2
+
+#define WM__RECORDING_ERR			WM_APP + 6971
+#define WM__STOP_REQUEST			WM_APP + WOM_CLOSE
 #define WM__RECORDING_THREADID		WM_APP + 0x7827
+
+
 
 void TerminatePlay(int quick=1);
 bool StopPlay(INT_PTR pWavePlay, bool quick);

@@ -431,8 +431,15 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 
 	MSG msg ;
 	HACCEL hAcc = LoadAccelerators (hModule, MAKEINTRESOURCE(IDR_XCOM_ACCEL));
+	FILE *fp = fopen("lmouse.txt", "wt");
+	fclose(fp);
 	while (GetMessage (&msg, NULL, 0, 0))
 	{
+		//if (msg.message == WM_LBUTTONDOWN)
+		//{
+		//	if (mShowDlg.MouseClick2StopRecording(msg.hwnd))
+		//		continue;
+		//}
 		if (msg.message==WM__ENDTHREAD) 
 			_endthreadex(33);
 		if (!TranslateAccelerator(mShowDlg.hDlg, hAcc, &msg))

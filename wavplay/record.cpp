@@ -23,10 +23,9 @@ using namespace std;
 
 char waveErrMsg[256]; // to be used to send message to the main app (OnSoundEvent)
 
-#define MMERRTHROW(X,MM) {rc=X; \
-if (rc!=MMSYSERR_NOERROR) { sprintf(waveErrMsg, "Error in %s\n", #MM); \
-char _estr_[256]; waveOutGetErrorText(rc, _estr_, 256); strcat(waveErrMsg, _estr_); \
-SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)waveErrMsg, -1); return ;}}
+#define MMERRTHROW(X,MM) rc=X; { if (rc != MMSYSERR_NOERROR) {\
+	nextaction = 1;	sprintf(waveErrMsg, "Error in %s\n", "waveInAddBuffer"); \
+		char _estr_[256]; waveOutGetErrorText(rc, _estr_, 256); strcat(waveErrMsg, _estr_);}}
 
 //FYI: These two message are sent to different threads.
 #define WM__RETURN		WM_APP+10
@@ -34,7 +33,6 @@ SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)waveErrMsg, -1); return ;}}
 #define MM_ERROR		WM_APP+12
 
 #define DISPATCH_RECORD_INITIATION			WM_APP+120
-#define WM__STOP_RECORD						WM_APP+122
 
 #ifndef NO_PLAYSND
 
@@ -180,14 +178,29 @@ void ThreadCapture(const record_param &p)
 	}
 	PostThreadMessage(pWP->callingThreadID, DISPATCH_RECORD_INITIATION, (WPARAM)0, (LPARAM)"");
 
-	// Insert LOGGING4
 	WAVEHDR *pwh;
 	callback_trasnfer_record send2OnSoundEven;
-	DWORD callbackThread = GetWindowThreadProcessId(pWP->hWnd_calling, NULL);
+	DWORD callbackThread = 0;
 	double tico = 0.;
+	int res;
+	int nextaction = 0; // 0 for nothing; 1 for error; 2 for graceful completion
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
-		if (msg.message == WM__STOP_RECORD) break;
+		// why 1024?
+		// If PostThreadMessage is called inside MMERRTHROW, the message gets lost (doesn't get sent to callbackThread)
+		// Therefore, MMERRTHROW simply sets nextaction and processes the next message in the queue
+		// if the next message is 1024, it should just bypass and continue the loop
+		// Otherwise, the current message loop hangs 8/6/2019
+		if (nextaction >0 && msg.message !=1024)
+		{
+			if (nextaction==1)
+				res = PostThreadMessage(callbackThread, WM__RECORDING_ERR, (WPARAM)waveErrMsg, 0);
+			else
+				res = PostThreadMessage(callbackThread, WIM_CLOSE, 0, 0); 
+			break;
+		}
+		if (msg.message == WM__STOP_REQUEST)
+			break;
 		switch (msg.message)
 		{
 		case WM__RECORDING_THREADID:
@@ -242,23 +255,21 @@ void ThreadCapture(const record_param &p)
 			}
 			else
 			{
-				MMERRTHROW(waveInStop(pWP->hwi), "waveInStop")
-				MMERRTHROW(waveInReset(pWP->hwi), "waveInReset")
-				for (int k = 0; k < 2; k++)
-					MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
-				MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
-				SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)send2OnSoundEven.recordID, WIM_CLOSE); // send the closing status to the main application 
-				return;
+				nextaction = 2;
 			}
 			break;
 		} 
 	}
 	MMERRTHROW(waveInStop(pWP->hwi), "waveInStop")
 	MMERRTHROW(waveInReset(pWP->hwi), "waveInReset")
-		for (int k=0; k<2; k++)
-			MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
+	for (int k=0; k<2; k++)
+		MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 	MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
-	PostMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)send2OnSoundEven.recordID, WIM_CLOSE); // send the closing status to the main application 
+	//SYSTEMTIME lt;
+	//FILE *fp = fopen("mutex.txt", "at");
+	//GetLocalTime(&lt);
+	//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_CLOSE posting from record.cpp %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, pWP->threadID);
+	//fclose(fp);
 }
 
 
@@ -374,13 +385,13 @@ bool StopRecord(int recID, char *errstr)
 	if (recID < 0)
 	{
 		for (auto it : recorders)
-			PostThreadMessage(it->threadID, WM__STOP_RECORD, 0, 0);
+			PostThreadMessage(it->threadID, WM__STOP_REQUEST, 0, 0);
 		return true;
 	}
 	CWaveRecord * target = findbyID(recID);
 	if (target)
 	{
-		PostThreadMessage(target->threadID, WM__STOP_RECORD, 0, 0);
+		PostThreadMessage(target->threadID, WM__STOP_REQUEST, 0, 0);
 		errstr[0] = 0;
 		return true;
 	}

@@ -28,6 +28,8 @@
 
 HWND hLog;
 
+static bool stop_requested = false;
+
 #define WM__LOG	WM_APP+0x2020
 
 extern xcom mainSpace;
@@ -56,9 +58,6 @@ vector<cfigdlg*> plots;
 #define ID_HELP_SYSMENU4		33761
 
 #define WM__NEWDEBUGDLG	WM_APP+0x2000
-
-#define WM__STOP_RECORD				WM_APP + WOM_CLOSE
-#define WM__RECORDING_THREADID		WM_APP + 0x7827
 
 #define PROPCHANGED 0x2020
 
@@ -978,6 +977,19 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 		::SetWindowText(GetDlgItem(IDC_NONAUDIO_TITLE), "Non-Audio Variables");
 
 		hLog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_LOG), GetConsoleWindow(), (DLGPROC)logProc);
+
+		RECT rt0;
+		::GetWindowRect(hDlg, &rt0);
+		POINT pt = { 0 };
+		ClientToScreen(hDlg, &pt);
+		titlebarDim.x = pt.x - rt0.left;
+		titlebarDim.y = pt.y - rt0.top;
+
+		::GetWindowRect(GetDlgItem(IDC_STOP2), &recordingButtonRT);
+		recordingButtonRT.left -= rt0.left;
+		recordingButtonRT.right -= rt0.left;
+		recordingButtonRT.top -= rt0.top;
+		recordingButtonRT.bottom -= rt0.top;
 	}
 	else
 	{
@@ -1279,6 +1291,9 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	vector<HANDLE> figs;
 	char *longbuffer, errstr[256];
 	static char fullfname[256], fname[256];
+	FILE *fp;
+	SYSTEMTIME lt;
+	static DWORD thr = GetCurrentThreadId();
 	switch(idc)
 	{
 	//case ID_HELP1: 
@@ -1301,7 +1316,15 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 		break;
 
 	case IDC_STOP2:
+//		if (!recording_closing) break;
+		stop_requested = true;
+		fp = fopen("mutex.txt", "at");
+		GetLocalTime(&lt);
+		fprintf(fp, "[%02d:%02d:%02d:%03d]  STOP button clicked %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
+		fclose(fp);
+		EnableDlgItem(hDlg, IDC_STOP2, 0);
 		StopRecord(-1, errstr); // if -1, no need to check success
+		Fillup();
 		break;
 	case IDC_STOP:
 		// TEMPORARY HACK... 32799 is IDM_STOP in PlotDlg.cpp in graffy
@@ -1329,18 +1352,18 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 
 	case IDC_OPEN:
 		axlfullfname[0] = axlfname[0] = 0;
-		if (fileOpenSaveDlg.FileOpenDlg(axlfullfname, axlfname, "AUXLAB Data file (*.AXL)\0*.axl\0", "axl"))
-		{
-			string name;
-			fp = CAstSig::vecast.front()->OpenFileInPath(axlfullfname, "axl", name);
-			if (mainSpace.load_axl(fp, errstr) == 0)
-				printf("File %s reading error----%s.\n", axlfullfname, errstr);
-			else
-			{
-				fclose(fp);
-				mShowDlg.Fillup();
-			}
-		}
+		//if (fileOpenSaveDlg.FileOpenDlg(axlfullfname, axlfname, "AUXLAB Data file (*.AXL)\0*.axl\0", "axl"))
+		//{
+		//	string name;
+		//	fp = CAstSig::vecast.front()->OpenFileInPath(axlfullfname, "axl", name);
+		//	if (mainSpace.load_axl(fp, errstr) == 0)
+		//		printf("File %s reading error----%s.\n", axlfullfname, errstr);
+		//	else
+		//	{
+		//		fclose(fp);
+		//		mShowDlg.Fillup();
+		//	}
+		//}
 		break;
 
 	case IDC_SAVE:
@@ -1710,8 +1733,8 @@ void CShowvarDlg::UpdateProp(string varname, CVar *pvar, string propname)
 	}
 }
 
-static vector<int> recordingEvent;
-map<int, callback_trasnfer_record *> recorders;
+//static vector<int> recordingEvent;
+//map<int, callback_trasnfer_record *> recorders;
 
 static inline void uc2d_array(unsigned char *src, int count, double *dest1, double *dest2, double normfact)
 {
@@ -1804,30 +1827,55 @@ static inline void fillDoubleBuffer(int len, void *inBuffer, double *outBuffer, 
 }
 
 typedef struct {
-	callback_trasnfer_record *cbp;
-	AstNode *pCallbackUDF;
+	callback_trasnfer_record cbp;
 	CAstSig *pcast;
 	CShowvarDlg *parent;
-	CVar *pvar_callbackinput ;
-	CVar *pvar_callbackoutput;
 } carrier;
 
-#include <mutex>
-mutex mx;
+//#include <mutex>
 
 void AudioCapture(unique_ptr<carrier> pmsg)
 {
-	double duration = pmsg->cbp->duration / 1000.; // in seconds
-	CVar *pvar_callbackinput = pmsg->pvar_callbackinput;
-	CVar *pvar_callbackoutput = pmsg->pvar_callbackoutput;
-	PostThreadMessage(pmsg->cbp->recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
-
-	int fs = pmsg->cbp->fs;
-
+	stop_requested = false;
+	string emsg;
+	AstNode *pCallbackUDF;
+	DWORD thr = GetCurrentThreadId();
+	PostThreadMessage(pmsg->cbp.recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
+	double duration = pmsg->cbp.duration / 1000.; // in seconds
+	CVar *pvar_callbackinput = new CVar(1);
+	CVar *pvar_callbackoutput = new CVar(1);
+	if (pmsg->cbp.nChans > 1)
+		pvar_callbackoutput->SetNextChan(new CVar);
+	int fs = pmsg->cbp.fs;
 	callback_trasnfer_record * precorder = NULL;
 	try {
+		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, pmsg->cbp.callbackfilename))
+			pvar_callbackinput->strut["?index"].SetValue(0.);
+		else
+		{
+			if (emsg.empty())
+				throw "Callback function not found: ";
+			else
+			{
+				emsg.insert(0, "Error in callback :");
+				throw emsg.c_str();
+			}
+		}
+		for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end(); it++)
+		{
+			if ((*it).second == pmsg->cbp.recordID)
+			{
+				(*it).second.strut["fs"].SetValue((double)pmsg->cbp.fs);
+				pmsg->parent->UpdateProp((*it).first, &(*it).second, "fs");
+			}
+		}
+	//	mutex mx;
 		CVar captured, captured2;
 		MSG msg;
+		//FILE *fp = fopen("mutex.txt", "wt");
+		//fclose(fp);
+		bool loop = true;
+		//SYSTEMTIME lt;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
 			switch (msg.message)
@@ -1849,9 +1897,15 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
 				pvar_callbackinput->strut["?data"] = captured;
 				pvar_callbackinput->strut["?index"].buf[0]++;
-				mx.lock();
-				pmsg->pcast->ExcecuteCallback(pmsg->pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
-				for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end(); it++)
+				//fp = fopen("mutex.txt", "at");
+				//GetLocalTime(&lt);
+				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_DATA mx 1 %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
+			//	mx.lock();
+				//GetLocalTime(&lt);
+				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_DATA mx 2 %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
+				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+				//fclose(fp);
+				for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end() && loop; it++)
 				{
 					if ((*it).second == precorder->recordID)
 					{
@@ -1859,11 +1913,37 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durRec");
 						(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
 						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durLeft");
+						loop = false;
 					}
 				}
-				mx.unlock();
+			//	mx.unlock();
+				//fp = fopen("mutex.txt", "at");
+				//GetLocalTime(&lt);
+				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_DATA mx 3 %d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, thr);
+				//fclose(fp);
+				if (stop_requested)
+				{
+					if (pvar_callbackinput) delete pvar_callbackinput;
+					if (pvar_callbackoutput) delete pvar_callbackoutput;
+					pmsg->parent->Fillup();
+					//fp = fopen("mutex.txt", "at");
+					//fprintf(fp, "alternate ending\n");
+					//fclose(fp);
+					return;
+				}
 				break;
-			case -1:
+			case WIM_CLOSE:
+				//fp = fopen("mutex.txt", "at");
+				//GetLocalTime(&lt);
+				//fprintf(fp, "[%02d:%02d:%02d:%03d] WIM_CLOSE posted mx 11\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
+				//fclose(fp);
+				//	mx.lock();
+				if (pvar_callbackinput) delete pvar_callbackinput;
+				if (pvar_callbackoutput) delete pvar_callbackoutput;
+				pvar_callbackinput = NULL;
+				pvar_callbackoutput = NULL;
+				break;
+			case WM__RECORDING_ERR:
 				pmsg->parent->MessageBox((char*)msg.wParam, "Audio device error (recording)", 0);
 				break;
 			}
@@ -1871,139 +1951,62 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	}
 	catch (const char *estr)
 	{
-		pmsg->parent->MessageBox(estr, "Audio record error");
+		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
+		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
+		char buffer[512];
+		sprintf (buffer, "%s%s.aux", estr, pmsg->cbp.callbackfilename);
+		pmsg->parent->MessageBox(buffer, "Audio record error");
+		// callback not found; 1) delete pvar_callbackinput
+		delete pvar_callbackoutput;
+		delete pvar_callbackinput;
+		// 2) close the thread
+		//end the two threads--one in wavplay and the other here as well.
+		return;
 	}
 	catch (const CAstException &e) {
-		//TO DO----move this back to OnSoundEvent2... pvar_callbackinput pvar_callbackoutput should be deleted there
 		if (precorder) // just for sanity check
 		{
+			EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 			precorder->closing = true;
 			delete pvar_callbackinput; pvar_callbackinput = NULL;
 			delete pvar_callbackoutput; pvar_callbackoutput = NULL;
-			PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
+			PostThreadMessage(precorder->recordingThread, WM__STOP_REQUEST, 0, 0);
 			const char *_errmsg = e.outstr.c_str();
 			bool gotobase = false;
 			if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
 				gotobase = true;
 			char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
 			CDebugDlg::pAstSig = NULL;
-			// cleanup_nodes was called with CAstException
-			if (strncmp(errmsg, "Invalid", strlen("Invalid")))
-				cout << "ERROR: " << errmsg << endl;
-			else
-				cout << errmsg << endl;
+			pmsg->parent->MessageBox(errmsg, "Audio record error");
 			Back2BaseScope(0);
 		}
 	}
+}
+
+bool CShowvarDlg::MouseClick2StopRecording(HWND h)
+{
+	if (h == GetDlgItem(IDC_STOP2))
+	{
+		OnCommand(IDC_STOP2, NULL, 0);
+		return true;
+	}
+	return false;
 }
 
 void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 { // Currently, this doesn't support concurrent recording with multiple devices because of the static variables below.
   // Think about a better way to do it without using statics... 7/29/2019
 	string emsg;
-	static CVar *pvar_callbackinput;
-	static CVar *pvar_callbackoutput;
-	AstNode *pCallbackUDF;
 	callback_trasnfer_record * precorder = NULL;
-	int id;
-	CVar captured, captured2;
-	try {
-		switch (code)
-		{
-		case WIM_OPEN:
-			pvar_callbackinput = new CVar(1);
-			pvar_callbackoutput = new CVar(1);
-			EnableDlgItem(hDlg, IDC_STOP2, 1);
-			precorder = (callback_trasnfer_record*)pvar;
-			id = rand();
-			recordingEvent.push_back(id);
-			recorders[id] = precorder;
-			//checking if specified callback file is legit
-			if (pCallbackUDF = pcast->ReadUDF(emsg, precorder->callbackfilename))
-			{
-				unique_ptr<carrier> car(new carrier);
-				car->cbp = precorder;
-				car->pCallbackUDF = pCallbackUDF;
-				car->pcast = pcast;
-				car->parent = this;
-				car->pvar_callbackinput = pvar_callbackinput;
-				car->pvar_callbackoutput = pvar_callbackoutput;
-				if (car->cbp->nChans > 1) pvar_callbackoutput->SetNextChan(new CVar);
-				pvar_callbackinput->strut["?index"].SetValue(0.);
-				thread recordingThread(AudioCapture, move(car));
-				recordingThread.detach();
-			}
-			else
-			{
-				MessageBox(emsg.c_str(), precorder->callbackfilename);
-				// callback not found; 1) delete pvar_callbackinput
-				delete pvar_callbackoutput;
-				delete pvar_callbackinput;
-				// 2) close the thread
-				precorder->closing = true;
-				PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
-			}
-			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
-			{
-				if ((*it).second == precorder->recordID)
-				{
-					(*it).second.strut["fs"].SetValue((double)precorder->fs);
-					UpdateProp((*it).first, &(*it).second, "fs");
-					return;
-				}
-			}
-			break;
-
-		case WIM_CLOSE:
-			// transfer pcast->Sig to either ans or the designated variable
-			mx.lock(); 
-			EnableDlgItem(hDlg, IDC_STOP2, 0);
-			if (pvar_callbackinput) delete pvar_callbackinput;
-			if (pvar_callbackoutput) delete pvar_callbackoutput;
-			pvar_callbackinput = NULL;
-			pvar_callbackoutput = NULL;
-			precorder = (callback_trasnfer_record*)pvar;
-			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
-			{
-				if ((*it).second == (int)pvar)
-				{
-					(*it).second.strut["durLeft"].buf[0] = 0;
-					UpdateProp((*it).first, &(*it).second, "durLeft");
-					(*it).second.strut["active"].logbuf[0] = false;
-					UpdateProp((*it).first, &(*it).second, "active");
-				}
-			}
-			Fillup();
-			break;
-		case -1:
-			MessageBox((char*)pvar, "Audio device error (recording)", 0);
-			break;
-		}
-	}
-	catch (const char *estr)
+	if (code == WIM_OPEN)
 	{
-		MessageBox(estr, "Audio record error");
-	}
-	catch (const CAstException &e) { 
-		if (precorder) // just for sanity check
-		{
-			precorder->closing = true;
-			delete pvar_callbackinput; pvar_callbackinput = NULL;
-			delete pvar_callbackoutput; pvar_callbackoutput = NULL;
-			PostThreadMessage(precorder->recordingThread, WM__STOP_RECORD, 0, 0);
-			const char *_errmsg = e.outstr.c_str();
-			bool gotobase = false;
-			if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
-				gotobase = true;
-			char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
-			CDebugDlg::pAstSig = NULL;
-			// cleanup_nodes was called with CAstException
-			if (strncmp(errmsg, "Invalid", strlen("Invalid")))
-				cout << "ERROR: " << errmsg << endl;
-			else
-				cout << errmsg << endl;
-			Back2BaseScope(0);
-		}
+		unique_ptr<carrier> car(new carrier);
+		memcpy(&car->cbp, pvar, sizeof(callback_trasnfer_record));
+		car->pcast = pcast;
+		car->parent = this;
+		EnableDlgItem(hDlg, IDC_STOP2, 1);
+		thread recordingThread(AudioCapture, move(car));
+		recordingThread.detach();
 	}
 }
 void CShowvarDlg::OnSoundEvent1(CVar *pvar, int code)

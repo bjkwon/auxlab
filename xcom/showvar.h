@@ -115,6 +115,7 @@ public:
 	LRESULT ProcessCustomDraw (NMHDR *lParam);
 	void OnSoundEvent1(CVar *pvar, int code);
 	void OnSoundEvent2(CVar *pvar, int code);
+	bool MouseClick2StopRecording(HWND h);
 	void OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin);
 	void OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot);
 	void OnVarChanged(const char *varname=NULL);
@@ -154,4 +155,6 @@ private:
 	int slope;
 	int offset;
 	int listHeight[2]; // heights of listview controls (audio, non-audio)
+	POINT titlebarDim;
+	RECT recordingButtonRT;
 };
