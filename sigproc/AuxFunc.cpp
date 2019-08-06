@@ -51,23 +51,13 @@ CAstSig::record_bytes = 0;
 
 map<double, FILE *> file_ids;
 
-#ifdef _WINDOWS
-__declspec (dllimport) void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-__declspec (dllimport) void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-__declspec (dllimport) void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-__declspec (dllimport) void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-__declspec (dllimport) void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-__declspec (dllimport) void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-__declspec (dllimport) void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-#else
-void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
-void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
-void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
-void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
-void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
-void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
-void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {};
-#endif
+void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 
 /* 10/10/2018
 In all of these pEnv->inFunc, I have been using a temporary variable of CAstSig like

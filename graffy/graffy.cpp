@@ -17,10 +17,12 @@
 #include <algorithm>
 
 extern vector<CAstSig*> xscope;
+#ifndef GRAFFY_STATIC 
 double CAstSig::play_block_ms = 300;
 double CAstSig::record_block_ms = 300;
 short CAstSig::play_bytes = 2;
 short CAstSig::record_bytes = 2;
+#endif //GRAFFY_STATIC 
 
 HINSTANCE hInst;
 CPlotDlg* childfig;
@@ -29,7 +31,7 @@ GRAPHY_EXPORT HWND hPlotDlgCurrent;
 #define WM_PLOT_DONE	WM_APP+328
 
 HANDLE mutexPlot;
-HANDLE hEvent;
+static HANDLE hEvent1;
 HWND hWndApp(NULL); // Settings and variables window
 DWORD threadID; // delete this after 7/25/2019
 
@@ -84,7 +86,7 @@ void invalidateRedrawCue()
 	theApp.redraw.clear();
 }
 
-int getID4hDlg(HWND hDlg)
+static inline int getID4hDlg(HWND hDlg)
 {
 	size_t k(0);
 	for (vector<HWND>::iterator it = theApp.hDlg_fig.begin(); it != theApp.hDlg_fig.end(); it++, k++)
@@ -148,7 +150,11 @@ BOOL CALLBACK enumproc(HWND hDlg, LPARAM lParam)
 CGraffyDLL::CGraffyDLL()
 {
 	//	if (!mutexPlot) mutexPlot = CreateMutex(0, 0, 0);
-	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("graffy"));
+	hEvent1 = CreateEvent(NULL, FALSE, FALSE, TEXT("graffy"));
+
+#ifdef GRAFFY_STATIC 
+	hInst = GetModuleHandle(NULL);
+#endif
 
 	char fullmoduleName[MAX_PATH], AppPath[256], moduleName[MAX_PATH];
 	char drive[16], dir[256], ext[8], fname[MAX_PATH];
@@ -197,7 +203,7 @@ CGraffyDLL::~CGraffyDLL()
 		delete *it;
 	fig.clear();
 	delete pglobalEnv;
-	CloseHandle(hEvent);
+	CloseHandle(hEvent1);
 }
 
 vector<HANDLE> CGraffyDLL::figures()
@@ -358,6 +364,7 @@ int CGraffyDLL::closeFigure(HANDLE h)
 	return (int)fig.size();
 }
 
+#ifndef GRAFFY_STATIC 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
 {
 	hInst = hModule;
@@ -375,6 +382,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 	}
 	return TRUE;
 }
+#endif //GRAFFY_STATIC 
 
 GRAPHY_EXPORT HACCEL GetAccel(HANDLE hFig)
 {
@@ -451,7 +459,7 @@ GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in)
 	pin->caption = in.caption;
 	pin->rt = in.rt;
 	_beginthread(thread4Plot, 0, (void*)pin);
-	//	DWORD dw = WaitForSingleObject(hEvent, INFINITE);
+	//	DWORD dw = WaitForSingleObject(hEvent1, INFINITE);
 
 	MSG         msg;
 	while (GetMessage(&msg, NULL, 0, 0))

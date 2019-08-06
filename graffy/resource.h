@@ -3,11 +3,11 @@
 // Used by graffy.rc
 //
 #define IDI_ICON1                       101
-#define IDD_PLOT                        107
+#define IDD_PLOT                        300
 #define IDR_POPMENU                     1000
-#define IDR_ACCELERATOR1                1001
-#define IDR_ACCELERATOR2                1003
 #define IDR_ACCELERATOR                 1003
+#define IDR_ACCELERATOR1                2001
+#define IDR_ACCELERATOR2                2003
 #define IDM_FULLVIEW                    32772
 #define IDM_ZOOM_IN                     32773
 #define IDM_ZOOM_OUT                    32774
@@ -18,7 +18,7 @@
 #define IDM_PLAY                        32779
 #define IDM_TRANSPARENCY                32780
 #define IDM_WAVWRITE                    32781
-#define IDM_MP3WRITE 32872
+#define IDM_MP3WRITE 					32872
 #define IDM_SPECTRUM                    32783
 #define ID_MYMENU_LEVEL                 32784
 #define IDM_LEVEL                       32785

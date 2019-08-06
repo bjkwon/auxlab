@@ -101,7 +101,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>XCOM;WIN32;LINK_STATIC_SIGPROC;_DEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GRAFFY_STATIC;XCOM;WIN32;LINK_STATIC_SIGPROC;_DEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <DisableSpecificWarnings>4273;4477;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -131,7 +131,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>XCOM;WIN64;LINK_STATIC_SIGPROC;_DEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GRAFFY_STATIC;XCOM;WIN64;LINK_STATIC_SIGPROC;_DEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <DisableSpecificWarnings>4273;4477;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -163,7 +163,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>XCOM;WIN32;LINK_STATIC_SIGPROC;NDEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GRAFFY_STATIC;XCOM;WIN32;LINK_STATIC_SIGPROC;NDEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <DisableSpecificWarnings>4273;4477;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -192,7 +192,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>XCOM;WIN64;LINK_STATIC_SIGPROC;NDEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GRAFFY_STATIC;XCOM;WIN64;LINK_STATIC_SIGPROC;NDEBUG;_WINDOWS;_USRDLL;SIGPROC2_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <DisableSpecificWarnings>4273;4477;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>

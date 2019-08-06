@@ -44,7 +44,7 @@ if tics1 is not empty, OnPaint will not set tics1.
 
 extern HWND hPlotDlgCurrent;
 
-FILE *fp;
+FILE *fpp;
 
 int iabs(int x)
 {
@@ -1401,7 +1401,7 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 //	::PostMessage(GetHWND_GRAFFY(), WM_GCF_UPDATED, (WPARAM)&gcf, (LPARAM)hDlg);
 //}
 
-#define LOG(X) fprintf(fp,(X));
+#define LOG(X) fprintf(fpp,(X));
 
 void CPlotDlg::setpbprogln()
 {
