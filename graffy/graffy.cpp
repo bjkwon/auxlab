@@ -37,7 +37,7 @@ DWORD threadID; // delete this after 7/25/2019
 
 void initLineList(); // from Auxtra.cpp
 
-class CGraffyDLL : public CWinApp
+class CGraffyEnv : public CWinApp
 {
 public:
 	CGobj GraffyRoot;
@@ -54,11 +54,11 @@ public:
 	multimap<HWND, RECT> redraw;
 	int getselRange(CSignals *hgo, CSignals *out);
 	int closeFigure(HANDLE h);
-	CGraffyDLL();
-	virtual ~CGraffyDLL();
+	CGraffyEnv();
+	virtual ~CGraffyEnv();
 };
 
-CGraffyDLL theApp;
+CGraffyEnv theApp;
 
 #define THE_CPLOTDLG  static_cast <CPlotDlg*>(theApp.fig[id])
 
@@ -147,7 +147,18 @@ BOOL CALLBACK enumproc(HWND hDlg, LPARAM lParam)
 	return 1;
 }
 
-CGraffyDLL::CGraffyDLL()
+GRAPHY_EXPORT void initGraffy(CAstSig *base)
+{
+	if (!theApp.pctx)
+	{
+		theApp.pctx = base;
+		theApp.pctx->fpmsg.SetGoProperties = SetGOProperties;
+		theApp.pctx->fpmsg.RepaintGO = RepaintGO;
+		theApp.pglobalEnv = base->pEnv;
+	}
+}
+
+CGraffyEnv::CGraffyEnv()
 {
 	//	if (!mutexPlot) mutexPlot = CreateMutex(0, 0, 0);
 	hEvent1 = CreateEvent(NULL, FALSE, FALSE, TEXT("graffy"));
@@ -164,49 +175,23 @@ CGraffyDLL::CGraffyDLL()
 	sprintf(AppPath, "%s%s", drive, dir);
 	sprintf(moduleName, "%s%s", fname, ext);
 
-	pglobalEnv = new CAstSigEnv(22050);
-	pctx = new CAstSig(pglobalEnv);
-	pctx->u.application = "graffy";
-	pglobalEnv->InitBuiltInFunctions();
-	pctx->fpmsg.SetGoProperties = SetGOProperties;
-	pctx->fpmsg.RepaintGO = RepaintGO;
-	xscope.push_back(pctx);
-
 
 #ifndef WIN64
 	sprintf(fname, "%sauxp32.dll", AppPath);
 #else
 	sprintf(fname, "%sauxp64.dll", AppPath);
 #endif
-	HANDLE hLib = LoadLibrary(fname); // fix this.... if the path has been changed in the middle, we are no longer in AppPath
-	if (!hLib)
-		printf("[Warning] Standard private UDF library %s not found\n", fname);
-	else
-	{
-		string res, emsg;
-		int id = 100; // the resource ID in auxp begins with 101 (harded-coded)
-		while (1)
-		{
-			res = pctx->LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
-			if (res.empty())
-				break;
-		}
-		FreeLibrary((HMODULE)hLib);
-	}
-
 }
 
-CGraffyDLL::~CGraffyDLL()
+CGraffyEnv::~CGraffyEnv()
 {
-	delete pctx;
 	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
 		delete *it;
 	fig.clear();
-	delete pglobalEnv;
 	CloseHandle(hEvent1);
 }
 
-vector<HANDLE> CGraffyDLL::figures()
+vector<HANDLE> CGraffyEnv::figures()
 {
 	vector<HANDLE> out;
 	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
@@ -214,7 +199,7 @@ vector<HANDLE> CGraffyDLL::figures()
 	return out;
 }
 
-HANDLE  CGraffyDLL::findAxes(HANDLE ax)
+HANDLE  CGraffyEnv::findAxes(HANDLE ax)
 {
 	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
 	{
@@ -226,7 +211,7 @@ HANDLE  CGraffyDLL::findAxes(HANDLE ax)
 	return ax;
 }
 
-HANDLE CGraffyDLL::findGObj(CSignals *xGO, CGobj *hGOParent)
+HANDLE CGraffyEnv::findGObj(CSignals *xGO, CGobj *hGOParent)
 { 
 	if (xGO->nSamples == 0) return NULL; // empty handle 
 	if (hGOParent && *hGOParent == *xGO) return hGOParent; // check12/5
@@ -264,7 +249,7 @@ HANDLE CGraffyDLL::findGObj(CSignals *xGO, CGobj *hGOParent)
 }
 
 
-CFigure *CGraffyDLL::findFigure(CSignals *xFig)
+CFigure *CGraffyEnv::findFigure(CSignals *xFig)
 {
 	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
 		if (*xFig == (*it)->gcf)
@@ -272,12 +257,12 @@ CFigure *CGraffyDLL::findFigure(CSignals *xFig)
 	return NULL;
 }
 
-HANDLE CGraffyDLL::openFigure(CRect *rt, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon)
+HANDLE CGraffyEnv::openFigure(CRect *rt, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon)
 {
 	return openFigure(rt, "", hWndAppl, devID, blocksize, hIcon);
 }
 
-int CGraffyDLL::getselRange(CSignals *hgo, CSignals *out)
+int CGraffyEnv::getselRange(CSignals *hgo, CSignals *out)
 {
 	HANDLE h = FindGObj(hgo);
 	if (!h) return 0;
@@ -294,7 +279,7 @@ int CGraffyDLL::getselRange(CSignals *hgo, CSignals *out)
 	return res;
 }
 
-HANDLE CGraffyDLL::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon)
+HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon)
 {
 	CString s;
 	CPlotDlg *newFig;
@@ -338,7 +323,7 @@ HANDLE CGraffyDLL::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 }
 
 
-int CGraffyDLL::closeFigure(HANDLE h)
+int CGraffyEnv::closeFigure(HANDLE h)
 {
 	//Returns the number of fig dlg windows remaining.
 	if (h == NULL) // delete all
@@ -502,6 +487,11 @@ GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent)
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures()
 {
 	return theApp.figures();
+}
+
+GRAPHY_EXPORT vector<CGobj*> graffy_CFigs()
+{
+	return theApp.GraffyRoot.child;
 }
 
 /*New 1*/
@@ -695,7 +685,7 @@ void _deleteObj(CFigure *hFig)
 			break;
 		}
 	// If this is done before the message loop closes, hDlg_fig will be push_back'ed again with the now soon-to-be-defunct hDlg and
-	// it will cause a crash in CGraffyDLL::closeFigure  7/31/2018
+	// it will cause a crash in CGraffyEnv::closeFigure  7/31/2018
 	theApp.hDlg_fig.erase(jt); 
 }
 
@@ -798,17 +788,35 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 }
 
 GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
-{
+{ // make all figures created but unchecked for visible visible
+	// to do: this now applies all figures, but should only apply to those created inside pctx
 	if (pctx)
 	{
-		CVar *pgcf = pctx->GetGloGOVariable("gcf", NULL);
-		if (!pgcf) return;
-		if (((CFigure*)pgcf)->visible == -1)
+		vector<CGobj*> h = graffy_CFigs();
+		for (auto fig = h.begin(); fig != h.end(); fig++)
 		{
-			((CFigure*)pgcf)->visible = 1;
-			((CFigure*)pgcf)->strut["visible"].SetValue(1.);
-			((CFigure*)pgcf)->m_dlg->ShowWindow(SW_SHOW);
+			CFigure * tp = (CFigure *)*fig;
+			if ( tp->visible == -1)
+			{
+				tp->visible = 1;
+				tp->strut["visible"].SetValue(1.);
+				tp->m_dlg->ShowWindow(SW_SHOW);
+			}
 		}
+
+	/*	for (auto fig = pctx->GOvars.begin(); fig != pctx->GOvars.end(); fig++)
+		{
+			for (auto it = fig->second.begin(); it != fig->second.end(); it++)
+			{
+				CGobj* tp = (CGobj*)*it;
+				if (tp->type == GRAFFY_figure && tp->visible == -1)
+				{
+					tp->visible = 1;
+					tp->strut["visible"].SetValue(1.);
+					tp->m_dlg->ShowWindow(SW_SHOW);
+				}
+			}
+		}*/
 	}
 	invalidateRedrawCue();
 }

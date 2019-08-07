@@ -2984,7 +2984,12 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			fpmsg.RepaintGO(this);
 		}
 		else if (need2repaintnow(pnode))
-			fpmsg.RepaintGO(this);
+		{
+			if (u.debug.status == continuing)
+			{
+				fpmsg.RepaintGO(this);
+			}
+		}
 
 	}
 	return;

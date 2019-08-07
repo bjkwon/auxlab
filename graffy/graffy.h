@@ -286,12 +286,14 @@ struct GRAFWNDDLGSTRUCT
 };
 
 
+GRAPHY_EXPORT void initGraffy(CAstSig *base);
 GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent = NULL);
 
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
 
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures();
+GRAPHY_EXPORT vector<CGobj*> graffy_CFigs();
 GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID);
 GRAPHY_EXPORT HANDLE GCA(HANDLE _fig);
 GRAPHY_EXPORT CVar *GetFigGO(HWND h);
@@ -333,6 +335,8 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig);
 GRAPHY_EXPORT vector<DWORD> Colormap(BYTE head, char lh, char rc, int nItems);
 
 vector<double> makefixtick(double _x1, double _x2, int count);
+
+
 
 GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);

@@ -1782,6 +1782,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	size_t nHistFromFile = mainSpace.ReadHist();
 	mainSpace.comid = nHistFromFile;
 
+
 #ifndef WIN64
 	sprintf(fname, "%sauxp32.dll", mainSpace.AppPath);
 #else
@@ -1824,6 +1825,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		MoveWindow(hr, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
 
 	xscope.push_back(&cast);
+	initGraffy(&cast);
 	cast.u.application = "xcom";
 //	mainSpace.RunTest("d:\\temp\\auxlabtest.txt", "", "d:\\temp\\reffile.txt");
 	SYSTEMTIME lt;
