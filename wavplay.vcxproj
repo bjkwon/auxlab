@@ -101,9 +101,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>
-		SET D = $(AuxlabRepoDir)
+      <Command> call copy_headers.bat sigproc
 		call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\
+		call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
 	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>

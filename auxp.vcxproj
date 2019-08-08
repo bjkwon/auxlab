@@ -153,6 +153,7 @@
     <ResourceCompile Include="$(SrcPath)auxp.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="auxp\default__callback.aux" />
     <None Include="auxp\f2_channel_stereo_mono.aux" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

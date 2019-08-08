@@ -57,6 +57,7 @@ void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 
 /* 10/10/2018
@@ -795,9 +796,12 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		duration = past->Sig.value();
 	case 2:
 		past->Compute(p->next);
-		if (!past->Sig.IsString())
+		if (!past->Sig.IsString() && !past->Sig.IsEmpty())
 			throw past->ExceptionMsg(pnode, fnsigs, "The second argument must be the file name (may include the path) of the callback function.");
-		callbackname = past->Sig.string();
+		if (past->Sig.IsEmpty() || past->Sig.string().empty())
+			callbackname = "default__callback";
+		else
+			callbackname = past->Sig.string();
 	case 1:
 		past->Compute(p);
 		if (!past->Sig.IsScalar())
@@ -2743,9 +2747,14 @@ void CAstSigEnv::InitBuiltInFunctions()
 	builtin[name] = ft;
 
 	name = "delete";
+	ft.narg1 = 1;	ft.narg2 = 1;
 	ft.alwaysstatic = false;
 	ft.funcsignature = "(graphic_handle)";
 	ft.func = &_delete_graffy;
+	builtin[name] = ft;	
+	name = "repaint";
+	ft.funcsignature = "(graphic_handle)";
+	ft.func = &_repaint;
 	builtin[name] = ft;
 #endif // _WINDOWS
 

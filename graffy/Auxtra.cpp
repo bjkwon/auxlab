@@ -304,6 +304,20 @@ void delete_toDelete(CAstSig *past, CVar *delThis)
 	}
 }
 
+GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	if (!past->Sig.IsGO())
+		throw CAstException(p, past, "The argument must be a graphic handle.");
+	if (past->Sig.strut["type"].string() == "figure")
+	{
+		HANDLE h = FindFigure(&past->Sig);
+		HWND hh = GetHWND_PlotDlg(h);
+		InvalidateRect(hh, NULL, 1);
+	}
+	else
+		throw CAstException(p, past, "Only figure handle is supported now.");
+}
+
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
 // 
@@ -724,10 +738,10 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 			CVar temp = past->Sig;
 			_figure(past, pnode, NULL, fnsigs);
 			auto itgcf = past->GOvars.find("gcf");
-			past->Sig = temp;
-			past->pgo = NULL;
 			cfig = (CFigure *)itgcf->second.front();
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+			past->Sig = temp;
+			past->pgo = NULL;
 		}
 		vector<CGobj*> prevChild = cax->child;
 		//Finally cax and cfig ready. Time to inspect input data

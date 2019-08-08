@@ -147,6 +147,10 @@ BOOL CALLBACK enumproc(HWND hDlg, LPARAM lParam)
 	return 1;
 }
 
+void initLineList(); // defined in Auxtra.cpp
+void initGraffyProperties(); // defined in Auxtra.cpp
+
+
 GRAPHY_EXPORT void initGraffy(CAstSig *base)
 {
 	if (!theApp.pctx)
@@ -156,6 +160,8 @@ GRAPHY_EXPORT void initGraffy(CAstSig *base)
 		theApp.pctx->fpmsg.RepaintGO = RepaintGO;
 		theApp.pglobalEnv = base->pEnv;
 	}
+	initGraffyProperties();
+	initLineList();
 }
 
 CGraffyEnv::CGraffyEnv()

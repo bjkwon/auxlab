@@ -312,7 +312,7 @@ private:
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
 	void outputbinding(size_t nArgout);
 public:
-	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar *pOutVars);
+	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *>pOutVars);
 	string adjustfs(int newfs);
 	CVar &ConditionalOperation(const AstNode *pnode, AstNode *p);
 	int updateGO(CVar &ref);

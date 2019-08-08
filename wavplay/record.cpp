@@ -134,7 +134,7 @@ typedef struct {
 	HWND hWnd_calling;
 	DWORD msgID;
 	DWORD callingThreadID;
-	INT_PTR recordID;
+	DWORD recordID;
 	double duration;
 	double block_dur_ms;
 	string callback;
@@ -200,7 +200,10 @@ void ThreadCapture(const record_param &p)
 			break;
 		}
 		if (msg.message == WM__STOP_REQUEST)
+		{
+			res = PostThreadMessage(callbackThread, WIM_CLOSE, 0, 0);
 			break;
+		}
 		switch (msg.message)
 		{
 		case WM__RECORDING_THREADID:
@@ -265,6 +268,7 @@ void ThreadCapture(const record_param &p)
 	for (int k=0; k<2; k++)
 		MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 	MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
+	SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_CLOSE); // send the opening status to the main application 
 }
 
 

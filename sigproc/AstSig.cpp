@@ -442,7 +442,7 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 	return *this;
 }
 
-bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar *pOutVars)
+bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVar *>pOutVars)
 {
 	u.currentLine = pCalling->line; // ? 10/18/2018
 
@@ -451,8 +451,16 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	son->u = u;
 	son->u.title = pCalling->str;
 	son->u.debug.status = null;
-	son->SetVar("in", pStaticVars); //static--lingering from the previous callback
-	son->SetVar("out", pOutVars); //static--lingering from the previous callback
+	son->SetVar("in", pInVar); //static--lingering from the previous callback
+	if (pCalling->alt->type == N_VECTOR)
+	{
+		AstNode *p = pCalling->alt->child;
+		for (auto it : pOutVars)
+		{
+			son->SetVar(p->str, it);
+			p = p->next;
+		}
+	}
 	son->lhs = lhs;
 	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
@@ -483,27 +491,37 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, CVar 
 	xscope.push_back(son);
 	//son->SetVar("_________",pStaticVars); // how can I add static variables here???
 	size_t nArgout = son->CallUDF(pCalling, NULL);
+	// output parameter binding (internal)
+	AstNode *p = pCalling->alt->child;
+	auto itpvar = pOutVars.begin();
+	for (auto it : son->u.argout)
+	{
+		*(*itpvar) = son->Vars[it];
+		p = p->next;
+		itpvar++;
+	}
 	// output parameter binding
 	const char *varstr = lhs ? lhs->str : "ans";
-	if (!lhs)
-		SetVar(varstr, &son->Vars[son->u.argout.front()]);
-	else
+	if (lhs)
 	{
-		if (lhs->type == N_VECTOR)
+		if (lhs->type == T_ID)
+			varstr = lhs->str;
+		else // should be lhs->type == N_VECTOR
 			varstr = lhs->alt->str;
-		SetVar(varstr, &son->Vars[son->u.argout.front()]);
-		//CVar *phandle = GetVariable(lhs->alt->next->str);
-		//if (phandle)
-		//	phandle->strut["cbout"].cell.clear();
-		//else
-		//{
-		//	SetVar(lhs->alt->next->str, new CVar);
-		//	phandle = GetVariable(lhs->alt->next->str);
-		//}
-		//for (auto outvarstr = son->u.argout.begin() + 1; outvarstr != son->u.argout.end(); outvarstr++)
-		//		phandle->strut["cbout"].appendcell(son->Vars[*outvarstr]);
 	}
-	*pOutVars = son->Vars[son->u.argout.front()];
+	SetVar(varstr, &son->Vars[son->u.argout.front()]);
+	if (lhs && lhs->type == N_VECTOR)
+	{
+		// In [x, h, a, b] = record(...)
+		// h was SetVar'ed in _record() in AuxFunc.cpp, as a special case; don't mess with it and just skip it
+		p = lhs->alt->next->next; // that's why there's another next
+		for (auto it : son->u.argout)
+		{
+			if (!p) break;
+			SetVar(p->str, &son->Vars[it]);
+			p = p->next;
+		}
+	}
 	if ((son->u.debug.status == stepping || son->u.debug.status == continuing) && u.debug.status == null)
 	{ // no b.p set in the main udf, but in these conditions, as the local udf is finishing, the stepping should continue in the main udf, or debug.status should be set progress, so that the debugger would be properly exiting as it finishes up in CallUDF()
 		u.debug.GUI_running = true;

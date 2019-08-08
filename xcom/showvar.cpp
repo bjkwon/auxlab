@@ -1836,6 +1836,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	PostThreadMessage(pmsg->cbp.recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
 	double duration = pmsg->cbp.duration / 1000.; // in seconds
 	CVar *pvar_callbackinput = new CVar(1);
+	vector<CVar *> pvar_callbackoutputVector;
 	CVar *pvar_callbackoutput = new CVar(1);
 	if (pmsg->cbp.nChans > 1)
 		pvar_callbackoutput->SetNextChan(new CVar);
@@ -1844,8 +1845,21 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	try {
 		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, pmsg->cbp.callbackfilename))
 		{
+			//Reserve the output variable vector
+			pvar_callbackoutputVector.push_back(new CVar);
+			if (pCallbackUDF->alt->type == N_VECTOR)
+			{
+				for (AstNode *p = pCallbackUDF->alt->child->next; p; p = p->next)
+				{
+					pvar_callbackoutputVector.push_back(new CVar);
+				}
+			}
 			pvar_callbackinput->strut["?index"].SetValue(0.);
-			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+
+			//if this was on, pvar_callbackoutput->next is cleared, which is a problem for a stereo signal
+			//Do we really need to get the callback output for WIM_OPEN? Think of an alternative if so.
+			// 8/7/2019
+			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
 		}
 		else
 		{
@@ -1894,7 +1908,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				pvar_callbackinput->strut["?data"] = captured;
 				pvar_callbackinput->strut["?index"].buf[0]++;
 			//	mx.lock();
-				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutput);
+				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
 				for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end() && loop; it++)
 				{
 					if ((*it).second == precorder->recordID)
@@ -1943,22 +1957,19 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		return;
 	}
 	catch (const CAstException &e) {
-		if (precorder) // just for sanity check
-		{
-			EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
-			precorder->closing = true;
-			delete pvar_callbackinput; pvar_callbackinput = NULL;
-			delete pvar_callbackoutput; pvar_callbackoutput = NULL;
-			PostThreadMessage(precorder->recordingThread, WM__STOP_REQUEST, 0, 0);
-			const char *_errmsg = e.outstr.c_str();
-			bool gotobase = false;
-			if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
-				gotobase = true;
-			char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
-			CDebugDlg::pAstSig = NULL;
-			pmsg->parent->MessageBox(errmsg, "Audio record error");
-			Back2BaseScope(0);
-		}
+		const char *_errmsg = e.outstr.c_str();
+		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
+		pmsg->cbp.closing = true;
+		delete pvar_callbackinput; pvar_callbackinput = NULL;
+		delete pvar_callbackoutput; pvar_callbackoutput = NULL;
+		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
+		bool gotobase = false;
+		if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
+			gotobase = true;
+		char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
+		CDebugDlg::pAstSig = NULL;
+		pmsg->parent->MessageBox(errmsg, "Audio record error");
+		Back2BaseScope(0);
 	}
 }
 
@@ -1986,6 +1997,13 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 		EnableDlgItem(hDlg, IDC_STOP2, 1);
 		thread recordingThread(AudioCapture, move(car));
 		recordingThread.detach();
+	}
+	else if (code == WIM_CLOSE)
+	{
+		if (pcast->lhs->type == N_VECTOR)
+		{
+			pcast->Vars[pcast->lhs->alt->next->str].strut["active"] = CVar(0.);
+		}
 	}
 }
 void CShowvarDlg::OnSoundEvent1(CVar *pvar, int code)
