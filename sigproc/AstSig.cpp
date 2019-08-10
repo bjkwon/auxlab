@@ -32,7 +32,10 @@
 CAstSig::play_block_ms = 0;
 #endif
 
+//Application-wide global variables
 vector<CAstSig*> xscope;
+extern HWND hShowDlg;
+
 
 #define PRINTLOG(FNAME,STR) \
 { FILE*__fp=fopen(FNAME,"at"); fprintf(__fp,STR);	fclose(__fp); }
@@ -442,10 +445,10 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 	return *this;
 }
 
-bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVar *>pOutVars)
+bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVar *> &pOutVars)
 {
 	u.currentLine = pCalling->line; // ? 10/18/2018
-
+	AstNode *p;
 	CAstSigEnv tempEnv(*pEnv);
 	son = new CAstSig(&tempEnv);
 	son->u = u;
@@ -454,7 +457,7 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVa
 	son->SetVar("in", pInVar); //static--lingering from the previous callback
 	if (pCalling->alt->type == N_VECTOR)
 	{
-		AstNode *p = pCalling->alt->child;
+		p = pCalling->alt->child;
 		for (auto it : pOutVars)
 		{
 			son->SetVar(p->str, it);
@@ -482,21 +485,50 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVa
 			throw ExceptionMsg(pOutParam, out.str().c_str());
 		}
 	}
-	son->u.nargout = (int)son->u.argout.size(); 
+	if (lhs)
+	{
+		ostringstream oss;
+		p = lhs->type == N_VECTOR ? lhs->alt : lhs;
+		for (son->u.nargout = 0; p && p->line == lhs->line; p = p->next, son->u.nargout++) {}
+		if (son->u.nargout > (int)son->u.argout.size()+1) {
+			oss << "User requests more output arguments than in the maximum defined in '" << pCalling->str << ".aux' " << son->u.argout.size()+1 << ".\n";
+			oss << "Follow the format--\n";
+			if (pOutParam->type == N_VECTOR)
+			{
+				oss << "[";
+				oss << pOutParam->child->str;
+			}
+			oss << ", handle";
+			for (p = pOutParam->child->next; p; p = p->next)
+			{
+				oss << ", " << p->str;
+			}
+			oss << "] = " << pCalling->str << "(...)";
+			throw ExceptionMsg(u.pUDF, oss.str().c_str());
+		}
+	}
+	son->u.nargout = (int)son->u.argout.size();
 
 	//If the line invoking the udf res = var.udf(arg1, arg2...), binding of the first arg, var, is done separately via pBase. The rest, arg1, arg2, ..., are done below with pf->next
 	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
 	//No need for input param binding/
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
 	xscope.push_back(son);
-	//son->SetVar("_________",pStaticVars); // how can I add static variables here???
 	size_t nArgout = son->CallUDF(pCalling, NULL);
 	// output parameter binding (internal)
-	AstNode *p = pCalling->alt->child;
+	p = pCalling->alt->child;
 	auto itpvar = pOutVars.begin();
 	for (auto it : son->u.argout)
 	{
-		*(*itpvar) = son->Vars[it];
+		if (son->Vars.find(it)!=son->Vars.end())
+			*(*itpvar) = son->Vars[it];
+		else
+		{
+			if (son->GOvars[it].size() > 1) // need to make an CSIG_HDLARRAY object
+				*(*itpvar) = MakeGOContainer(son->GOvars[it]);
+			else
+				(*itpvar) = son->GOvars[it].front();
+		}
 		p = p->next;
 		itpvar++;
 	}
@@ -510,16 +542,17 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVa
 			varstr = lhs->alt->str;
 	}
 	SetVar(varstr, &son->Vars[son->u.argout.front()]);
-	if (lhs && lhs->type == N_VECTOR)
+	double nargin = son->Vars["nargin"].value();
+	double nargout = son->Vars["nargout"].value();
+	if (lhs && lhs->type == N_VECTOR && lhs->alt->next)
 	{
 		// In [x, h, a, b] = record(...)
 		// h was SetVar'ed in _record() in AuxFunc.cpp, as a special case; don't mess with it and just skip it
 		p = lhs->alt->next->next; // that's why there's another next
-		for (auto it : son->u.argout)
+		auto itvarname = son->u.argout.begin()+1;
+		for (; p; p = p->next, itvarname++)
 		{
-			if (!p) break;
-			SetVar(p->str, &son->Vars[it]);
-			p = p->next;
+			SetVar(p->str, &son->Vars[*itvarname]);
 		}
 	}
 	if ((son->u.debug.status == stepping || son->u.debug.status == continuing) && u.debug.status == null)
@@ -546,28 +579,28 @@ void CAstSig::outputbinding(size_t nArgout)
 	auto count = 0;
 	AstNode *pp = lhs;
 	if (lhs && lhs->type == N_VECTOR) pp = lhs->alt;
-	for (auto arg : son->u.argout)
+	for (auto varname : son->u.argout)
 	{
-		if (son->Vars.find(arg) != son->Vars.end())
+		if (son->Vars.find(varname) != son->Vars.end())
 		{
-			SetVar(pp->str, &son->Vars[arg]);
+			SetVar(pp->str, &son->Vars[varname]);
 			if (count++ == 0)
-				Sig = son->Vars[arg]; //why is this needed? -- so update go Sig with non-go Sig 2/9/2019
-			pgo = NULL;
-			if (--nArgout == 0) break;
-		}
-		else if (son->GOvars.find(arg) != son->GOvars.end())
-		{
-			if (son->GOvars[arg].size() > 1)
-			{ // need to make an CSIG_HDLARRAY object
-				pgo = MakeGOContainer(son->GOvars[arg]);
+			{
+				Sig = son->Vars[varname]; //why is this needed? -- so update go Sig with non-go Sig 2/9/2019
+				pgo = NULL;
 			}
+		}
+		else if (son->GOvars.find(varname) != son->GOvars.end())
+		{
+			if (son->GOvars[varname].size() > 1) // need to make an CSIG_HDLARRAY object
+				pgo = MakeGOContainer(son->GOvars[varname]);
 			else
-				pgo = son->GOvars[arg].front();
+				pgo = son->GOvars[varname].front();
 			if (count++ == 0)
 				Sig = *pgo; //Ghost output to console
-			if (--nArgout == 0) break;
+			SetVar(pp->str, pgo);
 		}
+		if (--nArgout == 0) break;
 		pp = pp->next;
 	}
 }
@@ -656,7 +689,14 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	vector<CVar *> holder;
 	size_t cnt = 0;
 	// output argument transfer from son to this
-	if (!lhs)	// no output parameter specified. --> first formal output arg goes to ans
+	double nargin = son->Vars["nargin"].value();
+	double nargout = son->Vars["nargout"].value();
+	//lhs is either NULL (if not specified), T_ID or N_VECTOR
+	if (lhs)
+	{
+		outputbinding(nArgout);
+	}
+	else // no output parameter specified. --> first formal output arg goes to ans
 	{
 		if (son->u.argout.empty())
 			Sig.Reset();
@@ -674,10 +714,6 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 					Sig = CVar();
 			}
 		}
-	}
-	else
-	{
-		outputbinding(nArgout);
 	}
 	if ((son->u.debug.status == stepping || son->u.debug.status == continuing) && u.debug.status == null)
 	{ // no b.p set in the main udf, but in these conditions, as the local udf is finishing, the stepping should continue in the main udf, or debug.status should be set progress, so that the debugger would be properly exiting as it finishes up in CallUDF()
@@ -769,7 +805,6 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 //	Beep(1000, 50);
 #endif
 
-//	CAstSig::print_links("aux2_son_inCallUDF.txt", son->pAst->next);
 	p = pFirst;
 	while (p)
 	{
@@ -778,6 +813,8 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		if (p->type==T_ID || p->type == T_FOR || p->type == T_IF || p->type == T_WHILE || p->type == N_IDLIST || p->type == N_VECTOR)
 			hold_at_break_point(p);
 		Compute(p);
+		pgo = NULL; // without this, go lingers on the next line
+		Sig.Reset(1); // without this, fs=3 lingers on the next line
 		if (fExit) break;
 		p=p->next;
 	}

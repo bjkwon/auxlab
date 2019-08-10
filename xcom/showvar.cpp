@@ -33,6 +33,7 @@ static bool stop_requested = false;
 #define WM__LOG	WM_APP+0x2020
 
 extern xcom mainSpace;
+extern HWND hShowDlg;
 
 extern CDebugDlg mDebug; // delete?
 extern unordered_map<string, CDebugDlg*> dbmap;
@@ -2000,7 +2001,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 	}
 	else if (code == WIM_CLOSE)
 	{
-		if (pcast->lhs->type == N_VECTOR)
+		if (pcast->lhs->type == N_VECTOR && pcast->lhs->alt->next)
 		{
 			pcast->Vars[pcast->lhs->alt->next->str].strut["active"] = CVar(0.);
 		}

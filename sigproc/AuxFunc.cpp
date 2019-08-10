@@ -48,6 +48,7 @@ CAstSig::record_block_ms = 0;
 CAstSig::record_bytes = 0;
 #endif
 
+extern HWND hShowDlg;
 
 map<double, FILE *> file_ids;
 
@@ -825,10 +826,10 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 
 	char errstr[256] = {};
 	int newfs, recordID = (int)past->Sig.value();
-	if ((newfs = Capture(devID, WM__AUDIOEVENT2, GetHWND_WAVPLAY(), past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, block, recordID, errstr)) < 0)
+	if ((newfs = Capture(devID, WM__AUDIOEVENT2, hShowDlg, past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, block, recordID, errstr)) < 0)
 		throw past->ExceptionMsg(pnode, fnsigs, errstr);
 	past->Sig.strut["active"] = CVar((double)(1 == 1));
-	if (past->lhs && past->lhs->type == N_VECTOR)
+	if (past->lhs && past->lhs->type == N_VECTOR && past->lhs->alt->next)
 	{ // [y, h] = record (.....), do output binding here.
 		past->SetVar(past->lhs->alt->next->str, &past->Sig);
 	}
@@ -2213,8 +2214,10 @@ void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
 		}
 	}
 }
-void CAstSigEnv::InitBuiltInFunctions()
+void CAstSigEnv::InitBuiltInFunctions(HWND h)
 {
+	hShowDlg = h;
+
 	srand((unsigned)time(0) ^ (unsigned int)GetCurrentThreadId());
 
 	string name;

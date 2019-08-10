@@ -146,7 +146,7 @@ public:
 	map<string, vector<CVar *>> glovar;
 	string AuxPath;
 	bool shutdown;
-	void InitBuiltInFunctions();
+	void InitBuiltInFunctions(HWND h);
 	void InitBuiltInFunctionsExt(const char *dllname);
 	map<string, Cfunction> pseudo_vars;
 	map<string, Cfunction> builtin;
@@ -312,7 +312,7 @@ private:
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
 	void outputbinding(size_t nArgout);
 public:
-	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *>pOutVars);
+	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *> &pOutVars);
 	string adjustfs(int newfs);
 	CVar &ConditionalOperation(const AstNode *pnode, AstNode *p);
 	int updateGO(CVar &ref);

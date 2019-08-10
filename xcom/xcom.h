@@ -73,7 +73,7 @@ public:
 	int computeandshow(const char *input, CAstSig *pTemp=NULL);
 	int cleanup_debug();
 	void echo(const char *var, CVar *pvar, int offset = 1, const char *postscript = "");
-	void echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar=NULL);
+	void echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar=NULL);
 	int ClearVar(const char *var);
 	int load_axl(FILE *fp, char *errstr);
 

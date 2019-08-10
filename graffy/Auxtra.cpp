@@ -760,6 +760,12 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				cax->ytick.tics1.clear();
 				while (!prevChild.empty())
 				{
+					auto prevLines = ((CVar*)cax)->struts["children"];
+					for (auto it = prevLines.begin(); it != prevLines.end(); it++)
+					{
+						if (*it == prevChild.back())
+							it = prevLines.erase(it);
+					}
 					deleteObj(prevChild.back());
 					prevChild.pop_back();
 				}

@@ -40,6 +40,8 @@ uintptr_t hAuxconThread;
 
 vector<UINT> exc; // temp
 
+HWND hShowDlg;
+HANDLE hE;
 bool moduleLoop(false);
 
 typedef void (*PFUN) (const vector<CAstSig*> &);
@@ -366,7 +368,9 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 {
 	bool win7 = isWin7() ? true : false;
 	HINSTANCE hModule = GetModuleHandle(NULL);
-	mShowDlg.hDlg = CreateDialogParam (hModule, MAKEINTRESOURCE(IDD_SHOWVAR), win7 ? NULL : GetConsoleWindow(), (DLGPROC)showvarDlgProc, (LPARAM)&mShowDlg);
+	hShowDlg = mShowDlg.hDlg = CreateDialogParam (hModule, MAKEINTRESOURCE(IDD_SHOWVAR), win7 ? NULL : GetConsoleWindow(), (DLGPROC)showvarDlgProc, (LPARAM)&mShowDlg);
+	SetEvent(hE);
+
 	ShowWindow(mHistDlg.hDlg,SW_SHOW);
 	mShowDlg.hList1 = GetDlgItem(mShowDlg.hDlg , IDC_LIST1);
 	HANDLE h = LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0);
@@ -922,7 +926,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	}
 }
 
-void xcom::echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar)
+void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 {
 	/*
 	c=10 '='
@@ -950,29 +954,29 @@ void xcom::echo(CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 		}
 		if (CAstSig::IsLooping(pnode)) return; // T_IF, T_FOR, T_WHILE
 		if (pvar->IsEmpty()) return;
-		if (CAstSig::IsTID(pnode))
-		{
-			p = pnode->alt;
-			if (pnode->child)
-				echo(pctx->Script.c_str(), pvar);
-			else if ( !pnode->next && (pvar->functionEvalRes) || CAstSig::IsCondition(p))
-			{
-				pctx->SetVar("ans", pvar);
-				echo("ans", pvar);
-			}
-			else if (p && CAstSig::IsCELL_STRUCT_pnode_TID_ARGS(pnode, p))
-			{
-				vector<string> parse;
-				str2vect(parse, pctx->Script.c_str(), "=+-*/@^#$%");
-				echo(parse.front().c_str(), pvar);
-			}
-			else
-				echo(pnode->str, pvar);
-		}
-		else
+		if (!pctx->lhs && depth==1)
 		{
 			pctx->SetVar("ans", pvar);
 			echo("ans", pvar);
+		}
+		else
+		{
+			if (CAstSig::IsTID(pnode))
+			{
+				p = pnode->alt;
+				if (pnode->child)
+					echo(pctx->Script.c_str(), pvar);
+				else if (p && CAstSig::IsCELL_STRUCT_pnode_TID_ARGS(pnode, p))
+				{
+					vector<string> parse;
+					str2vect(parse, pctx->Script.c_str(), "=+-*/@^#$%");
+					echo(parse.front().c_str(), pvar);
+				}
+				else
+					echo(pnode->str, pvar);
+			}
+			else
+				printf("unhandled case; type=%d, str=%s,dval=%f\n", pnode->type, pnode->str, pnode->dval);
 		}
 	}
 }
@@ -1012,26 +1016,27 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		pContext->Compute();
 		if (pTemp == NULL)
 			CDebugDlg::pAstSig = NULL;
+		int dt = 1;
 		if (CAstSig::IsBLOCK(pContext->pAst))
 		{
-			for (const AstNode *pp = pContext->pAst->next; pp; pp = pp->next)
+			for (const AstNode *pp = pContext->pAst->next; pp; pp = pp->next, dt++)
 			{
-				if (pp->next) // 47362898.html
-				{
+				if (pp->next) 
+				{// For a block statement, screen echoing applies only to the last item. The statements in the middle are not echoed regardless of suppress (;)
 					((AstNode *)pp)->suppress = true; 
-					echo(pContext, pp);
+					echo(dt, pContext, pp);
 				}
 				else
-					echo(pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); 
+					echo(dt, pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); 
 			}
 		}
 		else if (CAstSig::IsVECTOR(pContext->pAst) && pContext->pAst->alt && pContext->pAst->alt->type!=N_STRUCT) // pContext->pAst->alt is necessary to ensure that there's a vector on the LHS 
 		{
-			for (const AstNode *pp = pContext->pAst->alt; !pContext->pAst->suppress && pp; pp = pp->next)
-				echo(pContext, pp);
+			for (const AstNode *pp = pContext->pAst->alt; !pContext->pAst->suppress && pp; pp = pp->next, dt++)
+				echo(dt, pContext, pp);
 		}
 		else
-			echo(pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
+			echo(dt, pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
 		//if LHS is x(arg_list) or x(time_extraction), Sig is partial. This needs to the entire portion for plot window
 		if (CAstSig::IsTID(pContext->pAst) && pContext->pAst->alt && CAstSig::IsPortion(pContext->pAst->alt))
 		{
@@ -1703,26 +1708,13 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	string addp, emsg;
 	vector<string> tar;
 	int fs;
+	HWND hr = GetConsoleWindow();
 	char fullmoduleName[MAX_PATH], moduleName[MAX_PATH];
 	char drive[16], dir[256], ext[8], fname[MAX_PATH], buffer[MAX_PATH];
 
 	//	 _set_output_format(_TWO_DIGIT_EXPONENT);
 
-	INITCOMMONCONTROLSEX InitCtrls;
-	InitCtrls.dwICC = ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS; // ICC_LINK_CLASS will not work without common control 6.0 which I opted not to use
-	InitCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
-	BOOL bRet = InitCommonControlsEx(&InitCtrls);
-	cellviewdlg.push_back(&mShowDlg);
-
-	AllocConsole();
-	AttachConsole(ATTACH_PARENT_PROCESS);
-	SetConsoleCP(437);
-	SetConsoleOutputCP(437);
-
-	HWND hr = GetConsoleWindow();
-	HMENU hMenu = GetSystemMenu(hr, FALSE);
-	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
-	AppendMenu(hMenu, MF_STRING, 1010, "F1 does not work here. Use it in \"Settings & Variables\"");
+	hE = CreateEvent(NULL, 0, 0, "showvarThreadCreation");
 
 	HMODULE h = HMODULE_THIS;
 	GetModuleFileName(h, fullmoduleName, MAX_PATH);
@@ -1749,7 +1741,29 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	res = readINIs(iniFile, buf, fs, udfpath);
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	CAstSigEnv::AppPath = string(mainSpace.AppPath);
-	pglobalEnv->InitBuiltInFunctions();
+	HMENU hMenu = GetSystemMenu(hr, FALSE);
+	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
+	AppendMenu(hMenu, MF_STRING, 1010, "F1 does not work here. Use it in \"Settings & Variables\"");
+	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
+		::MessageBox(hr, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
+	if ((hHistoryThread = _beginthreadex(NULL, 0, histThread, (void*)mainSpace.AppPath, 0, NULL)) == -1)
+		::MessageBox(hr, "History Thread Creation Failed.", "AUXLAB mainSpace", 0);
+
+	INITCOMMONCONTROLSEX InitCtrls;
+	InitCtrls.dwICC = ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS; // ICC_LINK_CLASS will not work without common control 6.0 which I opted not to use
+	InitCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
+	BOOL bRet = InitCommonControlsEx(&InitCtrls);
+	cellviewdlg.push_back(&mShowDlg);
+
+	AllocConsole();
+	AttachConsole(ATTACH_PARENT_PROCESS);
+	SetConsoleCP(437);
+	SetConsoleOutputCP(437);
+
+
+	WaitForSingleObject(hE, INFINITE);
+	CloseHandle(hE);
+	pglobalEnv->InitBuiltInFunctions(hShowDlg);
 	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
 	CAstSig cast(pglobalEnv);
 
@@ -1757,11 +1771,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	if (strlen(udfpath) > 0 && udfpath[0] != ';') addp += ';';
 	addp += udfpath;
 	pglobalEnv->SetPath(addp.c_str());
-
-	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
-		::MessageBox(hr, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
-	if ((hHistoryThread = _beginthreadex(NULL, 0, histThread, (void*)mainSpace.AppPath, 0, NULL)) == -1)
-		::MessageBox(hr, "History Thread Creation Failed.", "AUXLAB mainSpace", 0);
 
 	freopen("CON", "w", stdout);
 	freopen("CON", "r", stdin);
