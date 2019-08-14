@@ -36,6 +36,10 @@ uintptr_t hHistoryThread(NULL);
 char udfpath[4096];
 HANDLE hEventModule;
 HANDLE hEventLastKeyStroke2Base;
+
+extern HANDLE hEventRecordingCallBack;
+
+
 uintptr_t hAuxconThread;
 
 vector<UINT> exc; // temp
@@ -657,6 +661,7 @@ void xcom::console()
 	while(1) 
 	{
 		buf[0] = 0;
+		WaitForSingleObject(hEventRecordingCallBack, INFINITE);
 		getinput(buf); // this is a holding line.
 		SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf), (LPARAM)buf);
 		trimLeft(buf,"\xff");
@@ -1594,17 +1599,20 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 			pcast->statusMsg.clear();
 		}
 	}
+	string line;
+	CONSOLE_SCREEN_BUFFER_INFO coninfo;
+	size_t res;
+	GetConsoleScreenBufferInfo(hStdout, &coninfo);
 	if (IsNowDebugging(pcast))
 	{
+		res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
+		if (res > 0) printf("\n");
 		mainSpace.comPrompt = DEBUG_PROMPT;
 		printf(mainSpace.comPrompt.c_str());
 	}
 	else
 	{
-		string line;
-		CONSOLE_SCREEN_BUFFER_INFO coninfo;
-		GetConsoleScreenBufferInfo(hStdout, &coninfo);
-		size_t res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
+		res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
 		if (res>0) printf("\n");
 		mainSpace.comPrompt = MAIN_PROMPT;
 		printf(mainSpace.comPrompt.c_str());

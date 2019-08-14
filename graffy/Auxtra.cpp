@@ -737,8 +737,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		{
 			CVar temp = past->Sig;
 			_figure(past, pnode, NULL, fnsigs);
-			auto itgcf = past->GOvars.find("gcf");
-			cfig = (CFigure *)itgcf->second.front();
+			cfig = (CFigure *)past->pgo;
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 			past->Sig = temp;
 			past->pgo = NULL;

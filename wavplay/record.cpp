@@ -47,6 +47,9 @@ static int len_threadIDs(0); // to track thread handle in the present thread (e.
 
 #define WM__STOP			WM_APP+715
 
+extern HANDLE hEventRecordingReady;
+extern HANDLE hEventRecordingProgress[2];
+
 class CWaveRecord
 {
 // inBufferLen, totalSamples, recordedSamples all indicate
@@ -183,6 +186,8 @@ void ThreadCapture(const record_param &p)
 	DWORD callbackThread = 0;
 	double tico = 0.;
 	int res;
+	int eventID = 0;
+	bool toggle = true;
 	int nextaction = 0; // 0 for nothing; 1 for error; 2 for graceful completion
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -219,7 +224,7 @@ void ThreadCapture(const record_param &p)
 			send2OnSoundEven.recordID = p.recordID;
 			send2OnSoundEven.duration = p.duration;
 			SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_OPEN); // send the opening status to the main application 
-				// if its multi-channel(i.e., stereo), inBufferLen must be multiple of nChan, otherwise left-right channels might be swapped around in the middle
+			// if its multi-channel(i.e., stereo), inBufferLen must be multiple of nChan, otherwise left-right channels might be swapped around in the middle
 			// block 0
 			pWP->setPlayPoint(pWP->wh[0], tico+=accum);
 			MMERRTHROW(waveInPrepareHeader(pWP->hwi, &pWP->wh[0], sizeof(WAVEHDR)), "waveInPrepareHeader")
@@ -228,6 +233,8 @@ void ThreadCapture(const record_param &p)
 			pWP->setPlayPoint(pWP->wh[1], tico += accum);
 			MMERRTHROW(waveInPrepareHeader(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInPrepareHeader")
 			MMERRTHROW(waveInAddBuffer(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInAddBuffer")
+			WaitForSingleObject(hEventRecordingReady, INFINITE);
+			CloseHandle(hEventRecordingReady);
 			MMERRTHROW(waveInStart(pWP->hwi), "waveOutRestart")
 			break;
 		case WIM_DATA:
@@ -248,10 +255,15 @@ void ThreadCapture(const record_param &p)
 				pWP->recordedSamples += send2OnSoundEven.len_buffer = pWP->totalSamples - pWP->recordedSamples;
 			else
 				pWP->recordedSamples = total;
+			toggle = !toggle;
+			eventID = toggle ? 0 : 1;
+			send2OnSoundEven.bufferID = pwh == &pWP->wh[0] ? 0 : 1;
 			if (!send2OnSoundEven.closing)
 				PostThreadMessage(callbackThread, WIM_DATA, (WPARAM)&send2OnSoundEven, 0);
 			if (pWP->recordedSamples < pWP->totalSamples)
 			{
+				WaitForSingleObject(hEventRecordingProgress[eventID], INFINITE);
+				ResetEvent(hEventRecordingProgress[eventID]);
 				pWP->setPlayPoint(*pwh, tico += accum);
 				MMERRTHROW(waveInPrepareHeader(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInPrepareHeader")
 				MMERRTHROW(waveInAddBuffer(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInAddBuffer")

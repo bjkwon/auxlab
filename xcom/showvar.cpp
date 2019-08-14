@@ -28,6 +28,10 @@
 
 HWND hLog;
 
+HANDLE hEventRecordingReady;
+HANDLE hEventRecordingProgress[2];
+HANDLE hEventRecordingCallBack;
+
 static bool stop_requested = false;
 
 #define WM__LOG	WM_APP+0x2020
@@ -75,6 +79,7 @@ char axlfullfname[_MAX_PATH], axlfname[_MAX_FNAME + _MAX_EXT];
 
 HWND CreateTT(HINSTANCE hInst, HWND hParent, RECT rt, char *string, int maxwidth=400);
 void closeXcom(const char *AppPath);
+size_t ReadThisLine(string &linebuf, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO coninfo0, SHORT thisline, size_t promptoffset);
 
 BOOL CALLBACK vectorsheetDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 BOOL AboutDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
@@ -1834,6 +1839,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	string emsg;
 	AstNode *pCallbackUDF;
 	DWORD thr = GetCurrentThreadId();
+	hEventRecordingCallBack = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_callback");
 	PostThreadMessage(pmsg->cbp.recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
 	double duration = pmsg->cbp.duration / 1000.; // in seconds
 	CVar *pvar_callbackinput = new CVar(1);
@@ -1861,6 +1867,14 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			//Do we really need to get the callback output for WIM_OPEN? Think of an alternative if so.
 			// 8/7/2019
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end(); it++)
+			{
+				if ((*it).second == pmsg->cbp.recordID)
+				{
+					(*it).second.strut["fs"].SetValue((double)pmsg->cbp.fs);
+					pmsg->parent->UpdateProp((*it).first, &(*it).second, "fs");
+				}
+			}
 		}
 		else
 		{
@@ -1872,14 +1886,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				throw emsg.c_str();
 			}
 		}
-		for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end(); it++)
-		{
-			if ((*it).second == pmsg->cbp.recordID)
-			{
-				(*it).second.strut["fs"].SetValue((double)pmsg->cbp.fs);
-				pmsg->parent->UpdateProp((*it).first, &(*it).second, "fs");
-			}
-		}
 	//	mutex mx;
 		CVar captured, captured2;
 		MSG msg;
@@ -1887,8 +1893,13 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		//fclose(fp);
 		bool loop = true;
 		//SYSTEMTIME lt;
+		SetEvent(hEventRecordingReady);
+		SetEvent(hEventRecordingProgress[1]);
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
+			int eventID = 0;
+			bool toggle = false;
+			callback_trasnfer_record copy_incoming;
 			switch (msg.message)
 			{
 			case WIM_DATA:
@@ -1909,12 +1920,17 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				pvar_callbackinput->strut["?data"] = captured;
 				pvar_callbackinput->strut["?index"].buf[0]++;
 			//	mx.lock();
+				copy_incoming.bufferID = precorder->bufferID;
+				copy_incoming.recordID = precorder->recordID;
+				copy_incoming.len_buffer = precorder->len_buffer;
 				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
-				for (map<string, CVar>::iterator it = pmsg->parent->pVars->begin(); it != pmsg->parent->pVars->end() && loop; it++)
+				eventID = copy_incoming.bufferID ? 0 : 1;
+				SetEvent(hEventRecordingProgress[eventID]);
+				for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
 				{
-					if ((*it).second == precorder->recordID)
+					if ((*it).second == copy_incoming.recordID)
 					{
-						(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * precorder->len_buffer / precorder->fs;
+						(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * copy_incoming.len_buffer / precorder->fs;
 						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durRec");
 						(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
 						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durLeft");
@@ -1924,18 +1940,26 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			//	mx.unlock();
 				if (stop_requested)
 				{
+					SetEvent(hEventRecordingCallBack);
 					if (pvar_callbackinput) delete pvar_callbackinput;
 					if (pvar_callbackoutput) delete pvar_callbackoutput;
+					pvar_callbackinput = NULL;
+					pvar_callbackoutput = NULL;
 					pmsg->parent->Fillup();
+					CloseHandle(hEventRecordingCallBack);
+					hEventRecordingCallBack = NULL;
 					return;
 				}
 				break;
 			case WIM_CLOSE:
+				SetEvent(hEventRecordingCallBack);
 				//	mx.lock();
 				if (pvar_callbackinput) delete pvar_callbackinput;
 				if (pvar_callbackoutput) delete pvar_callbackoutput;
 				pvar_callbackinput = NULL;
 				pvar_callbackoutput = NULL;
+				CloseHandle(hEventRecordingCallBack);
+				hEventRecordingCallBack = NULL;
 				break;
 			case WM__RECORDING_ERR:
 				pmsg->parent->MessageBox((char*)msg.wParam, "Audio device error (recording)", 0);
@@ -1945,6 +1969,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	}
 	catch (const char *estr)
 	{
+		SetEvent(hEventRecordingCallBack);
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 		char buffer[512];
@@ -1955,9 +1980,12 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		delete pvar_callbackinput;
 		// 2) close the thread
 		//end the two threads--one in wavplay and the other here as well.
+		CloseHandle(hEventRecordingCallBack);
+		hEventRecordingCallBack = NULL;
 		return;
 	}
 	catch (const CAstException &e) {
+		SetEvent(hEventRecordingCallBack);
 		const char *_errmsg = e.outstr.c_str();
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		pmsg->cbp.closing = true;
@@ -1970,7 +1998,37 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
 		CDebugDlg::pAstSig = NULL;
 		pmsg->parent->MessageBox(errmsg, "Audio record error");
+		CloseHandle(hEventRecordingCallBack);
+		hEventRecordingCallBack = NULL;
 		Back2BaseScope(0);
+	}
+	catch (CAstSig *ast)
+	{ // this was thrown by aux_HOOK
+		if (ast->u.debug.status == aborting)
+		{
+			EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
+			pmsg->cbp.closing = true;
+			delete pvar_callbackinput; pvar_callbackinput = NULL;
+			delete pvar_callbackoutput; pvar_callbackoutput = NULL;
+			PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
+			SetEvent(hEventRecordingCallBack);
+			CDebugDlg::pAstSig = NULL;
+			CAstSig::cleanup_nodes(ast);
+			CloseHandle(hEventRecordingCallBack);
+			hEventRecordingCallBack = NULL;
+			Back2BaseScope(0);
+
+			string line;
+			CONSOLE_SCREEN_BUFFER_INFO coninfo;
+			size_t res;
+			HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+			GetConsoleScreenBufferInfo(hStdout, &coninfo);
+			res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
+//			coninfo.dwCursorPosition.Y--;
+			SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
+			mainSpace.comPrompt = MAIN_PROMPT;
+			printf(mainSpace.comPrompt.c_str());
+		}
 	}
 }
 
@@ -1996,12 +2054,17 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 		car->pcast = pcast;
 		car->parent = this;
 		EnableDlgItem(hDlg, IDC_STOP2, 1);
+		hEventRecordingReady = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_begin");
+		hEventRecordingProgress[0] = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_prog1");
+		hEventRecordingProgress[1] = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_prog1");
 		thread recordingThread(AudioCapture, move(car));
 		recordingThread.detach();
 	}
 	else if (code == WIM_CLOSE)
 	{
-		if (pcast->lhs->type == N_VECTOR && pcast->lhs->alt->next)
+		SetEvent(hEventRecordingCallBack);
+		CloseHandle(hEventRecordingCallBack);
+		hEventRecordingCallBack = NULL;		if (pcast->lhs->type == N_VECTOR && pcast->lhs->alt->next)
 		{
 			pcast->Vars[pcast->lhs->alt->next->str].strut["active"] = CVar(0.);
 		}

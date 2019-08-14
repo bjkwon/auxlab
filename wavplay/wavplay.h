@@ -39,6 +39,7 @@ typedef struct
 	short devID;
 	short nChans;
 	bool closing = 0;
+	bool bufferID = 0;
 	DWORD recordingThread;
 	DWORD recordID;
 	int fs;
