@@ -1833,6 +1833,17 @@ typedef struct {
 
 //#include <mutex>
 
+void cleanup_recording(CVar **pvar_callbackinput, CVar **pvar_callbackoutput)
+{ 
+	SetEvent(hEventRecordingCallBack);
+	if (*pvar_callbackinput) delete *pvar_callbackinput;
+	if (*pvar_callbackoutput) delete *pvar_callbackoutput;
+	*pvar_callbackinput = NULL;
+	*pvar_callbackoutput = NULL;
+	CloseHandle(hEventRecordingCallBack);
+	hEventRecordingCallBack = NULL;
+}
+
 void AudioCapture(unique_ptr<carrier> pmsg)
 {
 	stop_requested = false;
@@ -1886,11 +1897,8 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				throw emsg.c_str();
 			}
 		}
-	//	mutex mx;
 		CVar captured, captured2;
 		MSG msg;
-		//FILE *fp = fopen("mutex.txt", "wt");
-		//fclose(fp);
 		bool loop = true;
 		//SYSTEMTIME lt;
 		SetEvent(hEventRecordingReady);
@@ -1919,7 +1927,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
 				pvar_callbackinput->strut["?data"] = captured;
 				pvar_callbackinput->strut["?index"].buf[0]++;
-			//	mx.lock();
 				copy_incoming.bufferID = precorder->bufferID;
 				copy_incoming.recordID = precorder->recordID;
 				copy_incoming.len_buffer = precorder->len_buffer;
@@ -1937,29 +1944,14 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 						loop = false;
 					}
 				}
-			//	mx.unlock();
 				if (stop_requested)
 				{
-					SetEvent(hEventRecordingCallBack);
-					if (pvar_callbackinput) delete pvar_callbackinput;
-					if (pvar_callbackoutput) delete pvar_callbackoutput;
-					pvar_callbackinput = NULL;
-					pvar_callbackoutput = NULL;
-					pmsg->parent->Fillup();
-					CloseHandle(hEventRecordingCallBack);
-					hEventRecordingCallBack = NULL;
+					cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 					return;
 				}
 				break;
 			case WIM_CLOSE:
-				SetEvent(hEventRecordingCallBack);
-				//	mx.lock();
-				if (pvar_callbackinput) delete pvar_callbackinput;
-				if (pvar_callbackoutput) delete pvar_callbackoutput;
-				pvar_callbackinput = NULL;
-				pvar_callbackoutput = NULL;
-				CloseHandle(hEventRecordingCallBack);
-				hEventRecordingCallBack = NULL;
+				cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 				break;
 			case WM__RECORDING_ERR:
 				pmsg->parent->MessageBox((char*)msg.wParam, "Audio device error (recording)", 0);
