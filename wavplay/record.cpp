@@ -364,6 +364,7 @@ int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChan
 		carrier.msgID = userDefinedMsgID;
 		carrier.callback = callbackname;
 		carrier.recordID = recordID;
+		carrier.devID = DevID;
 
 		thread recordingThread(ThreadCapture, carrier);
 

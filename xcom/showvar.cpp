@@ -1444,7 +1444,8 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	CWndDlg * arrayview;
 	CVar sigVarname;
 	CVar *psig(NULL);
-	if (changed) Fillup(); 
+	if (changed) 
+		Fillup(); 
 	int type(0);
 	HWND hWndPlot = NULL;
 	bool multiGO(false);
@@ -1594,6 +1595,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 		break;
 	case LVN_KEYDOWN:
 		lvnkeydown = (LPNMLVKEYDOWN)lParam;
+		varname[0] = 0;
 		ListView_GetItemText(lvnkeydown->hdr.hwndFrom, ListView_GetSelectionMark(lvnkeydown->hdr.hwndFrom), 0, varname, 256);
 		if (this != &mShowDlg)
 			GetWindowText(title);
@@ -1604,7 +1606,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 			if (pVars->find(pvarname) == pVars->end())
 			{
 				ClearVar(pvarname);
-				Fillup(); // why is this needed? 11/23/2018
+				Fillup(); // why is this needed? 11/23/2018. probably it is 8/15/2019
 				break;
 			}
 			psig = &(*pVars)[pvarname];
@@ -1859,6 +1861,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	if (pmsg->cbp.nChans > 1)
 		pvar_callbackoutput->SetNextChan(new CVar);
 	int fs = pmsg->cbp.fs;
+	bool loop=true, finiteDur;
 	callback_trasnfer_record * precorder = NULL;
 	try {
 		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, pmsg->cbp.callbackfilename))
@@ -1873,17 +1876,16 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				}
 			}
 			pvar_callbackinput->strut["?index"].SetValue(0.);
-
-			//if this was on, pvar_callbackoutput->next is cleared, which is a problem for a stereo signal
-			//Do we really need to get the callback output for WIM_OPEN? Think of an alternative if so.
-			// 8/7/2019
+			finiteDur = pmsg->cbp.duration > 0;
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
-			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end(); it++)
+			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
 			{
 				if ((*it).second == pmsg->cbp.recordID)
 				{
 					(*it).second.strut["fs"].SetValue((double)pmsg->cbp.fs);
 					pmsg->parent->UpdateProp((*it).first, &(*it).second, "fs");
+					if (!finiteDur)	(*it).second.strut["durLeft"].SetValue(0.);
+					loop = false;
 				}
 			}
 		}
@@ -1899,8 +1901,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		}
 		CVar captured, captured2;
 		MSG msg;
-		bool loop = true;
-		//SYSTEMTIME lt;
 		SetEvent(hEventRecordingReady);
 		SetEvent(hEventRecordingProgress[1]);
 		while (GetMessage(&msg, NULL, 0, 0))
@@ -1915,6 +1915,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				// Create a CVar variable with the captured data.
 				// First, transfer captured wave buffer to buf of the CVar variable.
 				precorder = (callback_trasnfer_record*)msg.wParam;
+				finiteDur = precorder->duration > 0;
 				captured.SetFs((int)fs);
 				captured.UpdateBuffer(precorder->len_buffer);
 				if (pvar_callbackoutput->next) {
@@ -1930,17 +1931,22 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				copy_incoming.bufferID = precorder->bufferID;
 				copy_incoming.recordID = precorder->recordID;
 				copy_incoming.len_buffer = precorder->len_buffer;
+				copy_incoming.fs = precorder->fs;
 				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
 				eventID = copy_incoming.bufferID ? 0 : 1;
 				SetEvent(hEventRecordingProgress[eventID]);
+				loop = true;
 				for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
 				{
 					if ((*it).second == copy_incoming.recordID)
 					{
-						(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * copy_incoming.len_buffer / precorder->fs;
+						(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * copy_incoming.len_buffer / copy_incoming.fs;
 						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durRec");
-						(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
-						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durLeft");
+						if (finiteDur)
+						{
+							(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
+							pmsg->parent->UpdateProp((*it).first, &(*it).second, "durLeft");
+						}
 						loop = false;
 					}
 				}
@@ -1961,28 +1967,22 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	}
 	catch (const char *estr)
 	{
-		SetEvent(hEventRecordingCallBack);
+		cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 		char buffer[512];
 		sprintf (buffer, "%s%s.aux", estr, pmsg->cbp.callbackfilename);
 		pmsg->parent->MessageBox(buffer, "Audio record error");
 		// callback not found; 1) delete pvar_callbackinput
-		delete pvar_callbackoutput;
-		delete pvar_callbackinput;
 		// 2) close the thread
 		//end the two threads--one in wavplay and the other here as well.
-		CloseHandle(hEventRecordingCallBack);
-		hEventRecordingCallBack = NULL;
 		return;
 	}
 	catch (const CAstException &e) {
-		SetEvent(hEventRecordingCallBack);
+		cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 		const char *_errmsg = e.outstr.c_str();
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		pmsg->cbp.closing = true;
-		delete pvar_callbackinput; pvar_callbackinput = NULL;
-		delete pvar_callbackoutput; pvar_callbackoutput = NULL;
 		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 		bool gotobase = false;
 		if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
@@ -1990,33 +1990,25 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
 		CDebugDlg::pAstSig = NULL;
 		pmsg->parent->MessageBox(errmsg, "Audio record error");
-		CloseHandle(hEventRecordingCallBack);
-		hEventRecordingCallBack = NULL;
 		Back2BaseScope(0);
 	}
 	catch (CAstSig *ast)
-	{ // this was thrown by aux_HOOK
+	{
 		if (ast->u.debug.status == aborting)
 		{
+			cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 			EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 			pmsg->cbp.closing = true;
-			delete pvar_callbackinput; pvar_callbackinput = NULL;
-			delete pvar_callbackoutput; pvar_callbackoutput = NULL;
 			PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
-			SetEvent(hEventRecordingCallBack);
 			CDebugDlg::pAstSig = NULL;
 			CAstSig::cleanup_nodes(ast);
-			CloseHandle(hEventRecordingCallBack);
-			hEventRecordingCallBack = NULL;
 			Back2BaseScope(0);
 
 			string line;
 			CONSOLE_SCREEN_BUFFER_INFO coninfo;
-			size_t res;
 			HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 			GetConsoleScreenBufferInfo(hStdout, &coninfo);
-			res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
-//			coninfo.dwCursorPosition.Y--;
+			size_t res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
 			SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
 			mainSpace.comPrompt = MAIN_PROMPT;
 			printf(mainSpace.comPrompt.c_str());
@@ -2283,7 +2275,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 	switch (pvar->GetType())
 	{
 	case CSIG_STRING:
-		strcpy(outbuf, pvar->string().c_str());
+		sprintf(outbuf, "\"%s\"", pvar->string().c_str());
 		break;
 	case CSIG_EMPTY:
 		sprintf(outbuf, "----");

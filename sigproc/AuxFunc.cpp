@@ -841,6 +841,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		past->pEnv->Fs = newfs;
 		sformat(past->statusMsg, "(NOTE)Sample Rate of AUXLAB Environment is adjusted to %d Hz.", past->pEnv->Fs);
 	}
+	past->Sig.strut["fs"] = CVar((double)newfs);
 	past->Sig.Reset(); // to shield the first LHS variable (callback output) from Sig
 }
 void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
