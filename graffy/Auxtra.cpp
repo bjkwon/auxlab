@@ -40,6 +40,19 @@ double blocksize;
 
 bool isWin7();
 
+int IsNamedPlot(HWND hwnd)
+{ // returns 1 if it is named plot
+  // 0 if it is not
+  // -1 if hwnd doesn't represent CFigure
+	CVar *p = (CVar*)FindFigure(hwnd);
+	if (!p) return -1;
+	char title[256];
+	GetWindowText(hwnd, title, 255);
+	if (!strncmp(title, "Figure ", 7))
+		return 0;
+	return 1;
+}
+
 int getmonitorheight (HWND hDlg)
 {
 	HMONITOR monitor = MonitorFromWindow(hDlg, MONITOR_DEFAULTTONEAREST);
@@ -461,7 +474,9 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	in.threadCaller = GetCurrentThreadId();
 	in.hWndAppl = hWndApp;
 	CFigure * cfig = (CFigure *)OpenGraffy(in);
-	past->SetVar("gcf", cfig);
+	past->SetVar("?foc", cfig);
+	if (!IsNamedPlot(cfig->m_dlg->hDlg))
+		past->SetVar("gcf", cfig);
 	static char buf[64];
 	cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 	PostMessage(hWndApp, WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
@@ -693,18 +708,20 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		bool newFig = false;
 		if (!pgo)
 		{
-			auto itgcf = past->GOvars.find("gcf");
-			if (itgcf != past->GOvars.end() && past->GOvars["gcf"].front()->GetFs() != 2)
-			{ // gcf found AND it is not a named plot
-				if (past->GOvars["gcf"].front()->struts["gca"].empty())
-				{// no axes present; create one.
-					cfig = (CFigure *)FindFigure(past->GOvars["gcf"].front());
-					cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-				}
-				else
+			CVar *pgcf = past->GetVariable("gcf");
+			if (pgcf)
+			{ 
+				cfig = (CFigure *)pgcf;
+//				if (!IsNamedPlot(cfig->m_dlg->hDlg)) // this is always true; gcf exists only for unnamed plots 8/15/2019
 				{
-					cax = (CAxes *)FindGObj(past->GOvars["gcf"].front()->struts["gca"].front());
+					// gcf found AND it is not a named plot
+					if (cfig->struts["gca"].empty()) // no axes present; create one.
+						cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+					else // use existing axes 
+						cax = (CAxes *)FindGObj(cfig->struts["gca"].front());
 				}
+//				else
+//					newFig = true;
 			}
 			else
 				newFig = true;
@@ -751,7 +768,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		if (isPlot)
 		{
 			//if there's existing line in the specified axes
-			if (!cfig && cax->strut["nextplot"] == string("replace"))
+			if (!newFig && cax->strut["nextplot"] == string("replace"))
 			{
 				cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
 				cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();

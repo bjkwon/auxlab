@@ -215,7 +215,7 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 			{ // p->type should be N_STRUCT
 				//if a member item p->str is available, level.psigBase is the pointer to that item
 				//if the item is not available, level.psigBase is the pointer to the base
-				if (level.psigBase->IsEmpty() || level.psigBase->IsStruct())
+				if (level.psigBase->IsStruct())
 				{// a.var_not_existing = RHS --> existing Sig is ignored and a new one comes in from Compute(pRHS)
 					if (tsig.GetFs()!=3)
 					{

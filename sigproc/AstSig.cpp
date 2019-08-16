@@ -36,11 +36,8 @@ CAstSig::play_block_ms = 0;
 vector<CAstSig*> xscope;
 extern HWND hShowDlg;
 
-
 #define PRINTLOG(FNAME,STR) \
 { FILE*__fp=fopen(FNAME,"at"); fprintf(__fp,STR);	fclose(__fp); }
-
-void UpdateGO(CAstSig &ast, CVar &Sig);
 
 void dummy_fun1(CAstSig *a, DEBUG_STATUS b, int line)
 {
@@ -70,6 +67,8 @@ void dummy_fun7(CAstSig *a, const char *b, CVar c)
 {
 }
 
+map<string, vector<CVar *>> glovar_dummy; // need some kind of global definition
+map<string, vector<CVar *>> CAstSigEnv::glovar = glovar_dummy;
 
 #ifndef LINK_STATIC_SIGPROC
 HMODULE hDllModule;
@@ -619,6 +618,8 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	son->lhs = lhs;
 	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
+	if (GOvars.find("?foc") != GOvars.end()) son->GOvars["?foc"] = GOvars["?foc"];
+	if (GOvars.find("gcf") != GOvars.end())	son->GOvars["gcf"] = GOvars["gcf"];
 	auto itUDF = pEnv->udf.find(pCalling->str);
 	if (itUDF != pEnv->udf.end())
 	{
@@ -724,6 +725,8 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 			u.debug.status = progress;
 	}
 	fpmsg.RepaintGO(son);
+	if (son->GOvars.find("?foc") != son->GOvars.end()) GOvars["?foc"] = son->GOvars["?foc"];
+	if (son->GOvars.find("gcf") != son->GOvars.end()) GOvars["gcf"] = son->GOvars["gcf"];
 	delete son;
 	son = NULL;
 	u.pLastRead = NULL;
@@ -1401,7 +1404,10 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 	string namefrompnode = pnode4Func->str;
 	transform(namefrompnode.begin(), namefrompnode.end(), namefrompnode.begin(), ::tolower);
 	if (namefrompnode != udf_filename) // pnode4Func is NULL for local function call and it will crash.....8/1/
+	{
+		pEnv->udf.erase(pEnv->udf.find(p->str));
 		throw ExceptionMsg(p, "inconsistent function name", string(string(string(udf_filename) + " vs ") + pnode4Func->str).c_str());
+	}
 
 	pEnv->udf[udf_filename].pAst = pnode4Func;	
 	pEnv->udf[udf_filename].fullname = fullfilename;
@@ -1966,6 +1972,55 @@ vector<CVar> CAstSig::Compute(void)
 	}
 }
 
+CAstSig &CAstSig::SetGloVar(const char *name, CVar *psig, CVar *pBase)
+{
+	if (!pBase) // top scope
+	{
+		map<string, vector<CVar*>>::iterator jt = CAstSigEnv::glovar.find(name);
+		if (jt != CAstSigEnv::glovar.end())  CAstSigEnv::glovar.erase(jt);
+		if (psig->IsGO())
+		{
+			if (!strcmp(name, "gca") || !strcmp(name, "gcf"))
+				CAstSigEnv::glovar[name].clear();
+			if (psig->GetFs() == 3)
+			{
+				if (psig->nSamples == 1)
+				{
+					psig = (CVar*)(INT_PTR)psig->value();
+					CAstSigEnv::glovar[name].push_back(psig);
+				}
+				else
+					for (unsigned int k = 0; k < psig->nSamples; k++)
+						CAstSigEnv::glovar[name].push_back((CVar*)(INT_PTR)psig->buf[k]);
+			}
+			else
+				CAstSigEnv::glovar[name].push_back(psig);
+		}
+		else // name and psig should be fed to Var
+		{
+			CVar *pTemp = new CVar;
+			*pTemp = *psig;
+			CAstSigEnv::glovar[name].push_back(pTemp);
+		}
+	}
+	else
+	{
+		if (psig->IsGO()) // name and psig should be fed to struts
+		{
+			pBase->struts[name].push_back(psig);
+			auto it = pBase->strut.find(name);
+			if (it != pBase->strut.end()) pBase->strut.clear();
+		}
+		else // name and psig should be fed to strut
+		{
+			pBase->strut[name] = *psig;
+			auto jt = pBase->struts.find(name);
+			if (jt != pBase->struts.end())  pBase->struts[name].clear();
+		}
+	}
+	return *this;
+}
+
 CVar *CAstSig::MakeGOContainer(vector<INT_PTR> GOs)
 {
 	CVar *pout(NULL);
@@ -1991,7 +2046,7 @@ CVar *CAstSig::MakeGOContainer(vector<CVar *> GOs)
 }
 
 CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar)
-{
+{ // tidy up 8/15/2019
 	if (!varname)
 		throw ExceptionMsg(pAst, "Internal error--varname not specified in GetGlobalVariable()");
 	if (pvar)
@@ -2007,12 +2062,12 @@ CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar
 		}
 		else 
 		{
-			map<string, vector<CVar*>>::iterator jt = pEnv->glovar.find(varname);
-			if (jt == pEnv->glovar.end()) 
+			map<string, vector<CVar*>>::iterator jt = CAstSigEnv::glovar.find(varname);
+			if (jt == CAstSigEnv::glovar.end())
 				return NULL;
 			if ((*jt).second.front()->IsGO())
 			{
-				return GetGloGOVariable(varname, pvar);
+				return NULL; // just for now 8/16/2019
 			}
 			else
 			{
@@ -2021,31 +2076,6 @@ CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar
 		}
 	}
 	return &Sig;
-}
-
-CVar *CAstSig::GetGloGOVariable(const char *varname, CVar *pvar)
-{ // To retrieve a GO variable. 
-  // For a single element, returns its pointer
-  // For a array GO, create a container showing the pointers of the elements and return its pointer
-	try {
-		CVar *pout(NULL);
-		vector<CVar *> GOs;
-		if (pvar)
-			GOs = pvar->struts.at(varname); // invalid, this won't work. 1/30/2019
-		else
-			GOs = pEnv->glovar.at(varname);
-		// If the retrieved GOs is a size of 1, return the front element pointer 
-		// OK to return it even if the retrieved GOs is a GO container
-		if (GOs.size() == 1)
-			return GOs.front();
-		//return the newly created container for multiple GOs
-		return MakeGOContainer(GOs);
-	}
-	catch (out_of_range oor)
-	{
-		return NULL;
-//		throw ExceptionMsg(pAst, "Internal error--GetGloGOVariable() should be called when global variable is sure to exist in pEnv->glovar");
-	}
 }
 
 CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
@@ -2818,55 +2848,6 @@ CAstSig &CAstSig::Reset(const int fs, const char* path)
 	if (path)	pEnv->AuxPath=path; // I don't know if this might cause a trouble.
 	if (fs > 1)
 		pEnv->Fs = fs;
-	return *this;
-}
-
-CAstSig &CAstSig::SetGloVar(const char *name, CVar *psig, CVar *pBase)
-{
-	if (!pBase) // top scope
-	{
-		map<string, vector<CVar*>>::iterator jt = pEnv->glovar.find(name);
-		if (jt != pEnv->glovar.end())  pEnv->glovar.erase(jt);
-		if (psig->IsGO())
-		{
-			if (!strcmp(name, "gca") || !strcmp(name, "gcf"))
-				pEnv->glovar[name].clear();
-			if (psig->GetFs() == 3)
-			{
-				if (psig->nSamples == 1)
-				{
-					psig = (CVar*)(INT_PTR)psig->value();
-					pEnv->glovar[name].push_back(psig);
-				}
-				else
-					for (unsigned int k = 0; k < psig->nSamples; k++)
-						pEnv->glovar[name].push_back((CVar*)(INT_PTR)psig->buf[k]);
-			}
-			else
-				pEnv->glovar[name].push_back(psig);
-		}
-		else // name and psig should be fed to Var
-		{
-			CVar *pTemp = new CVar;
-			*pTemp = *psig;
-			pEnv->glovar[name].push_back(pTemp);
-		}
-	}
-	else
-	{
-		if (psig->IsGO()) // name and psig should be fed to struts
-		{
-			pBase->struts[name].push_back(psig);
-			auto it = pBase->strut.find(name);
-			if (it != pBase->strut.end()) pBase->strut.clear();
-		}
-		else // name and psig should be fed to strut
-		{
-			pBase->strut[name] = *psig;
-			auto jt = pBase->struts.find(name);
-			if (jt != pBase->struts.end())  pBase->struts[name].clear();
-		}
-	}
 	return *this;
 }
 

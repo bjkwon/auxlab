@@ -180,15 +180,15 @@ LRESULT CALLBACK HookProc2(int code, WPARAM wParam, LPARAM lParam)
 	return CallNextHookEx(NULL, code, wParam, lParam);
 }
 
-void SetGlovar(CVar *cfig)
-{
-	auto jt = xscope.front()->pEnv->glovar.find("gcf");
-	if (jt != xscope.front()->pEnv->glovar.end())
-	{
-		(*jt).second.clear();
-	}
-	xscope.front()->pEnv->glovar["gcf"].push_back(cfig);
-}
+//void SetGlovar(CVar *cfig)
+//{
+//	auto jt = xscope.front()->pEnv->glovar.find("gcf");
+//	if (jt != xscope.front()->pEnv->glovar.end())
+//	{
+//		(*jt).second.clear();
+//	}
+//	xscope.front()->pEnv->glovar["gcf"].push_back(cfig);
+//}
 
 BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
@@ -282,6 +282,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 	int type = psig->GetType();
 	HWND hPlot = varname2HWND(varname);
 	CGobj * hobj = (CGobj *)FindFigure(hPlot);
+	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 	if (!hobj)
 	{
 		if (psig->IsGO())
@@ -295,7 +296,9 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			plotlines = PlotCSignals(AddAxes(cfig, .08, .18, .86, .72), NULL, psig, -1);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 			//For the global variable $gcf, updated whether or not this is named plot.
-			SetGlovar((CVar*)cfig);
+			xscope.at(res)->SetVar("?foc", cfig);
+			if (!IsNamedPlot(hPlot))
+				xscope.at(res)->SetVar("gcf", cfig);
 			if (psig->next)
 			{
 				On_F2(hDlg, pcast);
@@ -418,47 +421,36 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	psig->next = pChan2;
 }
 
-
 LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 {
 	static char varname[256];
 	CVar *pgcfNew, *psig;
 	MSG *pmsg = (MSG*)lParam;
+	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 	switch (code)
 	{
 	case HC_ACTION:
 		if ((pmsg->message >= WM_NCLBUTTONDOWN && pmsg->message <= WM_NCMBUTTONDBLCLK) || ((pmsg->message >= WM_LBUTTONDOWN && pmsg->message <= WM_MBUTTONDBLCLK)))
 		{
-			//Things about how to consolidate this with case WM_GCF_UPDATED: in showvarDlg()
-			//Seems like this is better approach because it checks the scope and update gcf accordingly... 
-			//But in fact gcf should be a global, environmental variable for AUXLAB, so maybe it's better not to think about the scope... 8/17/2017 bjk
 			pgcfNew = (CVar*)FindFigure(pmsg->hwnd);
 			//what is the current workspace? Let's find out from IDC_DEBUGSCOPE
-			LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 			if (pgcfNew)
 			{
 				//For the global variable $gcf, updated whether or not this is named plot.
-				SetGlovar(pgcfNew);
-				string vam;
-				if (xscope.at(res)->GetVariable("gcf", vam) != pgcfNew)
-				{
-					//For the regular variable gcf, updated only if this is not named plot.
-					if (pgcfNew->GetFs() != 2)
-					{
-						xscope.at(res)->SetVar("gcf", pgcfNew);
-						mShowDlg.Fillup();
-					}
-				}
+				xscope.at(res)->SetVar("?foc", pgcfNew);
+				if (!IsNamedPlot(pmsg->hwnd))
+					xscope.at(res)->SetVar("gcf", pgcfNew);
+				mShowDlg.Fillup();
 			}
 		} 
 		else if (pmsg->message == WM_KEYDOWN)
 		{
 			if (pmsg->wParam == VK_F2)
 			{
-				map<string, vector<CVar*>>::iterator jt = xscope.front()->pEnv->glovar.find("gcf");
-				if (jt != xscope.front()->pEnv->glovar.end())
+				CVar *pgcf = xscope.at(res)->GetVariable("?foc");
+				if (pgcf)
 				{ // ax must be dual; else ax must have two line objects
-					auto chvector = (*jt).second.front()->struts["children"];
+					auto chvector = pgcf->struts["children"];
 					size_t nAxes = chvector.size();
 					size_t nLines=0;
 					bool FFTpaxExists = false;
@@ -470,12 +462,12 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 							FFTpaxExists = true;
 					}
 					if (FFTpaxExists) 
-						ViewSpectrum((*jt).second.front());
+						ViewSpectrum(pgcf);
 					if (nAxes ==2 ||
 						(nAxes == 1 && nLines ==2) )
 						On_F2(pmsg->hwnd, xscope.front());
 					if (FFTpaxExists) 
-						ViewSpectrum((*jt).second.front());
+						ViewSpectrum(pgcf);
 				}
 			}
 		}
@@ -633,14 +625,6 @@ BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 		cvDlg->OnNotify(hDlg, (int)(wParam), lParam);
 		break;
 
-	case WM_GCF_UPDATED:
-	{
-		//CSignals gcf;
-		//GetFigID((HANDLE)wParam, gcf);
-		//cvDlg->pcast->SetVar("gcf", gcf);
-		//cvDlg->OnCommand(IDC_REFRESH, NULL, 0);
-		break;
-	}
 	case WM_DEBUG_CLOSE:
 		if (dbmap.find((char*)wParam)!=dbmap.end())
 		{
@@ -854,7 +838,10 @@ void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
 	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 	string vam;
-	SetGlovar(xscope.at(res)->GetVariable("gcf",vam));
+	// do I need to update gcf for all xcope members?
+//	SetGlovar(xscope.at(res)->GetVariable("gcf",vam));
+	// do I need to update gcf for all xcope members?
+
 	//It's better to update gcf before WM__PLOTDLG_CREATED is posted
 	//that way, environment context can be set properly (e.g., main or inside CallSub)
 	//4/24/2017 bjkwon
@@ -902,7 +889,9 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 		{
 			if (Is_A_Ancestor_of_B(p, (*it).second.front()))
 			{
-				(*pVars)[(*it).first] = dummy;
+				//the govariable gcf or ?foc is not transferred to Vars; just remove them from the scope
+				if (it->first!="gcf" && it->first != "?foc")
+					(*pVars)[(*it).first] = dummy;
 				varname2delete.push_back((*it).first);
 				it = pGOvars->erase(it);
 			}
@@ -1452,7 +1441,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	vector<int> selectState;// This is the placeholder for select state used exclusively for mShowDlg, to use to get non-consecutively selected rows. Probably there are easier features already available if I was using .NET or C# 7/11/2016
 	map<string, CVar> *pvars(NULL);
 	map<string, vector<CVar*>> *pgovars(NULL);
-	CGobj * hobj;
+	CGobj * hobj=NULL;
 
 	switch(code)
 	{
@@ -1603,21 +1592,26 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 		{	
 			if (varname[0] == '.') pvarname = varname + 1;
 			else pvarname = varname;
-			if (pVars->find(pvarname) == pVars->end())
+			if (pVars->find(pvarname) == pVars->end() && strcmp(varname,"gcf"))
 			{
 				ClearVar(pvarname);
 				Fillup(); // why is this needed? 11/23/2018. probably it is 8/15/2019
 				break;
 			}
-			psig = &(*pVars)[pvarname];
-			type = psig->GetType();
-			hWndPlot = varname2HWND(varname);
-			hobj = (CGobj *)FindFigure(hWndPlot);
+			if (strcmp(varname, "gcf"))
+			{
+				psig = &(*pVars)[pvarname];
+				type = psig->GetType();
+				hWndPlot = varname2HWND(varname);
+				hobj = (CGobj *)FindFigure(hWndPlot);
+			}
 			switch(lvnkeydown->wVKey)
 			{
 				CWndDlg *dlg;
 			case VK_DELETE: // $$231109 4/25/2017
-				if (hobj)
+				if (!strcmp(varname, "gcf"))
+					CAstSigEnv::glovar.erase(CAstSigEnv::glovar.find("gcf"));
+				else if (hobj)
 				{
 					OnPlotDlgDestroyed(varname, hWndPlot);
 					deleteObj(hobj);
@@ -2334,7 +2328,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 			if (pvar->IsString())
 				sprintf(outbuf, "\"%s\" [Graphic]", pvar->string().c_str());
 			else
-				sprintf(outbuf, "%.0lf [Graphic]", pvar->valuestr().c_str()); // this should be %s ... check 7/28/2019
+				sprintf(outbuf, "[%s] [Graphic]", pvar->valuestr().c_str()); // this should be %s ... check 7/28/2019
 		}
 		else if (pvar->IsAudioObj())
 			sprintf(outbuf, "%s [Audio handle]", pvar->valuestr().c_str());
@@ -2482,6 +2476,8 @@ void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)
 		}
 		else
 		{
+			if (gos.front()->IsGO())
+				strout = '{';
 			if (gos.front()->GetType() == CSIG_HDLARRAY)
 			{ // This is used when a CSIG_HDLARRAY variable is used (either as a function or made through concatenation or something like that)
 				for (unsigned int k = 0; k < gos.front()->nSamples && k < 10; k++)
@@ -2499,7 +2495,15 @@ void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)
 			}
 		}
 		if (gos.front()->nSamples>10) strout += "...";
-		else { trim(strout, ' '); 	strout += ']'; }
+		else {
+			trim(strout, ' ');
+			{
+				if (gos.front()->IsGO()) 
+					strout += '}';
+				else
+					strout += ']';
+			}
+		}
 	}
 	sprintf(buf, "%s", strout.c_str());
 	LvItem.pszText = buf;

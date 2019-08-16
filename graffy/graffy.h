@@ -336,7 +336,7 @@ GRAPHY_EXPORT vector<DWORD> Colormap(BYTE head, char lh, char rc, int nItems);
 
 vector<double> makefixtick(double _x1, double _x2, int count);
 
-
+int IsNamedPlot(HWND hwnd);
 
 GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);

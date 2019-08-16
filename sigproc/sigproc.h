@@ -108,7 +108,6 @@ public:
 	vector<CSignals *> out;
 private:
 	void makeOutStr();
-	void genString();
 };
 
 class UDF
@@ -140,15 +139,15 @@ class CAstSigEnv
 {
 public:
 	static string AppPath;
+	static map<string, vector<CVar *>> glovar;
+	static map<string, Cfunction> pseudo_vars;
 	map<string, UDF> udf;
 	int Fs;
 	int curLine; // used for control F10
-	map<string, vector<CVar *>> glovar;
 	string AuxPath;
 	bool shutdown;
 	void InitBuiltInFunctions(HWND h);
 	void InitBuiltInFunctionsExt(const char *dllname);
-	map<string, Cfunction> pseudo_vars;
 	map<string, Cfunction> builtin;
 
 	CAstSigEnv(const int fs = 1);
@@ -266,7 +265,7 @@ public:
 	CAstSigEnv *pEnv;
 	CUDF u;
 	CVar *GetGOVariable(const char *varname, CVar *pvar = NULL);
-	CVar *GetGloGOVariable(const char *varname, CVar *pvar);
+	CVar *GetGloGOVariable(const char *varname, CVar *pvar = NULL);
 	CVar *MakeGOContainer(vector<CVar *> GOs);
 	CVar *MakeGOContainer(vector<INT_PTR> GOs);
 	vector<CSignals> outarg;

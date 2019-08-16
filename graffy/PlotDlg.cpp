@@ -1097,9 +1097,9 @@ void CPlotDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 
 void CPlotDlg::SetGCF()
 {
-	CVar *pgcf = (CVar*)FindFigure(hDlg);
-	if (pgcf)
-		pctx->SetVar("gcf", pgcf);
+	//CVar *pgcf = (CVar*)FindFigure(hDlg);
+	//if (pgcf)
+	//	pctx->SetVar("gcf", pgcf);
 }
 
 void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point) 

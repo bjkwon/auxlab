@@ -41,6 +41,8 @@
 #include "lame_bj.h"
 
 string CAstSigEnv::AppPath = "";
+map<string, Cfunction> dummy_pseudo_vars;
+map<string, Cfunction> CAstSigEnv::pseudo_vars = dummy_pseudo_vars;
 
 #ifdef NO_PLAYSND // for aux_builtin_ext
 CAstSig::play_block_ms = 0;
@@ -2196,10 +2198,6 @@ void _natural_log_base(CAstSig *past, const AstNode *pnode, const AstNode *p, st
 	past->Sig.SetValue(exp(1));
 }
 
-void _sel(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-
-}
 typedef  map<string, Cfunction>(_cdecl  *PF) ();
 
 void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
@@ -2780,6 +2778,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	name = "pi";
 	ft.func = &_pi;
 	pseudo_vars[name] = ft;
+
 	//name = "gca";
 	//pseudo_vars[name] = pp;
 	//inFunc[name] = &_gca;
