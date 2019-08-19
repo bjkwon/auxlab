@@ -39,6 +39,8 @@ HANDLE hEventLastKeyStroke2Base;
 
 extern HANDLE hEventRecordingCallBack;
 
+HWND hEventLogger;
+void sendtoEventLogger(char *str);
 
 uintptr_t hAuxconThread;
 
@@ -356,6 +358,11 @@ unsigned int WINAPI histThread (PVOID var)
 	SetFocus(GetConsoleWindow()); //This seems to work.
 	SetForegroundWindow (GetConsoleWindow());
 
+	char buffer[256];
+	sprintf(buffer, "histThread created.\n");
+	sendtoEventLogger(buffer);
+
+
 	MSG         msg ;
 	while (GetMessage (&msg, NULL, 0, 0))
 	{ 
@@ -435,6 +442,8 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 
 	SetFocus(GetConsoleWindow()); //This seems to work.
 	SetForegroundWindow (GetConsoleWindow());
+	sprintf(errStr, "showvarThread created.\n");
+	sendtoEventLogger(errStr);
 
 	MSG msg ;
 	HACCEL hAcc = LoadAccelerators (hModule, MAKEINTRESOURCE(IDR_XCOM_ACCEL));
@@ -1603,20 +1612,31 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 	CONSOLE_SCREEN_BUFFER_INFO coninfo;
 	size_t res;
 	GetConsoleScreenBufferInfo(hStdout, &coninfo);
+	res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
+	if (res > 0) printf("\n");
 	if (IsNowDebugging(pcast))
-	{
-		res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
-		if (res > 0) printf("\n");
 		mainSpace.comPrompt = DEBUG_PROMPT;
-		printf(mainSpace.comPrompt.c_str());
-	}
 	else
-	{
-		res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
-		if (res>0) printf("\n");
 		mainSpace.comPrompt = MAIN_PROMPT;
-		printf(mainSpace.comPrompt.c_str());
-	}
+	printf(mainSpace.comPrompt.c_str());
+	RepaintGO(pcast);
+	char buffer[256];
+	sprintf(buffer, "Nxscope=%d, pcast=0x%x, pcastType=%d\n", xscope.size(), (INT_PTR)(void*)pcast, pcast->pAst->type);
+	sendtoEventLogger(buffer);
+}
+
+void sendtoEventLogger(char *str)
+{
+	char sendbuffer[4096];
+	SYSTEMTIME lt;
+	GetLocalTime(&lt);
+	sprintf(sendbuffer, "[%02d:%02d:%02d:%02d][%d] ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, GetCurrentThreadId());
+	strcat(sendbuffer, str);
+	COPYDATASTRUCT cd;
+	cd.lpData = sendbuffer;
+	cd.dwData = (ULONG_PTR)&cd;
+	cd.cbData = (DWORD)strlen((char*)sendbuffer) + 1;
+	SendMessage(hEventLogger, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cd);
 }
 
 size_t xcom::ReadHist()
@@ -1763,17 +1783,19 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	BOOL bRet = InitCommonControlsEx(&InitCtrls);
 	cellviewdlg.push_back(&mShowDlg);
 
+	hEventLogger = FindWindow("EventLogger", "");
+
 	AllocConsole();
 	AttachConsole(ATTACH_PARENT_PROCESS);
 	SetConsoleCP(437);
 	SetConsoleOutputCP(437);
-
 
 	WaitForSingleObject(hE, INFINITE);
 	CloseHandle(hE);
 	pglobalEnv->InitBuiltInFunctions(hShowDlg);
 	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
 	CAstSig cast(pglobalEnv);
+	cast.u.application = "xcom";
 
 	addp = mainSpace.AppPath;
 	if (strlen(udfpath) > 0 && udfpath[0] != ';') addp += ';';
@@ -1814,6 +1836,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		int id = 100; // the resource ID in auxp begins with 101 (harded-coded)
 		while (1)
 		{
+			// this is outside of try... an exception will not be handled. Make sure it won't fail. 8/16/2019
 			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
 			if (res.empty())
 				break;

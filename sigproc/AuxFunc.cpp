@@ -44,13 +44,11 @@ string CAstSigEnv::AppPath = "";
 map<string, Cfunction> dummy_pseudo_vars;
 map<string, Cfunction> CAstSigEnv::pseudo_vars = dummy_pseudo_vars;
 
-#ifdef NO_PLAYSND // for aux_builtin_ext
-CAstSig::play_block_ms = 0;
-CAstSig::record_block_ms = 0;
-CAstSig::record_bytes = 0;
-#endif
-
-extern HWND hShowDlg;
+//#ifdef NO_PLAYSND // for aux_builtin_ext
+//CAstSig::play_block_ms = 0;
+//CAstSig::record_block_ms = 0;
+//CAstSig::record_bytes = 0;
+//#endif
 
 map<double, FILE *> file_ids;
 
@@ -767,15 +765,17 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 #endif // NO_SF
 
 #ifdef _WINDOWS
-#ifndef NO_PLAYSND
-
-
+#ifdef NO_PLAYSND
+void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{}
+#else
+extern HWND hShowDlg;
 void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	double block = CAstSig::record_block_ms;
 	double duration = -1;
 	int nArgs = 0, devID = 0, nChans = 1;
-	string callbackname = "default__callback";
+	string callbackname = "default_callback_audio_recording";
 	for (const AstNode *cp = p; cp; cp = cp->next)
 		++nArgs;
 	switch (nArgs)
@@ -802,7 +802,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		if (!past->Sig.IsString() && !past->Sig.IsEmpty())
 			throw past->ExceptionMsg(pnode, fnsigs, "The second argument must be the file name (may include the path) of the callback function.");
 		if (past->Sig.IsEmpty() || past->Sig.string().empty())
-			callbackname = "default__callback";
+			callbackname = "?default_callback_audio_recording";
 		else
 			callbackname = past->Sig.string();
 	case 1:
@@ -2215,8 +2215,9 @@ void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
 }
 void CAstSigEnv::InitBuiltInFunctions(HWND h)
 {
+#ifndef NO_PLAYSND
 	hShowDlg = h;
-
+#endif
 	srand((unsigned)time(0) ^ (unsigned int)GetCurrentThreadId());
 
 	string name;
@@ -2584,6 +2585,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.func =  &_sort;
 	builtin[name] = ft;
 
+#ifndef NO_PLAYSND
 	ft.alwaysstatic = false;
 	ft.narg1 = 1;	ft.narg2 = 1;
 	ft.funcsignature = "(audio_handle)";
@@ -2610,6 +2612,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.narg1 = 0;	ft.narg2 = 5;
 	name = "record";
 	ft.func = &_record;
+#endif
 	builtin[name] = ft;
 	ft.funcsignature = "(audio_signal)";
 	ft.alwaysstatic = false;
@@ -2988,21 +2991,5 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			throw ExceptionMsg(p, fname, "Internal Error (users shouldn't see this error)--Not a built-in function");
 	}
 	Sig.functionEvalRes = true;
-	if (GOpresent(pnode))
-	{
-		u.repaint = true;
-		if (u.title.empty()) // this is a more stringent condition than !isthisUDFscope(pnode).. allowing only the input from the command line 
-		{
-			fpmsg.RepaintGO(this);
-		}
-		else if (need2repaintnow(pnode))
-		{
-			if (u.debug.status == continuing)
-			{
-				fpmsg.RepaintGO(this);
-			}
-		}
-
-	}
 	return;
 }

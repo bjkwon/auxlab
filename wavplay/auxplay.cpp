@@ -79,7 +79,7 @@ short * makebuffer(const CSignals &sig, int &nChan, int &length)
 	}
 	return Buffer2Play;
 }
-short * makebuffer(const ctimesig &sig, int &nChan, int &length)
+short * makebuffer(const ctimesig &sig, int &nChan, size_t &length)
 {
 	short *Buffer2Play;
 	ctimesig *psig = (ctimesig *)&sig;
@@ -118,11 +118,11 @@ short * makebuffer(const ctimesig &sig, int &nChan, int &length)
 //	else
 	{
 		Buffer2Play = new short[length];
-		int cum = 0;
+		size_t cum = 0;
 		ctimesig *p = psig;
 //		for (ctimesig *p = psig; p; p = p->chain)
 		{
-			_double_to_short(&p->pdata->front(), Buffer2Play+cum, p->pdata->size());
+			_double_to_short(&p->pdata->front(), Buffer2Play+cum, (int)p->pdata->size());
 			cum += p->pdata->size();
 		}
 		nChan = 1;
@@ -141,9 +141,9 @@ INT_PTR PlayArray16(const ctimesig &sig, int DevID, UINT userDefinedMsgID, HWND 
 //	return PlayArray16(sig, DevID, userDefinedMsgID, hApplWnd, nBlocks, errstr, loop);
 	errstr[0] = 0;
 	int nChan, ecode(MMSYSERR_NOERROR);
-	int length;
+	size_t length;
 	short *Buffer2Play = makebuffer(sig, nChan, length);
-	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.fs, 
+	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, (int)length, nChan, sig.fs, 
 		userDefinedMsgID, hApplWnd, nBlocks, loop, errstr);
 }
 

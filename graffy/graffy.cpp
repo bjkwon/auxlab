@@ -809,20 +809,6 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 				tp->m_dlg->ShowWindow(SW_SHOW);
 			}
 		}
-
-	/*	for (auto fig = pctx->GOvars.begin(); fig != pctx->GOvars.end(); fig++)
-		{
-			for (auto it = fig->second.begin(); it != fig->second.end(); it++)
-			{
-				CGobj* tp = (CGobj*)*it;
-				if (tp->type == GRAFFY_figure && tp->visible == -1)
-				{
-					tp->visible = 1;
-					tp->strut["visible"].SetValue(1.);
-					tp->m_dlg->ShowWindow(SW_SHOW);
-				}
-			}
-		}*/
 	}
 	invalidateRedrawCue();
 }

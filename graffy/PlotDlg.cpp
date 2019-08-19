@@ -94,6 +94,7 @@ CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
 :axis_expanding(false), levelView(false), playing(false), paused(false), ClickOn(0), MoveOn(0), devID(0), playLoc(-1), zoom(0), spgram(false), selColor(RGB(150, 180, 155)), hStatusbar(NULL), gca(NULL), playCursor(-1)
 {
 	opacity = 0xff;
+	hAudio = 0;
 	gcf.m_dlg = this;
 	gcf.hPar = hPar;
 	gcf.hPar->child.push_back(&gcf);
@@ -1849,13 +1850,17 @@ void CPlotDlg::OnMenu(UINT nID)
 		}
 		return;
 	case IDM_STOP:
-		paused = playing = false;
-		res = StopPlay(hAudio, true); // quick stop
-		playLoc = -1;
-#endif
-		if (axis_expanding)
-			WindowSizeAdjusting();
+		if (hAudio > 0)
+		{
+			paused = playing = false;
+			res = StopPlay(hAudio, true); // quick stop
+			playLoc = -1;
+
+			if (axis_expanding)
+				WindowSizeAdjusting();
+		}
 		return;
+#endif
 	case IDM_SPECTRUM:
 		// at this point, sbinfo.vax can be used
 		ViewSpectrum();
@@ -1911,7 +1916,7 @@ int CPlotDlg::GetSelect(CSignals *pout)
 	return 0;
 }
 
-void CPlotDlg::getFFTdata(CSignals *psig_mag, double *fft, int len)
+void CPlotDlg::getFFTdata(CTimeSeries *psig_mag, double *fft, int len)
 { // output: psig_mag
 	int lenFFT = (len + 1) / 2;
 	psig_mag->UpdateBuffer(len / 2 + 1);
@@ -1976,7 +1981,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 		plan = fftw_plan_r2r_1d(len, _sig.next->buf, fft, FFTW_R2HC, FFTW_ESTIMATE);
 		fftw_execute(plan);
 		mag.next = new CTimeSeries; // this will be deleted during the cleanup of mag... really?
-		getFFTdata((CSignals*)mag.next, fft, len);
+		getFFTdata(mag.next, fft, len);
 	}
 	PlotCSignals(pax, freq, &mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
 	strcpy(pax->xtick.format,"%.2gk"); // pax->xtick.format is called in anticipation of drawticks. i.e., format is used in drawticks

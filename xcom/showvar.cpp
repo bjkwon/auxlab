@@ -259,8 +259,9 @@ void On_F2(HWND hDlg, CAstSig f2sig)
 {
 	try {
 		string emsg;
-		f2sig.SetNewScript(emsg, "f2_channel_stereo_mono");
+		f2sig.SetNewScript(emsg, "?f2_channel_stereo_mono");
 		f2sig.Compute();
+		RepaintGO(mShowDlg.pcast);
 	}
 	catch (const char *_errmsg) {
 		bool gotobase = false;
@@ -463,11 +464,17 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 					}
 					if (FFTpaxExists) 
 						ViewSpectrum(pgcf);
-					if (nAxes ==2 ||
-						(nAxes == 1 && nLines ==2) )
+					if (nAxes == 2 || (nAxes == 1 && nLines == 2))
+					{
+						LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 						On_F2(pmsg->hwnd, xscope.front());
-					if (FFTpaxExists) 
-						ViewSpectrum(pgcf);
+						// if ans is GO, during f2_channel_stereo_mono, ans may be altered and it crash during Fillup.
+						// Let's clear ans if it is GO here. 8/17/2019
+						CVar *pp = xscope.at(res)->GetVariable("ans");
+						if (pp && pp->IsGO())
+							xscope.at(res)->SetVar("ans", new CVar);
+						mShowDlg.Fillup();
+					}
 				}
 			}
 		}
@@ -1842,6 +1849,7 @@ void cleanup_recording(CVar **pvar_callbackinput, CVar **pvar_callbackoutput)
 
 void AudioCapture(unique_ptr<carrier> pmsg)
 {
+	char buffer[256];
 	stop_requested = false;
 	string emsg;
 	AstNode *pCallbackUDF;
@@ -1872,6 +1880,8 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			pvar_callbackinput->strut["?index"].SetValue(0.);
 			finiteDur = pmsg->cbp.duration > 0;
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+			sprintf(buffer, "AudioCapture::WIM_OPEN Nxscope=%d, pcast=0x%x\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast);
+			sendtoEventLogger(buffer);
 			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
 			{
 				if ((*it).second == pmsg->cbp.recordID)
@@ -1882,6 +1892,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					loop = false;
 				}
 			}
+			RepaintGO(pmsg->pcast);
 		}
 		else
 		{
@@ -1927,6 +1938,8 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				copy_incoming.len_buffer = precorder->len_buffer;
 				copy_incoming.fs = precorder->fs;
 				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+				sprintf(buffer, "AudioCapture::WIM_DATA Nxscope=%d, pcast=0x%x, ?index=%d\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast, (int)pvar_callbackinput->strut["?index"].buf[0]);
+				sendtoEventLogger(buffer);
 				eventID = copy_incoming.bufferID ? 0 : 1;
 				SetEvent(hEventRecordingProgress[eventID]);
 				loop = true;
@@ -1949,6 +1962,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 					return;
 				}
+				RepaintGO(pmsg->pcast);
 				break;
 			case WIM_CLOSE:
 				cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);

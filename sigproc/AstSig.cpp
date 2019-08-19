@@ -28,10 +28,6 @@
 #include "cipsycon.tab.h"
 #endif
 
-#ifdef NO_PLAYSND // for aux_builtin_ext
-CAstSig::play_block_ms = 0;
-#endif
-
 //Application-wide global variables
 vector<CAstSig*> xscope;
 extern HWND hShowDlg;
@@ -568,7 +564,6 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVa
 	if (pgo) pgo->functionEvalRes = true;
 	Sig.functionEvalRes = true;
 	//	if (need2repaintnow(pCalling)) // or maybe pBase??
-	fpmsg.RepaintGO(this);
 	xscope.pop_back(); // move here????? to make purgatory work...
 	return true;
 }
@@ -724,7 +719,6 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 		else // b.p. set in other udf 
 			u.debug.status = progress;
 	}
-	fpmsg.RepaintGO(son);
 	if (son->GOvars.find("?foc") != son->GOvars.end()) GOvars["?foc"] = son->GOvars["?foc"];
 	if (son->GOvars.find("gcf") != son->GOvars.end()) GOvars["gcf"] = son->GOvars["gcf"];
 	delete son;
@@ -1306,14 +1300,20 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 	size_t res = pt(id, read); 
 	CAstSig aux(pEnv);
 	AstNode *tempAst = aux.SetNewScript(emsg, read.c_str());
-	size_t wh1, wh2;
-	string fname, out;
-	if (tempAst) {
+	if (tempAst) 
+	{
+		char *newname = (char*)malloc(strlen(aux.pAst->str) + 1);
+		newname[0] = '?';
+		strcpy(newname + 1, aux.pAst->str);
+		free(aux.pAst->str);
+		aux.pAst->str = newname;
+		size_t wh1, wh2;
+		string fname, out;
 		wh1 = read.find('=');
 		wh2 = read.find('(');
 		out = fname = read.substr(wh1 + 1, wh2 - wh1 - 1);
 		trim(fname, ' ');
-		fname.insert(0, "private://");
+		fname.insert(0, "private://?");
 		RegisterUDF(aux.pAst, fname.c_str(), read);
 		aux.pAst = NULL;// To keep aux.pAst from deallocating when this function returns. This will be cleaned during the app shutdown. 9/19/2018
 		return out;
@@ -1405,8 +1405,10 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 	transform(namefrompnode.begin(), namefrompnode.end(), namefrompnode.begin(), ::tolower);
 	if (namefrompnode != udf_filename) // pnode4Func is NULL for local function call and it will crash.....8/1/
 	{
-		pEnv->udf.erase(pEnv->udf.find(p->str));
-		throw ExceptionMsg(p, "inconsistent function name", string(string(string(udf_filename) + " vs ") + pnode4Func->str).c_str());
+		auto it = pEnv->udf.find(p->str);
+		if (it!= pEnv->udf.end())	pEnv->udf.erase(pEnv->udf.find(p->str));
+		string emsg = string(string(udf_filename) + " vs ") + pnode4Func->str;
+		throw ExceptionMsg(p, "inconsistent function name", emsg.c_str());
 	}
 
 	pEnv->udf[udf_filename].pAst = pnode4Func;	
@@ -2407,8 +2409,6 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 					res = pgo->strut[setgo.type];
 				if (GOpresent(pnode)) u.repaint = true;
 				fpmsg.SetGoProperties(this, setgo.type, res);
-				if (need2repaintnow(pnode))
-					fpmsg.RepaintGO(this); 
 			}
 		}
 	}

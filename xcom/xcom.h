@@ -102,6 +102,8 @@ private:
 
 
 extern HWND hLog;
+void sendtoEventLogger(char *str);
+
 #define WM__LOG	WM_APP+0x2020
 #define WM__RCI	WM_APP+0x2022
 
