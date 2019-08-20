@@ -29,6 +29,7 @@ CPlotDlg* childfig;
 GRAPHY_EXPORT HWND hPlotDlgCurrent;
 
 #define WM_PLOT_DONE	WM_APP+328
+void sendtoEventLogger(char *str);
 
 HANDLE mutexPlot;
 static HANDLE hEvent1;
@@ -419,6 +420,9 @@ void thread4Plot(PVOID var)
 	}
 	else
 		in->cfig->SetString(buf);
+	char sendbuffer[512];
+	sprintf(sendbuffer, "from %d, open %s\n", in->threadCaller, buf);
+	sendtoEventLogger(sendbuffer);
 	PostThreadMessage(in->threadCaller, WM_PLOT_DONE, 0, 0);
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -793,21 +797,39 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 	return sig;
 }
 
+void sendtoEventLogger(char *str);
+
 GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 { // make all figures created but unchecked for visible visible
 	// to do: this now applies all figures, but should only apply to those created inside pctx
+	char buf[512] = {}, buf2[256];
+	vector<CGobj*> h = graffy_CFigs();
+	if (h.empty())
+	{
+		sprintf(buf, "RepaintGO but no figs\n");
+		sendtoEventLogger(buf);
+	}
 	if (pctx)
 	{
-		vector<CGobj*> h = graffy_CFigs();
 		for (auto fig = h.begin(); fig != h.end(); fig++)
 		{
 			CFigure * tp = (CFigure *)*fig;
+			CVar *pp = (CVar*)tp;
+			if (pp->GetFs() == 2)
+				sprintf(buf, "%s ", pp->string().c_str());
+			else
+				sprintf(buf, "Figure %d ", (int)pp->value());
 			if ( tp->visible == -1)
 			{
 				tp->visible = 1;
 				tp->strut["visible"].SetValue(1.);
 				tp->m_dlg->ShowWindow(SW_SHOW);
+				strcpy(buf2, "... made visible\n");
+				strcat(buf, buf2);
 			}
+			strcat(buf, "InvalidateRect");
+			strcat(buf, "\n");
+			sendtoEventLogger(buf);
 		}
 	}
 	invalidateRedrawCue();

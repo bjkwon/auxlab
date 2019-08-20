@@ -1880,7 +1880,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			pvar_callbackinput->strut["?index"].SetValue(0.);
 			finiteDur = pmsg->cbp.duration > 0;
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
-			sprintf(buffer, "AudioCapture::WIM_OPEN Nxscope=%d, pcast=0x%x\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast);
+			sprintf(buffer, "AudioCapture::WIM_OPEN %d scope, pcast=0x%x\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast);
 			sendtoEventLogger(buffer);
 			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
 			{
@@ -1938,7 +1938,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				copy_incoming.len_buffer = precorder->len_buffer;
 				copy_incoming.fs = precorder->fs;
 				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
-				sprintf(buffer, "AudioCapture::WIM_DATA Nxscope=%d, pcast=0x%x, ?index=%d\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast, (int)pvar_callbackinput->strut["?index"].buf[0]);
+				sprintf(buffer, "AudioCapture::WIM_DATA %d scope, pcast=0x%x, ?index=%d\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast, (int)pvar_callbackinput->strut["?index"].buf[0]);
 				sendtoEventLogger(buffer);
 				eventID = copy_incoming.bufferID ? 0 : 1;
 				SetEvent(hEventRecordingProgress[eventID]);

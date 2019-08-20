@@ -1621,7 +1621,10 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 	printf(mainSpace.comPrompt.c_str());
 	RepaintGO(pcast);
 	char buffer[256];
-	sprintf(buffer, "Nxscope=%d, pcast=0x%x, pcastType=%d\n", xscope.size(), (INT_PTR)(void*)pcast, pcast->pAst->type);
+	sprintf(buffer, "Show..Prompt %d scope, pcast=0x%x, pcastType=%d", xscope.size(), (INT_PTR)(void*)pcast, pcast->pAst->type);
+	string add;
+	if (pcast->pAst->child && pcast->pAst->child->str) add = pcast->pAst->child->str;
+	sprintf(buffer, "%s %s\n", buffer, add.c_str());
 	sendtoEventLogger(buffer);
 }
 
@@ -1630,7 +1633,7 @@ void sendtoEventLogger(char *str)
 	char sendbuffer[4096];
 	SYSTEMTIME lt;
 	GetLocalTime(&lt);
-	sprintf(sendbuffer, "[%02d:%02d:%02d:%02d][%d] ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, GetCurrentThreadId());
+	sprintf(sendbuffer, "%d[%02d:%02d:%02d:%02d] ", GetCurrentThreadId(), lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
 	strcat(sendbuffer, str);
 	COPYDATASTRUCT cd;
 	cd.lpData = sendbuffer;
