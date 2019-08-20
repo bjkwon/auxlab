@@ -49,6 +49,7 @@ static int len_threadIDs(0); // to track thread handle in the present thread (e.
 
 extern HANDLE hEventRecordingReady;
 extern HANDLE hEventRecordingProgress[2];
+void sendtoEventLogger(char *str);
 
 class CWaveRecord
 {
@@ -171,9 +172,13 @@ void ThreadCapture(const record_param &p)
 	pWP->wfx.nSamplesPerSec = p.fs;
 	pWP->wfx.nBlockAlign = p.bytes * p.nChans;
 	pWP->wfx.nAvgBytesPerSec = pWP->wfx.nSamplesPerSec * pWP->wfx.nBlockAlign;
-	pWP->bitswidth = p.bytes; // LOOK HERE----------------
+	pWP->bitswidth = p.bytes;
 	pWP->devID = p.devID;
 	pWP->callbackname = p.callback;
+
+	char buf[256];
+	sprintf(buf, "from %d waveInOpen called\n", pWP->callingThreadID);
+	sendtoEventLogger(buf);
 
 	MMRESULT	rc = waveInOpen(&pWP->hwi, 0, &pWP->wfx, (DWORD_PTR)pWP->threadID, (DWORD_PTR)0, CALLBACK_THREAD);
 	if (rc != MMSYSERR_NOERROR) {
@@ -233,6 +238,8 @@ void ThreadCapture(const record_param &p)
 			pWP->setPlayPoint(pWP->wh[1], tico += accum);
 			MMERRTHROW(waveInPrepareHeader(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInPrepareHeader")
 			MMERRTHROW(waveInAddBuffer(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInAddBuffer")
+			sprintf(buf, "waveInAddBuffer called while WIM_OPEN\n");
+			sendtoEventLogger(buf);
 			WaitForSingleObject(hEventRecordingReady, INFINITE);
 			CloseHandle(hEventRecordingReady);
 			MMERRTHROW(waveInStart(pWP->hwi), "waveOutRestart")
@@ -267,6 +274,8 @@ void ThreadCapture(const record_param &p)
 				pWP->setPlayPoint(*pwh, tico += accum);
 				MMERRTHROW(waveInPrepareHeader(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInPrepareHeader")
 				MMERRTHROW(waveInAddBuffer(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInAddBuffer")
+				sprintf(buf, "waveInAddBuffer called while WIM_DATA %d\n", pWP->nPlayedBlocks);
+				sendtoEventLogger(buf);
 			}
 			else
 			{

@@ -1832,6 +1832,7 @@ typedef struct {
 	callback_trasnfer_record cbp;
 	CAstSig *pcast;
 	CShowvarDlg *parent;
+	DWORD callingThread;
 } carrier;
 
 //#include <mutex>
@@ -1853,6 +1854,8 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	stop_requested = false;
 	string emsg;
 	AstNode *pCallbackUDF;
+	sprintf(buffer, "from %d AudioCapture begins\n", pmsg->callingThread);
+	sendtoEventLogger(buffer);
 	DWORD thr = GetCurrentThreadId();
 	hEventRecordingCallBack = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_callback");
 	PostThreadMessage(pmsg->cbp.recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
@@ -2045,6 +2048,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 		memcpy(&car->cbp, pvar, sizeof(callback_trasnfer_record));
 		car->pcast = pcast;
 		car->parent = this;
+		car->callingThread = GetCurrentThreadId();
 		EnableDlgItem(hDlg, IDC_STOP2, 1);
 		hEventRecordingReady = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_begin");
 		hEventRecordingProgress[0] = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_prog1");
