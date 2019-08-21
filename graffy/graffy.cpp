@@ -29,7 +29,6 @@ CPlotDlg* childfig;
 GRAPHY_EXPORT HWND hPlotDlgCurrent;
 
 #define WM_PLOT_DONE	WM_APP+328
-void sendtoEventLogger(char *str);
 
 HANDLE mutexPlot;
 static HANDLE hEvent1;
@@ -76,9 +75,13 @@ void addRedrawCue(HWND hDlg, RECT rt)
 
 void invalidateRedrawCue()
 {
+	char buf[512], buf2[256];
 	CRect zeros(0, 0, 0, 0);
 	for (map<HWND, RECT>::iterator it = theApp.redraw.begin(); it != theApp.redraw.end(); it++)
 	{
+		GetWindowText(it->first, buf2, sizeof(buf2));
+		sprintf(buf, "InvalidateRect %s\n", buf2);
+		sendtoEventLogger(buf);
 		if (!memcmp(&zeros, &(it->second), sizeof(RECT)))
 			InvalidateRect(it->first, NULL, TRUE);
 		else
@@ -797,8 +800,6 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 	return sig;
 }
 
-void sendtoEventLogger(char *str);
-
 GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 { // make all figures created but unchecked for visible visible
 	// to do: this now applies all figures, but should only apply to those created inside pctx
@@ -824,10 +825,9 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 				tp->visible = 1;
 				tp->strut["visible"].SetValue(1.);
 				tp->m_dlg->ShowWindow(SW_SHOW);
-				strcpy(buf2, "... made visible\n");
+				strcpy(buf2, "... made visible");
 				strcat(buf, buf2);
 			}
-			strcat(buf, "InvalidateRect");
 			strcat(buf, "\n");
 			sendtoEventLogger(buf);
 		}

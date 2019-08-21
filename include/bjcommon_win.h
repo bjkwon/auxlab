@@ -65,7 +65,8 @@ int spyWindowMessage(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* c
 int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr);
 int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr);
 int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr);
-
+void setHWNDEventLogger(HWND hEL);
+void sendtoEventLogger(char *str);
 
 #ifdef __cplusplus
 double GetDlgItemDouble (HWND hDlg, int id, int* lpTrans=NULL);

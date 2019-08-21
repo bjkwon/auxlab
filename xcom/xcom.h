@@ -100,9 +100,7 @@ private:
 	int write_axl_block(FILE *fp, std::string varname, CVar *pout, char *errstr, bool independent = true);
 };
 
-
 extern HWND hLog;
-void sendtoEventLogger(char *str);
 
 #define WM__LOG	WM_APP+0x2020
 #define WM__RCI	WM_APP+0x2022
@@ -110,6 +108,15 @@ void sendtoEventLogger(char *str);
 
 #define PRINTLOG(FNAME,STR) \
 { FILE*__fp=fopen(FNAME,"at"); fprintf(__fp,STR);	fclose(__fp); }
+
+#include "wavplay.h"
+
+typedef struct {
+	callback_trasnfer_record cbp;
+	DWORD elapsed;
+	HINSTANCE hInst;
+	HWND hParent;
+} audiocapture_status_carry;
 
 #else if //if XCOM was already defined, skip
 

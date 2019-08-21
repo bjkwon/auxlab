@@ -19,6 +19,7 @@
 #include "wavplay.h"
 #include "histDlg.h"
 #include "TabCtrl.h"
+#include "audio_capture_status.h"
 
 #include <thread>
 
@@ -29,7 +30,6 @@
 HWND hLog;
 
 HANDLE hEventRecordingReady;
-HANDLE hEventRecordingProgress[2];
 HANDLE hEventRecordingCallBack;
 
 static bool stop_requested = false;
@@ -53,6 +53,11 @@ extern CDebugBaseDlg debugBase;
 extern CTabControl mTab;
 
 extern vector<UINT> exc;
+
+CAudcapStatus mCaptureStatus;
+BOOL CALLBACK audiocaptuestatusProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
+void AudioCaptureStatus(unique_ptr<audiocapture_status_carry> pmsg);
+
 
 vector<CWndDlg*> cellviewdlg;
 vector<cfigdlg*> plots;
@@ -952,6 +957,7 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 	CWndDlg::OnInitDialog(hwndFocus, lParam);
 
 	CRect rtDlg, rt;
+	HWND hh;
 	if (this == &mShowDlg)
 	{
 		mShowDlg.GetWindowRect(&rtDlg);
@@ -992,6 +998,8 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 		recordingButtonRT.right -= rt0.left;
 		recordingButtonRT.top -= rt0.top;
 		recordingButtonRT.bottom -= rt0.top;
+
+		hh = CreateDialog(hInst, "AUDIOCAPTURE", hDlg, (DLGPROC)audiocaptuestatusProc);
 	}
 	else
 	{
@@ -1854,7 +1862,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	stop_requested = false;
 	string emsg;
 	AstNode *pCallbackUDF;
-	sprintf(buffer, "from %d AudioCapture begins\n", pmsg->callingThread);
+	sprintf(buffer, "Thread created by %d...AudioCapture begins\n", pmsg->callingThread);
 	sendtoEventLogger(buffer);
 	DWORD thr = GetCurrentThreadId();
 	hEventRecordingCallBack = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_callback");
@@ -1867,6 +1875,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		pvar_callbackoutput->SetNextChan(new CVar);
 	int fs = pmsg->cbp.fs;
 	bool loop=true, finiteDur;
+	DWORD tcount0Last = 0, tcount0, tcount1, tcount2;
 	callback_trasnfer_record * precorder = NULL;
 	try {
 		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, pmsg->cbp.callbackfilename))
@@ -1876,15 +1885,14 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			if (pCallbackUDF->alt->type == N_VECTOR)
 			{
 				for (AstNode *p = pCallbackUDF->alt->child->next; p; p = p->next)
-				{
 					pvar_callbackoutputVector.push_back(new CVar);
-				}
 			}
 			pvar_callbackinput->strut["?index"].SetValue(0.);
 			finiteDur = pmsg->cbp.duration > 0;
+			sendtoEventLogger("going into callback 0\n");
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
-			sprintf(buffer, "AudioCapture::WIM_OPEN %d scope, pcast=0x%x\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast);
-			sendtoEventLogger(buffer);
+			sendtoEventLogger("out of callback 0\n");
+			SetEvent(hEventRecordingReady);
 			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
 			{
 				if ((*it).second == pmsg->cbp.recordID)
@@ -1907,18 +1915,33 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				throw emsg.c_str();
 			}
 		}
+		int blockDuration = (int)(1000. *pmsg->cbp.len_buffer / pmsg->cbp.fs);
 		CVar captured, captured2;
 		MSG msg;
-		SetEvent(hEventRecordingReady);
-		SetEvent(hEventRecordingProgress[1]);
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
+			long elapsed = -1;
 			int eventID = 0;
 			bool toggle = false;
 			callback_trasnfer_record copy_incoming;
 			switch (msg.message)
 			{
 			case WIM_DATA:
+				tcount0 = GetTickCount();
+				if (tcount0Last)
+				{
+					if ((int)(tcount0 - tcount0Last) > blockDuration)
+					{
+						unique_ptr<audiocapture_status_carry> msng(new audiocapture_status_carry);
+						msng->elapsed = tcount0 - tcount0Last;
+						msng->cbp = *(callback_trasnfer_record*)msg.wParam;
+						msng->hInst = mShowDlg.hInst;
+						msng->hParent = mShowDlg.hDlg;
+						thread captureStatusThread(AudioCaptureStatus, move(msng));
+						captureStatusThread.detach();
+					}
+				}
+				tcount0Last = tcount0;
 				// This is where record callback function is invoked.
 				// Create a CVar variable with the captured data.
 				// First, transfer captured wave buffer to buf of the CVar variable.
@@ -1940,11 +1963,14 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				copy_incoming.recordID = precorder->recordID;
 				copy_incoming.len_buffer = precorder->len_buffer;
 				copy_incoming.fs = precorder->fs;
+				sprintf(buffer, "going into callback %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
+				sendtoEventLogger(buffer);
+				tcount1 = GetTickCount();
 				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
-				sprintf(buffer, "AudioCapture::WIM_DATA %d scope, pcast=0x%x, ?index=%d\n", xscope.size(), (INT_PTR)(void*)pmsg->pcast, (int)pvar_callbackinput->strut["?index"].buf[0]);
+				tcount2 = GetTickCount();
+				sprintf(buffer, "out of callback %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
 				sendtoEventLogger(buffer);
 				eventID = copy_incoming.bufferID ? 0 : 1;
-				SetEvent(hEventRecordingProgress[eventID]);
 				loop = true;
 				for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
 				{
@@ -1962,12 +1988,15 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				}
 				if (stop_requested)
 				{
+					sprintf(buffer, "stop_requested %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
+					sendtoEventLogger(buffer);
 					cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 					return;
 				}
 				RepaintGO(pmsg->pcast);
 				break;
 			case WIM_CLOSE:
+				sendtoEventLogger("WIM_CLOSE poted.\n");
 				cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 				break;
 			case WM__RECORDING_ERR:
@@ -2042,25 +2071,29 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
   // Think about a better way to do it without using statics... 7/29/2019
 	string emsg;
 	callback_trasnfer_record * precorder = NULL;
-	if (code == WIM_OPEN)
+	switch (code)
+	{
+	case WM__AUDIOCAPTURE_BEGIN:
+		EnableDlgItem(hDlg, IDC_STOP2, 1);
+		break;
+	case WIM_OPEN:
 	{
 		unique_ptr<carrier> car(new carrier);
 		memcpy(&car->cbp, pvar, sizeof(callback_trasnfer_record));
 		car->pcast = pcast;
 		car->parent = this;
 		car->callingThread = GetCurrentThreadId();
-		EnableDlgItem(hDlg, IDC_STOP2, 1);
 		hEventRecordingReady = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_begin");
-		hEventRecordingProgress[0] = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_prog1");
-		hEventRecordingProgress[1] = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_prog1");
 		thread recordingThread(AudioCapture, move(car));
 		recordingThread.detach();
 	}
-	else if (code == WIM_CLOSE)
-	{
+		break;
+	case WIM_CLOSE:
 		SetEvent(hEventRecordingCallBack);
 		CloseHandle(hEventRecordingCallBack);
-		hEventRecordingCallBack = NULL;		if (pcast->lhs->type == N_VECTOR && pcast->lhs->alt->next)
+		hEventRecordingCallBack = NULL;		
+		hEventRecordingReady = NULL;
+		if (pcast->lhs->type == N_VECTOR && pcast->lhs->alt->next)
 		{
 			pcast->Vars[pcast->lhs->alt->next->str].strut["active"] = CVar(0.);
 		}

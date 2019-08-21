@@ -18,6 +18,9 @@
     <ClCompile Include="$(SrcPath)about.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)audio_capture_status.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="$(SrcPath)consoleHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -44,6 +47,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(SrcPath)audio_capture_status.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="$(SrcPath)consts.h">
       <Filter>Header Files</Filter>
     </ClInclude>

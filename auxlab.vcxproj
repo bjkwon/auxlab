@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(SrcPath)about.cpp" />
+    <ClCompile Include="$(SrcPath)audio_capture_status.cpp" />
     <ClCompile Include="$(SrcPath)consoleHandler.cpp" />
     <ClCompile Include="$(SrcPath)debugDlg.cpp" />
     <ClCompile Include="$(SrcPath)dispvector.cpp" />
@@ -30,6 +31,7 @@
     <ClCompile Include="$(SrcPath)xcom.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(SrcPath)audio_capture_status.h" />
     <ClInclude Include="$(SrcPath)consts.h" />
     <ClInclude Include="$(SrcPath)debugDlg.h" />
     <ClInclude Include="$(SrcPath)msgcrack.h" />
@@ -57,6 +59,7 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{3929F163-CEC0-40EB-B0F9-BFB302611DDC}</ProjectGuid>
     <RootNamespace>xcom</RootNamespace>
+    <ProjectName>auxlab</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

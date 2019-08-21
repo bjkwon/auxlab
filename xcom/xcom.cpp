@@ -1620,26 +1620,15 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		mainSpace.comPrompt = MAIN_PROMPT;
 	printf(mainSpace.comPrompt.c_str());
 	RepaintGO(pcast);
-	char buffer[256];
-	sprintf(buffer, "Show..Prompt %d scope, pcast=0x%x, pcastType=%d", xscope.size(), (INT_PTR)(void*)pcast, pcast->pAst->type);
-	string add;
-	if (pcast->pAst->child && pcast->pAst->child->str) add = pcast->pAst->child->str;
-	sprintf(buffer, "%s %s\n", buffer, add.c_str());
-	sendtoEventLogger(buffer);
-}
-
-void sendtoEventLogger(char *str)
-{
-	char sendbuffer[4096];
-	SYSTEMTIME lt;
-	GetLocalTime(&lt);
-	sprintf(sendbuffer, "%d[%02d:%02d:%02d:%02d] ", GetCurrentThreadId(), lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
-	strcat(sendbuffer, str);
-	COPYDATASTRUCT cd;
-	cd.lpData = sendbuffer;
-	cd.dwData = (ULONG_PTR)&cd;
-	cd.cbData = (DWORD)strlen((char*)sendbuffer) + 1;
-	SendMessage(hEventLogger, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cd);
+	if (pcast->pAst)
+	{
+		char buffer[256];
+		sprintf(buffer, "Show..Prompt %d scope, pcast=0x%x, pcastType=%d", xscope.size(), (INT_PTR)(void*)pcast, pcast->pAst->type);
+		string add;
+		if (pcast->pAst->child && pcast->pAst->child->str) add = pcast->pAst->child->str;
+		sprintf(buffer, "%s %s\n", buffer, add.c_str());
+		sendtoEventLogger(buffer);
+	}
 }
 
 size_t xcom::ReadHist()
@@ -1787,6 +1776,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	cellviewdlg.push_back(&mShowDlg);
 
 	hEventLogger = FindWindow("EventLogger", "");
+	setHWNDEventLogger(hEventLogger);
+	sprintf(buf, "AUXLAB begins.\n");
+	sendtoEventLogger(buf);
 
 	AllocConsole();
 	AttachConsole(ATTACH_PARENT_PROCESS);

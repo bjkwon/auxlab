@@ -11,6 +11,7 @@
 // Date: 7/16/2019
 // 
 
+#include "bjcommon_win.h"
 #include "wavplay.h"
 #include <process.h>
 #include <vector>
@@ -48,8 +49,6 @@ static int len_threadIDs(0); // to track thread handle in the present thread (e.
 #define WM__STOP			WM_APP+715
 
 extern HANDLE hEventRecordingReady;
-extern HANDLE hEventRecordingProgress[2];
-void sendtoEventLogger(char *str);
 
 class CWaveRecord
 {
@@ -177,7 +176,7 @@ void ThreadCapture(const record_param &p)
 	pWP->callbackname = p.callback;
 
 	char buf[256];
-	sprintf(buf, "from %d waveInOpen called\n", pWP->callingThreadID);
+	sprintf(buf, "ThreadCapture created by %d, waveInOpen called\n", pWP->callingThreadID);
 	sendtoEventLogger(buf);
 
 	MMRESULT	rc = waveInOpen(&pWP->hwi, 0, &pWP->wfx, (DWORD_PTR)pWP->threadID, (DWORD_PTR)0, CALLBACK_THREAD);
@@ -220,6 +219,7 @@ void ThreadCapture(const record_param &p)
 			callbackThread = (DWORD)msg.wParam;
 			break;
 		case WIM_OPEN:
+			sendtoEventLogger("WIM_OPEN\n");
 			strcpy(send2OnSoundEven.callbackfilename, pWP->callbackname.c_str());
 			send2OnSoundEven.devID = pWP->devID;
 			send2OnSoundEven.nChans = p.nChans;
@@ -238,14 +238,17 @@ void ThreadCapture(const record_param &p)
 			pWP->setPlayPoint(pWP->wh[1], tico += accum);
 			MMERRTHROW(waveInPrepareHeader(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInPrepareHeader")
 			MMERRTHROW(waveInAddBuffer(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInAddBuffer")
-			sprintf(buf, "waveInAddBuffer called while WIM_OPEN\n");
-			sendtoEventLogger(buf);
+			sendtoEventLogger("waveInAddBuffer called.. WaitForSingleObject(hEventRecordingReady) waiting...\n");
 			WaitForSingleObject(hEventRecordingReady, INFINITE);
+			sendtoEventLogger("Released WaitForSingleObject(hEventRecordingReady)... waveInStart called\n");
 			CloseHandle(hEventRecordingReady);
 			MMERRTHROW(waveInStart(pWP->hwi), "waveOutRestart")
+			SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WM__AUDIOCAPTURE_BEGIN); // This is the moment of true beginning of recording, after the callback
 			break;
 		case WIM_DATA:
 			pWP->nPlayedBlocks++;
+			sprintf(buf, "WIM_DATA%d\n", pWP->nPlayedBlocks);
+			sendtoEventLogger(buf);
 			pwh = (WAVEHDR *)msg.lParam;
 			send2OnSoundEven.buffer = (char*)pwh->lpData;
 			send2OnSoundEven.len_buffer = pwh->dwBytesRecorded / p.bytes / p.nChans;
@@ -269,18 +272,14 @@ void ThreadCapture(const record_param &p)
 				PostThreadMessage(callbackThread, WIM_DATA, (WPARAM)&send2OnSoundEven, 0);
 			if (pWP->recordedSamples < pWP->totalSamples)
 			{
-				WaitForSingleObject(hEventRecordingProgress[eventID], INFINITE);
-				ResetEvent(hEventRecordingProgress[eventID]);
 				pWP->setPlayPoint(*pwh, tico += accum);
 				MMERRTHROW(waveInPrepareHeader(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInPrepareHeader")
 				MMERRTHROW(waveInAddBuffer(pWP->hwi, pwh, sizeof(WAVEHDR)), "waveInAddBuffer")
-				sprintf(buf, "waveInAddBuffer called while WIM_DATA %d\n", pWP->nPlayedBlocks);
+				sprintf(buf, "waveInAddBuffer for next %d\n", pWP->nPlayedBlocks);
 				sendtoEventLogger(buf);
 			}
 			else
-			{
 				nextaction = 2;
-			}
 			break;
 		} 
 	}
@@ -289,6 +288,7 @@ void ThreadCapture(const record_param &p)
 	for (int k=0; k<2; k++)
 		MMERRTHROW(waveInUnprepareHeader(pWP->hwi, &pWP->wh[k], sizeof(WAVEHDR)), "waveInUnprepareHeader")
 	MMERRTHROW(waveInClose(pWP->hwi), "waveInReset")
+	sendtoEventLogger("waveInClose success... sending WIM_CLOSE to showDlg\n");
 	SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_CLOSE); // send the opening status to the main application 
 }
 

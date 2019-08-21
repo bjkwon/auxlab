@@ -14,6 +14,8 @@
 #include "bjcommon.h"
 #include "bjcommon_win.h"
 
+static HWND hEventLogger;
+
 #define MAX_HEADING_LENGTH		128
 #define MAX_CHAR 29998
 
@@ -224,3 +226,25 @@ void GetLastErrorStr(char *errstr)
 {
 	GetLastErrorStr(GetLastError(), errstr);
 }
+
+
+void setHWNDEventLogger(HWND hEL)
+{
+	hEventLogger = hEL;
+}
+
+void sendtoEventLogger(char *str)
+{
+	if (!hEventLogger) return;
+	char sendbuffer[4096];
+	SYSTEMTIME lt;
+	GetLocalTime(&lt);
+	sprintf(sendbuffer, "%d[%02d:%02d:%02d:%02d] ", GetCurrentThreadId(), lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
+	strcat(sendbuffer, str);
+	COPYDATASTRUCT cd;
+	cd.lpData = sendbuffer;
+	cd.dwData = (ULONG_PTR)&cd;
+	cd.cbData = (DWORD)strlen((char*)sendbuffer) + 1;
+	SendMessage(hEventLogger, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cd);
+}
+
