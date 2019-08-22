@@ -105,10 +105,10 @@ void AudioCaptureStatus(unique_ptr<audiocapture_status_carry> pmsg)
 	char buffer[256];
 	if (pmsg->ind == 0)
 	{
-		if (mCaptureStatus.hDlg)
-			mCaptureStatus.ShowWindow(SW_SHOW);
-		else
+		if (!mCaptureStatus.hDlg)
 			CreateDialog(pmsg->hInst, "AUDIOCAPTURE", pmsg->hParent, (DLGPROC)audiocaptuestatusProc);
+		//else
+		//	mCaptureStatus.ShowWindow(SW_SHOW);
 		int blockDuration = (int)(1000. * pmsg->cbp.len_buffer / pmsg->cbp.fs);
 		sprintf(buffer, "Block size %d ms\r\nInitial callback processing time %d ms.\r\nSince the initial callback...", blockDuration, pmsg->elapsed);
 		SetDlgItemText(mCaptureStatus.hDlg, IDC_EDIT1, "");

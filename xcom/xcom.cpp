@@ -40,7 +40,6 @@ HANDLE hEventLastKeyStroke2Base;
 extern HANDLE hEventRecordingCallBack;
 
 HWND hEventLogger;
-void sendtoEventLogger(char *str);
 
 uintptr_t hAuxconThread;
 

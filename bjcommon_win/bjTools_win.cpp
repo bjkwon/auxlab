@@ -227,6 +227,10 @@ void GetLastErrorStr(char *errstr)
 	GetLastErrorStr(GetLastError(), errstr);
 }
 
+bool IsEventLoggerReady()
+{
+	return hEventLogger != NULL;
+}
 
 void setHWNDEventLogger(HWND hEL)
 {

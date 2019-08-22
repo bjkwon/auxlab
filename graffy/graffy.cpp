@@ -836,19 +836,32 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 		{
 			CFigure * tp = (CFigure *)*fig;
 			CVar *pp = (CVar*)tp;
-			if (pp->GetFs() == 2)
-				sprintf(buf, "(RepaintGO) %s ", pp->string().c_str());
-			else
-				sprintf(buf, "(RepaintGO) Figure %d ", (int)pp->value());
-			if ( tp->visible == -1)
+			if (IsEventLoggerReady())
+			{
+				if (pp->GetFs() == 2)
+					sprintf(buf, "(RepaintGO) %s ", pp->string().c_str());
+				else if (pp->nSamples > 0)
+					sprintf(buf, "(RepaintGO) Figure %d ", (int)pp->value());
+				else
+					sprintf(buf, "(RepaintGO) Figure (empty)");
+			}
+			//Logically, it makes sense to have this if statement, but 
+			// maybe it is possible that tp->visible is set to 1 but tp->m_dlg->ShowWindow(SW_SHOW); was never called
+			// as a result, this figure window never appears
+			// As a workaround, I'm removing this if statement
+			// Do a little more digging to make the code robust. For now, I'm moving on. 8/22/2019
+//			if ( tp->visible == -1) 
 			{
 				tp->visible = 1;
 				tp->strut["visible"].SetValue(1.);
 				tp->m_dlg->ShowWindow(SW_SHOW);
-				strcpy(buf2, "... made visible");
-				strcat(buf, buf2);
-				strcat(buf, "\n");
-				sendtoEventLogger(buf);
+				if (IsEventLoggerReady())
+				{
+					strcpy(buf2, "... made visible");
+					strcat(buf, buf2);
+					strcat(buf, "\n");
+					sendtoEventLogger(buf);
+				}
 			}
 		}
 	}

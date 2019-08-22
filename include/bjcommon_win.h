@@ -67,6 +67,7 @@ int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const
 int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr);
 void setHWNDEventLogger(HWND hEL);
 void sendtoEventLogger(char *str);
+bool IsEventLoggerReady();
 
 #ifdef __cplusplus
 double GetDlgItemDouble (HWND hDlg, int id, int* lpTrans=NULL);
