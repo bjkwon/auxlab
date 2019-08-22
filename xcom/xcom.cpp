@@ -1625,7 +1625,10 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		char buffer[256];
 		sprintf(buffer, "Show..Prompt %d scope, pcast=0x%x, pcastType=%d", xscope.size(), (INT_PTR)(void*)pcast, pcast->pAst->type);
 		string add;
-		if (pcast->pAst->child && pcast->pAst->child->str) add = pcast->pAst->child->str;
+		if (CAstSig::IsTID(pcast->pAst))
+			add = pcast->pAst->str;
+		if (pcast->pAst->child && pcast->pAst->child->str) 
+			add = pcast->pAst->child->str;
 		sprintf(buffer, "%s %s\n", buffer, add.c_str());
 		sendtoEventLogger(buffer);
 	}

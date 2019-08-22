@@ -13,13 +13,20 @@
 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <process.h>
+#include <queue>
 #include "audio_capture_status.h"
 #include "resource1.h"
 #include "xcom.h"
 
+#include <mutex>
 #include <thread>
 
+#define UPDATE_CONTENT 1000
+
 extern CAudcapStatus mCaptureStatus;
+extern mutex mtx;
+extern queue<audiocapture_status_carry *> msgq;
+extern condition_variable cv;
 
 int MoveDlgItem(HWND hDlg, int id, CRect rt, BOOL repaint);
 
@@ -55,7 +62,6 @@ BOOL CAudcapStatus::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 
 void CAudcapStatus::OnSize(UINT state, int cx, int cy)
 {
-	POINT titlebarDim;
 	CRect rtDlg, rt;
 	GetClientRect(hDlg, &rtDlg);
 	rt.top = 0;
@@ -81,15 +87,12 @@ void CAudcapStatus::OnCommand(int idc, HWND hwndCtl, UINT event)
 	string addp, str;
 	vector<HANDLE> figs;
 	static char fullfname[256], fname[256];
-	static int jj = 0;
 	char buffer[256];
-	int res;
 	switch(idc)
 	{
-	case 9983:
-		sprintf(buffer, "%d: %s\n", jj++, (char*)hwndCtl);
+	case UPDATE_CONTENT:
+		sprintf(buffer, "%s\n", (char*)hwndCtl);
 		EditPrintf(GetDlgItem(IDC_EDIT1), buffer);
-//		res = SetDlgItemText(IDC_EDIT1, buffer);
 		break;
 	case IDCANCEL:
 		OnClose();
@@ -99,13 +102,36 @@ void CAudcapStatus::OnCommand(int idc, HWND hwndCtl, UINT event)
 
 void AudioCaptureStatus(unique_ptr<audiocapture_status_carry> pmsg)
 {
-	if (mCaptureStatus.hDlg)
-		mCaptureStatus.ShowWindow(SW_SHOW);
-	else
-		CreateDialog(pmsg->hInst, "AUDIOCAPTURE", pmsg->hParent, (DLGPROC)audiocaptuestatusProc);
-
-	int blockDuration = (int)(1000. *pmsg->cbp.len_buffer / pmsg->cbp.fs);
 	char buffer[256];
-	sprintf(buffer, "Underflow detected--Processing %d ms block took %d\n", blockDuration, pmsg->elapsed);
-	SendMessage(mCaptureStatus.hDlg, WM_COMMAND, 9983, (WPARAM)buffer);
+	if (pmsg->ind == 0)
+	{
+		if (mCaptureStatus.hDlg)
+			mCaptureStatus.ShowWindow(SW_SHOW);
+		else
+			CreateDialog(pmsg->hInst, "AUDIOCAPTURE", pmsg->hParent, (DLGPROC)audiocaptuestatusProc);
+		int blockDuration = (int)(1000. * pmsg->cbp.len_buffer / pmsg->cbp.fs);
+		sprintf(buffer, "Block size %d ms\r\nInitial callback processing time %d ms.\r\nSince the initial callback...", blockDuration, pmsg->elapsed);
+		SetDlgItemText(mCaptureStatus.hDlg, IDC_EDIT1, "");
+		SendMessage(mCaptureStatus.hDlg, WM_COMMAND, UPDATE_CONTENT, (WPARAM)buffer);
+	}
+
+	while (1)
+	{
+		unique_lock<mutex> lk(mtx);
+		cv.wait(lk);
+		lk.unlock();
+		audiocapture_status_carry p = *msgq.front();
+		if (p.ind==1)
+		{
+			sprintf(buffer, "Elapsed time for block 1: %d ms.\n", pmsg->lastCallbackTimeTaken);
+			SendMessage(mCaptureStatus.hDlg, WM_COMMAND, MAKELONG(UPDATE_CONTENT, pmsg->ind), (WPARAM)buffer);
+		}
+		else
+		{
+			int blockDuration = (int)(1000. * p.cbp.len_buffer / p.cbp.fs);
+			sprintf(buffer, "(%d ms for the last block callback) %d ms elapsed for block %d", p.lastCallbackTimeTaken, p.elapsed, p.ind);
+			SendMessage(mCaptureStatus.hDlg, WM_COMMAND, MAKELONG(UPDATE_CONTENT, p.ind), (WPARAM)buffer);
+		}
+		msgq.pop();
+	}
 }

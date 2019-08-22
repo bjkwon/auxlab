@@ -22,6 +22,8 @@
 #include "audio_capture_status.h"
 
 #include <thread>
+#include <queue>
+#include <mutex>
 
 #include <cstdlib>
 
@@ -53,6 +55,8 @@ extern CDebugBaseDlg debugBase;
 extern CTabControl mTab;
 
 extern vector<UINT> exc;
+queue<audiocapture_status_carry *> msgq;
+condition_variable cv;
 
 CAudcapStatus mCaptureStatus;
 BOOL CALLBACK audiocaptuestatusProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
@@ -66,6 +70,7 @@ vector<cfigdlg*> plots;
 #define ID_HELP_SYSMENU2		33759
 #define ID_HELP_SYSMENU3		33760
 #define ID_HELP_SYSMENU4		33761
+#define ID_HELP_SYSMENU5		33762
 
 #define WM__NEWDEBUGDLG	WM_APP+0x2000
 
@@ -73,6 +78,7 @@ vector<cfigdlg*> plots;
 
 CAstSig * CDebugDlg::pAstSig = NULL;
 int CShowvarDlg::nPlaybackCount = 0;
+mutex mtx;
 
 FILE *fp;
 
@@ -957,7 +963,6 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 	CWndDlg::OnInitDialog(hwndFocus, lParam);
 
 	CRect rtDlg, rt;
-	HWND hh;
 	if (this == &mShowDlg)
 	{
 		mShowDlg.GetWindowRect(&rtDlg);
@@ -999,7 +1004,7 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 		recordingButtonRT.top -= rt0.top;
 		recordingButtonRT.bottom -= rt0.top;
 
-		hh = CreateDialog(hInst, "AUDIOCAPTURE", hDlg, (DLGPROC)audiocaptuestatusProc);
+		mCaptureStatus.hDlg = CreateDialog(hInst, "AUDIOCAPTURE", hDlg, (DLGPROC)audiocaptuestatusProc);
 	}
 	else
 	{
@@ -1030,9 +1035,11 @@ void CShowvarDlg::OnShowWindow(BOOL fShow, UINT status)
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU3, "Set UDF &Path");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
-	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU2, "Sampling &Rate Adjustment");
+	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU2, "Adjust fs (Sampling &Rate)");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
-	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU1, "&About AUX Lab");
+	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU1, "&About AUXLAB");
+	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
+	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU5, "AudioCapture &Monitor");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU4, "&Show Key Tracking");
 }
@@ -1290,6 +1297,9 @@ void CShowvarDlg::OnSysCommand(UINT cmd, int x, int y)
 		break;
 	case ID_HELP_SYSMENU4:
 		::ShowWindow(hLog, SW_SHOW);
+		break;
+	case ID_HELP_SYSMENU5:
+		::ShowWindow(mCaptureStatus.hDlg, SW_SHOW);
 		break;
 	}
 }
@@ -1874,8 +1884,10 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	if (pmsg->cbp.nChans > 1)
 		pvar_callbackoutput->SetNextChan(new CVar);
 	int fs = pmsg->cbp.fs;
+	int ind=0;
 	bool loop=true, finiteDur;
 	DWORD tcount0Last = 0, tcount0, tcount1, tcount2;
+	DWORD lastCallbackTimeTaken;
 	callback_trasnfer_record * precorder = NULL;
 	try {
 		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, pmsg->cbp.callbackfilename))
@@ -1889,8 +1901,20 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			}
 			pvar_callbackinput->strut["?index"].SetValue(0.);
 			finiteDur = pmsg->cbp.duration > 0;
+			tcount0Last = GetTickCount();
 			sendtoEventLogger("going into callback 0\n");
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+			{
+				tcount0 = GetTickCount();
+				unique_ptr<audiocapture_status_carry> msng(new audiocapture_status_carry);
+				msng->elapsed = msng->lastCallbackTimeTaken = lastCallbackTimeTaken = tcount0 - tcount0Last;
+				msng->ind = ind++;
+				msng->hInst = mShowDlg.hInst;
+				msng->hParent = mShowDlg.hDlg;
+				thread captureStatusThread(AudioCaptureStatus, move(msng));
+				captureStatusThread.detach();
+				tcount0Last = tcount0;
+			}
 			sendtoEventLogger("out of callback 0\n");
 			SetEvent(hEventRecordingReady);
 			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
@@ -1915,31 +1939,37 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				throw emsg.c_str();
 			}
 		}
-		int blockDuration = (int)(1000. *pmsg->cbp.len_buffer / pmsg->cbp.fs);
+		DWORD blockDuration = (DWORD)(1000. *pmsg->cbp.len_buffer / pmsg->cbp.fs);
 		CVar captured, captured2;
 		MSG msg;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
-			long elapsed = -1;
+			DWORD elapsed;
 			int eventID = 0;
 			bool toggle = false;
 			callback_trasnfer_record copy_incoming;
+			audiocapture_status_carry msng;
 			switch (msg.message)
 			{
 			case WIM_DATA:
 				tcount0 = GetTickCount();
-				if (tcount0Last)
+				elapsed = tcount0 - tcount0Last;
+	//			if (elapsed > blockDuration)
 				{
-					if ((int)(tcount0 - tcount0Last) > blockDuration)
-					{
-						unique_ptr<audiocapture_status_carry> msng(new audiocapture_status_carry);
-						msng->elapsed = tcount0 - tcount0Last;
-						msng->cbp = *(callback_trasnfer_record*)msg.wParam;
-						msng->hInst = mShowDlg.hInst;
-						msng->hParent = mShowDlg.hDlg;
-						thread captureStatusThread(AudioCaptureStatus, move(msng));
-						captureStatusThread.detach();
-					}
+					unique_lock<mutex> lk(mtx);
+
+					msng.ind = ind++;
+					msng.elapsed = tcount0 - tcount0Last;
+					msng.lastCallbackTimeTaken = lastCallbackTimeTaken;
+					msng.cbp = *(callback_trasnfer_record*)msg.wParam;
+					msng.hInst = mShowDlg.hInst;
+					msng.hParent = mShowDlg.hDlg;
+					msgq.push(&msng);
+					lk.unlock();
+					cv.notify_one();
+//
+//					thread captureStatusThread(AudioCaptureStatus, move(msng));
+//					captureStatusThread.detach();
 				}
 				tcount0Last = tcount0;
 				// This is where record callback function is invoked.
@@ -1968,6 +1998,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				tcount1 = GetTickCount();
 				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
 				tcount2 = GetTickCount();
+				lastCallbackTimeTaken = tcount2- tcount1;
 				sprintf(buffer, "out of callback %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
 				sendtoEventLogger(buffer);
 				eventID = copy_incoming.bufferID ? 0 : 1;
@@ -1978,6 +2009,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					{
 						(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * copy_incoming.len_buffer / copy_incoming.fs;
 						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durRec");
+						SetFocus(GetConsoleWindow());
 						if (finiteDur)
 						{
 							(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];

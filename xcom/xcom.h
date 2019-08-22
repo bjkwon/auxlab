@@ -116,6 +116,8 @@ typedef struct {
 	DWORD elapsed;
 	HINSTANCE hInst;
 	HWND hParent;
+	int ind;
+	DWORD lastCallbackTimeTaken;
 } audiocapture_status_carry;
 
 #else if //if XCOM was already defined, skip

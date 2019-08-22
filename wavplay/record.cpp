@@ -238,9 +238,9 @@ void ThreadCapture(const record_param &p)
 			pWP->setPlayPoint(pWP->wh[1], tico += accum);
 			MMERRTHROW(waveInPrepareHeader(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInPrepareHeader")
 			MMERRTHROW(waveInAddBuffer(pWP->hwi, &pWP->wh[1], sizeof(WAVEHDR)), "waveInAddBuffer")
-			sendtoEventLogger("waveInAddBuffer called.. WaitForSingleObject(hEventRecordingReady) waiting...\n");
+			sendtoEventLogger("waveInAddBuffer called, hEventRecordingReady locked.\n");
 			WaitForSingleObject(hEventRecordingReady, INFINITE);
-			sendtoEventLogger("Released WaitForSingleObject(hEventRecordingReady)... waveInStart called\n");
+			sendtoEventLogger("hEventRecordingReady released, waveInStart next.\n");
 			CloseHandle(hEventRecordingReady);
 			MMERRTHROW(waveInStart(pWP->hwi), "waveOutRestart")
 			SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WM__AUDIOCAPTURE_BEGIN); // This is the moment of true beginning of recording, after the callback

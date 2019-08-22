@@ -65,12 +65,32 @@ CGraffyEnv theApp;
 
 void CGobj::addRedrawCue(HWND h, RECT rt)
 {
+	auto it = theApp.redraw.begin();
+	while (it != theApp.redraw.end())
+	{
+		if (it->first == h)
+		{
+			RECT dummyzero = {};
+			if (!memcmp(&dummyzero, &(it->second), sizeof(RECT)))
+				return;
+			CRect crt0(it->second);
+			CRect crt(rt);
+			crt0.UnionRect(crt0, crt);
+			it->second = crt0;
+			return;
+		}
+		if (it++ == theApp.redraw.end())
+		{
+			theApp.redraw.insert(pair<HWND, RECT>(h, rt));
+			return;
+		}
+	}
 	theApp.redraw.insert(pair<HWND, RECT>(h, rt));
 }
 
 void addRedrawCue(HWND hDlg, RECT rt)
 {
-	theApp.redraw.insert(pair<HWND,RECT>(hDlg, rt));
+	theApp.GraffyRoot.addRedrawCue(hDlg, rt);
 }
 
 void invalidateRedrawCue()
@@ -80,7 +100,7 @@ void invalidateRedrawCue()
 	for (map<HWND, RECT>::iterator it = theApp.redraw.begin(); it != theApp.redraw.end(); it++)
 	{
 		GetWindowText(it->first, buf2, sizeof(buf2));
-		sprintf(buf, "InvalidateRect %s\n", buf2);
+		sprintf(buf, "(invalidateRedrawCue) %s\n", buf2);
 		sendtoEventLogger(buf);
 		if (!memcmp(&zeros, &(it->second), sizeof(RECT)))
 			InvalidateRect(it->first, NULL, TRUE);
@@ -807,7 +827,7 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	vector<CGobj*> h = graffy_CFigs();
 	if (h.empty())
 	{
-		sprintf(buf, "RepaintGO but no figs\n");
+		sprintf(buf, "(RepaintGO) no figs\n");
 		sendtoEventLogger(buf);
 	}
 	if (pctx)
@@ -817,9 +837,9 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 			CFigure * tp = (CFigure *)*fig;
 			CVar *pp = (CVar*)tp;
 			if (pp->GetFs() == 2)
-				sprintf(buf, "%s ", pp->string().c_str());
+				sprintf(buf, "(RepaintGO) %s ", pp->string().c_str());
 			else
-				sprintf(buf, "Figure %d ", (int)pp->value());
+				sprintf(buf, "(RepaintGO) Figure %d ", (int)pp->value());
 			if ( tp->visible == -1)
 			{
 				tp->visible = 1;
@@ -827,9 +847,9 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 				tp->m_dlg->ShowWindow(SW_SHOW);
 				strcpy(buf2, "... made visible");
 				strcat(buf, buf2);
+				strcat(buf, "\n");
+				sendtoEventLogger(buf);
 			}
-			strcat(buf, "\n");
-			sendtoEventLogger(buf);
 		}
 	}
 	invalidateRedrawCue();
