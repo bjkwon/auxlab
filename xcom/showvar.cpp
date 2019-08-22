@@ -1967,9 +1967,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					msgq.push(&msng);
 					lk.unlock();
 					cv.notify_one();
-//
-//					thread captureStatusThread(AudioCaptureStatus, move(msng));
-//					captureStatusThread.detach();
 				}
 				tcount0Last = tcount0;
 				// This is where record callback function is invoked.

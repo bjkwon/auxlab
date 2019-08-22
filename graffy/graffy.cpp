@@ -845,15 +845,14 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 				else
 					sprintf(buf, "(RepaintGO) Figure (empty)");
 			}
-			//Logically, it makes sense to have this if statement, but 
-			// maybe it is possible that tp->visible is set to 1 but tp->m_dlg->ShowWindow(SW_SHOW); was never called
-			// as a result, this figure window never appears
-			// As a workaround, I'm removing this if statement
-			// Do a little more digging to make the code robust. For now, I'm moving on. 8/22/2019
-//			if ( tp->visible == -1) 
+			if ( tp->visible == -1 && tp->m_dlg->hDlg)
 			{
 				tp->visible = 1;
 				tp->strut["visible"].SetValue(1.);
+				// Don't just assume that tp->m_dlg->hDlg is available. 
+				// It is possible  tp->m_dlg was initiated but tp->m_dlg->hDlg is not ready yet.
+				// that's why tp->m_dlg->hDlg is checked in the if statement above
+				// 8/22/2019
 				tp->m_dlg->ShowWindow(SW_SHOW);
 				if (IsEventLoggerReady())
 				{
