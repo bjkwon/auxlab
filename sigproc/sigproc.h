@@ -363,7 +363,7 @@ public:
 	CVar &NodeMatrix(const AstNode *pnode, AstNode *p);
 	CVar &define_new_variable(const AstNode *pnode, AstNode *pRHS);
 	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
-	CVar *GetVariable(const char *varname, string &fullvarname= string(""), CVar *pvar = NULL);
+	CVar *GetVariable(const char *varname, string fullvarname= string(""), CVar *pvar = NULL);
 	CVar &TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
 	CVar &Eval(AstNode *pnode);
 	CVar &Transpose(const AstNode *pnode, AstNode *p);

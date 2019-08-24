@@ -40,7 +40,7 @@ void CFileDlg::InitFileDlg (HWND hwnd, HINSTANCE hInst, const char *initDir)
 	ofn.hInstance = hInst;
 }
 // pstrFileName should be static variable.
-int CFileDlg::FileOpenDlg (LPSTR pstrFileName, LPSTR pstrTitleName, LPSTR szFilter, LPSTR lpstrDefExt)
+int CFileDlg::FileOpenDlg (LPSTR pstrFileName, LPSTR pstrTitleName, LPCSTR szFilter, LPCSTR lpstrDefExt)
 {
 	char drive[64], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH];
 	ofn.lpstrFile         = pstrFileName ; // must be NULLi or containt file name to initialize the File Name edit control.
@@ -58,7 +58,7 @@ int CFileDlg::FileOpenDlg (LPSTR pstrFileName, LPSTR pstrTitleName, LPSTR szFilt
 	return res;
 }
 // pstrFileName should be static variable.
-int CFileDlg::FileSaveDlg (LPSTR pstrFileName, LPSTR pstrTitleName, LPSTR szFilter, LPSTR lpstrDefExt)
+int CFileDlg::FileSaveDlg (LPSTR pstrFileName, LPSTR pstrTitleName, LPCSTR szFilter, LPCSTR lpstrDefExt)
 {
 	char drive[64], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH];
 	ofn.lpstrFile         = pstrFileName ; // must be NULLi or containt file name to initialize the File Name edit control.
