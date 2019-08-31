@@ -2104,10 +2104,11 @@ CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
 	}
 }
 
-CVar *CAstSig::GetVariable(const char *varname, string &fullvarname, CVar *pvar)
+CVar *CAstSig::GetVariable(const char *varname, CVar *pvar)
 { //To retrive a variable from a workspace pvar is NULL (default)
   //To retrive a member variable, specify pvar as the base variable 
  // For multiple GO's, calls GetGOVariable()
+	string fullvarname = "";
 	CVar *pout(NULL);
 	if (!varname)
 		throw ExceptionMsg(pAst, "Internal error--varname not specified in GetVariable()");
@@ -2162,8 +2163,7 @@ AstNode *CAstSig::read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn)
 	if ((*pn)->str[0] == '#' || IsValidBuiltin((*pn)->str))
 		throw ExceptionMsg(*pn, "Function cannot be cleared.");
 	CVar *pres;
-	string vam;
-	if (!(pres = GetVariable((*pn)->str, vam, ndog.psigBase)))
+	if (!(pres = GetVariable((*pn)->str, ndog.psigBase)))
 		throw ExceptionMsg(*pn, "Variable not found.");
 	AstNode * res = get_next_parsible_node(*pn);
 	if (res && res->type == N_STRUCT && !strcmp(res->str, "clear"))
@@ -2183,7 +2183,7 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 	}
 	string emsg;
 	AstNode *p = pn;
-	int cellind, ind(0);
+	int ind(0);
 	CVar *pres;
 	ostringstream out;
 	AstNode *pUDF;
@@ -2268,7 +2268,7 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 				diggy.level.psigBase = pres;
 			}
 			//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
-			else if (!(pres = GetVariable(pn->str, diggy.level.varname, diggy.level.psigBase)) )
+			else if (!(pres = GetVariable(pn->str, diggy.level.psigBase)) )
 			{
 				if (diggy.level.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
 				{
@@ -2294,10 +2294,10 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 					//either x{2} or x{2}(3). x or x(2) doesn't come here.
 					// I.E., p->child should be non-NULL
 				{
-					cellind = (int)Compute(p->child).value(); // check the validity of ind...probably it will be longer than this.
-					out << "{" << cellind << "}";
-					diggy.level.varname += out.str();
-					Sig = *(diggy.level.psigBase = &pres->cell.at(cellind - 1)); // check the validity
+					size_t cellind = (int)Compute(p->child).value(); // check the validity of ind...probably it will be longer than this.
+					if (cellind > pres->cell.size())
+						throw ExceptionMsg(pn, "specified index exceeding the cell size.");
+					Sig = *(diggy.level.psigBase = &pres->cell.at(cellind - 1)); 
 				}
 				else if (p->type == N_STRUCT)
 				{
@@ -3050,9 +3050,6 @@ bool CAstSig::IsSTRUCT(const AstNode *p)
 {
 	return p->type == N_STRUCT;
 }
-
-bool CAstSig::IsPortion(const AstNode *p) 
-{ return (p->type == N_ARGS || p->type == N_TIME_EXTRACT); }
 
 bool CAstSig::Var_never_updated(const AstNode *p)
 {//For these node types, 100% chance that var was not changed---do not send WM__VAR_CHANGED

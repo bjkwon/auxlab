@@ -3,6 +3,7 @@
 // Used by graffy.rc
 //
 #define IDI_ICON1                       101
+#define IDD_PLOT_CHILD                  145
 #define IDD_PLOT                        300
 #define IDR_POPMENU                     1000
 #define IDR_ACCELERATOR                 1003
@@ -18,7 +19,6 @@
 #define IDM_PLAY                        32779
 #define IDM_TRANSPARENCY                32780
 #define IDM_WAVWRITE                    32781
-#define IDM_MP3WRITE 					32872
 #define IDM_SPECTRUM                    32783
 #define ID_MYMENU_LEVEL                 32784
 #define IDM_LEVEL                       32785
@@ -34,6 +34,7 @@
 #define ID_ACCELERATOR32806             32806
 #define ID_ACCELERATOR32810             32810
 #define IDM_ADJUSTWINDOWSIZE            32812
+#define IDM_MP3WRITE                    32872
 
 // Next default values for new objects
 // 

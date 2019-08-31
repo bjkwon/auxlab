@@ -22,6 +22,18 @@ class CAudcapStatus : public CWndDlg
 public:
 	HFONT eFont;
 	LONG pixelPerLine;
+	CFigure *cfig;
+	CAxes * ax;
+	CText *txtId;
+	CText *txtTitle;
+	CText *txtAvg;
+	HWND hPlot;
+	WORD blocktime;
+	CLine *lineBlocktime, *lineSymAvga, *lineSymAvgb, *lineCallbacktime;
+	double cumAverageblockTime;
+	double blockproctimeHistory[100];
+	double blockproctimeMA[100];
+	double cbproctimeHistory[100];
 
 	CAudcapStatus(void);
 	~CAudcapStatus(void);

@@ -117,6 +117,7 @@ public:
 	vector<CGobj *> child;
 	CGobj();
 	virtual ~CGobj();
+	virtual POINT GetRef();
 	CGobj& operator=(const CGobj& rhs);
 	GRAPHY_EXPORT void setPos(double x0, double y0, double width, double height);
 	void setPos(CPosition &posIn);
@@ -158,6 +159,7 @@ public:
 	unsigned _int8 markersize;
 	COLORREF markerColor;
 	LineStyle lineStyle;
+	bool filled;
 
 	void initGO(void * _hpar);
 	LineStyle GetLineStyle();
@@ -165,7 +167,10 @@ public:
 	GRAPHY_EXPORT CLine& operator=(const CLine& rhs);
 	GRAPHY_EXPORT CLine(CWndDlg * base, CGobj* pParent);   // standard constructor
 	~CLine();
-
+	// These two members are to be filled out in OnPaint
+	POINT initial; // client coordinate for the first point (assuming that the line is not reversing)
+	POINT final; // client coordinate for the first point (assuming that the line is not reversing)
+	RECT rti, rtf;
 	unsigned int orglength() {return xdata.nSamples;};
 };
 
@@ -178,10 +183,12 @@ public:
 	bool underline;
 	bool strikeout;
 	DWORD alignmode;
+	WORD posmode; // 0 for regular pos (from CPosion), 1 for pos determined by user-specified textRect
 	int fontsize; // in pixel
 	CRect textRect; // in Client coordiate
 	CFont font;
 	std::string str;
+	POINT GetRef();
 	GRAPHY_EXPORT HFONT ChangeFont(LPCTSTR fontName, int fontSize=15, DWORD style=0);
 	GRAPHY_EXPORT int GetAlignment(std::string &horizontal, std::string &vertical);
 	GRAPHY_EXPORT int SetAlignment(const char *alignmodestr);
@@ -210,6 +217,7 @@ public:
 	CTick ytick; // CTick xtick(this) didn't work..... Maybe during instantiation of CAxes set xtick.m_dlg = this...
 	vector<CLine*> m_ln;
 //	vector<CPatch*> m_pat;
+	bool xlimfixed, ylimfixed;
 
 	GRAPHY_EXPORT CAxes *create_child_axis(CPosition pos);
 	void GetCoordinate(POINT* pt, double& x, double& y);
@@ -220,6 +228,7 @@ public:
 //	GRAPHY_EXPORT void DeletePatch(int index);
 	GRAPHY_EXPORT CRect GetWholeRect(); // Retrieve the whole area including xtick, ytick
 	void setxticks();
+	POINT GetRef();
 	void setRangeFromLines(char xy);
 	int GetDivCount(char xy, int dimens);
 	POINT double2pixelpt(double x, double y, double *newxlim);
@@ -255,6 +264,7 @@ public:
 	GRAPHY_EXPORT CFigure& operator=(const CFigure& rhs);
 	GRAPHY_EXPORT	CFigure();
 	~CFigure();
+	POINT GetRef();
 };
 
 
@@ -285,6 +295,18 @@ struct GRAFWNDDLGSTRUCT
 	HANDLE hIcon;
 };
 
+struct GRAFWNDDLGCHILDSTRUCT
+{
+	//input parameters
+	CRect rt;
+	HWND hWndAppl;
+	DWORD threadCaller;
+	//output parameters
+	DWORD threadPlot;
+	HANDLE fig;
+	CFigure *cfig;
+	HANDLE hIcon;
+};
 
 GRAPHY_EXPORT void initGraffy(CAstSig *base);
 GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent = NULL);
@@ -303,6 +325,7 @@ GRAPHY_EXPORT int CloseFigure(HANDLE h);
 #ifdef _WIN32XX_WINCORE_H_
 #define NO_USING_NAMESPACE
 GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in);
+GRAPHY_EXPORT HANDLE OpenChildGraffy(GRAFWNDDLGCHILDSTRUCT &in);
 
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, HWND hWndAppl, int devID, double block, HANDLE hIcon=NULL);
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, int devID, double block, HANDLE hIcon = NULL);

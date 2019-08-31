@@ -17,6 +17,7 @@ GRAPHY_EXPORT CLine::CLine(CWndDlg * base, CGobj * pParent)
 {
 	type = GRAFFY_line;
 	m_dlg = base;
+	filled = false;
 	hPar = pParent;
 	initGO(pParent);
 	strut["markersize"] = CSignals(double(markersize));

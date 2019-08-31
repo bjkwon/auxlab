@@ -961,8 +961,7 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 	{
 		if (!pvar)
 		{
-			string vam;
-			pvar = pctx->GetVariable(pnode->str, vam);
+			pvar = pctx->GetVariable(pnode->str);
 			if (!pvar) return; // this filters out a null statement in a block such as a=1; b=100; 500 
 		}
 		if (CAstSig::IsLooping(pnode)) return; // T_IF, T_FOR, T_WHILE
@@ -1050,13 +1049,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		}
 		else
 			echo(dt, pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
-		//if LHS is x(arg_list) or x(time_extraction), Sig is partial. This needs to the entire portion for plot window
-		if (CAstSig::IsTID(pContext->pAst) && pContext->pAst->alt && CAstSig::IsPortion(pContext->pAst->alt))
-		{
-			string vam;
-			CVar *tp = pContext->GetVariable(pContext->pAst->str, vam);
-			if (tp) pContext->Sig = *tp;
-		}
 	}
 	catch (const char *_errmsg) {
 		bool gotobase = false;

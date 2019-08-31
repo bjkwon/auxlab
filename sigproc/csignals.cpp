@@ -4127,7 +4127,7 @@ CSignal CSignal::FFT(unsigned int id0, unsigned int len)
 	p = fftw_plan_dft_r2c_1d(fftsize, in, out, FFTW_ESTIMATE);
 	fftw_execute(p);
 
-	CSignal res(fs);
+	CSignal res(1);
 	res.UpdateBuffer(fftsize);
 	res.SetComplex();
 	memcpy(res.cbuf, out, sizeof(*cbuf)*fftRealsize);

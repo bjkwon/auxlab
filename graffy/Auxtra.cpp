@@ -517,14 +517,13 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		if ((*rit).GetType() != CSIG_SCALAR) 
 			throw CAstException(pnode, past, "X- and Y- positions must be scalar.");
 	}
-	string vam;
-	CSignals *pgcf = past->GetVariable("gcf", vam);
+	CSignals *pgcf = past->GetVariable("gcf");
 	if (!pGO)
 	{
 		if (pgcf == NULL || pgcf->IsEmpty())
 		{
 			_figure(past, pnode, NULL, fnsigs);
-			pgcf = past->GetVariable("gcf", vam);
+			pgcf = past->GetVariable("gcf");
 		}
 	}
 	else
@@ -558,12 +557,11 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	CSignals *pgcf;
 	if (!pGO || pGO->IsEmpty())
 	{
-		string vam;
-		pgcf = past->GetVariable("gcf", vam);
+		pgcf = past->GetVariable("gcf");
 		if (!pgcf || pgcf->IsEmpty())
 		{
 			_figure(past, pnode, NULL, fnsigs);
-			pgcf = past->GetVariable("gcf", vam);
+			pgcf = past->GetVariable("gcf");
 		}
 	}
 	else

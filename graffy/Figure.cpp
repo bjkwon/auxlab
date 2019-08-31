@@ -35,13 +35,29 @@ CGobj::~CGobj()
 		}
 }
 
+POINT CGobj::GetRef()
+{
+	POINT out = {};
+	return out;
+}
+
+POINT CFigure::GetRef()
+{
+	//Screen coordiate
+	RECT rt;
+	GetWindowRect(m_dlg->hDlg, &rt);
+	POINT out;
+	out.x = rt.left;
+	out.y = rt.top;
+	return out;
+}
+
 GRAPHY_EXPORT void CGobj::setPos(double x0, double y0, double width, double height)
 {
 	pos.x0 = x0;
 	pos.y0 = y0;
 	pos.width = width;
 	pos.height  = height;
-	
 }
 
 void CGobj::setPos(CPosition &posIn)

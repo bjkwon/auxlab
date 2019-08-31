@@ -7,13 +7,13 @@
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.501
-// Date: 4/9/2019
+// Version: 1.6XX
+// Date: 8/29/2019
 // 
 #include "graffy.h"
 
 GRAPHY_EXPORT CText::CText(CWndDlg * base, CGobj* pParent, const char *strInit, CPosition posInit)
-:fontsize(12), italic(false), bold(false), underline(false), strikeout(false), alignmode(TA_LEFT|TA_BASELINE)
+:fontsize(12), italic(false), bold(false), underline(false), strikeout(false), posmode(0), alignmode(TA_LEFT|TA_BASELINE)
 {
 	m_dlg = base;
 	type = GRAFFY_text;
@@ -45,11 +45,51 @@ GRAPHY_EXPORT CText::CText(CWndDlg * base, CGobj* pParent, const char *strInit, 
 	sigpos.buf[1] = pos.y0;
 	strut["pos"] = sigpos;
 }
+//
+//GRAPHY_EXPORT CText::CText(CWndDlg * base, CGobj* pParent, const char *strInit, POINT pt)
+//	:fontsize(12), italic(false), bold(false), underline(false), strikeout(false), alignmode(TA_LEFT | TA_BASELINE)
+//{
+//	m_dlg = base;
+//	type = GRAFFY_text;
+//	strcpy(fontname, "Arial");
+//	str.clear();
+//	if (strInit)	str = strInit;
+//	else str = "";
+//	hPar = pParent;
+//	initGO(pParent);
+//	color = RGB(0, 0, 0);
+//	HDC hdc = GetDC(m_dlg->hDlg);
+//	int nHeight = MulDiv(fontsize, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+//	ReleaseDC(m_dlg->hDlg, hdc);
+//	int weight = bold ? FW_BOLD : FW_DONTCARE;
+//	DWORD dwItalic = italic ? 1 : 0;
+//	DWORD dwUnderline = underline ? 1 : 0;
+//	DWORD dwStrikeOut = strikeout ? 1 : 0;
+//	HFONT res = font.CreateFont(nHeight, 0, 0, 0, weight, dwItalic, dwUnderline, dwStrikeOut, ANSI_CHARSET,
+//		OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, fontname);
+//	hPar->child.push_back(this);
+//	struts["parent"].push_back(pParent);
+//	strut["string"] = CSignals(str);
+//	strut["fontname"] = CSignals(std::string(fontname));
+//	strut["fontsize"] = CSignals((double)fontsize);
+//	CSignals sigpos;
+//	sigpos.UpdateBuffer(4);
+//	sigpos.buf[0] = pos.x0 = pt.x; // these values are not set until processed in OnPoint
+//	sigpos.buf[1] = pos.y0 = pt.y; // these values are not set until processed in OnPoint
+//	strut["pos"] = sigpos;
+//}
 
 CText::~CText() 
 {
-	hPar->child.pop_back();
 	font.DeleteObject();
+	for (auto it = hPar->child.begin(); it!= hPar->child.end(); it++)
+	{
+		if (*it == this)
+		{
+			hPar->child.erase(it);
+			return;
+		}
+	}
 }
 
 GRAPHY_EXPORT HFONT CText::ChangeFont(LPCTSTR fontName, int fontSize, DWORD style)
@@ -146,4 +186,11 @@ CText& CText::operator=(const CText& rhs)
 		underline = rhs.underline;
 	}
 	return *this;
+}
+
+
+POINT CText::GetRef()
+{
+	POINT out = { textRect.left, textRect.top };
+	return out;
 }

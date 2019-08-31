@@ -1039,7 +1039,7 @@ void CShowvarDlg::OnShowWindow(BOOL fShow, UINT status)
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU1, "&About AUXLAB");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
-	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU5, "AudioCapture &Monitor");
+	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU5, "AudioCapture &Monitor Ctrl-M");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU4, "&Show Key Tracking");
 }
@@ -1361,6 +1361,10 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 				UpdateProp((*it).first, &(*it).second, "durLeft");
 			}
 		}
+		break;
+
+	case ID_MONITOR:
+		OnSysCommand(ID_HELP_SYSMENU5, 0, 0);
 		break;
 
 	case IDC_OPEN:
@@ -1911,6 +1915,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				msng->ind = ind++;
 				msng->hInst = mShowDlg.hInst;
 				msng->hParent = mShowDlg.hDlg;
+				msng->cbp = pmsg->cbp;
 				thread captureStatusThread(AudioCaptureStatus, move(msng));
 				captureStatusThread.detach();
 				tcount0Last = tcount0;
@@ -1954,10 +1959,8 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			case WIM_DATA:
 				tcount0 = GetTickCount();
 				elapsed = tcount0 - tcount0Last;
-	//			if (elapsed > blockDuration)
 				{
 					unique_lock<mutex> lk(mtx);
-
 					msng.ind = ind++;
 					msng.elapsed = tcount0 - tcount0Last;
 					msng.lastCallbackTimeTaken = lastCallbackTimeTaken;

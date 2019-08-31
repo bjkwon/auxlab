@@ -51,6 +51,7 @@ public:
 	CFigure *findFigure(CSignals *xFig);
 	HANDLE  openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon = NULL);
 	HANDLE  openFigure(CRect *rt, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon = NULL);
+	HANDLE  openChildFigure(CRect *rt, HWND hWndAppl);
 	multimap<HWND, RECT> redraw;
 	int getselRange(CSignals *hgo, CSignals *out);
 	int closeFigure(HANDLE h);
@@ -131,7 +132,7 @@ INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	}
 	switch (umsg)
 	{
-		chHANDLE_DLGMSG(hDlg, WM_INITDIALOG, THE_CPLOTDLG->OnInitDialog);
+		chHANDLE_DLGMSG(hDlg, WM_INITDIALOG, static_cast <CPlotDlg*>(theApp.fig[id])->OnInitDialog);
 		chHANDLE_DLGMSG(hDlg, WM_PAINT, THE_CPLOTDLG->OnPaint);
 		chHANDLE_DLGMSG(hDlg, WM_SIZE, THE_CPLOTDLG->OnSize);
 		chHANDLE_DLGMSG(hDlg, WM_CLOSE, THE_CPLOTDLG->OnClose);
@@ -309,6 +310,33 @@ int CGraffyEnv::getselRange(CSignals *hgo, CSignals *out)
 	return res;
 }
 
+HANDLE CGraffyEnv::openChildFigure(CRect *rt, HWND hWndAppl)
+{
+	CString s;
+	CPlotDlg *newFig;
+	fig.push_back(newFig = new CPlotDlg(hInst, &GraffyRoot)); // this needs before CreateDialogParam
+
+	// due to z-order problem in Windows 7, parent is set NULL for win7.
+	if (!(newFig->hDlg = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_PLOT_CHILD), hWndAppl, (DLGPROC)DlgProc, (LPARAM)hWndAppl)))
+	{
+		MessageBox(NULL, "Cannot Create graffy dialog box", "", MB_OK);	fig.pop_back(); delete newFig; return NULL;
+	}
+	newFig->pctx = pctx;
+	newFig->devID = 0;
+	newFig->block = 0; //  7/7/2018
+	newFig->title = NULL;
+	//Prob. not necessary
+	for (size_t k = 0; k < hDlg_fig.size(); k++)
+	{
+		RECT wndRt;
+		GetWindowRect(hDlg_fig[k], &wndRt);
+		if (*rt == wndRt) { rt->OffsetRect(20, 32); k = 0; }
+	}
+	newFig->MoveWindow(rt);
+	newFig->gcf.setPos(rt->left, rt->top, rt->Width(), rt->Height());
+	addRedrawCue(newFig->hDlg, CRect(0, 0, 0, 0));
+	return &newFig->gcf;
+}
 HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, HANDLE hIcon)
 {
 	CString s;
@@ -464,8 +492,56 @@ void thread4Plot(PVOID var)
 	delete in;
 }
 
+GRAPHY_EXPORT HANDLE OpenChildFigure(CRect *rt, HWND hWndAppl)
+{
+	return theApp.openChildFigure(rt, hWndAppl);
+}
+
+void thread4PlotChild(PVOID var)
+{
+	MSG         msg;
+	GRAFWNDDLGCHILDSTRUCT *in = (GRAFWNDDLGCHILDSTRUCT *)var;
+	if ((in->fig = OpenChildFigure(&in->rt, in->hWndAppl)) == NULL)
+	{
+		PostThreadMessage(in->threadCaller, WM_PLOT_DONE, 0, 0);
+		return;
+	}
+	in->threadPlot = GetCurrentThreadId();
+
+	PostThreadMessage(in->threadCaller, WM_PLOT_DONE, 0, 0);
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		if (!IsDialogMessage(msg.hwnd, &msg))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
+	delete in;
+}
+
+GRAPHY_EXPORT HANDLE OpenChildGraffy(GRAFWNDDLGCHILDSTRUCT &in)
+{
+	GRAFWNDDLGCHILDSTRUCT* pin = new GRAFWNDDLGCHILDSTRUCT;
+	pin->hWndAppl = in.hWndAppl;
+	pin->threadCaller = in.threadCaller;
+	pin->rt = in.rt;
+	_beginthread(thread4PlotChild, 0, (void*)pin);
+
+	MSG         msg;
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		if (msg.message == WM_PLOT_DONE)
+		{
+			in = *pin;
+			break;
+		}
+	}
+	return pin->fig;
+}
+
 GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in)
-{ // in in in out
+{ 
 	GRAFWNDDLGSTRUCT* pin = new GRAFWNDDLGSTRUCT;
 	pin->fig = NULL;
 	pin->block = in.block;
@@ -477,7 +553,6 @@ GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in)
 	pin->caption = in.caption;
 	pin->rt = in.rt;
 	_beginthread(thread4Plot, 0, (void*)pin);
-	//	DWORD dw = WaitForSingleObject(hEvent1, INFINITE);
 
 	MSG         msg;
 	while (GetMessage(&msg, NULL, 0, 0))
@@ -495,7 +570,6 @@ GRAPHY_EXPORT int GetFigSelRange(CGobj *hgo, CSignals *out)
 {
 	return theApp.getselRange(hgo, out);
 }
-
 
 GRAPHY_EXPORT HANDLE OpenFigure(CRect *rt, HWND hWndAppl, int devID, double block, HANDLE hIcon)
 {
@@ -537,7 +611,7 @@ GRAPHY_EXPORT HANDLE FindFigure(CSignals *pfigsig)
 		{
 			if (fs == 2 && fig->gcf.string() == pfigsig->string())
 				return &fig->gcf;
-			if (fs == 1 && fig->gcf.value() == pfigsig->value())
+			if (fs == 1 && fig->gcf.nSamples>0 && fig->gcf.value() == pfigsig->value())
 				return &fig->gcf;
 		}
 	}
@@ -604,7 +678,7 @@ GRAPHY_EXPORT HANDLE  AddText(HANDLE _fig, const char* text, double x0, double y
 	CFigure *fig = static_cast<CFigure *>(_fig);
 	CPosition pos(x0, y0, wid, hei);
 	CText *ctxt = fig->AddText(text, pos);
-	addRedrawCue(fig->m_dlg->hDlg, ctxt->textRect);
+//	addRedrawCue(fig->m_dlg->hDlg, ctxt->textRect);
 	return ctxt;
 }
 
@@ -636,6 +710,7 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CTimeSeries *pd
 
 GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata, COLORREF col, char cymbol, LineStyle ls)
 {
+	CLine *lyne;
 	CAxes *ax = static_cast<CAxes *>(_ax);
 	vector<HANDLE> out;
 	if (col == -1)
@@ -652,7 +727,7 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata
 		out.push_back(ax->plot(x, pdata, col, cymbol, ls));
 	}
 	else
-		out.push_back(ax->plot(x, pdata, col, cymbol, ls));
+		out.push_back(lyne = ax->plot(x, pdata, col, cymbol, ls));
 	if (pdata->next)
 	{
 		*((char*)&col + 3) = 'R';
@@ -724,6 +799,7 @@ void _deleteObj(CFigure *hFig)
 
 GRAPHY_EXPORT void deleteObj(HANDLE h)
 {
+	if (!h) return;
 	CFigure *hpar;
 	CAxes *hpax;
 	CGobj* aa = static_cast<CGobj*>(h);

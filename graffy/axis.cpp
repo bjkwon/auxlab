@@ -128,7 +128,7 @@ CAxes::CAxes()
 }
 
 GRAPHY_EXPORT CAxes::CAxes(CWndDlg * base, CGobj* pParent /*=NULL*/)
-:colorAxis(0)
+:colorAxis(0), xlimfixed(false), ylimfixed(false)
 {
 	type = GRAFFY_axes;
 	initGO(pParent);
@@ -171,6 +171,11 @@ void CAxes::initGO(void * _hpar)
 	strut["nextplot"] = CSignals(std::string("replace"));
 }
 
+POINT CAxes::GetRef()
+{
+	POINT out = { rct.left , rct.top };
+	return out;
+}
 
 CAxes::~CAxes()
 {
@@ -363,6 +368,20 @@ void CAxes::setxticks()
 	xtick.set(out, vxdata, nSamples);
 }
 
+GRAPHY_EXPORT void CAxes::setRange(const char xy, double x1, double x2)
+{
+	if (xy == 'x')
+	{
+		xlim[0] = x1;
+		xlim[1] = x2;
+	}
+	else if (xy == 'y')
+	{
+		ylim[0] = x1;
+		ylim[1] = x2;
+	}
+}
+
 GRAPHY_EXPORT void CAxes::setxlim()
 {//to be called after CLine objects are prepared
 	xlim[0] = std::numeric_limits<double>::infinity();
@@ -473,14 +492,18 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 		in2->lineStyle = ls;
 		m_ln.push_back(in2);
 	}
-	xlimFull[0] = xlim[0]; xlimFull[1] = xlim[1];
+	if (!xlimfixed)
+	{
+		xlimFull[0] = xlim[0]; xlimFull[1] = xlim[1];
+	}
 	RECT rt;
 	GetClientRect(m_dlg->hDlg, &rt);
 	int width(rt.right-rt.left);
 	int axWidth((int)((double)width*pos.width+.5));
 	int height(rt.bottom-rt.top);
 	int axHeight((int)((double)height*pos.height+.5));
-	setylim();
+	if (!ylimfixed)
+		setylim();
 
 	// parent is Figure object, whose parent is root object whose member is m_dlg
 	((CPlotDlg*)m_dlg)->ShowStatusBar();

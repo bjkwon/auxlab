@@ -26,6 +26,8 @@ if tics1 is not empty, OnPaint will not set tics1.
 
 #include "PlotDlg.h"
 #include <limits>
+#include <mutex>
+#include <thread>
 
 #include "wavplay.h"
 
@@ -43,6 +45,8 @@ if tics1 is not empty, OnPaint will not set tics1.
 #define FIX(x) (int)((x))
 
 extern HWND hPlotDlgCurrent;
+extern mutex mtx4PlotDlg;
+extern condition_variable cvPlotDlg;
 
 FILE *fpp;
 
@@ -611,110 +615,127 @@ void CPlotDlg::OnPaint()
 		size_t nLines = pax->m_ln.size(); // just FYI
 		CPen * ppen = NULL;
 		POINT *draw= new POINT [1];
-		int estCount = 1;
+		int nDraws = 0, estCount = 1;
 		if (pax->m_ln.empty())
 		{ // Need this to bypass axes without line object
 			k++;
 			continue;
 		}
-		int nDraws=0;
-		for (auto lyne : pax->m_ln)
 		{
-			CPen *pPenOld = NULL;
-			if (!lyne->visible) continue;
-			for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
+			unique_lock<mutex> locker(mtx4PlotDlg);
+			if (!locker.owns_lock())
+				cvPlotDlg.wait(locker);
+			for (auto lyne : pax->m_ln)
 			{
-				auto anSamples = p->nSamples;
-				auto atuck = p->nGroups;
-				auto atmark = p->tmark;
-				BYTE clcode;
-				vector<DWORD> kolor;
-				clcode = HIBYTE(HIWORD(lyne->color));
-				if (clcode=='L' || clcode=='R') 
-					kolor = Colormap(clcode, clcode, 'r', atuck);
-				if (clcode == 'l' || clcode == 'r')
-					kolor = Colormap(clcode, clcode+'R'-'r', 'c', atuck);
-				else if (clcode == 'M')
+				CPen *pPenOld = NULL;
+				if (!lyne->visible) continue;
+				for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
 				{
-					CVar cmap = lyne->strut["color"];
-					for (unsigned int k=0; k<cmap.nSamples; k+=3)
+					auto anSamples = p->nSamples;
+					auto atuck = p->nGroups;
+					auto atmark = p->tmark;
+					BYTE clcode;
+					vector<DWORD> kolor;
+					clcode = HIBYTE(HIWORD(lyne->color));
+					if (clcode == 'L' || clcode == 'R')
+						kolor = Colormap(clcode, clcode, 'r', atuck);
+					if (clcode == 'l' || clcode == 'r')
+						kolor = Colormap(clcode, clcode + 'R' - 'r', 'c', atuck);
+					else if (clcode == 'M')
 					{
-						DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
-						kolor.push_back(dw);
-					}
-				}
-				else
-					kolor.push_back(lyne->color);
-				auto colorIt = kolor.begin();
-				for (unsigned int m = 0; m < atuck; m++)
-				{
-					lyne->color = *colorIt;
-					p->nSamples = p->Len();
-					p->nGroups = 1;
-					memcpy(p->buf, p->buf + m*p->nSamples, p->bufBlockSize*p->nSamples);
-					if (p->IsTimeSignal())
-						p->tmark += 1000.* m*p->nSamples / p->GetFs();
-					if (lyne->lineWidth > 0 || lyne->symbol != 0)
-					{
-						int tp = estimateDrawCounts(p, pax, lyne, ps.rcPaint);
-						if (tp > estCount)
+						CVar cmap = lyne->strut["color"];
+						for (unsigned int k = 0; k < cmap.nSamples; k += 3)
 						{
-							estCount = tp;
-							delete[] draw;
-							draw = new POINT[estCount + 1];
-						}
-						nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
-						if (nDraws > estCount)
-						{
-							sprintf(buf, "left=%d,right=%d,est=%d,actual=%d", ps.rcPaint.left, ps.rcPaint.right, estCount,nDraws);
-							::MessageBox(NULL,buf,"exceed",0);
+							DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
+							kolor.push_back(dw);
 						}
 					}
-					if (lyne->symbol != 0)
+					else
+						kolor.push_back(lyne->color);
+					auto colorIt = kolor.begin();
+					for (unsigned int m = 0; m < atuck; m++)
 					{
-						LineStyle org = lyne->lineStyle;
-						lyne->lineStyle = LineStyle_solid;
-						if (lyne->lineWidth == 0)
-							lyne->lineWidth = 1;
-						OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-						DrawMarker(dc, lyne, draw, nDraws);
-						lyne->lineStyle = org;
-					}
-					ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-					if (lyne->lineWidth > 0)
-					{
-						if (p->IsTimeSignal()) {
-							if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
-							if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
-						}
-						if (nDraws > 0 && lyne->lineStyle != LineStyle_noline)
+						lyne->color = *colorIt;
+						p->nSamples = p->Len();
+						p->nGroups = 1;
+						memcpy(p->buf, p->buf + m * p->nSamples, p->bufBlockSize*p->nSamples);
+						if (p->IsTimeSignal())
+							p->tmark += 1000.* m*p->nSamples / p->GetFs();
+						if (lyne->lineWidth > 0 || lyne->symbol != 0)
 						{
-							int nOutOfAx = 0;
-							for (int k = nDraws-1; k>0; k--)
+							int tp = estimateDrawCounts(p, pax, lyne, ps.rcPaint);
+							if (tp > estCount)
 							{
-								if (draw[k].x > pax->rct.right) nOutOfAx++;
-								else break;
+								estCount = tp;
+								delete[] draw;
+								draw = new POINT[estCount + 1];
 							}
-							dc.Polyline(draw, nDraws - nOutOfAx);
+							nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
+							if (lyne->sig.nSamples==1)
+								lyne->initial = lyne->final = draw[0];
+							else
+							{
+								//if (p->nSamples == 4)
+								//{
+								//	Beep(3000, 20);
+								//}
+								//if (lyne == pax->m_ln.front())
+								//	lyne->initial = draw[0];
+								//if (lyne == pax->m_ln.back() && nDraws > 0)
+								//	lyne->final = draw[nDraws - 1];
+							}
+							if (nDraws > estCount)
+							{
+								sprintf(buf, "left=%d,right=%d,est=%d,actual=%d", ps.rcPaint.left, ps.rcPaint.right, estCount, nDraws);
+								::MessageBox(NULL, buf, "exceed", 0);
+							}
 						}
-						if (kolor.size() > 1)
+						if (lyne->symbol != 0)
 						{
-							colorIt++;
-							if (colorIt== kolor.end())		colorIt = kolor.begin();
+							LineStyle org = lyne->lineStyle;
+							lyne->lineStyle = LineStyle_solid;
+							if (lyne->lineWidth == 0)
+								lyne->lineWidth = 1;
+							OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+							DrawMarker(dc, lyne, draw, nDraws);
+							lyne->lineStyle = org;
 						}
-						p->nGroups = atuck;
-						p->tmark = atmark;
-						p->nSamples = anSamples;
-						if (ppen)
+						ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+						if (lyne->lineWidth > 0)
 						{
-							dc.SelectObject(pPenOld);
-							delete ppen;
+							if (p->IsTimeSignal()) {
+								if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
+								if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
+							}
+							if (nDraws > 0 && lyne->lineStyle != LineStyle_noline)
+							{
+								int nOutOfAx = 0;
+								for (int k = nDraws - 1; k > 0; k--)
+								{
+									if (draw[k].x > pax->rct.right) nOutOfAx++;
+									else break;
+								}
+								dc.Polyline(draw, nDraws - nOutOfAx);
+							}
+							if (kolor.size() > 1)
+							{
+								colorIt++;
+								if (colorIt == kolor.end())		colorIt = kolor.begin();
+							}
+							p->nGroups = atuck;
+							p->tmark = atmark;
+							p->nSamples = anSamples;
+							if (ppen)
+							{
+								dc.SelectObject(pPenOld);
+								delete ppen;
+							}
 						}
 					}
 				}
 			}
-		} 
-		//	dc.SetBkColor(pax->color);
+		}
+
 		// add ticks and ticklabels
 		dc.SetBkColor(gcf.color);
 		// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
@@ -799,22 +820,28 @@ void CPlotDlg::OnPaint()
 	for (vector<CText*>::iterator txit=gcf.text.begin(); txit!=gcf.text.end(); txit++) { 
 		if ((*txit)->visible && (*txit)->pos.x0>=0 && (*txit)->pos.y0>=0)
 		{
-			HFONT ft = (HFONT)dc.SelectObject((*txit)->font);
-			pt.x = (int)((double)clientRt.right * (*txit)->pos.x0+.5);
-			pt.y = (int)((double)clientRt.bottom * (1-(*txit)->pos.y0)+.5);
 			dc.SetBkMode(TRANSPARENT);
 			dc.SetTextColor((*txit)->color);
-//			dc.DrawText((*txit)->str.c_str(),-1, &(*txit)->textRect, (*txit)->alignmode | DT_NOCLIP);
 			DWORD dw = (*txit)->alignmode;
-			DWORD dw2 = TA_RIGHT|TA_TOP;
-			DWORD dw3 = TA_CENTER|TA_BASELINE;
+//			DWORD dw2 = TA_RIGHT | TA_TOP;
+//			DWORD dw3 = TA_CENTER | TA_BASELINE;
 			dc.SetTextAlign(dw);
-			dc.TextOut(pt.x, pt.y, (*txit)->str.c_str(), (int)(*txit)->str.length());
 			sz = dc.GetTextExtentPoint32((*txit)->str.c_str(), (int)(*txit)->str.length());
-			(*txit)->textRect = CRect(pt.x, pt.y-sz.cy, pt.x+sz.cx, pt.y);
-			CRect temp;
-			if (temp.SubtractRect((*txit)->textRect, CRect(ps.rcPaint)))
-				InvalidateRect((*txit)->textRect);
+			HFONT ft = (HFONT)dc.SelectObject((*txit)->font);
+			if (!(*txit)->posmode)
+			{
+				pt.x = (int)((double)clientRt.right * (*txit)->pos.x0 + .5);
+				pt.y = (int)((double)clientRt.bottom * (1 - (*txit)->pos.y0) + .5);
+				dc.TextOut(pt.x, pt.y, (*txit)->str.c_str(), (int)(*txit)->str.length());
+				(*txit)->textRect = CRect(pt.x, pt.y - sz.cy, pt.x + sz.cx, pt.y);
+			}
+			else
+			{
+				GetWindowRect(&rt);
+				(*txit)->pos.x0 = (double)(*txit)->textRect.left  / rt.Width();
+				(*txit)->pos.y0 = 1. - (double)(*txit)->textRect.top / rt.Height();
+				dc.TextOut((*txit)->textRect.left, (*txit)->textRect.top + sz.cy, (*txit)->str.c_str(), (int)(*txit)->str.length());
+			}
 		}
 		else
 		{
@@ -837,7 +864,7 @@ void CPlotDlg::OnPaint()
 		dc.TextOut(pax->rct.left, pax->rct.top, tp[1].c_str());
 	}
 	EndPaint(hDlg, &ps);
-	if (!sbinfo.initialshow) 
+	if (!sbinfo.initialshow && title) 
 	{
 		sbinfo.initialshow=true; ShowStatusBar();
 		SetGCF();
@@ -1000,64 +1027,74 @@ CRect CPlotDlg::DrawAxis(CDC *pDC, PAINTSTRUCT *ps, CAxes *pax)
 
 void CPlotDlg::OnSize(UINT nType, int cx, int cy) 
 {
-	int new1, new2;
-	int sigtype(-1);
-	if (gcf.ax.size()>0 && gcf.ax.front()->m_ln.size()>0)
-		sigtype = gcf.ax.front()->m_ln.front()->sig.GetType();
-	if (hStatusbar==NULL)
-	{
-		hStatusbar = CreateWindow (STATUSCLASSNAME, "", WS_CHILD|WS_VISIBLE|WS_BORDER|SBS_SIZEGRIP,
-			0, 0, 0, 0, hDlg, (HMENU)0, hInst, NULL);
-		int width[] = {40, 110, 2, 40, 40, 160,};
-		int sbarWidthArray[8];
-		sbarWidthArray[0] = 40;
-		for (int k=1;k<8;k++) 
-			sbarWidthArray[k] = sbarWidthArray[k-1] + width[k-1];
-		sbarWidthArray[7]=-1;
-		::SendMessage (hStatusbar, SB_SETPARTS, 12, (LPARAM)sbarWidthArray);
-		SetHWND_GRAFFY(hDlg);
-	}
-	else
-		::MoveWindow(hStatusbar, 0, 0, cx, 0, 1); // no need to worry about y pos and height
-	
-	if (curRange != NO_SELECTION && gcf.ax.size()>0)
-	{
-		//need to adjust curRange according to the change of size 
-		//new pixel pt after size change
-		new1 = gcf.ax.front()->timepoint2pix(selRange.tp1);
-		new2 = gcf.ax.front()->timepoint2pix(selRange.tp2);
-		curRange.px1 = new1;
-		curRange.px2 = new2;
-	}
-	if (hTTtimeax[0]==NULL)
-	{
-		for (int k=0; k<7; k++)
-		{
-			hTTtimeax[k] = CreateTT(hStatusbar, &ti_taxis);
-			::SendMessage (hStatusbar, SB_GETRECT, k, (LPARAM)&ti_taxis.rect);
-			ti_taxis.lpszText=(LPSTR)ttstat[k].c_str();
-			::SendMessage(hTTtimeax[k], TTM_ACTIVATE, TRUE, 0);	
-			::SendMessage(hTTtimeax[k], TTM_SETMAXTIPWIDTH, 0, 400);
-			::SendMessage(hTTtimeax[k], TTM_ADDTOOL, 0, (LPARAM) (LPTOOLINFO) &ti_taxis);
-			::SendMessage(hTTtimeax[k], TTM_UPDATETIPTEXT, 0,  (LPARAM) (LPTOOLINFO) &ti_taxis);
-		}
-	}
-	::SendMessage(hTTscript, TTM_ACTIVATE, TRUE, 0);
-	for (vector<CAxes*>::iterator it = gcf.ax.begin(); it != gcf.ax.end(); it++)
-	{
-		if ((*it)->ytick.automatic) (*it)->ytick.tics1.clear();
-		if ((*it)->xtick.automatic) (*it)->xtick.tics1.clear();
-	}
-	InvalidateRect	(NULL);
-
 	CRect rt;
 	GetWindowRect(&rt);
-	gcf.strut["pos"].buf[0] = rt.left;
-	gcf.strut["pos"].buf[1] = rt.top;
-	gcf.strut["pos"].buf[2] = rt.Width();
-	gcf.strut["pos"].buf[3] = rt.Height();
-	//For showvar.cpp--Update the data content view
-	::SendMessage(GetHWND_WAVPLAY(), WM_APP + 0x2020, (WPARAM)&gcf, (LPARAM)"pos");
+	if (nType == WS_CHILD)
+	{
+		::MoveWindow(hDlg, 0, 0, cx, cy, 1); // no need to worry about y pos and height
+	}
+	else
+	{
+		int new1, new2;
+		int sigtype(-1);
+		if (gcf.ax.size() > 0 && gcf.ax.front()->m_ln.size() > 0)
+			sigtype = gcf.ax.front()->m_ln.front()->sig.GetType();
+		if (title)
+		{
+			if (hStatusbar == NULL)
+			{
+				hStatusbar = CreateWindow(STATUSCLASSNAME, "", WS_CHILD | WS_VISIBLE | WS_BORDER | SBS_SIZEGRIP,
+					0, 0, 0, 0, hDlg, (HMENU)0, hInst, NULL);
+				int width[] = { 40, 110, 2, 40, 40, 160, };
+				int sbarWidthArray[8];
+				sbarWidthArray[0] = 40;
+				for (int k = 1; k < 8; k++)
+					sbarWidthArray[k] = sbarWidthArray[k - 1] + width[k - 1];
+				sbarWidthArray[7] = -1;
+				::SendMessage(hStatusbar, SB_SETPARTS, 12, (LPARAM)sbarWidthArray);
+				SetHWND_GRAFFY(hDlg);
+			}
+			else
+				::MoveWindow(hStatusbar, 0, 0, cx, 0, 1); // no need to worry about y pos and height
+		}
+
+		if (curRange != NO_SELECTION && gcf.ax.size() > 0)
+		{
+			//need to adjust curRange according to the change of size 
+			//new pixel pt after size change
+			new1 = gcf.ax.front()->timepoint2pix(selRange.tp1);
+			new2 = gcf.ax.front()->timepoint2pix(selRange.tp2);
+			curRange.px1 = new1;
+			curRange.px2 = new2;
+		}
+		if (hTTtimeax[0] == NULL)
+		{
+			for (int k = 0; k < 7; k++)
+			{
+				hTTtimeax[k] = CreateTT(hStatusbar, &ti_taxis);
+				::SendMessage(hStatusbar, SB_GETRECT, k, (LPARAM)&ti_taxis.rect);
+				ti_taxis.lpszText = (LPSTR)ttstat[k].c_str();
+				::SendMessage(hTTtimeax[k], TTM_ACTIVATE, TRUE, 0);
+				::SendMessage(hTTtimeax[k], TTM_SETMAXTIPWIDTH, 0, 400);
+				::SendMessage(hTTtimeax[k], TTM_ADDTOOL, 0, (LPARAM)(LPTOOLINFO)&ti_taxis);
+				::SendMessage(hTTtimeax[k], TTM_UPDATETIPTEXT, 0, (LPARAM)(LPTOOLINFO)&ti_taxis);
+			}
+		}
+		::SendMessage(hTTscript, TTM_ACTIVATE, TRUE, 0);
+		for (vector<CAxes*>::iterator it = gcf.ax.begin(); it != gcf.ax.end(); it++)
+		{
+			if ((*it)->ytick.automatic) (*it)->ytick.tics1.clear();
+			if ((*it)->xtick.automatic) (*it)->xtick.tics1.clear();
+		}
+
+		gcf.strut["pos"].buf[0] = rt.left;
+		gcf.strut["pos"].buf[1] = rt.top;
+		gcf.strut["pos"].buf[2] = rt.Width();
+		gcf.strut["pos"].buf[3] = rt.Height();
+		//For showvar.cpp--Update the data content view
+		::SendMessage(GetHWND_WAVPLAY(), WM_APP + 0x2020, (WPARAM)&gcf, (LPARAM)"pos");
+	}
+	InvalidateRect(NULL);
 }
 
 void CPlotDlg::OnMove(int x, int y)

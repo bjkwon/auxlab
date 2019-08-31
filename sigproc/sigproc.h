@@ -248,7 +248,6 @@ public:
 	static bool IsBLOCK(const AstNode *p);
 	static bool IsVECTOR(const AstNode *p);
 	static bool IsSTRUCT(const AstNode *p);
-	static bool IsPortion(const AstNode *p);
 	static bool IsCELL_STRUCT_pnode_TID_ARGS(const AstNode *pnode, const AstNode *p);
 	static bool Var_never_updated(const AstNode *p);
 	static AstNode *goto_line(const AstNode *pnode, int line);
@@ -363,7 +362,11 @@ public:
 	CVar &NodeMatrix(const AstNode *pnode, AstNode *p);
 	CVar &define_new_variable(const AstNode *pnode, AstNode *pRHS);
 	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
+<<<<<<< HEAD
 	CVar *GetVariable(const char *varname, string fullvarname= string(""), CVar *pvar = NULL);
+=======
+	CVar *GetVariable(const char *varname, CVar *pvar = NULL);
+>>>>>>> Real-time graphical monitor for time in each callback; C++11 (unique_lock and cond var) for mutex
 	CVar &TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
 	CVar &Eval(AstNode *pnode);
 	CVar &Transpose(const AstNode *pnode, AstNode *p);
