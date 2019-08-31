@@ -362,11 +362,7 @@ public:
 	CVar &NodeMatrix(const AstNode *pnode, AstNode *p);
 	CVar &define_new_variable(const AstNode *pnode, AstNode *pRHS);
 	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
-<<<<<<< HEAD
-	CVar *GetVariable(const char *varname, string fullvarname= string(""), CVar *pvar = NULL);
-=======
 	CVar *GetVariable(const char *varname, CVar *pvar = NULL);
->>>>>>> Real-time graphical monitor for time in each callback; C++11 (unique_lock and cond var) for mutex
 	CVar &TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
 	CVar &Eval(AstNode *pnode);
 	CVar &Transpose(const AstNode *pnode, AstNode *p);
