@@ -1947,6 +1947,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		DWORD blockDuration = (DWORD)(1000. *pmsg->cbp.len_buffer / pmsg->cbp.fs);
 		CVar captured, captured2;
 		MSG msg;
+		string callbackID;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
 			DWORD elapsed;
@@ -1954,6 +1955,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			bool toggle = false;
 			callback_trasnfer_record copy_incoming;
 			audiocapture_status_carry msng;
+			HANDLE cfg;
 			switch (msg.message)
 			{
 			case WIM_DATA:
@@ -1996,11 +1998,20 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				sprintf(buffer, "going into callback %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
 				sendtoEventLogger(buffer);
 				tcount1 = GetTickCount();
-				pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+				callbackID = pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
 				tcount2 = GetTickCount();
 				lastCallbackTimeTaken = tcount2- tcount1;
 				sprintf(buffer, "out of callback %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
 				sendtoEventLogger(buffer);
+				//Here or somewhere around here, call SetInProg(???, false) to begin displaying figure window
+				//(we need to do it exactly when callback is finished (no more incoming data stream)
+				//maybe it's here. Then we need the figure handle of interest. What is it?
+				cfg = FindWithCallbackID(callbackID.c_str());
+				if (cfg)
+				{
+					SetInProg((CVar*)cfg, false);
+				}
+
 				eventID = copy_incoming.bufferID ? 0 : 1;
 				loop = true;
 				for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)

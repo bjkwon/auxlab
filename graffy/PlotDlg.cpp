@@ -100,8 +100,12 @@ CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
 	opacity = 0xff;
 	hAudio = 0;
 	gcf.m_dlg = this;
-	gcf.hPar = hPar;
-	gcf.hPar->child.push_back(&gcf);
+	memset(callbackIdentifer, 0, LEN_CALLBACKIDENTIFIER);
+	if (hPar)
+	{
+		gcf.hPar = hPar;
+		gcf.hPar->child.push_back(&gcf);
+	}
 
 	menu.LoadMenu(IDR_POPMENU);
 	subMenu = menu.GetSubMenu(0);
@@ -2196,6 +2200,8 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 		::SendMessage (hStatusbar, SB_SETTEXT, 2, (LPARAM)msg);
 		return;
 	}
+
+	if (inprogress) return; // block further operation here while inprogress
 
 	char rmstext[64]={};
 	CSignals _sig = GetAudioSignal(NULL, false);

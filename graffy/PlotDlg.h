@@ -127,12 +127,14 @@ public:
 	RANGE_TP selRange;
 	char * title; // for "numbered" CPlotDlg, HIWORD is NULL and LOWORD shows the number; for a string title, title is in const char *, during construction the pointer is set up.
 	CAstSig *pctx;
+	char callbackIdentifer[LEN_CALLBACKIDENTIFIER];
 private:
 	bool spgram;
 	bool levelView;
 	bool playing;
 	bool paused;
 	bool axis_expanding;
+	bool inprogress; // if displayed while the data is incoming, this is set true; necessary to block operations requiring instant computation/updates e.g., OnMouseMove() 
 	unsigned short ClickOn;
 	unsigned short MoveOn;
 	int playingIndex;
@@ -203,4 +205,5 @@ public:
 	int GetSelect(CSignals *pout);
 	void ShowSpectrum(CAxes *pax, CAxes *paxBase);
 	void getFFTdata(CTimeSeries *sig_mag, double *fft, int len);
+	void setInProg(bool ch) { inprogress = ch; };
 };

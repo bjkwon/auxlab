@@ -117,6 +117,7 @@ public:
 	vector<CGobj *> child;
 	CGobj();
 	virtual ~CGobj();
+	// just temporary.. to get rect of the object. Delete once settled 8/31/2019
 	virtual POINT GetRef();
 	CGobj& operator=(const CGobj& rhs);
 	GRAPHY_EXPORT void setPos(double x0, double y0, double width, double height);
@@ -283,6 +284,7 @@ struct GRAFWNDDLGSTRUCT
 	string caption;
 	string scope;
 	string lineSpecifer;
+	string callbackID;
 	int devID;
 	double block;
 	HWND hWndAppl;
@@ -310,6 +312,7 @@ struct GRAFWNDDLGCHILDSTRUCT
 
 GRAPHY_EXPORT void initGraffy(CAstSig *base);
 GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent = NULL);
+GRAPHY_EXPORT void SetInProg(CVar *xGO, bool inprog);
 
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
@@ -320,6 +323,7 @@ GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID);
 GRAPHY_EXPORT HANDLE GCA(HANDLE _fig);
 GRAPHY_EXPORT CVar *GetFigGO(HWND h);
 GRAPHY_EXPORT int CloseFigure(HANDLE h);
+GRAPHY_EXPORT HANDLE FindWithCallbackID(const char *callbackid);
 
 
 #ifdef _WIN32XX_WINCORE_H_
@@ -327,8 +331,8 @@ GRAPHY_EXPORT int CloseFigure(HANDLE h);
 GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in);
 GRAPHY_EXPORT HANDLE OpenChildGraffy(GRAFWNDDLGCHILDSTRUCT &in);
 
-GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, HWND hWndAppl, int devID, double block, HANDLE hIcon=NULL);
-GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, int devID, double block, HANDLE hIcon = NULL);
+GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon=NULL);
+GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon = NULL);
 #endif 
 
 

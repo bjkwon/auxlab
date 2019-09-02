@@ -225,6 +225,7 @@ void CAstSig::init()
 	fAllocatedAst = false;
 	fBreak = false;
 	fExit = false;
+	memset(callbackIdentifer, 0, LEN_CALLBACKIDENTIFIER);
 	pLast = NULL;
 	son = NULL;
 	dad = NULL;
@@ -440,7 +441,7 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 	return *this;
 }
 
-bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVar *> &pOutVars)
+string CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVar *> &pOutVars)
 {
 	u.currentLine = pCalling->line; // ? 10/18/2018
 	AstNode *p;
@@ -509,6 +510,8 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVa
 	//No need for input param binding/
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
 	xscope.push_back(son);
+	sprintf(son->callbackIdentifer, "%s::%u", pCalling->str, son->Tick1);
+	string out = son->callbackIdentifer;
 	size_t nArgout = son->CallUDF(pCalling, NULL);
 	// output parameter binding (internal)
 	p = pCalling->alt->child;
@@ -565,7 +568,7 @@ bool CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVa
 	Sig.functionEvalRes = true;
 	//	if (need2repaintnow(pCalling)) // or maybe pBase??
 	xscope.pop_back(); // move here????? to make purgatory work...
-	return true;
+	return out;
 }
 
 void CAstSig::outputbinding(size_t nArgout)

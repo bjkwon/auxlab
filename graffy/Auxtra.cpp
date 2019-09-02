@@ -473,6 +473,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	in.rt = rt;
 	in.threadCaller = GetCurrentThreadId();
 	in.hWndAppl = hWndApp;
+	in.callbackID = past->callbackIdentifer;
 	CFigure * cfig = (CFigure *)OpenGraffy(in);
 	past->SetVar("?foc", cfig);
 	if (!IsNamedPlot(cfig->m_dlg->hDlg))
@@ -493,6 +494,9 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["pos"].buf[3] = rt.Height();
 	past->Sig = *(past->pgo = cfig); 
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
+	//if called by a callback
+	if (strlen(past->callbackIdentifer)>0) SetInProg(cfig, true);
+
 }
 
 GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)

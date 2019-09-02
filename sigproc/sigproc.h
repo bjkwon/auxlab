@@ -46,6 +46,7 @@
 #define ID_DEBUG_CONTINUE 110
 #define ID_DEBUG_EXIT 111
 #define ID_DEBUG 112
+#define LEN_CALLBACKIDENTIFIER 300
 
 enum DEBUG_STATUS
 {
@@ -283,6 +284,7 @@ public:
 	CVar replica;
 	double endpoint;
 	bool fExit, fContinue;
+	char callbackIdentifer[LEN_CALLBACKIDENTIFIER];
 	goaction setgo;
 
 private:
@@ -310,7 +312,7 @@ private:
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
 	void outputbinding(size_t nArgout);
 public:
-	bool ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *> &pOutVars);
+	string ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *> &pOutVars);
 	string adjustfs(int newfs);
 	CVar &ConditionalOperation(const AstNode *pnode, AstNode *p);
 	int updateGO(CVar &ref);
@@ -336,7 +338,7 @@ public:
 	bool GOpresent(const AstNode *pnode, AstNode *p = NULL);
 	bool isthisUDFscope(const AstNode *pnode, AstNode *p=NULL);
 	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase, CVar *pStaticVars=NULL);
-	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase=NULL);
+	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase);
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);
 #endif
