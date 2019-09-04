@@ -62,6 +62,8 @@ CAudcapStatus mCaptureStatus;
 BOOL CALLBACK audiocaptuestatusProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 void AudioCaptureStatus(unique_ptr<audiocapture_status_carry> pmsg);
 
+//Future plan--if there are multiple recording events with multiple callbackID's, upgrade this with a container. 9/4/2019
+string callbackID;
 
 vector<CWndDlg*> cellviewdlg;
 vector<cfigdlg*> plots;
@@ -448,11 +450,16 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			//what is the current workspace? Let's find out from IDC_DEBUGSCOPE
 			if (pgcfNew)
 			{
-				//For the global variable $gcf, updated whether or not this is named plot.
-				xscope.at(res)->SetVar("?foc", pgcfNew);
-				if (!IsNamedPlot(pmsg->hwnd))
-					xscope.at(res)->SetVar("gcf", pgcfNew);
-				mShowDlg.Fillup();
+
+				HANDLE h = FindWithCallbackID(callbackID.c_str());
+				if (!GetInProg( (CVar*)((CFigure*)pgcfNew)))
+				{
+					//For the global variable $gcf, updated whether or not this is named plot.
+					xscope.at(res)->SetVar("?foc", pgcfNew);
+					if (!IsNamedPlot(pmsg->hwnd))
+						xscope.at(res)->SetVar("gcf", pgcfNew);
+					mShowDlg.Fillup();
+				}
 			}
 		} 
 		else if (pmsg->message == WM_KEYDOWN)
@@ -1947,7 +1954,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		DWORD blockDuration = (DWORD)(1000. *pmsg->cbp.len_buffer / pmsg->cbp.fs);
 		CVar captured, captured2;
 		MSG msg;
-		string callbackID;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
 			DWORD elapsed;
@@ -2008,9 +2014,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				//maybe it's here. Then we need the figure handle of interest. What is it?
 				cfg = FindWithCallbackID(callbackID.c_str());
 				if (cfg)
-				{
 					SetInProg((CVar*)cfg, false);
-				}
 
 				eventID = copy_incoming.bufferID ? 0 : 1;
 				loop = true;
@@ -2121,6 +2125,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 		break;
 	case WIM_OPEN:
 	{
+		sendtoEventLogger("WIM_OPEN to OnSoundEvent2.\n");
 		unique_ptr<carrier> car(new carrier);
 		memcpy(&car->cbp, pvar, sizeof(callback_trasnfer_record));
 		car->pcast = pcast;
@@ -2132,6 +2137,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 	}
 		break;
 	case WIM_CLOSE:
+		sendtoEventLogger("WIM_CLOSE to OnSoundEvent2.\n");
 		SetEvent(hEventRecordingCallBack);
 		CloseHandle(hEventRecordingCallBack);
 		hEventRecordingCallBack = NULL;		

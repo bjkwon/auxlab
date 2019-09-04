@@ -35,6 +35,11 @@ static HANDLE hEvent1;
 HWND hWndApp(NULL); // Settings and variables window
 DWORD threadID; // delete this after 7/25/2019
 
+#include <mutex>
+#include <thread>
+extern mutex mtx_OnPaint;
+extern condition_variable cv_OnPaint;
+
 void initLineList(); // from Auxtra.cpp
 
 class CGraffyEnv : public CWinApp
@@ -659,7 +664,7 @@ GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID)
 	for (size_t k = 0; k<theApp.fig.size(); k++)
 	{
 		CFigure* cfig = &theApp.fig[k]->gcf;
-		if (cfig->GetFs()!=2 && (INT_PTR)cfig->value() == figID) return (HANDLE)cfig;
+		if (cfig->nSamples>0 && cfig->GetFs()!=2 && (INT_PTR)cfig->value() == figID) return (HANDLE)cfig;
 		for (vector<CAxes*>::iterator paxit = cfig->ax.begin(); paxit != cfig->ax.end(); paxit++)
 		{
 			if ((INT_PTR)*paxit == figID) return (HANDLE)*paxit;
@@ -675,14 +680,20 @@ GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID)
 	return NULL;
 }
 
+GRAPHY_EXPORT bool GetInProg(CVar *xGO)
+{
+	string type = xGO->strut["type"].string();
+	if (type != "figure") return false;
+	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
+	return phDlg->getInProg();
+}
+
 GRAPHY_EXPORT void SetInProg(CVar *xGO, bool inprog)
 { // currently applicable only when xGO is CFigure
 	string type = xGO->strut["type"].string();
 	if (type != "figure") return;
 	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
 	phDlg->setInProg(inprog);
-	if (!inprog)
-		memset(phDlg->callbackIdentifer, 0, LEN_CALLBACKIDENTIFIER);
 }
 
 GRAPHY_EXPORT void ViewSpectrum(HANDLE _h)
@@ -976,6 +987,9 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 			}
 		}
 	}
+	unique_lock<mutex> locker(mtx_OnPaint);
+	if (!locker.owns_lock())
+		cv_OnPaint.wait(locker);
 	invalidateRedrawCue();
 }
 

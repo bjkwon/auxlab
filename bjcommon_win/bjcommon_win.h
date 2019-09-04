@@ -37,6 +37,7 @@ char* RetrieveVersionString(const char* executableName, char* verStrOut, size_t 
 char* getVersionString (const char* executableName, char* verStrOut, size_t verStrOutLen);
 char* getVersionStringAndUpdateTitle (HWND hDlg, const char* executableName, char* verStringOut, size_t verStrOutLen);
 void EditPrintf (HWND hwndEdit, const char * szFormat, ...);
+void EditPrintfFileBackup (const char * filename);
 void ClearEditPrintf (HWND hwndEdit);
 void SetDlgItemDouble (HWND hDlg, int id, char *formatstr, double x);
 void GetCurrentProcInfo (char *path, char *procName, char *verStr);

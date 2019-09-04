@@ -17,7 +17,7 @@
 static HWND hEventLogger;
 
 #define MAX_HEADING_LENGTH		128
-#define MAX_CHAR 29998
+#define MAX_CHAR 499
 
 bool isWin7()
 {
@@ -92,13 +92,15 @@ char* getVersionStringAndUpdateTitle  (HWND hDlg, const char* executableName, ch
 	return verStrOut;
 }
 
-void EditPrintf0 (HWND hwndEdit, char *str)
+#define EDITPRINTFBACKUPFILE "backup.log"
+static char backupfile[260] = {};
+void Append2Edit (HWND hwndEdit, char *str)
 {
-	char buf[MAX_CHAR+1];
-	GetWindowText (hwndEdit, buf, sizeof(buf));
-	SendMessage (hwndEdit, EM_SETSEL, (WPARAM)strlen(buf), (LPARAM)strlen(buf)) ;
-	 SendMessage (hwndEdit, EM_REPLACESEL, FALSE, (LPARAM) str) ;
-	 if (GetFocus()!=hwndEdit)	 SendMessage (hwndEdit, EM_SCROLLCARET, 0, 0) ;//don't understand how this works.
+	int nCountExisting = GetWindowTextLength(hwndEdit);
+	SendMessage (hwndEdit, EM_SETSEL, (WPARAM)nCountExisting, (LPARAM)nCountExisting) ;
+	SendMessage (hwndEdit, EM_REPLACESEL, FALSE, (LPARAM) str) ;
+	if (GetFocus() != hwndEdit)
+		SendMessage(hwndEdit, EM_SCROLLCARET, 0, 0);
 }
 
 void ClearEditPrintf (HWND hwndEdit)
@@ -109,30 +111,78 @@ void ClearEditPrintf (HWND hwndEdit)
      i=SendMessage (hwndEdit, EM_SCROLLCARET, 0, 0) ;
 }
 
+void EditPrintfFileBackup(const char * filename)
+{
+	strcpy(backupfile, filename);
+}
+
 void EditPrintf (HWND hwndEdit, const char * szFormat, ...)
 {
-     static char szBuffer[MAX_CHAR+1], prevStr[MAX_CHAR+1];
-     va_list pArgList ;
-	 size_t size1, size2;
-	 int nChar2Delete=0, trimBegin=0;
+	// If hwndEdit already has illegit CRLF (e.g., \r or \n only)
+	// This may display the content looking CRLF jumbled.
+	// 9/4/2019
+	if (strlen(backupfile)==0)
+		strcpy(backupfile, EDITPRINTFBACKUPFILE);
+	static char szBuffer[MAX_CHAR+1], prevStr[MAX_CHAR+1];
+	va_list pArgList ;
 
-     va_start (pArgList, szFormat) ;
-     vsprintf (szBuffer, szFormat, pArgList) ;
-     va_end (pArgList) ;
+	va_start (pArgList, szFormat) ;
+	vsprintf (szBuffer, szFormat, pArgList) ;
+	va_end (pArgList) ;
 
-	 GetWindowText (hwndEdit, prevStr, sizeof(prevStr));
-	 size1 = strlen(prevStr);
-	 size2 = strlen(szBuffer);
-	 if (size2>MAX_CHAR) 
-	 {	trimBegin = (int)size2-MAX_CHAR;
-		size2 = strlen(szBuffer+trimBegin);
-	 }
-	 if (size1+size2 > MAX_CHAR) 
-	 {	 nChar2Delete = (int)(size1+size2)-MAX_CHAR;
-		 ClearEditPrintf (hwndEdit);
-		 EditPrintf0 (hwndEdit, &prevStr[nChar2Delete]);
-	 }
-	 EditPrintf0 (hwndEdit, szBuffer+trimBegin);
+	int limit = (int)SendMessage(hwndEdit, EM_GETLIMITTEXT, (WPARAM)0, (LPARAM)0);
+	SendMessage(hwndEdit, EM_SETLIMITTEXT, (WPARAM)limit, (LPARAM)0);
+	
+	//if \n is found but it is not \r\n, it converts to \r\n
+	char *p = strchr(szBuffer, '\n');
+	int count = 0;
+	char *toadd = szBuffer;
+	while (p)
+	{
+		count++;
+		p = strchr(p+1, '\n');
+	}
+	char *newbuf = NULL;
+	if (count > 0)
+	{
+		newbuf = new char[strlen(szBuffer) + count + 1];
+		p = szBuffer;
+		char *q = newbuf;
+		while (p)
+		{
+			char *p2 = strchr(p, '\n');
+			if (p == szBuffer && p2 == p) continue;
+			if (p2[-1] == '\r')  continue;
+			memcpy(q, p, p2 - p);
+			q[p2 - p] = 0;
+			strcat(q, "\r\n");
+			q += p2 - p + 2;
+			p = strchr(p2 + 1, '\n');
+		}
+		toadd = newbuf;
+	}
+	int nCountExisting = GetWindowTextLength(hwndEdit);
+	int size2add = (int)strlen(toadd);
+	int excess = nCountExisting + size2add - limit;
+	if (excess > 0)
+	{
+		int nChar2Delete = excess + 1; 
+		if (size2add > limit)
+			toadd += excess;
+		SendMessage(hwndEdit, EM_SETSEL, (WPARAM)0, (LPARAM)nChar2Delete);
+		SendMessage(hwndEdit, EM_REPLACESEL, FALSE, (LPARAM)"");
+		if (backupfile[0])
+		{
+			FILE *fp = fopen(backupfile, "ab");
+			if (fp)
+			{
+				fwrite(prevStr, 1, nChar2Delete, fp);
+				fclose(fp);
+			}
+		}
+	}
+	Append2Edit(hwndEdit, toadd);
+	if (newbuf) delete[] newbuf;
 }
 
 double GetDlgItemDouble (HWND hDlg, int id, int* lpTrans)

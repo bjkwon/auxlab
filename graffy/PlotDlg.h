@@ -182,7 +182,7 @@ public:
 	HACCEL GetAccel();
 	void UpdateRects(CAxes *ax);
 	unsigned short GetMousePos(CPoint pt);
-	CSignals GetAudioSignal(CAxes* pax = NULL, bool makechainless = true);
+	void GetAudioSignal(CSignals *pout, CAxes* pax = NULL, bool makechainless = true);
 	void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 	void OnMenu(UINT nId);
 	void OnTimer(UINT id);
@@ -206,4 +206,5 @@ public:
 	void ShowSpectrum(CAxes *pax, CAxes *paxBase);
 	void getFFTdata(CTimeSeries *sig_mag, double *fft, int len);
 	void setInProg(bool ch) { inprogress = ch; };
+	bool getInProg() { return inprogress; };
 };

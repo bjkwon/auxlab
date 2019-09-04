@@ -73,7 +73,12 @@ BOOL CAudcapStatus::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 	ax = (CAxes *)AddAxes(cfig, cp);
 	ax->color = RGB(130, 130, 140);
 	OnSize(0, 0, 0);
-	return TRUE;
+	::SetWindowText(GetDlgItem(IDC_EDIT1), "see\n");
+//	::SetWindowText(GetDlgItem(IDC_EDIT1),"abcdefghijklmnopqrstuvxwyz01234567890first lineabcdefghijklmnopqrstuvxwyz01234567890first lineabcdefghijklmnopqrstuvxwyz01234567890first line\n");
+	EditPrintf(GetDlgItem(IDC_EDIT1), "abcdefghijklmnopqrstuvxwyz01234567890first lineabcdefghijklmnopqrstuvxwyz01234567890first lineabcdefghijklmnopqrstuvxwyzfirst line\n");
+	//EditPrintf(GetDlgItem(IDC_EDIT1), "you will see from this line\n");
+	//EditPrintf(GetDlgItem(IDC_EDIT1), "trecherous rain snow bjkwon\n");
+	return 0;
 }
 
 void CAudcapStatus::OnSize(UINT state, int cx, int cy)
@@ -269,6 +274,9 @@ void CAudcapStatus::OnCommand(int idc, HWND hwndCtl, UINT event)
 			sprintf(buffer, "%d: block time %d, cum avg %.1f\n", index, blocktime, cumAverageblockTime);
 		EditPrintf(GetDlgItem(IDC_EDIT1), buffer);
 
+		break;
+	case IDC_BUTTON222:
+		EditPrintf(GetDlgItem(IDC_EDIT1), "more more more coming\n");
 		break;
 	case IDCANCEL:
 		OnClose();

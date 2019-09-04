@@ -3486,12 +3486,12 @@ int CTimeSeries::IsTimeSignal()
 }
 
 CSignals::CSignals()
-	: next(NULL)
+	: next(NULL), ghost(false)
 {
 }
 
 CSignals::CSignals(bool b)
-	: next(NULL)
+	: next(NULL), ghost(false)
 {
 	Reset(1);
 	bufBlockSize = 1; // logical array
@@ -3500,32 +3500,32 @@ CSignals::CSignals(bool b)
 }
 
 CSignals::CSignals(int sampleRate)
-	:next(NULL)
+	:next(NULL), ghost(false)
 {
 	SetFs(max(sampleRate, 0));
 }
 
 CSignals::CSignals(double value)
-	: next(NULL)
+	: next(NULL), ghost(false)
 {
 	SetFs(1);
 	SetValue(value);
 }
 
 CSignals::CSignals(const CSignals& src)
-	:next(NULL)
+	:next(NULL), ghost(false)
 {
 	*this = src;
 }
 
 CSignals::CSignals(const CTimeSeries& src)
-	: next(NULL)
+	: next(NULL), ghost(false)
 {
 	*this = src;
 }
 
 CSignals::CSignals(double *y, int len)
-	: next(NULL)
+	: next(NULL), ghost(false)
 {
 	SetFs(1);
 	UpdateBuffer(len);
@@ -3536,6 +3536,7 @@ CSignals::CSignals(double *y, int len)
 
 CSignals::~CSignals()
 {
+	if (ghost) { next = nullptr; buf = nullptr; }
 	if (next) {
 		delete next;
 		next = NULL;

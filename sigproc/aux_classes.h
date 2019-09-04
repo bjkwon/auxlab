@@ -414,7 +414,7 @@ public:
 	int Wavread(const char *wavname, char *errstr);
 #endif // NO_SF
 #endif //_WINDOWS
-
+	bool ghost;
 };
 
 class CVar : public CSignals

@@ -48,6 +48,9 @@ extern HWND hPlotDlgCurrent;
 extern mutex mtx4PlotDlg;
 extern condition_variable cvPlotDlg;
 
+mutex mtx_OnPaint;
+condition_variable cv_OnPaint;
+
 FILE *fpp;
 
 int iabs(int x)
@@ -480,20 +483,28 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	return count;
 }
 
-CSignals CPlotDlg::GetAudioSignal(CAxes* pax, bool makechainless)
+void CPlotDlg::GetAudioSignal(CSignals *pout, CAxes* pax, bool makechainless)
 { // if pax is NULL (default), it scans all axes in gcf and returns CSignals
   // it is is not NULL, it checks only pax and returns CTimeSeries (i.e., CSignals with NULL next)
+
+	unique_lock<mutex> locker(mtx_OnPaint);
+
 	vector<CAxes*> temp;
 	if (pax) temp.push_back(pax);
 	else temp = gcf.ax;
 	unsigned int count(0);
 	double t1, t2, deltat;
-	CSignals out;
 	CTimeSeries part;
 	for (vector<CAxes*>::iterator px= temp.begin(); px != temp.end(); px++)
 	{
-		for (vector<CLine*>::iterator pline = (*px)->m_ln.begin(); pline != (*px)->m_ln.end(); pline++)
+		int k = 1;
+		for (vector<CLine*>::iterator pline = (*px)->m_ln.begin(); pline != (*px)->m_ln.end(); pline++, k++)
 		{
+			char buf[267];
+			//sprintf(buf, "GetAudioSignal line %d of %d\n", k, (*px)->m_ln.size());
+			//sendtoEventLogger(buf);
+			//sprintf(buf, "inprogress=%d\n", inprogress);
+			//sendtoEventLogger(buf);
 			if ((*pline)->sig.GetType() == CSIG_AUDIO)
 			{
 				t1 = (*px)->xlim[0] * 1000.;
@@ -508,19 +519,20 @@ CSignals CPlotDlg::GetAudioSignal(CAxes* pax, bool makechainless)
 					t1 = (*px)->xlim[0] * 1000. + deltat*(playCursor - (*px)->rct.left) / (*px)->rct.Width();
 				count++;
 				if (count == 3) break;
-				else if (count == 1)
-					out = (*pline)->sig.Extract(t1, t2);
+				pout->ghost = false;
+				if (count == 1)
+					*pout = (*pline)->sig.Extract(t1, t2);
 				else
 				{
 					part = (*pline)->sig.Extract(t1, t2);
-					out.SetNextChan(&part);
+					pout->SetNextChan(&part);
 				}
 			}
 		}
 	}
 	if (makechainless)
-		out.MakeChainless();
-	return out;
+		pout->MakeChainless();
+	cv_OnPaint.notify_one();
 }
 
 
@@ -583,6 +595,8 @@ void CPlotDlg::OnPaint()
 // Why shouldn't an iterator be used in the for loop?
 // axes may be added during the call from another thread
 // then itax may become suddenly invalid in the middle of loop and cause crash. 4/8/2019
+	unique_lock<mutex> locker(mtx_OnPaint);
+
 	for (size_t k=0; k< gcf.ax.size(); )
 	{
 		// drawing lines
@@ -625,6 +639,7 @@ void CPlotDlg::OnPaint()
 			k++;
 			continue;
 		}
+		else
 		{
 			unique_lock<mutex> locker(mtx4PlotDlg);
 			if (!locker.owns_lock())
@@ -739,7 +754,6 @@ void CPlotDlg::OnPaint()
 				}
 			}
 		}
-
 		// add ticks and ticklabels
 		dc.SetBkColor(gcf.color);
 		// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
@@ -756,14 +770,12 @@ void CPlotDlg::OnPaint()
 						pax->setxticks();
 					else
 					{
-//						pax->xtick.tics1.push_back(pax->xlim[0]);
 						for (int k = 0; k < nDraws; k++) 
 						{
 							double x1, y1;
 							pax->GetCoordinate(&draw[k], x1, y1);
 							pax->xtick.tics1.push_back((int)(x1+.1));
 						}
-//						pax->xtick.tics1.push_back(pax->xlim[1]);
 					}
 				}
 			}
@@ -818,7 +830,9 @@ void CPlotDlg::OnPaint()
 			sbinfo.xEnd = pax0->xlim[1];
 		}
 	} // end of Drawing axes
-	//Drawing texts
+
+	cv_OnPaint.notify_one();
+	  //Drawing texts
 	HFONT fontOriginal = (HFONT)dc.SelectObject(GetStockObject(SYSTEM_FONT));
 	CSize sz;
 	for (vector<CText*>::iterator txit=gcf.text.begin(); txit!=gcf.text.end(); txit++) { 
@@ -1150,7 +1164,7 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 	edge.px1 = edge.px2 = -1;
 	gcmp=point;
 	CAxes *cax = CurrentPoint2CurrentAxis(&point);
-//	UpdateRects(cax);
+	CSignals temp;
 	if (axis_expanding) {ClickOn=0; return;}
 	clickedPt = point;
 	switch(ClickOn = GetMousePos(point)) // ClickOn indicates where mouse was click.
@@ -1158,7 +1172,7 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 	case RC_WAVEFORM:  //0x000f
 		if (curRange != NO_SELECTION) // if there's previous selection
 		{
-			ShowStatusBar();
+	//		ShowStatusBar();
 			for (size_t k=0; k<gcf.ax.size(); k++)
 			{
 				CRect rt(curRange.px1, gcf.ax[k]->rct.top, curRange.px2+1, gcf.ax[k]->rct.bottom+1);
@@ -1173,8 +1187,9 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 			dc.MoveTo(gcmp.x, cax->rct.bottom-1);
 			dc.LineTo(gcmp.x, cax->rct.top+1); 
 		}
-
-		if (GetAudioSignal(cax, false).IsTimeSignal())
+		temp.ghost = true;
+		GetAudioSignal(&temp, cax, false);
+		if (temp.IsTimeSignal())
 		{
 			if (playCursor > 0) // if a playCursor was set, then reset here
 			{
@@ -1411,7 +1426,13 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 
 			}
 			else edge.px1 = -1;
-			ShowStatusBar(FULL);
+			if (!inprogress)
+			{
+				sendtoEventLogger("OnMouseMove inprogress=0\n");
+				ShowStatusBar(FULL);
+			}
+			else
+				sendtoEventLogger("OnMouseMove inprogress=1\n");
 		}
 		cax = CurrentPoint2CurrentAxis(&point);
 		cax->GetCoordinate(point, sbinfo.xCur, sbinfo.yCur);
@@ -1860,7 +1881,8 @@ void CPlotDlg::OnMenu(UINT nID)
 				_block = deltaxlim * PBPROG_ADVANCE_PIXELS / deltapixel * 1000.;
 				// Below, if this put too low maximum, the progress line may move smoothly, but the playback sound will be choppy.
 				block = max(block, _block);
-				_sig = GetAudioSignal();
+				_sig.ghost = true;
+				GetAudioSignal(&_sig);
 				hAudio = PlayArray16(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
 				if (!hAudio)
 					MessageBox(errstr, "Cannot play the audio"); // PlayArray fails if waveOutOpen fails
@@ -1910,7 +1932,8 @@ void CPlotDlg::OnMenu(UINT nID)
 #ifndef NO_PLAYSND
 		fullfname[0]=0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
-		_sig = GetAudioSignal();
+		_sig.ghost = true;
+		GetAudioSignal(&_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "Wav file (*.WAV)\0*.wav\0", "wav"))
 		{
 			if (!_sig.Wavwrite(fullfname, errstr))	MessageBox (errstr);
@@ -1926,7 +1949,8 @@ void CPlotDlg::OnMenu(UINT nID)
 #ifndef NO_PLAYSND
 		fullfname[0] = 0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
-		_sig = GetAudioSignal();
+		_sig.ghost = true;
+		GetAudioSignal(&_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "MP3 file (*.MP3)\0*.mp3\0", "mp3"))
 		{
 			if (!_sig.mp3write(fullfname, errstr))	MessageBox(errstr);
@@ -1991,7 +2015,8 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	dfs = (double)paxBase->m_ln.front()->sig.GetFs();
 	pax->xlim[0] = 0;  pax->xlim[1] = dfs / 2;
 	//Right now _sig is a chainless'ed version... do it later to keep the chain
-	_sig = GetAudioSignal(paxBase);
+	_sig.ghost = true;
+	GetAudioSignal(&_sig, paxBase);
 	if (pax->m_ln.empty()) lastxlim[0]=1.,lastxlim[1]=-1.;
 	for (; pax->m_ln.size()>0;)	
 	{
@@ -2204,7 +2229,9 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 	if (inprogress) return; // block further operation here while inprogress
 
 	char rmstext[64]={};
-	CSignals _sig = GetAudioSignal(NULL, false);
+	CSignals _sig;
+	_sig.ghost = true;
+	GetAudioSignal(&_sig, NULL, false);
 	if (_sig.GetType() == CSIG_AUDIO)
 	{
 		sformat(rmstring, "%.1f dB", _sig.RMS().buf[0]);

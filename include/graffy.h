@@ -313,6 +313,8 @@ struct GRAFWNDDLGCHILDSTRUCT
 GRAPHY_EXPORT void initGraffy(CAstSig *base);
 GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent = NULL);
 GRAPHY_EXPORT void SetInProg(CVar *xGO, bool inprog);
+GRAPHY_EXPORT bool GetInProg(CVar *xGO);
+
 
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);

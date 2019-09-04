@@ -1746,6 +1746,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	strcat(auxextdllname, "64");
 #endif
 	SetConsoleTitle(buf);
+	EditPrintfFileBackup("c:\\temp\\eventlogs.txt");
 
 	RECT rt;
 	GetWindowRect(hr, &rt);

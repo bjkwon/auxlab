@@ -667,6 +667,12 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 	}
 }
 
+#include <mutex>
+#include <thread>
+extern mutex mtx_OnPaint;
+extern condition_variable cv_OnPaint;
+
+
 void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	/* a plot call is one of the following---
@@ -761,35 +767,51 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 			past->Sig = temp;
 			past->pgo = NULL;
 		}
-		vector<CGobj*> prevChild = cax->child;
 		//Finally cax and cfig ready. Time to inspect input data
 		if (tp.Sig.GetType() == CSIG_STRING)
 			nArgs = -1;
 		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
-		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
+		if (!cfig) cfig = (CFigure*)((CVar*)cax)->struts["parent"].front();
+		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, true);
 		if (isPlot)
 		{
 			//if there's existing line in the specified axes
 			if (!newFig && cax->strut["nextplot"] == string("replace"))
 			{
+				unique_lock<mutex> locker(mtx_OnPaint);
+				if (!locker.owns_lock())
+					cv_OnPaint.wait(locker);
 				cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
 				cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
 				cax->xtick.tics1.clear();
 				cax->ytick.tics1.clear();
-				while (!prevChild.empty())
+				// line object in cax->child should be removed
+				for (auto obj = cax->child.begin(); obj != cax->child.end(); )
 				{
-					auto prevLines = ((CVar*)cax)->struts["children"];
-					for (auto it = prevLines.begin(); it != prevLines.end(); it++)
+					if ((*obj)->strut["type"].string() == "line")
+						obj = cax->child.erase(obj);
+					else
+						obj++;
+				}
+				for (auto ch = ((CVar*)cax)->struts["children"].begin(); ch != ((CVar*)cax)->struts["children"].end(); )
+				{
+					if ((*ch)->strut["type"].string() == "line")
 					{
-						if (*it == prevChild.back())
-							it = prevLines.erase(it);
+						deleteObj(*ch);
+						ch = ((CVar*)cax)->struts["children"].erase(ch);
+						sendtoEventLogger("deleteObj called\n");
 					}
-					deleteObj(prevChild.back());
-					prevChild.pop_back();
+					else
+						ch++;
 				}
 			}
 		}
-		static char buf[256];
+		unique_lock<mutex> locker2(mtx_OnPaint);
+		if (!locker2.owns_lock())
+			cv_OnPaint.wait(locker2);
+		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
+
+		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
 		if (!newFig)
 			cfig = (CFigure*)cax->struts["parent"].front();
 	}
