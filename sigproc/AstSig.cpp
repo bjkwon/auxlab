@@ -231,7 +231,6 @@ void CAstSig::init()
 	dad = NULL;
 
 	FsFixed = false;
-	CAstSig::play_block_ms = 300;
 	pgo = NULL;
 	Tick0 = 1;
 }

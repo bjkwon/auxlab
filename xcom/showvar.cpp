@@ -272,8 +272,14 @@ void On_F2(HWND hDlg, CAstSig f2sig)
 {
 	try {
 		string emsg;
-		f2sig.SetNewScript(emsg, "?f2_channel_stereo_mono");
+		f2sig.SetNewScript(emsg, "axout = ?f2_channel_stereo_mono");
 		f2sig.Compute();
+		CVar *cfig = f2sig.GetGOVariable("?foc");
+		CVar *paxs = f2sig.GetGOVariable("axout");
+		//registers only the first two from paxs
+		RegisterAx((CVar*)cfig, (CAxes*)(INT_PTR)(paxs->buf[0]), true);
+		if (paxs->nSamples>1)
+			RegisterAx((CVar*)cfig, (CAxes*)(INT_PTR)(paxs->buf[1]), true);
 		RepaintGO(mShowDlg.pcast);
 	}
 	catch (const char *_errmsg) {
@@ -307,7 +313,9 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 		{
 			static GRAFWNDDLGSTRUCT in;
 			CFigure * cfig = newFigure(CRect(0, 0, 500, 310), title.c_str(), varname, &in);
-			plotlines = PlotCSignals(AddAxes(cfig, .08, .18, .86, .72), NULL, psig, -1);
+			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+			plotlines = PlotCSignals(cax, NULL, psig, -1);
+			RegisterAx((CVar*)cfig, cax, true);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 			//For the global variable $gcf, updated whether or not this is named plot.
 			xscope.at(res)->SetVar("?foc", cfig);
@@ -450,7 +458,6 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			//what is the current workspace? Let's find out from IDC_DEBUGSCOPE
 			if (pgcfNew)
 			{
-
 				HANDLE h = FindWithCallbackID(callbackID.c_str());
 				if (!GetInProg( (CVar*)((CFigure*)pgcfNew)))
 				{
@@ -1011,7 +1018,6 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 		recordingButtonRT.top -= rt0.top;
 		recordingButtonRT.bottom -= rt0.top;
 
-		mCaptureStatus.hDlg = CreateDialog(hInst, "AUDIOCAPTURE", hDlg, (DLGPROC)audiocaptuestatusProc);
 	}
 	else
 	{
@@ -1306,7 +1312,10 @@ void CShowvarDlg::OnSysCommand(UINT cmd, int x, int y)
 		::ShowWindow(hLog, SW_SHOW);
 		break;
 	case ID_HELP_SYSMENU5:
-		::ShowWindow(mCaptureStatus.hDlg, SW_SHOW);
+		if (!mCaptureStatus.hDlg)
+			mCaptureStatus.hDlg = CreateDialog(hInst, "AUDIOCAPTURE", hDlg, (DLGPROC)audiocaptuestatusProc);
+		else
+			::ShowWindow(mCaptureStatus.hDlg, SW_SHOW);
 		break;
 	}
 }

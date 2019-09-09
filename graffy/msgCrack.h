@@ -135,3 +135,7 @@
 
 #define HANDLE_WM__AUDIOEVENT(hwnd, wParam, lParam, fn) \
     ((fn)((CVar *)wParam, (int)lParam), 0L)
+
+#define HANDLE_DM_GETDEFID(hwnd, wParam, lParam, fn) \
+    ((fn)(), 0L)
+

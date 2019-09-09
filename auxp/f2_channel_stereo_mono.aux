@@ -49,8 +49,8 @@ if ax.length==1
 		end
 		ax.x.lim = [begints.min endts.max]/1000
 		ax2.x.lim = [begints.min endts.max]/1000
-	else
-		return
+
+	axs = [ax ax2]
 	end
 elseif ax.length==2
 	ax(1).pos(4) *=2
@@ -74,6 +74,7 @@ elseif ax.length==2
 	ax.children.delete
 	ax.line(z)
 	ax.x.tick = xtic
+	axs = ax
 else
     msgbox("Error--Figure window has multiple axes");
 	return;

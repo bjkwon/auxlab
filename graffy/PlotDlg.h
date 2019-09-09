@@ -17,7 +17,9 @@
 #include <math.h>
 
 #define	CLOSE_FIGURE	1024
-#define	CUR_MOUSE_POS	3030
+#define	CUR_MOUSE_POS	3031 // delete
+#define	CLEAR_CUR_MOUSE_POS	3030
+#define	FIRST_DISPLAY_STATUSBAR	3214
 #define	MOUSE_CURSOR_SETTING	3034
 #define	WINDOW_SIZE_ADJUSTING	3035
 #define WM__AUDIOEVENT	WM_APP + WOM_OPEN
@@ -103,9 +105,24 @@ enum SHOWSTATUS
 	FULL,
 };
 
+class MouseStatus
+{
+public: 
+	MouseStatus() { last_clickPt = CPoint(-1, -1); curPt = CPoint(-1, -1); last_MovPt = CPoint(-1, -1); curAx = NULL; };
+	virtual ~MouseStatus() {};
+	bool clickedOn;
+	CPoint last_clickPt;
+	CPoint last_MovPt;
+	CPoint curPt;
+	CAxes *curAx; // axes being controlled by current mouse movement
+};
+
+class CSBAR;
+
 class CPlotDlg : public CWndDlg
 {
 public:
+	vector<CRect> rctHist;
 	CPoint gcmp; //Current mouse point
 	CPoint z0pt; // point where zooming range begins
 	CString errStr;
@@ -116,6 +133,7 @@ public:
 	int devID;
 	int zoom;
 	double block; // Duration in milliseconds of playback buffer. 
+	MouseStatus mst;
 	int playLoc; // pixel point (x) corresponding to the wavform that is being played at this very moment
 	int playLoc0; // pixel advances of next x point of vertical line showing the progress of playback
 	int playCursor; // pixel point (x) corresponding to the wavform set by the user (clicked and held for 1 sec)
@@ -141,7 +159,7 @@ private:
 	STATUSBARINFO sbinfo;
 	CPoint clickedPt;
 	CPoint lastPtDrawn;
-	HWND hStatusbar;
+	CSBAR *sbar;
 	CPoint mov0; // used for WM_MOUSEMOVE
 	CPoint lbuttondownpoint; 
 	CPoint lastpoint; // used in WM_MOUSEMOVE
@@ -152,7 +170,7 @@ private:
 	COLORREF selColor;
 	COLORREF orgColor;
 	void setpbprogln();
-	void ChangeColorSpecAx(CRect rt, bool onoff);
+	void ChangeColorSpecAx(CAxes *cax, bool onoff);
 	int IsSpectrumAxis(CAxes* pax);
 	HWND CreateTT(HWND hPar, TOOLINFO *ti);
 //	BOOL validateScope(bool onoff);
@@ -174,7 +192,6 @@ public:
 	void OnRButtonUp(UINT nFlags, CPoint point);
 	void OnLButtonUp(UINT nFlags, CPoint point);
 	void OnLButtonDown(UINT nFlags, CPoint point);
-	void SetGCF();
 	void OnLButtonDblClk(UINT nFlags, CPoint point);
 	void OnMouseMove(UINT nFlags, CPoint point);
 	void DrawTicks(CDC *pDC, CAxes *pax, char xy);
@@ -200,11 +217,34 @@ public:
 	POINT GetIndDisplayed(CAxes *pax);
 	RANGE_ID GetIndSelected(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);
-	void ShowStatusBar(SHOWSTATUS status=FULL, const char* msg=NULL);
+	void ShowStatusBar(SHOWSTATUS status=FULL, const char* msg=NULL); // to be gone
+	void dBRMS(SHOWSTATUS st = FULL); // currently not used. just leave it
 	void GetSignalIndicesofInterest(int code, CAxes *pax, int & ind1, int &ind2);
 	int GetSelect(CSignals *pout);
 	void ShowSpectrum(CAxes *pax, CAxes *paxBase);
 	void getFFTdata(CTimeSeries *sig_mag, double *fft, int len);
 	void setInProg(bool ch) { inprogress = ch; };
 	bool getInProg() { return inprogress; };
+	void Register(CAxes *pax, bool b);
+	void SetAxBelowMouse(CAxes *pax, bool b) { pax->belowMouse = b; };
+	void OnGetdefid();
+	friend class CSBAR;
+};
+
+class CSBAR
+{
+public:
+	CSBAR(CPlotDlg *hPar) {
+		base = hPar; 
+		cax = nullptr;
+	};
+	HWND hStatusbar;
+	CAxes *cax;
+	vector<CAxes *> ax; // registered axes for this sbar
+	virtual ~CSBAR() {};
+	CPlotDlg *base;
+	void showXLIM(CAxes *cax=NULL, CPoint point=CPoint(-1,-1));
+	void showXSEL(int ch); // -1 means clear
+	void showCursor(CPoint point);
+	void dBRMS(SHOWSTATUS st = FULL);
 };

@@ -123,16 +123,16 @@ CAxis& CAxis::operator=(const CAxis& rhs)
 }
 
 CAxes::CAxes()
-:colorAxis(0)
 { // not used.... shouldn't be used. 12/3
 }
 
 GRAPHY_EXPORT CAxes::CAxes(CWndDlg * base, CGobj* pParent /*=NULL*/)
-:colorAxis(0), xlimfixed(false), ylimfixed(false)
+:colorAxis(0), xlimfixed(false), ylimfixed(false), belowMouse(false)
 {
 	type = GRAFFY_axes;
 	initGO(pParent);
-	color = RGB(200, 210, 200); 
+	color = DEFAULT_AXES_COLOR;
+	ColorFFTAx = DEFAULT_FFT_AXES_COLOR;
 	vector<DWORD> cl(1, color);
 	strut["color"] = COLORREF2CSignals(cl, CSignals());
 	struts["parent"].push_back(pParent);
@@ -193,6 +193,7 @@ GRAPHY_EXPORT CAxes *CAxes::create_child_axis(CPosition pos)
 	newax->setPos(pos);
 	hChild = newax;
 	newax->hPar = this;
+	newax->color = ColorFFTAx;
 	return newax;
 } 
 
@@ -504,9 +505,6 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	int axHeight((int)((double)height*pos.height+.5));
 	if (!ylimfixed)
 		setylim();
-
-	// parent is Figure object, whose parent is root object whose member is m_dlg
-	((CPlotDlg*)m_dlg)->ShowStatusBar();
 
 	in->SetValue((double)(INT_PTR)in);
 	in->struts["parent"].push_back(this);

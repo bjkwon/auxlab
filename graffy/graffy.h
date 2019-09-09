@@ -46,6 +46,8 @@
 #define WM_GCF_UPDATED		WM_APP+752
 #define WM_PARENT_THREAD	WM_APP+753
 
+#define DEFAULT_AXES_COLOR	RGB(200, 210, 200)
+#define DEFAULT_FFT_AXES_COLOR	RGB(220, 220, 150)
 
 #ifndef GRAFFY // ======== CLASS DEFINITIONS FOR graffy
 #define GRAFFY
@@ -74,7 +76,7 @@ public:
 	double height;
 	GRAPHY_EXPORT CPosition(double x, double y, double w, double h);
 	CPosition();
-	CRect GetRect(CRect windRect);
+	CRect GetRect(int width, int height);
 	void Set(CRect windRect, CRect axRect);
 	void AdjustPos2FixLocation(CRect oldrt, CRect newrt);
 };
@@ -219,6 +221,8 @@ public:
 	vector<CLine*> m_ln;
 //	vector<CPatch*> m_pat;
 	bool xlimfixed, ylimfixed;
+	bool xTimeScale, belowMouse;
+	COLORREF ColorFFTAx;
 
 	GRAPHY_EXPORT CAxes *create_child_axis(CPosition pos);
 	void GetCoordinate(POINT* pt, double& x, double& y);
@@ -315,6 +319,7 @@ GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent = NULL);
 GRAPHY_EXPORT void SetInProg(CVar *xGO, bool inprog);
 GRAPHY_EXPORT bool GetInProg(CVar *xGO);
 
+GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b);
 
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
@@ -348,6 +353,7 @@ GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);
 GRAPHY_EXPORT void		ViewSpectrum(HANDLE _fig);
+GRAPHY_EXPORT void		showdBRMS(CVar *xGO, int code);  // currently not used. just leave it
 
 
 GRAPHY_EXPORT HACCEL GetAccel(HANDLE hFig);

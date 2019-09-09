@@ -552,12 +552,10 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		pGO = past->pgo;
 	else if (past->Sig.IsGO())
 		pGO = &past->Sig;
+	if (p) past->Compute(p);
+	else if(pGO)
+		throw CAstException(pnode, past, "axes position is required.");
 	CPosition pos(past->Sig.buf[0], past->Sig.buf[1], past->Sig.buf[2], past->Sig.buf[3]);
-	if (pGO)
-	{
-		past->Compute(p);
-		pos.x0 = past->Sig.buf[0]; pos.y0 = past->Sig.buf[1]; pos.width = past->Sig.buf[2]; pos.height = past->Sig.buf[3];
-	}
 	CSignals *pgcf;
 	if (!pGO || pGO->IsEmpty())
 	{
@@ -581,7 +579,6 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 
 	//taking care of line graphic handle output
 	cax->SetValue((double)(INT_PTR)cax);
-//	cax->struts["parent"].push_back(&cfig->hgo);
 	cax->strut["pos"].buf[0] = cax->pos.x0;
 	cax->strut["pos"].buf[1] = cax->pos.y0;
 	cax->strut["pos"].buf[2] = cax->pos.width;
@@ -724,7 +721,10 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				{
 					// gcf found AND it is not a named plot
 					if (cfig->struts["gca"].empty()) // no axes present; create one.
+					{
 						cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+						RegisterAx((CVar*)cfig, cax, true);
+					}
 					else // use existing axes 
 						cax = (CAxes *)FindGObj(cfig->struts["gca"].front());
 				}
@@ -766,6 +766,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 			past->Sig = temp;
 			past->pgo = NULL;
+			RegisterAx((CVar*)cfig, cax, true);
 		}
 		//Finally cax and cfig ready. Time to inspect input data
 		if (tp.Sig.GetType() == CSIG_STRING)

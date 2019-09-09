@@ -53,13 +53,13 @@ condition_variable cv_OnPaint;
 
 FILE *fpp;
 
-int iabs(int x)
+static inline int iabs(int x)
 {
 	if (x<0)		return -x;
 	return x;
 }
 
-int LRrange(RECT* rect, int var, char xy)
+static inline int LRrange(RECT* rect, int var, char xy)
 {
 	// 1 for R, -1 for L, 0 for between    (x)
 	// 1 for above, -1 for below, 0 for bet (y)
@@ -78,7 +78,7 @@ int LRrange(RECT* rect, int var, char xy)
 	}
 }
 
-unsigned _int8 GetMousePosReAx(CPoint pt, CAxes* pax)
+static inline unsigned _int8 GetMousePosReAx(CPoint pt, CAxes* pax)
 {// This reveals where pt is located relative to pax
  // If pt is inside the axis rectangle, returns 15 (i.e., 0b1111)
  // If pt is in the ytick area, returns 0b0001
@@ -93,12 +93,12 @@ unsigned _int8 GetMousePosReAx(CPoint pt, CAxes* pax)
 }
 
 CPlotDlg::CPlotDlg()
-:axis_expanding(false), levelView(false), playing(false), paused(false), ClickOn(0), MoveOn(0), devID(0), playLoc(-1), zoom(0), spgram(false), selColor(RGB(150, 180, 155)), hStatusbar(NULL)
+:axis_expanding(false), levelView(false), playing(false), paused(false), ClickOn(0), MoveOn(0), devID(0), playLoc(-1), zoom(0), spgram(false), selColor(RGB(150, 180, 155))
 { // do not use this.
 }
 
 CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
-:axis_expanding(false), levelView(false), playing(false), paused(false), ClickOn(0), MoveOn(0), devID(0), playLoc(-1), zoom(0), spgram(false), selColor(RGB(150, 180, 155)), hStatusbar(NULL), gca(NULL), playCursor(-1)
+:axis_expanding(false), levelView(false), playing(false), paused(false), ClickOn(0), MoveOn(0), devID(0), playLoc(-1), zoom(0), spgram(false), selColor(RGB(150, 180, 155)), gca(NULL), playCursor(-1), inprogress(false)
 {
 	opacity = 0xff;
 	hAudio = 0;
@@ -123,7 +123,7 @@ CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
 	ttstat.push_back("");
 	ttstat.push_back("begin(selection)");
 	ttstat.push_back("end(selection)");
-	ttstat.push_back("Frequency");
+	ttstat.push_back("dBRMS");
 	sbinfo.initialshow = false;
 	sbinfo.xSelBegin = sbinfo.xSelEnd = 0.;
 }
@@ -132,6 +132,7 @@ CPlotDlg::~CPlotDlg()
 {
 	if (HIWORD((INT_PTR)title))
 		delete title;
+	delete sbar;
 }
 
 void CPlotDlg::OnDestroy()
@@ -211,8 +212,20 @@ BOOL CPlotDlg::OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
 	::SendMessage(hTTscript, TTM_SETMAXTIPWIDTH, 0, 400);
 	//These two functions are typically called in pair--so sigproc and graffy can communicate with each other for GUI updates, etc.
 	SetClassLongPtr (hwnd, GCLP_HICON, (LONG)(LONG_PTR)LoadImage(hInst, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0));
-	// This is necessary to set the showVarDlg window from showvar.cpp as the "anchor" for playback
+
+	sbar = new CSBAR(this);
+	sbar->hStatusbar = CreateWindow(STATUSCLASSNAME, "", WS_CHILD | WS_VISIBLE | WS_BORDER | SBS_SIZEGRIP,
+		0, 0, 0, 0, hwnd, (HMENU)0, hInst, NULL);
+	int width[] = { 40, 110, 2, 40, 40, 160, };
+	int sbarWidthArray[8];
+	sbarWidthArray[0] = 40;
+	for (int k = 1; k < 8; k++)
+		sbarWidthArray[k] = sbarWidthArray[k - 1] + width[k - 1];
+	sbarWidthArray[7] = -1;
+	::SendMessage(sbar->hStatusbar, SB_SETPARTS, 12, (LPARAM)sbarWidthArray);
+	// This is necessary to set the showVarDlg window from showvar.cpp as the "anchor" for playback // check if it's still needed 9/4/2019
 	SetHWND_WAVPLAY((HWND)lParam); 
+	mst.clickedOn = false;
 	return TRUE;
 }
 
@@ -363,6 +376,7 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	int count = 0;
 	double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rct.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
 	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
+	bool non_monotonic = false;
 	if (tseries)
 	{
 		nSamplesPerPixel = xPerPixel * fs;
@@ -379,46 +393,69 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 			idBegin = (int)((x1 - tmarkms) * fs);
 		idLast = (int)((x2 - tmarkms) * fs);
 		idLast = min(idLast, (int)p->nSamples);
-		//if (dur < x2)
-		//{
-		//	x2 = p->tmark / 1000. + dur;
-		//	rightEdge = max(rightEdge, pax->double2pixel(x2, 'x'));
-		//}
-		//index corresponding to x2
 		nSamples2Display = idLast - idBegin;
 		if (nSamples2Display > (int)p->nSamples - idBegin) nSamples2Display = (int)p->nSamples - idBegin;
 	}
 	else
 	{
 		nSamplesPerPixel = xPerPixel * p->nSamples / (pax->xlim[1] - pax->xlim[0]);
-		//if (lyne->xdata.nSamples) // for xy plot, just make the draw vector here and return. Disregard xlim and ylim
-		//{
-		//	for (unsigned int k = 0; k < p->nSamples; k++)
-		//	{
-		//		CPoint pt0 = pt;
-		//		pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
-		//		if (pt0 != pt)
-		//			out[count++] = pt;
-		//	}
-		//	return count;
-		//}
-		//else
-		{
-			idBegin = max((int)ceil(pax->xlim[0]), (int)x1) - 1;
-			idBegin = max(0, idBegin);
-			idLast = min((int)ceil(x2), (int)pax->xlim[1]);
-			idLast = min(idLast, (int)p->nSamples);
-			nSamples2Display = idLast - idBegin;
+		idBegin = max((int)ceil(pax->xlim[0]), (int)x1) - 1;
+		idBegin = max(0, idBegin);
+		idLast = min((int)ceil(x2), (int)pax->xlim[1]);
+		idLast = min(idLast, (int)p->nSamples);
+		if (lyne->xdata.nSamples)
+		{ // Assuming that lyne->xdata is monotonically increasing
+			//first index that is equal or greater than idBegin
+			// To do--check if it is not monotonically increasing
+			// and call non_monotonic = true here if so.
+
+			int	p = 0;
+			double lastxdata = lyne->xdata.buf[0] - 1;
+			for (; p < (INT)lyne->xdata.nSamples; p++)
+			{
+				if (lyne->xdata.buf[p] < lastxdata) // non monotonically increasing
+				{
+					non_monotonic = true; 
+					idLast = idBegin = 0;
+					break;
+				}
+				if (lyne->xdata.buf[p] >= idBegin)
+					break;
+			}
+			if (!non_monotonic)
+			{
+				idBegin = p;
+				//last index that is equal or less than idLast
+				p = lyne->xdata.nSamples - 1;
+				for (; p >= 0; p--)
+				{
+					if (lyne->xdata.buf[p] <= idLast)
+						break;
+				}
+				idLast = p + 1;
+			}
 		}
+		nSamples2Display = idLast - idBegin;
 	}
 	//make this conditional prettier when you have time 4/8/2019
-	if (nSamplesPerPixel > 2.)
+	if (nSamplesPerPixel > 2. && !non_monotonic)
 	{
 		double adder = 0;
+		int cok;
 		int chunkID0 = idBegin;
 		int chunkID1 = idBegin + (int)nSamplesPerPixel;
 		const double remnant = nSamplesPerPixel - (int)nSamplesPerPixel;
 		pt.x = pax->double2pixel(max(x1, p->tmark/1000.), 'x');
+		if (lyne->xdata.nSamples)
+		{
+			POINT temp;
+			unsigned int k = 0;
+			for (; k < p->nSamples; k++)
+			{
+				temp = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
+			}
+			cok = k;
+		}
 		for (; ;)
 		{
 			double dtp;
@@ -487,7 +524,6 @@ void CPlotDlg::GetAudioSignal(CSignals *pout, CAxes* pax, bool makechainless)
 { // if pax is NULL (default), it scans all axes in gcf and returns CSignals
   // it is is not NULL, it checks only pax and returns CTimeSeries (i.e., CSignals with NULL next)
 
-	unique_lock<mutex> locker(mtx_OnPaint);
 
 	vector<CAxes*> temp;
 	if (pax) temp.push_back(pax);
@@ -495,16 +531,11 @@ void CPlotDlg::GetAudioSignal(CSignals *pout, CAxes* pax, bool makechainless)
 	unsigned int count(0);
 	double t1, t2, deltat;
 	CTimeSeries part;
+//	unique_lock<mutex> locker(mtx_OnPaint);
 	for (vector<CAxes*>::iterator px= temp.begin(); px != temp.end(); px++)
 	{
-		int k = 1;
-		for (vector<CLine*>::iterator pline = (*px)->m_ln.begin(); pline != (*px)->m_ln.end(); pline++, k++)
+		for (vector<CLine*>::iterator pline = (*px)->m_ln.begin(); pline != (*px)->m_ln.end(); pline++)
 		{
-			char buf[267];
-			//sprintf(buf, "GetAudioSignal line %d of %d\n", k, (*px)->m_ln.size());
-			//sendtoEventLogger(buf);
-			//sprintf(buf, "inprogress=%d\n", inprogress);
-			//sendtoEventLogger(buf);
 			if ((*pline)->sig.GetType() == CSIG_AUDIO)
 			{
 				t1 = (*px)->xlim[0] * 1000.;
@@ -532,7 +563,7 @@ void CPlotDlg::GetAudioSignal(CSignals *pout, CAxes* pax, bool makechainless)
 	}
 	if (makechainless)
 		pout->MakeChainless();
-	cv_OnPaint.notify_one();
+	//cv_OnPaint.notify_one();
 }
 
 
@@ -574,6 +605,7 @@ void CPlotDlg::OnPaint()
 {
 	opacity = gcf.inScope ? 0xff : 0xc0;
 	SetLayeredWindowAttributes(hDlg, 0, opacity, LWA_ALPHA);
+	char buf[256];
 	PAINTSTRUCT  ps;
 	if (hDlg==NULL) return;
 	HDC hdc = BeginPaint(hDlg, &ps);
@@ -585,9 +617,10 @@ void CPlotDlg::OnPaint()
 	CAxes* pax;
 	GetClientRect(hDlg, &clientRt);
 	if (clientRt.Height()<15) { EndPaint(hDlg, &ps); return; }
+	sprintf(buf, "OnPaint (%d,%d)-(%d,%d), playCursor = %d, playLock %d\n", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom, playCursor, playLoc);
+	sendtoEventLogger(buf);
 	dc.SolidFill(gcf.color, clientRt);
 	CRect rt;
-	char buf[256];
 	GetClientRect(hDlg, &rt);
 	bool paxready(false);
 	//Drawing axes
@@ -595,17 +628,26 @@ void CPlotDlg::OnPaint()
 // Why shouldn't an iterator be used in the for loop?
 // axes may be added during the call from another thread
 // then itax may become suddenly invalid in the middle of loop and cause crash. 4/8/2019
-	unique_lock<mutex> locker(mtx_OnPaint);
 
+	// Is dB RMS displayed?
+	::SendMessage(sbar->hStatusbar, SB_GETTEXT, 0, (LPARAM)buf);
+	if (strlen(buf) == 0)
+		SetTimer(FIRST_DISPLAY_STATUSBAR, 200);
+
+//	sendtoEventLogger("OnPaint before locker2\n");
+	unique_lock<mutex> locker2(mtx_OnPaint);
+//	sendtoEventLogger("OnPaint after locker2\n");
 	for (size_t k=0; k< gcf.ax.size(); )
 	{
 		// drawing lines
-		if (find(sbinfo.vax.begin(), sbinfo.vax.end(), pax) == sbinfo.vax.end())
-			sbinfo.vax.push_back(gcf.ax[k]);
 		if (!paxready)
 			pax = gcf.ax[k];
 		else
 			paxready=false;
+		if (find(sbinfo.vax.begin(), sbinfo.vax.end(), pax) == sbinfo.vax.end())
+			sbinfo.vax.push_back(gcf.ax[k]);
+		if (!pax->m_ln.empty()) 
+			pax->xTimeScale = pax->m_ln.front()->sig.IsTimeSignal();
 		if (!pax->visible) continue;
 		if (!axis_expanding)
 			CPosition lastpos(pax->pos);
@@ -621,14 +663,6 @@ void CPlotDlg::OnPaint()
 			rt.top--;
 			rt.bottom++;
 			dc.SolidFill(selColor, rt);
-			if (ClickOn)
-			{
-				dc.CreatePen(PS_DOT, 1, RGB(255, 100, 0));
-				dc.MoveTo(curRange.px1, rt.bottom-2);
-				dc.LineTo(curRange.px1, rt.top+1); 
-				dc.MoveTo(curRange.px2, rt.bottom-2);
-				dc.LineTo(curRange.px2, rt.top+1); 
-			}
 		}
 		size_t nLines = pax->m_ln.size(); // just FYI
 		CPen * ppen = NULL;
@@ -692,22 +726,14 @@ void CPlotDlg::OnPaint()
 							nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
 							if (lyne->sig.nSamples==1)
 								lyne->initial = lyne->final = draw[0];
-							else
-							{
-								//if (p->nSamples == 4)
-								//{
-								//	Beep(3000, 20);
-								//}
-								//if (lyne == pax->m_ln.front())
-								//	lyne->initial = draw[0];
-								//if (lyne == pax->m_ln.back() && nDraws > 0)
-								//	lyne->final = draw[nDraws - 1];
-							}
+#ifdef _DEBUG
 							if (nDraws > estCount)
 							{
 								sprintf(buf, "left=%d,right=%d,est=%d,actual=%d", ps.rcPaint.left, ps.rcPaint.right, estCount, nDraws);
 								::MessageBox(NULL, buf, "exceed", 0);
 							}
+#endif // _DEBUG
+
 						}
 						if (lyne->symbol != 0)
 						{
@@ -800,7 +826,7 @@ void CPlotDlg::OnPaint()
 				if (IsSpectrumAxis(pax))
 				{
 					dc.TextOut(pax->rct.right-3, pax->rct.bottom, "Hz");
-					dc.TextOut(pax->rct.left-3, pax->rct.top-1, "dB");
+					dc.TextOut(pax->rct.left-3, pax->rct.top+1, "dB");
 				}
 				else if (pax->m_ln.front()->sig.IsTimeSignal())
 					dc.SetBkMode(TRANSPARENT), dc.TextOut(pax->rct.right-3, pax->rct.bottom, "sec");
@@ -808,7 +834,11 @@ void CPlotDlg::OnPaint()
 		}
 		delete[] draw;
 		if (pax->hChild)
-			paxready=true, pax = (CAxes*)pax->hChild;
+		{
+			paxready = true;
+			pax = (CAxes*)pax->hChild;
+			rctHist.clear();
+		}
 		else
 			k++;
 		if (playCursor > 0) // if cursor for playback was set
@@ -817,12 +847,12 @@ void CPlotDlg::OnPaint()
 			dc.MoveTo(playCursor, pax->rct.bottom);
 			dc.LineTo(playCursor, pax->rct.top);
 		}
-		if (LRrange(&pax->rct, playLoc, 'x') == 0)
-		{
-			dc.CreatePen(PS_SOLID, 1, RGB(204, 77, 0));
-			dc.MoveTo(playLoc, pax->rct.bottom);
-			dc.LineTo(playLoc, pax->rct.top);
-		}
+		//if (LRrange(&pax->rct, playLoc, 'x') == 0)
+		//{
+		//	dc.CreatePen(PS_SOLID, 1, RGB(204, 77, 0));
+		//	dc.MoveTo(playLoc, pax->rct.bottom);
+		//	dc.LineTo(playLoc, pax->rct.top);
+		//}
 		CAxes *pax0 = gcf.ax.front();
 		if (pax0->m_ln.size()>0 || (gcf.ax.size()>1 && gcf.ax[1]->m_ln.size()>0) )
 		{
@@ -882,11 +912,6 @@ void CPlotDlg::OnPaint()
 		dc.TextOut(pax->rct.left, pax->rct.top, tp[1].c_str());
 	}
 	EndPaint(hDlg, &ps);
-	if (!sbinfo.initialshow && title) 
-	{
-		sbinfo.initialshow=true; ShowStatusBar();
-		SetGCF();
-	}
 	// vector gcf.ax is pushed in AddAxis() called in showvar.cpp 
 	// find out why sometimes gcf.ax[k] is pointing something already deleted and causing a crash here. 8/216/2017 bjk
 }
@@ -1021,10 +1046,7 @@ CRect CPlotDlg::DrawAxis(CDC *pDC, PAINTSTRUCT *ps, CAxes *pax)
 		pDC->CreatePen(PS_DOT, 1, pax->colorAxis), pDC->CreateHatchBrush(HS_BDIAGONAL, RGB(160, 170, 200));
 	else
 		pDC->CreatePen(PS_SOLID, 1, pax->colorAxis), pDC->CreateSolidBrush(pax->color);
-	CRect rt3(pax->pos.GetRect(rt));
-	LONG temp = rt3.bottom;
-	rt3.bottom = rt3.top;
-	rt3.top = temp;
+	CRect rt3(pax->pos.GetRect(rt.Width(), rt.Height()));
 	pDC->Rectangle(rt3);
 	pax->rct = rt3;
 	SIZE sz (pDC->GetTextExtentPoint32 ("X", 5));
@@ -1048,49 +1070,24 @@ void CPlotDlg::OnSize(UINT nType, int cx, int cy)
 	CRect rt;
 	GetWindowRect(&rt);
 	if (nType == WS_CHILD)
-	{
 		::MoveWindow(hDlg, 0, 0, cx, cy, 1); // no need to worry about y pos and height
-	}
 	else
 	{
-		int new1, new2;
-		int sigtype(-1);
-		if (gcf.ax.size() > 0 && gcf.ax.front()->m_ln.size() > 0)
-			sigtype = gcf.ax.front()->m_ln.front()->sig.GetType();
-		if (title)
-		{
-			if (hStatusbar == NULL)
-			{
-				hStatusbar = CreateWindow(STATUSCLASSNAME, "", WS_CHILD | WS_VISIBLE | WS_BORDER | SBS_SIZEGRIP,
-					0, 0, 0, 0, hDlg, (HMENU)0, hInst, NULL);
-				int width[] = { 40, 110, 2, 40, 40, 160, };
-				int sbarWidthArray[8];
-				sbarWidthArray[0] = 40;
-				for (int k = 1; k < 8; k++)
-					sbarWidthArray[k] = sbarWidthArray[k - 1] + width[k - 1];
-				sbarWidthArray[7] = -1;
-				::SendMessage(hStatusbar, SB_SETPARTS, 12, (LPARAM)sbarWidthArray);
-				SetHWND_GRAFFY(hDlg);
-			}
-			else
-				::MoveWindow(hStatusbar, 0, 0, cx, 0, 1); // no need to worry about y pos and height
-		}
-
+	//	if (title)
+			::MoveWindow(sbar->hStatusbar, 0, 0, cx, 0, 1); // no need to worry about y pos and height
 		if (curRange != NO_SELECTION && gcf.ax.size() > 0)
 		{
 			//need to adjust curRange according to the change of size 
 			//new pixel pt after size change
-			new1 = gcf.ax.front()->timepoint2pix(selRange.tp1);
-			new2 = gcf.ax.front()->timepoint2pix(selRange.tp2);
-			curRange.px1 = new1;
-			curRange.px2 = new2;
+			curRange.px1 = gcf.ax.front()->timepoint2pix(selRange.tp1);
+			curRange.px2 = gcf.ax.front()->timepoint2pix(selRange.tp2);
 		}
 		if (hTTtimeax[0] == NULL)
 		{
 			for (int k = 0; k < 7; k++)
 			{
-				hTTtimeax[k] = CreateTT(hStatusbar, &ti_taxis);
-				::SendMessage(hStatusbar, SB_GETRECT, k, (LPARAM)&ti_taxis.rect);
+				hTTtimeax[k] = CreateTT(sbar->hStatusbar, &ti_taxis);
+				::SendMessage(sbar->hStatusbar, SB_GETRECT, k, (LPARAM)&ti_taxis.rect);
 				ti_taxis.lpszText = (LPSTR)ttstat[k].c_str();
 				::SendMessage(hTTtimeax[k], TTM_ACTIVATE, TRUE, 0);
 				::SendMessage(hTTtimeax[k], TTM_SETMAXTIPWIDTH, 0, 400);
@@ -1104,7 +1101,6 @@ void CPlotDlg::OnSize(UINT nType, int cx, int cy)
 			if ((*it)->ytick.automatic) (*it)->ytick.tics1.clear();
 			if ((*it)->xtick.automatic) (*it)->xtick.tics1.clear();
 		}
-
 		gcf.strut["pos"].buf[0] = rt.left;
 		gcf.strut["pos"].buf[1] = rt.top;
 		gcf.strut["pos"].buf[2] = rt.Width();
@@ -1131,7 +1127,6 @@ void CPlotDlg::OnMove(int x, int y)
 //Convention: if a figure handle has two axes, the first axis is the waveform viewer, the second one is for spectrum viewing.
 void CPlotDlg::OnRButtonUp(UINT nFlags, CPoint point) 
 {
-	SetGCF();
 	if (gcf.ax.empty()) return;
 	CAxes *pax = CurrentPoint2CurrentAxis(&point);
 	if (pax!=NULL)
@@ -1151,19 +1146,17 @@ void CPlotDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 {
 }
 
-void CPlotDlg::SetGCF()
-{
-	//CVar *pgcf = (CVar*)FindFigure(hDlg);
-	//if (pgcf)
-	//	pctx->SetVar("gcf", pgcf);
-}
-
 void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point) 
 {
-	SetGCF();
+	char buf[256];
+	sprintf(buf, "OnLButtonDown pt.x=%d, rect.y=%d\n", point.x, point.y);
+	sendtoEventLogger(buf);
+	mst.clickedOn = true;
+	mst.curPt = mst.last_clickPt = point;
 	edge.px1 = edge.px2 = -1;
 	gcmp=point;
 	CAxes *cax = CurrentPoint2CurrentAxis(&point);
+	mst.curAx = cax;
 	CSignals temp;
 	if (axis_expanding) {ClickOn=0; return;}
 	clickedPt = point;
@@ -1172,7 +1165,7 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 	case RC_WAVEFORM:  //0x000f
 		if (curRange != NO_SELECTION) // if there's previous selection
 		{
-	//		ShowStatusBar();
+			sbar->showXSEL(-1);
 			for (size_t k=0; k<gcf.ax.size(); k++)
 			{
 				CRect rt(curRange.px1, gcf.ax[k]->rct.top, curRange.px2+1, gcf.ax[k]->rct.bottom+1);
@@ -1181,27 +1174,24 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		}
 		lbuttondownpoint.x = gcmp.x;
 		curRange.reset();
-		{
-			CClientDC dc(hDlg);
-			dc.CreatePen(PS_DOT, 1, RGB(255, 100, 0));
-			dc.MoveTo(gcmp.x, cax->rct.bottom-1);
-			dc.LineTo(gcmp.x, cax->rct.top+1); 
-		}
-		temp.ghost = true;
-		GetAudioSignal(&temp, cax, false);
-		if (temp.IsTimeSignal())
-		{
-			if (playCursor > 0) // if a playCursor was set, then reset here
-			{
-				for (size_t k = 0; k < gcf.ax.size(); k++)
-				{
-					CRect rt(playCursor - 1, gcf.ax[k]->rct.top, playCursor + 1, gcf.ax[k]->rct.bottom + 1);
-					InvalidateRect(&rt);
-				}
-				playCursor = -1;
-			}
-			SetTimer(MOUSE_CURSOR_SETTING, 1000);
-		}
+		//sprintf(buf, "ButtonDown pt(%d,%d)\n", point.x, point.y);
+		//sendtoEventLogger(buf);
+
+		//temp.ghost = true;
+		//GetAudioSignal(&temp, cax, false);
+		//if (temp.IsTimeSignal())
+		//{
+		//	if (playCursor > 0) // if a playCursor was set, then reset here
+		//	{
+		//		for (size_t k = 0; k < gcf.ax.size(); k++)
+		//		{
+		//			CRect rt(playCursor - 1, gcf.ax[k]->rct.top, playCursor + 1, gcf.ax[k]->rct.bottom + 1);
+		//			InvalidateRect(&rt);
+		//		}
+		//		playCursor = -1;
+		//	}
+		//	SetTimer(MOUSE_CURSOR_SETTING, 1000);
+		//}
 		break;
 	default:
 		gcmp=CPoint(-1,-1);
@@ -1211,16 +1201,36 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
+	char buf[256];
+	sprintf(buf, "OnLButtonUp pt.x=%d, rect.y=%d\n", point.x, point.y);
+	sendtoEventLogger(buf);
 	CRect rt;
+	mst.clickedOn = false;
+	mst.curPt = point;
 	if (axis_expanding | gcf.ax.empty()) {ClickOn=0; return;}
-	CAxes *cax = CurrentPoint2CurrentAxis(&point);
+	// if mst.curAx is one of the FFTAx
+	for (auto _ax : sbar->ax)
+	{
+		if (_ax->hChild == mst.curAx)
+		{
+			ChangeColorSpecAx(mst.curAx, MoveOn = (bool)0);
+			InvalidateRect(mst.curAx->rct);
+			mst.curAx = NULL;
+			ClickOn = 0;
+			gcmp = CPoint(-1, -1);
+			mst.last_MovPt = CPoint(-1, -1);
+			return;
+		}
+	}
+
+	CAxes *cax = CurrentPoint2CurrentAxis(&mst.last_clickPt);
 	CAxes *pax = gcf.ax.front();
 	if (curRange.px2<0) // if button up without mouse moving, reset
 		curRange.reset();
 	CSignals _sig;
 	clickedPt.x=-999; clickedPt.y=-999;
-	lastPtDrawn.x=-1; lastPtDrawn.y=-1;
-	KillTimer(MOUSE_CURSOR_SETTING);
+//	lastPtDrawn.x=-1; lastPtDrawn.y=-1;
+//	KillTimer(MOUSE_CURSOR_SETTING);
 	switch(ClickOn)
 	{
 	case RC_WAVEFORM:  //0x000f
@@ -1260,6 +1270,7 @@ void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 		}
 		if (curRange.px2-curRange.px1<=3) curRange.reset();
 		InvalidateRect(&rt);
+		sbar->dBRMS(FULL);
 		selRange.tp1 = cax->pix2timepoint(curRange.px1); 
 		selRange.tp2 = cax->pix2timepoint(curRange.px2); 
 		if (ClickOn && gcf.ax.front()->hChild)
@@ -1267,202 +1278,288 @@ void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 		break;
 	default:
 		unsigned short mask = ClickOn & 0xff00;
-		if ( mask==RC_SPECTRUM_XTICK || mask==RC_SPECTRUM_YTICK )
+		if (mask==RC_SPECTRUM)
 		{
-			if ( (MoveOn & RC_SPECTRUM_XTICK) | (MoveOn & RC_SPECTRUM_YTICK) )	MoveOn = 0;
+			ChangeColorSpecAx(cax, MoveOn = (bool)0);
+			InvalidateRect(NULL);
 		}
-		else if (mask==RC_SPECTRUM)
-			if (1)// (MoveOn & RC_SPECTRUM)
-			{
-				ChangeColorSpecAx(CRect(((CAxes*)gcf.ax.front()->hChild)->rct), MoveOn = (bool)0);
-				InvalidateRect(NULL);
-			}
-			else
-			{
-//				UpdateRects(cax);
-				for (int k=0; k<5; k++) InvalidateRect(&roct[k]);
-			}
 		break;
 	}
+	mst.curAx = NULL;
 	ClickOn = 0;
 	gcmp=CPoint(-1,-1);
 
-	for (vector<CAxes*>::iterator axt=gcf.ax.begin(); axt!=gcf.ax.end(); axt++) 
-	{
-		CAxes* paxFFT;
-		if (paxFFT = (CAxes*)(*axt)->hChild) ShowSpectrum(paxFFT, *axt);
-	}
 }
 
-void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point) 
+void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
+	mst.curPt = point;
+
 	static int count(0);
-	double x, y;
 	if (axis_expanding || gcf.ax.empty()) return;
-	CAxes *cax = CurrentPoint2CurrentAxis(&point);
-	unsigned short  mousePt = GetMousePos(point);
-	CRect rt, rect2Invalidate;
-	char buf[64], buf2[64], buf0[64];
+	sbar->showCursor(point);
+
+	// if point is outside of an axes, clear all mst related members
+
+	// if mst.curAx is one of the FFTAx
+	if (!mst.clickedOn) return;
 	CPoint shift;
-	CAxes *paxFFT = (CAxes*)gcf.ax.front()->hChild;
-	KillTimer(MOUSE_CURSOR_SETTING);
-	switch(mousePt & 0xff00) // spectrum axis has the priority over waveform axis 
+	CAxes *cax;
+	for (auto _ax : sbar->ax)
 	{
-	case RC_SPECTRUM:
-		sprintf(buf,"%.1fHz",paxFFT->pix2timepoint(point.x));
-		paxFFT->GetCoordinate(point, x, y);
-		if (gcf.ax.size()>1)
+		//If FFTAx was clicked and mouse is moving while clicked.
+		if (_ax->hChild && _ax->hChild == mst.curAx)
 		{
-			CAxes *paxFFT2 = (CAxes*)gcf.ax.back()->hChild;
-			if (GetMousePosReAx(point, paxFFT2))
+			ChangeColorSpecAx(mst.curAx, true);
+			CRect rect2Invalidate = mst.curAx->GetWholeRect();
+			rect2Invalidate.top -= 15; // to include the rea of y axis label "dB"
+			if (mst.last_MovPt.x==-1 && mst.last_MovPt.y==-1)
+				shift = point - mst.last_clickPt;
+			else
+				shift = point - mst.last_MovPt;
+			if (shift.x != 0 || shift.y != 0)
 			{
-				paxFFT2->GetCoordinate(point, x, y);
-				paxFFT = paxFFT2;
+				CRect clientrt;
+				GetClientRect(hDlg, &clientrt);
+				mst.curAx->rct.MoveToXY(mst.curAx->rct.TopLeft() + shift); // new top left point is shifted
+				mst.curAx->pos.Set(clientrt, mst.curAx->rct);
+				if (shift.x > 0)
+					rect2Invalidate.right += shift.x;
+				else
+					rect2Invalidate.left += shift.x;
+				if (shift.y > 0)
+					rect2Invalidate.bottom += shift.y;
+				else
+					rect2Invalidate.top += shift.y;
+
+				InvalidateRect(rect2Invalidate);
 			}
+			mst.last_MovPt = point;
 		}
-		sprintf(buf2,"%.2f",y);
-		sprintf(buf0, "(%s,%s)", buf, buf2);
-		ShowStatusBar(CURSOR_LOCATION_SPECTRUM, buf0);
-		KillTimer(CUR_MOUSE_POS);
-		SetTimer(CUR_MOUSE_POS, 2000, NULL);
-		if (!(ClickOn & RC_SPECTRUM)) break;
-		if (lastPtDrawn.x>0 && lastPtDrawn.y>0) // moving while button down 
+		else
 		{
-			shift = point - lastPtDrawn;
-			CRect rctOld(paxFFT->rct);
-			CRect clientrt;
-			GetClientRect(hDlg, &clientrt);
-			paxFFT->rct.MoveToXY(paxFFT->rct.TopLeft()+shift); // new top left point is shifted
-			paxFFT->pos.Set(clientrt, paxFFT->rct);
-		}
-		rect2Invalidate = paxFFT->GetWholeRect();
-		rect2Invalidate.top -= 15;
-		rect2Invalidate.right += 20;
-		if (shift.x!=0 || shift.y!=0)
-			ChangeColorSpecAx(CRect(paxFFT->rct), true);
-		InvalidateRect(rect2Invalidate); 
-		lastPtDrawn = point;
-		break;
-	case RC_SPECTRUM_YTICK:
-	// If the y-axis of spectrum needs to be adjusted with mouse-dragging
-	// add the code here.
-		break;
-	case RC_SPECTRUM_XTICK:
-		if (!(ClickOn & RC_SPECTRUM_XTICK) & !(ClickOn & RC_SPECTRUM_YTICK)) break; 
-		if (lastPtDrawn.x>0 && lastPtDrawn.y>0) // moving while button down 
-		{
-			shift = point - lastPtDrawn;
-			if (shift.x!=0)
-			{
-				int k(iabs(shift.x));
-				if (k>6 && k<15) k=7;
-				else if (k>13) k=10;
-				if (shift.x>0)	
-				{
-					for (; k>0; k--)	paxFFT->xlim[1] *= .95 ;
-					paxFFT->xlim[1] = max(100, paxFFT->xlim[1]);
-				}
-				else  /* shift.x<0 */
-				{
-					for (; k>0; k--)	paxFFT->xlim[1] /= .95 ;
-					paxFFT->xlim[1] = min(paxFFT->xlim[1], paxFFT->xlimFull[1]);
-				}
-				rect2Invalidate = paxFFT->GetWholeRect();
-				rect2Invalidate.right += 5 + (int)(rect2Invalidate.Width()/10);
-				InvalidateRect(rect2Invalidate); 
-				paxFFT->setxticks();
-			}
-		}
-		lastPtDrawn = point;
-		break;
-	}
-	if (mousePt == 0x000f) // RC_WAVEFORM
-	{
-		for (size_t k=0; k<gcf.ax.size(); k++)
-		{
-			cax = gcf.ax[k];
-			if (ClickOn & (unsigned short)128) lbuttondownpoint.x = cax->rct.left;
-			else if (ClickOn & (unsigned short)32) lbuttondownpoint.x = cax->rct.right;
+			cax = _ax;
+			if (ClickOn & (unsigned short)128)
+				lbuttondownpoint.x = cax->rct.left;
+			else if (ClickOn & (unsigned short)32)
+				lbuttondownpoint.x = cax->rct.right;
 			if (ClickOn)
 			{ // lbuttondownpoint.x is the x point when mouse was clicked
-				rt.top = cax->rct.top+1;
-				rt.bottom = cax->rct.bottom-1;
+				CRect rect2Invalidate;
+				rect2Invalidate.top = cax->rct.top + 1;
+				rect2Invalidate.bottom = cax->rct.bottom - 1;
 				if (point.x > lbuttondownpoint.x) // current position right side of the beginning point
 				{
-					if (edge.px1==-1) edge.px1 = lbuttondownpoint.x;
+					if (edge.px1 == -1) edge.px1 = lbuttondownpoint.x;
 					curRange.px1 = lbuttondownpoint.x;
 					curRange.px2 = point.x;
 					edge.px2 = max(lastpoint.x, max(edge.px2, point.x));
-					rt.right = edge.px2;
+					rect2Invalidate.right = edge.px2;
 
 					// If move left-right and passed the beginning point,i.w., lbuttondownpoint, keep the edge.px1 in rt, so it can be properly redrawn
-					if ( (point.x-lbuttondownpoint.x)*(point.x-edge.px1)>0) 
-						rt.left = edge.px1-1;
+					if ((point.x - lbuttondownpoint.x)*(point.x - edge.px1) > 0)
+						rect2Invalidate.left = edge.px1 - 1;
 					else
-						rt.left = curRange.px1;	
-					edge.px1 =  max( edge.px1, curRange.px2);
+						rect2Invalidate.left = curRange.px1;
+					edge.px1 = max(edge.px1, curRange.px2);
 				}
 				else if (point.x < lbuttondownpoint.x) // moving left
 				{
-					if (edge.px1==-1) edge.px1 = lbuttondownpoint.x;
+					if (edge.px1 == -1) edge.px1 = lbuttondownpoint.x;
 					curRange.px2 = lbuttondownpoint.x;
 					curRange.px1 = point.x;
-					if (point.x>lastpoint.x) // moving left but just turned right 
-						rt.left = lastpoint.x;
+					if (point.x > lastpoint.x) // moving left but just turned right 
+						rect2Invalidate.left = lastpoint.x;
 					else
-						rt.left = curRange.px1;
+						rect2Invalidate.left = curRange.px1;
 					// If move right-left and passed the beginning point, i.e., lbuttondownpoint), keep the edge.px1 in rt, so it can be properly redrawn
-					if ( (point.x-lbuttondownpoint.x)*(point.x-edge.px1)>0) 
-						rt.right = edge.px1+1;
+					if ((point.x - lbuttondownpoint.x)*(point.x - edge.px1) > 0)
+						rect2Invalidate.right = edge.px1 + 1;
 					else
-						rt.right = curRange.px2;
-					edge.px1 =  min(edge.px1, curRange.px1);
+						rect2Invalidate.right = curRange.px2;
+					edge.px1 = min(edge.px1, curRange.px1);
 				}
-				else 
+				else
 					curRange.reset();
+				CSignals tp(1);
 				if (curRange != NO_SELECTION)
-					InvalidateRect(&rt);
+				{
+					InvalidateRect(&rect2Invalidate);
+					tp.UpdateBuffer(2);
+					tp.buf[0] = selRange.tp1 = cax->pix2timepoint(curRange.px1);
+					tp.buf[1] = selRange.tp2 = cax->pix2timepoint(curRange.px2);
+					gcf.strut["sel"] = tp;
+					for (auto ax : gcf.ax)
+						ax->strut["sel"] = tp;
+//					sprintf(buffer, "OnMouseMove cur(%d,%d), bdp.x=%d, edge(%d,%d), rect.left=%d, rect.right=%d\n", point.x, point.y, lbuttondownpoint.x, edge.px1, edge.px2, rect2Invalidate.left, rect2Invalidate.right);
+//					sendtoEventLogger(buffer);
+					sbar->showXSEL(1);
+				}
 				lastpoint = point;
-
 			}
 			else edge.px1 = -1;
-			if (!inprogress)
-			{
-				sendtoEventLogger("OnMouseMove inprogress=0\n");
-				ShowStatusBar(FULL);
-			}
-			else
-				sendtoEventLogger("OnMouseMove inprogress=1\n");
 		}
-		cax = CurrentPoint2CurrentAxis(&point);
-		cax->GetCoordinate(point, sbinfo.xCur, sbinfo.yCur);
-		sbinfo.xSelBegin = gcf.ax.back()->pix2timepoint(curRange.px1);
-		sbinfo.xSelEnd = gcf.ax.back()->pix2timepoint(curRange.px2);
-		ShowStatusBar(CURSOR_LOCATION);
-//		KillTimer(CUR_MOUSE_POS);
-//		SetTimer(CUR_MOUSE_POS, 2000, NULL);
-		CSignals tp(1);
-		if (curRange != NO_SELECTION)
-		{
-			tp.UpdateBuffer(2);
-			tp.buf[0] = selRange.tp1 = cax->pix2timepoint(curRange.px1);
-			tp.buf[1] = selRange.tp2 = cax->pix2timepoint(curRange.px2);
-		}
-		gcf.strut["sel"] = tp;
-		for (auto ax : gcf.ax)
-			ax->strut["sel"] = tp;
 	}
-	if (mousePt==0) // outside ANY axis
+	return;
+	unsigned short  mousePt = GetMousePos(point);
+	if (mousePt == 0x000f) // RC_WAVEFORM
+	{
+		cax = CurrentPoint2CurrentAxis(&point);
+		if (cax)
+		{
+			cax->GetCoordinate(point, sbinfo.xCur, sbinfo.yCur);
+		}
+	}
+	if (mousePt == 0) // outside ANY axis
 	{ // clean the status of current location 
-		::SendMessage (hStatusbar, SB_SETTEXT, 2, (LPARAM)"");
+		::SendMessage(sbar->hStatusbar, SB_SETTEXT, 2, (LPARAM)"");
 	}
 }
 
-//void CPlotDlg::SetGCF()
-//{
-//	if (hDlg!=GetForegroundWindow())	SetForegroundWindow(hDlg);
-//	::PostMessage(GetHWND_GRAFFY(), WM_GCF_UPDATED, (WPARAM)&gcf, (LPARAM)hDlg);
-//}
+void CSBAR::showXLIM(CAxes *pax, CPoint point)
+{
+	if (!cax)
+	{
+		if (ax.empty())			return;
+		else cax = ax.front();
+	}
+	if (!pax) pax = cax;
+	if (find(ax.begin(), ax.end(), cax)==ax.end()) return;
+	char buf[256], buf2[64];
+	sprintf(buf, "%.3f", pax->xlim[0]);
+	sprintf(buf2, "%.3f", pax->xlim[1]);
+	//	sprintf(buf3, "%.3f", sbinfo.xCur);
+	if (pax->xTimeScale) // for now, assume that two axes have both same sig type (check only the last one)
+	{
+		strcat(buf, "s"); strcat(buf2, "s");
+	}
+	::SendMessage(hStatusbar, SB_SETTEXT, 0, (LPARAM)buf);
+	::SendMessage(hStatusbar, SB_SETTEXT, 1, (LPARAM)buf2);
+	// Is dB RMS displayed?
+	::SendMessage(hStatusbar, SB_GETTEXT, 6, (LPARAM)buf);
+	if (strlen(buf) == 0)
+		dBRMS(FULL);
+}
+void CSBAR::showXSEL(int ch)
+{
+	if (ch==-1)
+	{
+		::SendMessage(hStatusbar, SB_SETTEXT, 4, (LPARAM)"");
+		::SendMessage(hStatusbar, SB_SETTEXT, 5, (LPARAM)"");
+		return;
+	}
+	char buf[64], buf2[64];
+	const double xSelBegin = base->gcf.ax.back()->pix2timepoint(base->curRange.px1);
+	const double xSelEnd = base->gcf.ax.back()->pix2timepoint(base->curRange.px2);
+	if (base->curRange == NO_SELECTION)
+	{
+		buf[0] = 0; buf2[0] = 0;
+	}
+	else
+	{ // for now, use the last one---assume that two axes have both same sig type 
+		sprintf(buf, "%.3f", xSelBegin);
+		sprintf(buf2, "%.3f", xSelEnd);
+		if (cax->xTimeScale) // for now, assume that two axes have both same sig type (check only the last one)
+		{
+			strcat(buf, "s"); strcat(buf2, "s");
+		}
+	}
+	if (base->playCursor < 0) // if play cursor is set, do not update selection range status bar
+	{
+		::SendMessage(hStatusbar, SB_SETTEXT, 4, (LPARAM)buf);
+		::SendMessage(hStatusbar, SB_SETTEXT, 5, (LPARAM)buf2);
+	}
+}
+
+void CSBAR::showCursor(CPoint point)
+{
+	CAxes *pax = base->CurrentPoint2CurrentAxis(&point);
+	if (pax)
+	{
+		cax = pax;
+		double xCur, yCur, xSelBegin, xSelEnd;
+		pax->GetCoordinate(point, xCur, yCur);
+		xSelBegin = base->gcf.ax.back()->pix2timepoint(base->curRange.px1);
+		xSelEnd = base->gcf.ax.back()->pix2timepoint(base->curRange.px2);
+		if (pax->m_ln.size() > 0)
+		{
+			char buf[64];
+			if (pax->m_ln[0]->sig.IsTimeSignal())
+				sprintf(buf, "(%.3fs,%.3f)", xCur, yCur);
+			else
+				sprintf(buf, "(%.3f,%.3f)", xCur, yCur);
+			::SendMessage(hStatusbar, SB_SETTEXT, 2, (LPARAM)buf);
+			showXLIM(pax, point);
+		}
+	}
+	else // if cursor is outside an axes, the current cursor info is removed.
+	{
+		base->KillTimer(CLEAR_CUR_MOUSE_POS);
+		base->SetTimer(CLEAR_CUR_MOUSE_POS, 2000, NULL);
+	}
+}
+
+static inline double _getdB(double x)
+{
+	// 3 dB is added to make rms of full scale sinusoid 0 dB
+	return 20 * log10(x) + 3.0103;
+}
+
+void CSBAR::dBRMS(SHOWSTATUS st)
+{
+	char buf0[32], buf[256] = {};
+	if (!ax.empty() && !ax.front()->m_ln.empty() && ax.front()->m_ln.front()->sig.GetType()==CSIG_AUDIO)
+		sprintf(buf, "[dBRMS] ");
+	switch (st)
+	{
+	case FULL: // show dBRMS of all signals
+		for (auto _ax : ax)
+		{
+			if (_ax->xTimeScale)
+			{
+				for (auto lyn : _ax->m_ln)
+				{
+					if (lyn->sig.GetType()== CSIG_AUDIO)
+					{
+						POINT ind; // begin and end (not an actual point)
+						if (base->curRange != NO_SELECTION)
+						{
+							base->selRange.tp1 = _ax->pix2timepoint(base->curRange.px1);
+							base->selRange.tp2 = _ax->pix2timepoint(base->curRange.px2);
+							ind.x = (int)round(base->selRange.tp1 * lyn->sig.GetFs());
+							ind.y = (int)round(base->selRange.tp2 * lyn->sig.GetFs());
+						}
+						else
+						{
+							ind = base->GetIndDisplayed(_ax);
+						}
+						double rmscum = 0.;
+						int rmslen = 0;
+						for (CTimeSeries *p = &lyn->sig; p; p = p->chain)
+						{
+							const int id1 = (int)round(p->tmark / 1000. * p->GetFs());
+							const int id2 = id1 + p->nSamples;
+							if (ind.y < id1) continue;
+							if (ind.x > id2) continue;
+							CSignals ghostcopy;
+							ghostcopy.ghost = true;
+							ghostcopy.buf = (double*)(p->logbuf + ind.x * p->bufBlockSize);
+							ghostcopy.nSamples = min(ind.y, id2) - max(ind.x, id1);
+							rmslen += ghostcopy.nSamples;
+							for (unsigned int k=0; k< ghostcopy.nSamples; k++)
+								rmscum += p->buf[k] * p->buf[k];
+						}
+						sprintf(buf0, "%.1f ", _getdB(sqrt(rmscum / rmslen)));
+						if (strlen(buf) > 8) strcat(buf, "| ");
+						strcat(buf, buf0);
+					}
+				}
+			}
+		}
+		::SendMessage(hStatusbar, SB_SETTEXT, 6, (LPARAM)buf);
+		break;
+	}
+}
 
 #define LOG(X) fprintf(fpp,(X));
 
@@ -1472,8 +1569,8 @@ void CPlotDlg::setpbprogln()
 	{
 		if (playLoc0 > ax->rct.right) return;
 		if (playLoc > ax->rct.right) playLoc = ax->rct.right;
-		InvalidateRect(CRect(playLoc0 - 1, ax->rct.top, playLoc0 + 1, ax->rct.bottom));
-		InvalidateRect(CRect(playLoc - 1, ax->rct.top, playLoc + 1, ax->rct.bottom));
+		//InvalidateRect(CRect(playLoc0-1 , ax->rct.top, playLoc0+1 , ax->rct.bottom), 0);
+		//InvalidateRect(CRect(playLoc-1 , ax->rct.top, playLoc+1 , ax->rct.bottom), 0);
 	}
 }
 
@@ -1513,7 +1610,21 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 		if (playCursor > 0)
 			playLoc = playCursor + pax->timepoint2pix(block*playingIndex / 1000);
 		else if (curRange == NO_SELECTION)
-			playLoc = pax->timepoint2pix(pax->xlim[0] + block*playingIndex / 1000);
+		{
+			playLoc = pax->timepoint2pix(pax->xlim[0] + block * playingIndex / 1000);
+			{
+				HDC hdc = GetDC(hDlg);
+				HPEN hp = CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
+				SelectObject(hdc, hp);
+				if (playLoc >= pax->rct.right)
+				{
+					playLoc = min(playLoc, pax->rct.right-1);
+					InvalidateRect(pax->rct, 0);
+				}
+				MoveToEx(hdc, playLoc, pax->rct.bottom-1, NULL);
+				LineTo(hdc, playLoc, pax->rct.top);
+			}
+		}
 		else
 		{
 			playLoc = pax->timepoint2pix(selRange.tp1 + block*playingIndex / 1000);
@@ -1529,33 +1640,35 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 		}
 		setpbprogln();
 		playLoc0 = playLoc;
+		char buf[256];
+		sprintf(buf, "index=%d\n", playingIndex);
+		sendtoEventLogger(buf);
 	}
 }
 
-void CPlotDlg::ChangeColorSpecAx(CRect rt, bool onoff)
+void CPlotDlg::ChangeColorSpecAx(CAxes *cax, bool onoff)
 {// on: ready to move, off: movind done
-	CAxes* paxFFT = (CAxes*)gcf.ax.front()->hChild;
-	static COLORREF col1, col2;
-	if (!onoff)
+	if (!cax) return;
+	if (onoff)
 	{
-		paxFFT->color = col2;
-		col1 = col2;
+		BYTE r = GetRValue(cax->ColorFFTAx);
+		BYTE g = GetGValue(cax->ColorFFTAx);
+		BYTE b = GetBValue(cax->ColorFFTAx);
+		cax->color = RGB(r * 5 / 8, g * 5 / 8, b * 5 / 8);
 	}
-	else if (col1 == col2)
-	{
-		BYTE r = GetRValue(paxFFT->color);
-		BYTE g = GetGValue(paxFFT->color);
-		BYTE b = GetBValue(paxFFT->color);
-		col2 = paxFFT->color;
-		col1 = paxFFT->color = RGB(r*7/8,g*7/8,b*7/8);
-	}
-	InvalidateRect(&rt);
+	else
+		cax->color = cax->ColorFFTAx;
+//	InvalidateRect(&rt);
 }
 
 void CPlotDlg::OnTimer(UINT id)
 {
 	switch (id)
 	{
+	case FIRST_DISPLAY_STATUSBAR:
+		KillTimer(id);
+		sbar->showXLIM();
+		break;
 	case MOUSE_CURSOR_SETTING:
 		KillTimer(id);
 		{
@@ -1566,13 +1679,12 @@ void CPlotDlg::OnTimer(UINT id)
 			InvalidateRect(&rt);
 			char buf[16];
 			sprintf(buf, "%.3fs", cax->pix2timepoint(playCursor));
-			::SendMessage(hStatusbar, SB_SETTEXT, 4, (LPARAM)buf);
+			::SendMessage(sbar->hStatusbar, SB_SETTEXT, 4, (LPARAM)buf);
 		}
 		break;
 
-	case CUR_MOUSE_POS:
-		::SendMessage (hStatusbar, SB_SETTEXT, 4, (LPARAM)"");
-		::SendMessage (hStatusbar, SB_SETTEXT, 5, (LPARAM)"");
+	case CLEAR_CUR_MOUSE_POS:
+		::SendMessage (sbar->hStatusbar, SB_SETTEXT, 2, (LPARAM)"");
 		KillTimer(id);
 		break;
 	case MOVE_SPECAX:
@@ -1609,9 +1721,9 @@ void CPlotDlg::WindowSizeAdjusting()
 	else
 		strcpy(buf1, "Adjust"), strcpy(buf2, "Window Size with"), strcpy(buf3, "Mouse");
 	axis_expanding = !axis_expanding;
-	::SendMessage(hStatusbar, SB_SETTEXT, 7, (LPARAM)buf1);
-	::SendMessage(hStatusbar, SB_SETTEXT, 8, (LPARAM)buf2);
-	::SendMessage(hStatusbar, SB_SETTEXT, 10, (LPARAM)buf3);
+	::SendMessage(sbar->hStatusbar, SB_SETTEXT, 7, (LPARAM)buf1);
+	::SendMessage(sbar->hStatusbar, SB_SETTEXT, 8, (LPARAM)buf2);
+	::SendMessage(sbar->hStatusbar, SB_SETTEXT, 10, (LPARAM)buf3);
 	InvalidateRect(NULL);
 }
 
@@ -1627,10 +1739,8 @@ int CPlotDlg::ViewSpectrum()
 		if (!Ax->m_ln.front()->sig.IsTimeSignal()) break;
 		if (Ax->hChild)
 		{ // deleting the fft window
-			CRect rt, rt2;
-			GetClientRect(hDlg, &rt);
+			CRect rt2;
 			paxFFT = (CAxes*)Ax->hChild;
-			rt2 = paxFFT->pos.GetRect(rt);
 			rt2 = paxFFT->rct;
 			rt2.InflateRect(40, 30);
 			InvalidateRect(rt2);
@@ -1646,7 +1756,6 @@ int CPlotDlg::ViewSpectrum()
 			if (Ax != gcf.ax.front()) //if second channel (stereo)
 				SpecAxPos.y0 = .1;
 			Ax->hChild = paxFFT = Ax->create_child_axis(SpecAxPos);
-			paxFFT->color = RGB(220, 220, 150);
 			paxFFT->visible = true;
 			ShowSpectrum(paxFFT, Ax);
 			nOuts++;
@@ -1724,7 +1833,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			rt.InflateRect(10, 10, 10, 30);
 			InvalidateRect(&rt, FALSE);
 		}
-		ShowStatusBar();
+		sbar->showXLIM();
+		sbar->dBRMS();
 		return;
 
 	case IDM_ZOOM_IN:
@@ -1762,7 +1872,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			rt.InflateRect(10, 10, 10, 30);
 			InvalidateRect(&rt, FALSE);
 		}
-		ShowStatusBar();
+		sbar->showXLIM();
+		sbar->dBRMS();
 		return;
 	case IDM_LEFT_STEP:
 		iMul *= -1;
@@ -1832,7 +1943,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			if (paxFFT = (CAxes*)pax->hChild) ShowSpectrum(paxFFT, pax);
 			pax->struts["x"].front()->strut["lim"] = (CSignals)CSignal(pax->xlim, 2);
 		}
-		ShowStatusBar();
+		sbar->showXLIM();
+		sbar->dBRMS();
 		return;
 
 	case IDM_ZOOMSELECT:
@@ -1849,8 +1961,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			cax->struts["x"].front()->strut["lim"] = (CSignals)CSignal(cax->xlim, 2);
 		}
 		curRange.reset();
-		::SendMessage (hStatusbar, SB_SETTEXT, 4, (LPARAM)"");
-		::SendMessage (hStatusbar, SB_SETTEXT, 5, (LPARAM)"");
+		::SendMessage (sbar->hStatusbar, SB_SETTEXT, 4, (LPARAM)"");
+		::SendMessage (sbar->hStatusbar, SB_SETTEXT, 5, (LPARAM)"");
 		return;
 
 	case IDM_PLAY:
@@ -1900,13 +2012,13 @@ void CPlotDlg::OnMenu(UINT nID)
 				}
 			}
 			else
-			{
+			{ // check thread synch, it didn't pause and resume properly 9/9/2019
 				PauseResumePlay(hAudio, true);
 				paused = false;
 			}
 		}
 		else // if playing, pause
-		{
+		{ // check thread synch, it didn't pause and resume properly 9/9/2019
 			PauseResumePlay(hAudio, false);
 			paused = true;
 			playing = false;
@@ -1918,6 +2030,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			paused = playing = false;
 			res = StopPlay(hAudio, true); // quick stop
 			playLoc = -1;
+			for (auto _ax : sbar->ax)
+				InvalidateRect(_ax->rct);
 
 			if (axis_expanding)
 				WindowSizeAdjusting();
@@ -2037,7 +2151,8 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	}
 	freq = new double[len/2+1];
 	fft = new double[len];
-	for (int k=0; k<len/2+1; k++)		freq[k] = dfs / len * k ;
+	for (int k=0; k<len/2+1; k++)		
+		freq[k] = dfs / len * k ;
 	plan = fftw_plan_r2r_1d(len, _sig.buf, fft, FFTW_R2HC, FFTW_ESTIMATE);
 	fftw_execute(plan);
 	CSignals mag;
@@ -2066,14 +2181,12 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	pax->m_ln.front()->color = gcf.ax.front()->m_ln.front()->color;
 	delete[] freq;
 	delete[] fft;
-	CRect rt;
+
+	CRect rt, rt2;
 	GetClientRect(hDlg, &rt);
-	pax->rct = pax->pos.GetRect(rt);
-	int temp = pax->rct.bottom;
-	pax->rct.bottom = pax->rct.top;
-	pax->rct.top = temp;
-	InvalidateRect(pax->rct);
-//	CGobj::addRedrawCue(hDlg, pax->rct);
+	rt2 = pax->rct = pax->pos.GetRect(rt.Width(), rt.Height());
+	rt2.InflateRect(40, 30);
+	InvalidateRect(rt2);
 #endif
 }
 
@@ -2083,14 +2196,20 @@ int IsInsideRect(RECT* rect, POINT* pt)
 }
 
 CAxes * CPlotDlg::CurrentPoint2CurrentAxis(CPoint *point)
-{
-	for (int k((int)gcf.ax.size()-1); k>=0; k--) //reason for decreasing: when the spectrum axis is clicked, that should be gca even if that overlaps with signal axis
+{ // search only among registered axes
+	for (auto _ax : sbar->ax)
 	{
-		if (IsInsideRect(gcf.ax[k]->rct, point))
+		auto __ax = _ax;
+		bool fftAxPresent = _ax->hChild != NULL;
+		//if _ax has FFTAx
+		if (fftAxPresent)
 		{
-			gca = gcf.ax[k];
-			return gcf.ax[k];
+			__ax = (CAxes*)_ax->hChild;
+			if (IsInsideRect(__ax->rct, point))
+				return gca = __ax;
 		}
+		if (IsInsideRect(_ax->rct, point))
+			return gca = _ax;
 	}
 	return NULL;
 }
@@ -2145,13 +2264,24 @@ unsigned short CPlotDlg::GetMousePos(CPoint pt)
 	return 0;
 }
 
+void CPlotDlg::Register(CAxes *pax, bool b)
+{
+	if (b)
+	{
+		if (find(sbar->ax.begin(), sbar->ax.end(), pax) == sbar->ax.end())
+			sbar->ax.push_back(pax);
+	}
+	else
+	{
+		auto it = find(sbar->ax.begin(), sbar->ax.end(), pax);
+		if (it != sbar->ax.end())
+			sbar->ax.erase(it);
+	}
+}
+
 void CPlotDlg::OnActivate(UINT state, HWND hwndActDeact, BOOL fMinimized)
 {
 	hPlotDlgCurrent = hDlg;
-	//hQuickSolidBrush = new CBrush[gca->nLines];
-	//for (int i=0; i<gca->nLines;i++)
-	//	hQuickSolidBrush[i].CreateSolidBrush (gca->m_ln[i]->color);
-
 	HandleLostFocus(WM_ACTIVATE);
 }
 
@@ -2169,36 +2299,24 @@ void CPlotDlg::MouseLeave(UINT umsg)
 
 }
 
+void CPlotDlg::OnGetdefid()
+{
+
+}
+
 void CPlotDlg::HandleLostFocus(UINT umsg, LPARAM lParam)
 {
-	CRect rt0, rt;
-	CAxes *pax;
-	char buf[128];
-	GetClientRect(hDlg, &rt0);
-	if (ClickOn)
+	if (mst.clickedOn)
 	{
-		pax = gcf.ax.front();
-		rt.top = pax->rct.top;
-		rt.bottom = pax->rct.bottom+1;
-		if (pax->rct.right - curRange.px2 < curRange.px1 - pax->rct.left) // toward right
-		{
-			rt.left = curRange.px2-1;
-			rt.right = curRange.px2 = pax->rct.right;
-			sprintf(buf,"%.3f",pax->pix2timepoint(curRange.px2));
-			::SendMessage (hStatusbar, SB_SETTEXT, 7, (LPARAM)buf);
-		}
-		else
-		{
-			rt.right = curRange.px1+1;
-			rt.left = curRange.px1 = pax->rct.left;
-			sprintf(buf,"%.3f",pax->pix2timepoint(curRange.px1));
-			::SendMessage (hStatusbar, SB_SETTEXT, 6, (LPARAM)buf);
-		}
-		InvalidateRect(&rt);
-		//fprintf(fp,"[%02d:%02d:%02d:%02d] msg=%x, ClickOn=%d\n", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, umsg, ClickOn);
+		OnLButtonUp(0, mst.curPt);
 	}
-	ClickOn=0;
 }
+
+void CPlotDlg::dBRMS(SHOWSTATUS st)
+{
+	sbar->dBRMS(st);
+}
+
 
 void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 {
@@ -2215,18 +2333,16 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 					sprintf(buf, "(%.3fs,%.3f)", sbinfo.xCur, sbinfo.yCur);
 				else
 					sprintf(buf, "(%.3f,%.3f)", sbinfo.xCur, sbinfo.yCur);
-				::SendMessage(hStatusbar, SB_SETTEXT, 2, (LPARAM)buf);
+				::SendMessage(sbar->hStatusbar, SB_SETTEXT, 2, (LPARAM)buf);
 				return;
 			}
 		}
 	}
 	else if (status==CURSOR_LOCATION_SPECTRUM)
 	{
-		::SendMessage (hStatusbar, SB_SETTEXT, 2, (LPARAM)msg);
+		::SendMessage (sbar->hStatusbar, SB_SETTEXT, 2, (LPARAM)msg);
 		return;
 	}
-
-	if (inprogress) return; // block further operation here while inprogress
 
 	char rmstext[64]={};
 	CSignals _sig;
@@ -2246,7 +2362,7 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 	}
 	if (_sig.IsTimeSignal() && strlen(rmstext) > 0)
 		strcat(rmstext, "RMS");
-	::SendMessage (hStatusbar, SB_SETTEXT, 6, (LPARAM)rmstext);
+	::SendMessage (sbar->hStatusbar, SB_SETTEXT, 6, (LPARAM)rmstext);
 
 	//From OnPaint()---maybe use predefined format for non-audio???
 //	char *format = pax0->xtick.format[0]? pax0->xtick.format : "%.2f";
@@ -2262,8 +2378,8 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 //	sprintf(buf3, "%.3f", sbinfo.xCur);
 	if (_sig.IsTimeSignal()) // for now, assume that two axes have both same sig type (check only the last one)
 	{	strcat(buf, "s"); strcat(buf2, "s");   }
-	::SendMessage (hStatusbar, SB_SETTEXT, 0, (LPARAM)buf);
-	::SendMessage (hStatusbar, SB_SETTEXT, 1, (LPARAM)buf2);
+	::SendMessage (sbar->hStatusbar, SB_SETTEXT, 0, (LPARAM)buf);
+	::SendMessage (sbar->hStatusbar, SB_SETTEXT, 1, (LPARAM)buf2);
 //	sprintf(buf, "(%s,%.3f)", buf3, sbinfo.yCur);
 //	::SendMessage (hStatusbar, SB_SETTEXT, 2, (LPARAM)buf);
 	if (curRange==NO_SELECTION)
@@ -2277,73 +2393,7 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 	}
 	if (playCursor<0) // if play cursor is set, do not update selection range status bar
 	{
-		::SendMessage(hStatusbar, SB_SETTEXT, 4, (LPARAM)buf);
-		::SendMessage(hStatusbar, SB_SETTEXT, 5, (LPARAM)buf2);
+		::SendMessage(sbar->hStatusbar, SB_SETTEXT, 4, (LPARAM)buf);
+		::SendMessage(sbar->hStatusbar, SB_SETTEXT, 5, (LPARAM)buf2);
 	}
 }
-/*
-#define RMSDB(BUF,FORMAT1,FORMAT2,X) { double rms;	if ((rms=X)==-1.*std::numeric_limits<double>::infinity()) strcpy(BUF, FORMAT1); else sprintf(BUF, FORMAT2, rms); }
-
-void CPlotDlg::ShowStatusSelectionOfRange(CAxes *pax, const char *swich)
-{
-	if (swich!=NULL && !strcmp(swich,"off")) 
-	{
-		::SendMessage (hStatusbar, SB_SETTEXT, 4, (LPARAM)"");
-		::SendMessage (hStatusbar, SB_SETTEXT, 5, (LPARAM)"");
-	}
-	else
-	{
-		char buf[64], buf2[64];
-		if (curRange != NO_SELECTION)
-		{
-			CSignals _sig = pax->m_ln[0]->sig;
-//			if (_sig.GetType()==CSIG_AUDIO)
-//			{
-				if (_sig.IsLogical())	strcpy(buf, "logical");
-				else
-				{
-					_sig = GetAudioSignal();
-//					if (_sig.next) RMSDB(buf2, "-Inf dB", "%.1f dB RMS", _sig.next->RMS())
-
-					if (_sig.buf[0] == -1.*std::numeric_limits<double>::infinity()) strcpy(buf, "-Inf dB");
-					else sprintf(buf, "%.1f dB RMS", _sig.buf[0]);
-				
-
-//					RMSDB(buf, "-Inf dB", "%.1f dB RMS", _sig.RMS())
-
-				}
-					
-//					if (gcf.ax.size()==1)
-//					{
-//						RMSDB(RMSselected,"-Inf dB","%.1f dB monoRMS",_sig.RMS())
-//					}
-//					else // just assume that only stereo (2 channels)
-//					{
-//						char LR[3];
-//						strcpy(LR,"LR");
-//						RMSselected[0]=0;
-//						for (size_t k=0; k<gcf.ax.size(); k++)
-//						{
-//							GetCSignalsInRange(1, gcf.ax[k], _sig, 0);
-//							if (_sig.nSamples==0) strcpy(buf,"???");
-//							else RMSDB(buf,"-Inf dB","%.1f dB RMS",_sig.RMS())
-//							sprintf(buf2,"(%c)%s", LR[k], buf);
-//							strcat(RMSselected,buf2);
-//						}
-//					}
-					::SendMessage (hStatusbar, SB_SETTEXT, 6, (LPARAM)buf);
-				sprintf(buf,"%.3fs",pax->pix2timepoint(curRange.px1));
-				sprintf(buf2,"%.3fs",pax->pix2timepoint(curRange.px2));
-//			}
-//			else
-//			{
-//				sprintf(buf,"%.2f",pax->pix2timepoint(curRange.px1));
-//				sprintf(buf2,"%.2f",pax->pix2timepoint(curRange.px2));
-//			}
-			::SendMessage (hStatusbar, SB_SETTEXT, 4, (LPARAM)buf);
-			::SendMessage (hStatusbar, SB_SETTEXT, 5, (LPARAM)buf2);
-		}
-
-	}
-}
-*/

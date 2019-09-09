@@ -121,6 +121,10 @@
 	  call copy_header.bat aux_classes sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
+    <Lib>
+      <TargetMachine>
+      </TargetMachine>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -172,6 +176,10 @@
 	  call copy_header.bat aux_classes sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
+    <Lib>
+      <TargetMachine>
+      </TargetMachine>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

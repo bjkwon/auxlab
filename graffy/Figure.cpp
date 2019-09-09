@@ -115,18 +115,14 @@ void CPosition::AdjustPos2FixLocation(CRect oldrt, CRect newrt)
 
 }
 
-CRect CPosition::GetRect(CRect windRect)
+CRect CPosition::GetRect(int Axwidth, int Axheight)
 { // from pos to RECT --> why not use this for general purposes?  8/14/2017
-	POINT org;
-	int windWidth, windHeight, axHeight, axWidth;
-	windWidth = windRect.right-windRect.left;
-	windHeight= windRect.bottom-windRect.top;
-	org.x = (int)((double)windRect.left + (double)windRect.Width()*x0+.5);
-	org.y = (int)((double)windRect.bottom - (double)windRect.Height()*y0+.5);
-	axWidth = (int)((double)windRect.Width()*width+.5);
-	axHeight = (int)((double)windRect.Height()*height+.5);
-	CRect rctAx(org, CPoint(org.x+axWidth, org.y-axHeight));
-	return rctAx;
+	CRect out;
+	out.left = (LONG(x0 * Axwidth + .5));
+	out.top = (LONG)((1 - y0 - height) * Axheight + .5);
+	out.right = out.left + (LONG(width * Axwidth + .5));
+	out.bottom = out.top + (LONG(height * Axheight + .5));
+	return out;
 }
 
 void CPosition::Set(CRect windRect, CRect axRect)

@@ -500,6 +500,8 @@ try {
 	if (strlen(readbuffer) > 0)
 	{
 		size_t count = str2vect(tar, readbuffer, "\r\n");
+		sprintf(buf, "Enter pressed.Trying to logging %s\n", tar.front().c_str());
+		sendtoEventLogger(buf);
 		LogHistory(tar);
 		mHistDlg.AppendHist(tar);
 //		if (tar.size()>2)

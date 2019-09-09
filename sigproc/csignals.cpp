@@ -75,7 +75,7 @@ static double quantizetmark(double delta, int fs)
 	return delta;
 }
 
-static double _getdB(double x)
+inline static double _getdB(double x)
 {
 	// 3 dB is added to make rms of full scale sinusoid 0 dB
 	return 20 * log10(x) + 3.0103;

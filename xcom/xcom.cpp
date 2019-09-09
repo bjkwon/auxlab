@@ -320,6 +320,8 @@ void closeXcom(const char *AppPath)
 
 unsigned int WINAPI histThread (PVOID var) 
 {
+	sendtoEventLogger("histThread created.\n");
+	char buffer[256];
 	WNDCLASS wc;
 	int res2 = GetClassInfo(GetModuleHandle(NULL), "#32770", &wc);
 	wc.lpszClassName = "SECOND";
@@ -357,10 +359,8 @@ unsigned int WINAPI histThread (PVOID var)
 	SetFocus(GetConsoleWindow()); //This seems to work.
 	SetForegroundWindow (GetConsoleWindow());
 
-	char buffer[256];
-	sprintf(buffer, "histThread created.\n");
+	sprintf(buffer, "mHistDlg.hDlg created. Message Loop begining.\n");
 	sendtoEventLogger(buffer);
-
 
 	MSG         msg ;
 	while (GetMessage (&msg, NULL, 0, 0))
@@ -1336,6 +1336,7 @@ bool dbmapfind(const char* udfname)
 
 void xcom::LogHistory(vector<string> input)
 {
+	if (!mHistDlg.hDlg) return;
 	FILE* logFP = fopen(mHistDlg.logfilename,"at"); 
 	if (logFP) 
 	{

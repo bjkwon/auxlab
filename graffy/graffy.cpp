@@ -153,8 +153,10 @@ INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 		chHANDLE_DLGMSG(hDlg, WM_MOVE, THE_CPLOTDLG->OnMove);
 		chHANDLE_DLGMSG(hDlg, WM_KEYDOWN, THE_CPLOTDLG->OnKeyDown);
 		chHANDLE_DLGMSG(hDlg, WM_TIMER, THE_CPLOTDLG->OnTimer);
-		//	chHANDLE_DLGMSG (hDlg, WM_ACTIVATE, THE_CPLOTDLG->OnActivate);
+		chHANDLE_DLGMSG (hDlg, WM_ACTIVATE, THE_CPLOTDLG->OnActivate);
 		chHANDLE_DLGMSG(hDlg, WM__AUDIOEVENT, THE_CPLOTDLG->OnSoundEvent);
+		chHANDLE_DLGMSG(hDlg, DM_GETDEFID, THE_CPLOTDLG->OnGetdefid);
+		
 
 	default:
 		return FALSE;
@@ -694,6 +696,23 @@ GRAPHY_EXPORT void SetInProg(CVar *xGO, bool inprog)
 	if (type != "figure") return;
 	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
 	phDlg->setInProg(inprog);
+}
+
+GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b)
+{
+	string type = xGO->strut["type"].string();
+	if (type != "figure") return false;
+	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
+	phDlg->Register(pax, b); // add the case for return false
+	return true;
+}
+
+void showdBRMS(CVar *xGO, int code)
+{
+	string type = xGO->strut["type"].string();
+	if (type != "figure") return;
+	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
+	phDlg->dBRMS((SHOWSTATUS)code);
 }
 
 GRAPHY_EXPORT void ViewSpectrum(HANDLE _h)
