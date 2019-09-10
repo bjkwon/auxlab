@@ -906,7 +906,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
 		int devID = 0;
-		INT_PTR h = PlayArray16(sig, devID, WM__AUDIOEVENT1, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
+		INT_PTR h = PlayCSignals(sig, devID, WM__AUDIOEVENT1, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
 		if (!h)
 		{ // PlayArray will return 0 if unsuccessful due to waveOutOpen failure. For other reasons.....
 			past->Sig.strut.clear();
@@ -914,14 +914,19 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		}
 		else
 		{
+			double ad = sig.alldur();
+			double addtime = ad * nRepeats / 1000.;
 			AUD_PLAYBACK * p = (AUD_PLAYBACK*)h;
 			p->sig.SetValue((double)(INT_PTR)h);
-			p->sig.strut["data"] = sig;
-			p->sig.strut["type"] = string("audio_playback");
-			p->sig.strut["devID"] = CSignals((double)devID);
-			p->sig.strut["durTotal"] = CSignals(sig.alldur()*nRepeats / 1000.);
-			p->sig.strut["durLeft"] = CSignals(sig.alldur()*nRepeats / 1000.);
-			p->sig.strut["durPlayed"] = CSignals(0.);
+//			p->sig.strut["data"] = sig; // Let's not do this any more.. no strong need. 9/9/2019
+			p->sig.strut.insert(pair<string, CVar>("type", string("audio_playback")));
+			p->sig.strut.insert(pair<string, CVar>("devID", CSignals((double)devID)));
+			p->sig.strut.insert(pair<string, CVar>("durTotal", CSignals(addtime)));
+			if (p->sig.strut.find("durLeft") == p->sig.strut.end())
+				p->sig.strut.insert(pair<string, CVar>("durLeft", CSignals(addtime)));
+			else
+				*(p->sig.strut["durLeft"].buf) += addtime;
+			p->sig.strut.insert(pair<string, CVar>("durPlayed", CSignals(0.)));
 			past->Sig = p->sig; //only to return to xcom
 		}
 	}

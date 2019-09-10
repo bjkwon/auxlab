@@ -383,7 +383,7 @@ body& body::UpdateBuffer(unsigned int length)	// Set nSamples. Re-allocate buf i
 
 void body::Reset()
 {
-	if (buf)
+	if (buf && nSamples > 0)
 		delete[] buf;
 	buf = NULL;
 	nSamples = 0;
@@ -990,7 +990,7 @@ CSignal::CSignal()
 }
 
 CTimeSeries::CTimeSeries()
-	: chain(NULL)
+	: chain(NULL), ghost(false)
 {
 }
 
@@ -1008,7 +1008,7 @@ CSignal::CSignal(int sampleRate, int len)
 }
 
 CTimeSeries::CTimeSeries(int sampleRate)
-	: chain(NULL)
+	: chain(NULL), ghost(false)
 {
 	fs = max(sampleRate, 0);
 	tmark = 0.;
@@ -1022,7 +1022,7 @@ CSignal::CSignal(double value)
 }
 
 CTimeSeries::CTimeSeries(double value)
-	: chain(NULL)
+	: chain(NULL), ghost(false)
 {
 	fs = 1;
 	tmark = 0;
@@ -1050,13 +1050,13 @@ CSignal::CSignal(const CSignal& src)
 }
 
 CTimeSeries::CTimeSeries(const CSignal& src)
-	: chain(NULL) //REQUIRED!!!!
+	: chain(NULL), ghost(false) //REQUIRED!!!!
 {
 	*this = src;
 }
 
 CTimeSeries::CTimeSeries(const CTimeSeries& src)
-	: chain(NULL) //REQUIRED!!!!  otherwise, copied object return has uninitialized chain and causes a crash later. 5/24/2048
+	: chain(NULL), ghost(false) //REQUIRED!!!!  otherwise, copied object return has uninitialized chain and causes a crash later. 5/24/2048
 {
 	*this = src;
 }
@@ -3486,12 +3486,12 @@ int CTimeSeries::IsTimeSignal()
 }
 
 CSignals::CSignals()
-	: next(NULL), ghost(false)
+	: next(NULL)
 {
 }
 
 CSignals::CSignals(bool b)
-	: next(NULL), ghost(false)
+	: next(NULL)
 {
 	Reset(1);
 	bufBlockSize = 1; // logical array
@@ -3500,32 +3500,32 @@ CSignals::CSignals(bool b)
 }
 
 CSignals::CSignals(int sampleRate)
-	:next(NULL), ghost(false)
+	:next(NULL)
 {
 	SetFs(max(sampleRate, 0));
 }
 
 CSignals::CSignals(double value)
-	: next(NULL), ghost(false)
+	: next(NULL)
 {
 	SetFs(1);
 	SetValue(value);
 }
 
 CSignals::CSignals(const CSignals& src)
-	:next(NULL), ghost(false)
+	:next(NULL)
 {
 	*this = src;
 }
 
 CSignals::CSignals(const CTimeSeries& src)
-	: next(NULL), ghost(false)
+	: next(NULL)
 {
 	*this = src;
 }
 
 CSignals::CSignals(double *y, int len)
-	: next(NULL), ghost(false)
+	: next(NULL)
 {
 	SetFs(1);
 	UpdateBuffer(len);

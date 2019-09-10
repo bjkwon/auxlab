@@ -14,6 +14,8 @@
 #include "wavplay.h"
 #define MAX_24BIT		(double)0x007fffff
 
+#include "bjcommon_win.h" // for sendtoEventLogger
+
 double _24bit_to_double(int x)
 { // converts a short variable into double in a scale of 16388608.
 	return ((double)x + .5) / MAX_24BIT;
@@ -40,6 +42,18 @@ void _double_to_short(double* dint, short* pshort, int len)
 		ss = (short)(_double_to_24bit(dint[i]) >> 8);
 		pshort[i] = (short)(_double_to_24bit(dint[i]) >> 8);
 	}
+}
+short * makemonobuffer(const CSignals &sig, int &length)
+{	//For now this is only 16-bit playback (Sep 2008)
+	//if there's a gap between current and next chain
+	int gap = 0;
+	if (sig.chain)
+		gap = (int)(sig.chain->tmark / 1000. * sig.GetFs() + .5) - sig.nSamples;
+	short *Buffer2Play = new short[sig.nSamples + gap];
+	_double_to_short(sig.buf, Buffer2Play, sig.nSamples);
+	memset(Buffer2Play + sig.nSamples, 0, gap * sizeof(short));
+	length = sig.nSamples + gap;
+	return Buffer2Play;
 }
 short * makebuffer(const CSignals &sig, int &nChan, int &length)
 {	//For now this is only 16-bit playback (Sep 2008)
@@ -166,6 +180,35 @@ INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND 
 	short *Buffer2Play = makebuffer(sig, nChan, length);
 	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(), 
 		userDefinedMsgID, hApplWnd, nProgReport, loop, errstr);
+}
+INT_PTR PlayCSignals(CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
+{
+	int nSamples4Block = (int)(*block_dur_ms / (1000. / (double)sig.GetFs()) + .5);
+	*block_dur_ms = (double)nSamples4Block *1000. / (double)sig.GetFs();
+	double _nBlocks = (double)sig.nSamples / nSamples4Block;
+	int nChan = 1, ecode(MMSYSERR_NOERROR);
+	int length, nBlocks = max(2, (int)ceil(_nBlocks));
+
+	INT_PTR res;
+	if (!sig.next)
+	{ // mono
+		CTimeSeries *p = (CTimeSeries *)&sig;
+		short *Buffer2Play = makemonobuffer(sig, length);
+		res = (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(),
+			userDefinedMsgID, hApplWnd, nBlocks, loop, errstr);
+		sendtoEventLogger("PlayBufAsynch16 called\n");
+		p = p->chain;
+		for (; p; p = p->chain)
+		{
+			short *Buffer2PlayMore = makemonobuffer(*p, length);
+			_nBlocks = (double)p->nSamples / nSamples4Block;
+			nBlocks = (int)_nBlocks;
+			if (_nBlocks - (double)nBlocks > 0.1) nBlocks++;
+			res = QueuePlay(res, DevID, Buffer2PlayMore, length, nChan, userDefinedMsgID, nBlocks, errstr, loop);
+			sendtoEventLogger("QueuePlay called\n");
+		}
+	}
+	return res;
 }
 
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop)

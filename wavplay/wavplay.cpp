@@ -21,6 +21,8 @@
 
 using namespace std;
 
+#include "bjcommon_win.h" // for sendtoEventLogger
+
 //FYI: These two message are sent to different threads.
 #define WM__RETURN		WM_APP+10
 #define MM_DONE			WM_APP+11
@@ -98,6 +100,7 @@ public:
 	bool			blockMode;
 	int				playcount; // 1 for regular, > 1 for repeated (looping) play. Don't allow 0.
 	int				fading;
+	int				index;
 	int				nFadeOutSamples;
 	int				nFadingBlocks; // The number of blocks for fading.
 	VOID*			playBuffer;
@@ -134,6 +137,8 @@ CWavePlay::CWavePlay()
 	wfx.wFormatTag = WAVE_FORMAT_PCM;
 	wfx.wBitsPerSample = 16;
 	wfx.cbSize = 0;
+	hPlayStruct.sig.ghost = true;
+	index = 0;
 }
 
 CWavePlay::~CWavePlay()
@@ -273,6 +278,7 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 				if (passing)
 				{
 					passing = false;
+					index = 0;
 					preparenextchunk(errstr); // initiate nextplay 
 				}
 				//if remainingSamples is not zero, it should pass through and call waveOutPrepareHeader one more time
@@ -374,7 +380,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 		rc = waveOutOpen(&pWP->hwo, param.DevID, &pWP->wfx, (DWORD_PTR)pWP->threadID, (DWORD_PTR)0, CALLBACK_THREAD);
 		if (rc != MMSYSERR_NOERROR)
 		{
-			PostThreadMessage(pWP->callingThreadID, MM_ERROR, (WPARAM)rc, (LPARAM)"");
+			PostThreadMessage(pWP->callingThreadID, MM_ERROR, (WPARAM)rc, (LPARAM)"waveOutOpen Error--");
 			threadIDs[len_threadIDs-- - 1] = 0;
 			delete pWP;
 			return 0;
@@ -436,18 +442,23 @@ unsigned int WINAPI Thread4MM(PVOID p)
 					//	pWP->buffer2Clean.push_back(param->dataBuffer); // this will lead to an incorrect pointer and proper buffer is not stored and something else might be stored twice, which will crash the application. 7/11/2016 bjk
 					already_double_buffered = true;
 				}
+//				sendtoEventLogger("WOM_OPEN\n");
 				break;
 			case WOM_CLOSE: //This is no longer processed because waveOutClose is not called while this message playcount is running (i.e., it is called either before or after the message playcount)
 				break;
 			case WOM_DONE:
+				pWP->index++;
 				playedPortionsBlock = (double)pWP->nPlayedBlocks / pWP->nTotalBlocks;
 				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - playedPortionsBlock));
+//				sprintf(errmsg, "played portion %.3f, id=%d, len per block = %d\n", playedPortionsBlock, pWP->index, pWP->playBufferLen);
+//				sendtoEventLogger(errmsg);
 				pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 
 				break;
 			} 
 		}
 		pWP->hPlayStruct.sig.strut["durLeft"].SetValue(0.);
-		pWP->hPlayStruct.sig.strut["durPlayed"].SetValue(pWP->hPlayStruct.sig.strut["durTotal"].value());
+		double totalDur = pWP->hPlayStruct.sig.strut["durPlayed"].value();
+		pWP->hPlayStruct.sig.strut["durPlayed"].SetValue(totalDur);
 		//It exits the message playcount when cleanUp is called the second time around (the WOM_DONE message for the block 1 is posted)
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[0], sizeof(WAVEHDR));
 		rc = waveOutUnprepareHeader(pWP->hwo, &pWP->wh[1], sizeof(WAVEHDR));
@@ -512,9 +523,13 @@ WPARAM wavBuffer2snd(UINT DevID, SHORT *dataBuffer, int length, int nChan, int f
 		switch (msg.message)
 		{
 		case MM_ERROR:
-			//error message in msg.lParam??  7/8/2018
-			waveOutGetErrorText((MMRESULT)msg.wParam, errstr, 256);
-			return 0; 
+		{	
+			char emsg[256];
+			waveOutGetErrorText((MMRESULT)msg.wParam, emsg, 256);
+			strcpy(errstr, (char*)msg.lParam);
+			strcat(errstr, emsg);
+			return 0;
+		}
 		case DISPATCH_PLAYBACK_HANDLE:
 			return msg.wParam; // audio playback handle is returned. 7/7/2018
 		}
@@ -561,11 +576,18 @@ INT_PTR QueuePlay(INT_PTR pHandle, UINT DevID, SHORT *dataBuffer, int length, in
 		return (INT_PTR)wavBuffer2snd(DevID, dataBuffer, length, nChan, pWP->wfx.nSamplesPerSec, userDefinedMsgID, pWP->hWnd_calling, nProgReport, playcount, errstr);
 	else
 	{
+		double addition = (double)length / pWP->wfx.nSamplesPerSec * playcount;
 		pWP->nextPlay.push_back(thisnp);
-		//Assume that pWP->hPlayStruct.sig.strut["durLeft"] is CSIG_SCALAR
-		double *buf = pWP->hPlayStruct.sig.strut["durLeft"].buf;
-		//Directly update the content of the buffer
-		*buf += (double)length / pWP->wfx.nSamplesPerSec * playcount;
+		if (pWP->hPlayStruct.sig.strut.find("durLeft") != pWP->hPlayStruct.sig.strut.end())
+		{
+			//Assume that pWP->hPlayStruct.sig.strut["durLeft"] is CSIG_SCALAR
+				//Directly update the content of the buffer
+			*pWP->hPlayStruct.sig.strut["durLeft"].buf += addition;
+		}
+		else
+		{ //if "durLeft" not found, that means QueuePlay was called by PlayCSignals because sig has chain; leave it alone. 
+			//strut["durLeft"] will be taken care of during _play 
+		}
 	}
 	return (INT_PTR)pHandle;
 }

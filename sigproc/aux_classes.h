@@ -321,6 +321,7 @@ public:
 	double alldur();
 
 	vector<CTimeSeries> outarg;
+	bool ghost;
 };
 
 class CSignals : public CTimeSeries
@@ -414,7 +415,6 @@ public:
 	int Wavread(const char *wavname, char *errstr);
 #endif // NO_SF
 #endif //_WINDOWS
-	bool ghost;
 };
 
 class CVar : public CSignals

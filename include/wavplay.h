@@ -78,6 +78,7 @@ int GetDevCaps(UINT_PTR id);
 //  This is just due to the way wavBuffer2snd is written in wavplay.cpp  Jan 19, 2013. BJ Kwon
 INT_PTR PlayArray16(const ctimesig &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop);
 INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop);
+INT_PTR PlayCSignals(CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop);
 INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, char *errstr, int loop);
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, double *block_dur_ms, char *errstr, int loop);
 INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop);

@@ -520,49 +520,96 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	return count;
 }
 
-void CPlotDlg::GetAudioSignal(CSignals *pout, CAxes* pax, bool makechainless)
-{ // if pax is NULL (default), it scans all axes in gcf and returns CSignals
-  // it is is not NULL, it checks only pax and returns CTimeSeries (i.e., CSignals with NULL next)
-
-
-	vector<CAxes*> temp;
-	if (pax) temp.push_back(pax);
-	else temp = gcf.ax;
-	unsigned int count(0);
+void CPlotDlg::GetGhost(CSignals *pout, CAxes* pax)
+{ // ghost copy means make a CSignals object with ghost, i.e., no new memory allocation (therefore no clean up when done) 
+  // if pax has multiple lines, it extracts only the first two 
 	double t1, t2, deltat;
+	if (!pax) pax = sbar->ax.front();
+	for (auto lyne : pax->m_ln)
+	{
+		if (lyne->sig.GetType() != CSIG_AUDIO) continue;
+		t1 = pax->xlim[0] * 1000.;
+		t2 = pax->xlim[1] * 1000.;
+		deltat = t2 - t1;
+		if (curRange != NO_SELECTION)
+		{
+			t1 = pax->xlim[0] * 1000. + deltat * (curRange.px1 - pax->rct.left) / pax->rct.Width();
+			t2 = pax->xlim[0] * 1000. + deltat * (curRange.px2 - pax->rct.left) / pax->rct.Width();
+		}
+		unsigned int id1, id2; // begin and end indices
+		//assuming that tmark was 0
+		id1 = (unsigned int)( (t1 - lyne->sig.tmark) / 1000. * lyne->sig.GetFs() +.5);
+		id2 = (unsigned int)( (t2 - lyne->sig.tmark) / 1000. * lyne->sig.GetFs() + .5);
+		pout->buf = lyne->sig.buf + id1;
+		if (id2 > lyne->sig.nSamples)
+		{
+			id2 = lyne->sig.nSamples - 1;
+			pout->chain = lyne->chain;
+		}
+		pout->nSamples = id2 - id1 + 1;
+		pout->SetFs(lyne->sig.GetFs());
+
+		CTimeSeries *q = lyne->sig.chain;
+		CTimeSeries newp(q->GetFs());
+		CTimeSeries *p = &newp;
+		pout->chain = p;
+
+		p->ghost = true;
+		p->buf = q->buf;
+		if (q->tmark > t1) 
+			id1 = 0;
+		else
+			id1 = (unsigned int)((t1 - q->tmark) / 1000. * lyne->sig.GetFs() + .5);
+		id2 = (unsigned int)((t2 - q->tmark) / 1000. * lyne->sig.GetFs() + .5) - 1 ;
+		p->nSamples = id2 - id1 + 1;
+		p->SetFs(q->GetFs());
+	}
+
+	return;
+
+
+
+
+
+
+
+
+	//vector<CAxes*> temp;
+	//if (pax) temp.push_back(pax);
+	//else temp = gcf.ax;
+	//unsigned int count(0);
+	//double t1, t2, deltat;
 	CTimeSeries part;
 //	unique_lock<mutex> locker(mtx_OnPaint);
-	for (vector<CAxes*>::iterator px= temp.begin(); px != temp.end(); px++)
-	{
-		for (vector<CLine*>::iterator pline = (*px)->m_ln.begin(); pline != (*px)->m_ln.end(); pline++)
-		{
-			if ((*pline)->sig.GetType() == CSIG_AUDIO)
-			{
-				t1 = (*px)->xlim[0] * 1000.;
-				t2 = (*px)->xlim[1] * 1000.;
-				deltat = t2 - t1;
-				if (curRange != NO_SELECTION)
-				{
-					t1 = (*px)->xlim[0] * 1000. + deltat*(curRange.px1 - (*px)->rct.left) / (*px)->rct.Width();
-					t2 = (*px)->xlim[0] * 1000. + deltat*(curRange.px2 - (*px)->rct.left) / (*px)->rct.Width();
-				}
-				else if (playCursor > 0)
-					t1 = (*px)->xlim[0] * 1000. + deltat*(playCursor - (*px)->rct.left) / (*px)->rct.Width();
-				count++;
-				if (count == 3) break;
-				pout->ghost = false;
-				if (count == 1)
-					*pout = (*pline)->sig.Extract(t1, t2);
-				else
-				{
-					part = (*pline)->sig.Extract(t1, t2);
-					pout->SetNextChan(&part);
-				}
-			}
-		}
-	}
-	if (makechainless)
-		pout->MakeChainless();
+	//for (vector<CAxes*>::iterator px= temp.begin(); px != temp.end(); px++)
+	//{
+	//	for (vector<CLine*>::iterator pline = (*px)->m_ln.begin(); pline != (*px)->m_ln.end(); pline++)
+	//	{
+	//		if ((*pline)->sig.GetType() == CSIG_AUDIO)
+	//		{
+	//			t1 = (*px)->xlim[0] * 1000.;
+	//			t2 = (*px)->xlim[1] * 1000.;
+	//			deltat = t2 - t1;
+	//			if (curRange != NO_SELECTION)
+	//			{
+	//				t1 = (*px)->xlim[0] * 1000. + deltat*(curRange.px1 - (*px)->rct.left) / (*px)->rct.Width();
+	//				t2 = (*px)->xlim[0] * 1000. + deltat*(curRange.px2 - (*px)->rct.left) / (*px)->rct.Width();
+	//			}
+	//			else if (playCursor > 0)
+	//				t1 = (*px)->xlim[0] * 1000. + deltat*(playCursor - (*px)->rct.left) / (*px)->rct.Width();
+	//			count++;
+	//			if (count == 3) break;
+	//			pout->ghost = false;
+	//			if (count == 1)
+	//				*pout = (*pline)->sig.Extract(t1, t2);
+	//			else
+	//			{
+	//				part = (*pline)->sig.Extract(t1, t2);
+	//				pout->SetNextChan(&part);
+	//			}
+	//		}
+	//	}
+	//}
 	//cv_OnPaint.notify_one();
 }
 
@@ -617,8 +664,8 @@ void CPlotDlg::OnPaint()
 	CAxes* pax;
 	GetClientRect(hDlg, &clientRt);
 	if (clientRt.Height()<15) { EndPaint(hDlg, &ps); return; }
-	sprintf(buf, "OnPaint (%d,%d)-(%d,%d), playCursor = %d, playLock %d\n", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom, playCursor, playLoc);
-	sendtoEventLogger(buf);
+	//sprintf(buf, "OnPaint (%d,%d)-(%d,%d), playCursor = %d, playLock %d\n", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom, playCursor, playLoc);
+	//sendtoEventLogger(buf);
 	dc.SolidFill(gcf.color, clientRt);
 	CRect rt;
 	GetClientRect(hDlg, &rt);
@@ -841,12 +888,6 @@ void CPlotDlg::OnPaint()
 		}
 		else
 			k++;
-		if (playCursor > 0) // if cursor for playback was set
-		{
-			dc.CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
-			dc.MoveTo(playCursor, pax->rct.bottom);
-			dc.LineTo(playCursor, pax->rct.top);
-		}
 		//if (LRrange(&pax->rct, playLoc, 'x') == 0)
 		//{
 		//	dc.CreatePen(PS_SOLID, 1, RGB(204, 77, 0));
@@ -1178,7 +1219,7 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		//sendtoEventLogger(buf);
 
 		//temp.ghost = true;
-		//GetAudioSignal(&temp, cax, false);
+		//GetGhost(&temp, cax, false);
 		//if (temp.IsTimeSignal())
 		//{
 		//	if (playCursor > 0) // if a playCursor was set, then reset here
@@ -1569,8 +1610,8 @@ void CPlotDlg::setpbprogln()
 	{
 		if (playLoc0 > ax->rct.right) return;
 		if (playLoc > ax->rct.right) playLoc = ax->rct.right;
-		//InvalidateRect(CRect(playLoc0-1 , ax->rct.top, playLoc0+1 , ax->rct.bottom), 0);
-		//InvalidateRect(CRect(playLoc-1 , ax->rct.top, playLoc+1 , ax->rct.bottom), 0);
+		InvalidateRect(CRect(playLoc0-1 , ax->rct.top+1, playLoc0+1 , ax->rct.bottom+1), 0);
+//		InvalidateRect(CRect(playLoc-1 , ax->rct.top, playLoc+1 , ax->rct.bottom), 0);
 	}
 }
 
@@ -1611,38 +1652,50 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 			playLoc = playCursor + pax->timepoint2pix(block*playingIndex / 1000);
 		else if (curRange == NO_SELECTION)
 		{
-			playLoc = pax->timepoint2pix(pax->xlim[0] + block * playingIndex / 1000);
+			for (auto _ax : gcf.ax)
 			{
 				HDC hdc = GetDC(hDlg);
 				HPEN hp = CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
 				SelectObject(hdc, hp);
-				if (playLoc >= pax->rct.right)
+				playLoc = _ax->timepoint2pix(pax->xlim[0] + block * playingIndex / 1000);
+				if (playLoc >= _ax->rct.right)
 				{
-					playLoc = min(playLoc, pax->rct.right-1);
-					InvalidateRect(pax->rct, 0);
+					playLoc = min(playLoc, _ax->rct.right - 1);
+					InvalidateRect(_ax->rct, 0);
 				}
-				MoveToEx(hdc, playLoc, pax->rct.bottom-1, NULL);
-				LineTo(hdc, playLoc, pax->rct.top);
+				MoveToEx(hdc, playLoc, _ax->rct.bottom - 1, NULL);
+				LineTo(hdc, playLoc, _ax->rct.top);
 			}
 		}
 		else
 		{
-			playLoc = pax->timepoint2pix(selRange.tp1 + block*playingIndex / 1000);
-			// if playLoc goes out of range, invalidateRect only to erase playLoc0, i.e., don't update the screen with the newly advanced but out-of-range bar
-			if (playLoc > curRange.px2)
+			for (auto _ax : gcf.ax)
 			{
-				InvalidateRect(CRect(playLoc0 - 1, pax->rct.top, playLoc0 + 1, pax->rct.bottom), 0);
-				playLoc0 = playLoc = -1;
-				playing = paused = false;
-				::SendMessage(GetHWND_WAVPLAY(), WM_APP + 0x2300, 0, -1);
-				return;
+				HDC hdc = GetDC(hDlg);
+				HPEN hp = CreatePen(PS_SOLID, 1, RGB(255, 131, 80));
+				SelectObject(hdc, hp);
+				playLoc = _ax->timepoint2pix(selRange.tp1 + block * playingIndex / 1000);
+				// if playLoc goes out of range, invalidateRect only to erase playLoc0, i.e., don't update the screen with the newly advanced but out-of-range bar
+				char buf[256];
+				sprintf(buf, "index=%d, playCursor=%d, playLoc=%d\n", playingIndex, playCursor, playLoc);
+				sendtoEventLogger(buf);
+				if (playLoc > curRange.px2)
+				{
+					InvalidateRect(CRect(playLoc0 - 1, _ax->rct.top+5, playLoc0 + 1, _ax->rct.bottom+5), 0);
+					playLoc0 = playLoc = -1;
+					playing = paused = false;
+					::SendMessage(GetHWND_WAVPLAY(), WM_APP + 0x2300, 0, -1);
+					return;
+				}
+				MoveToEx(hdc, playLoc, _ax->rct.bottom - 10, NULL);
+				LineTo(hdc, playLoc, _ax->rct.top);
 			}
 		}
 		setpbprogln();
 		playLoc0 = playLoc;
-		char buf[256];
-		sprintf(buf, "index=%d\n", playingIndex);
-		sendtoEventLogger(buf);
+		//char buf[256];
+		//sprintf(buf, "index=%d\n", playingIndex);
+		//sendtoEventLogger(buf);
 	}
 }
 
@@ -1970,6 +2023,8 @@ void CPlotDlg::OnMenu(UINT nID)
 		//DO this 7/11/2018----play pause play pause--then it doesn't pause but playing overlap instead...
 		if (!playing)
 		{
+			CVar _sig;
+			_sig.ghost = true;
 			if (!paused)
 			{
 				if (curRange == NO_SELECTION)
@@ -1993,9 +2048,8 @@ void CPlotDlg::OnMenu(UINT nID)
 				_block = deltaxlim * PBPROG_ADVANCE_PIXELS / deltapixel * 1000.;
 				// Below, if this put too low maximum, the progress line may move smoothly, but the playback sound will be choppy.
 				block = max(block, _block);
-				_sig.ghost = true;
-				GetAudioSignal(&_sig);
-				hAudio = PlayArray16(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
+				GetGhost(&_sig);
+				hAudio = PlayCSignals(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
 				if (!hAudio)
 					MessageBox(errstr, "Cannot play the audio"); // PlayArray fails if waveOutOpen fails
 				else
@@ -2008,18 +2062,18 @@ void CPlotDlg::OnMenu(UINT nID)
 					p->sig.strut["durTotal"] = CSignals(_sig.alldur());
 					p->sig.strut["durLeft"] = CSignals(_sig.alldur());
 					p->sig.strut["durPlayed"] = CSignals(0.);
-					playing = true;
 				}
 			}
 			else
 			{ // check thread synch, it didn't pause and resume properly 9/9/2019
-				PauseResumePlay(hAudio, true);
+				PauseResumePlay(hAudio, true); // resume
 				paused = false;
 			}
+			playing = true;
 		}
 		else // if playing, pause
 		{ // check thread synch, it didn't pause and resume properly 9/9/2019
-			PauseResumePlay(hAudio, false);
+			PauseResumePlay(hAudio, false); // paused
 			paused = true;
 			playing = false;
 		}
@@ -2047,7 +2101,7 @@ void CPlotDlg::OnMenu(UINT nID)
 		fullfname[0]=0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
 		_sig.ghost = true;
-		GetAudioSignal(&_sig);
+		GetGhost(&_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "Wav file (*.WAV)\0*.wav\0", "wav"))
 		{
 			if (!_sig.Wavwrite(fullfname, errstr))	MessageBox (errstr);
@@ -2064,7 +2118,7 @@ void CPlotDlg::OnMenu(UINT nID)
 		fullfname[0] = 0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
 		_sig.ghost = true;
-		GetAudioSignal(&_sig);
+		GetGhost(&_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "MP3 file (*.MP3)\0*.mp3\0", "mp3"))
 		{
 			if (!_sig.mp3write(fullfname, errstr))	MessageBox(errstr);
@@ -2130,7 +2184,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	pax->xlim[0] = 0;  pax->xlim[1] = dfs / 2;
 	//Right now _sig is a chainless'ed version... do it later to keep the chain
 	_sig.ghost = true;
-	GetAudioSignal(&_sig, paxBase);
+	GetGhost(&_sig, paxBase);
 	if (pax->m_ln.empty()) lastxlim[0]=1.,lastxlim[1]=-1.;
 	for (; pax->m_ln.size()>0;)	
 	{
@@ -2299,11 +2353,6 @@ void CPlotDlg::MouseLeave(UINT umsg)
 
 }
 
-void CPlotDlg::OnGetdefid()
-{
-
-}
-
 void CPlotDlg::HandleLostFocus(UINT umsg, LPARAM lParam)
 {
 	if (mst.clickedOn)
@@ -2347,7 +2396,7 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 	char rmstext[64]={};
 	CSignals _sig;
 	_sig.ghost = true;
-	GetAudioSignal(&_sig, NULL, false);
+	GetGhost(&_sig);
 	if (_sig.GetType() == CSIG_AUDIO)
 	{
 		sformat(rmstring, "%.1f dB", _sig.RMS().buf[0]);

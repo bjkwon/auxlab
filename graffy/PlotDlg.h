@@ -199,7 +199,7 @@ public:
 	HACCEL GetAccel();
 	void UpdateRects(CAxes *ax);
 	unsigned short GetMousePos(CPoint pt);
-	void GetAudioSignal(CSignals *pout, CAxes* pax = NULL, bool makechainless = true);
+	void GetGhost(CSignals *pout, CAxes* pax = NULL);
 	void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 	void OnMenu(UINT nId);
 	void OnTimer(UINT id);
@@ -227,7 +227,7 @@ public:
 	bool getInProg() { return inprogress; };
 	void Register(CAxes *pax, bool b);
 	void SetAxBelowMouse(CAxes *pax, bool b) { pax->belowMouse = b; };
-	void OnGetdefid();
+
 	friend class CSBAR;
 };
 
