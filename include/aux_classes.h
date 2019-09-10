@@ -237,6 +237,8 @@ class CTimeSeries : public CSignal
 {
 public:
 	CTimeSeries *chain;
+	bool ghost;
+	vector<CTimeSeries> outarg;
 
 	int WriteAXL(FILE* fp);
 	int IsTimeSignal();
@@ -320,8 +322,6 @@ public:
 
 	double alldur();
 
-	vector<CTimeSeries> outarg;
-	bool ghost;
 };
 
 class CSignals : public CTimeSeries

@@ -550,10 +550,9 @@ void CPlotDlg::GetGhost(CSignals *pout, CAxes* pax)
 		pout->SetFs(lyne->sig.GetFs());
 
 		CTimeSeries *q = lyne->sig.chain;
-		CTimeSeries newp(q->GetFs());
-		CTimeSeries *p = &newp;
+		CTimeSeries *p = new CTimeSeries(q->GetFs());
 		pout->chain = p;
-
+		p->tmark = q->tmark;
 		p->ghost = true;
 		p->buf = q->buf;
 		if (q->tmark > t1) 
@@ -562,7 +561,6 @@ void CPlotDlg::GetGhost(CSignals *pout, CAxes* pax)
 			id1 = (unsigned int)((t1 - q->tmark) / 1000. * lyne->sig.GetFs() + .5);
 		id2 = (unsigned int)((t2 - q->tmark) / 1000. * lyne->sig.GetFs() + .5) - 1 ;
 		p->nSamples = id2 - id1 + 1;
-		p->SetFs(q->GetFs());
 	}
 
 	return;
@@ -2023,7 +2021,6 @@ void CPlotDlg::OnMenu(UINT nID)
 		//DO this 7/11/2018----play pause play pause--then it doesn't pause but playing overlap instead...
 		if (!playing)
 		{
-			CVar _sig;
 			_sig.ghost = true;
 			if (!paused)
 			{
@@ -2056,7 +2053,6 @@ void CPlotDlg::OnMenu(UINT nID)
 				{
 					AUD_PLAYBACK * p = (AUD_PLAYBACK*)hAudio;
 					p->sig.SetValue((double)(INT_PTR)hAudio);
-					p->sig.strut["data"] = _sig;
 					p->sig.strut["type"] = string("audio_playback");
 					p->sig.strut["devID"] = CSignals((double)devID);
 					p->sig.strut["durTotal"] = CSignals(_sig.alldur());

@@ -1090,7 +1090,8 @@ CSignal::~CSignal()
 CTimeSeries::~CTimeSeries()
 {
 	if (chain) {
-		delete chain;
+		if (!ghost) 
+			delete chain;
 		chain = NULL;
 	}
 }
@@ -3536,7 +3537,8 @@ CSignals::CSignals(double *y, int len)
 
 CSignals::~CSignals()
 {
-	if (ghost) { next = nullptr; buf = nullptr; }
+	if (ghost) {
+		next = nullptr; buf = nullptr; }
 	if (next) {
 		delete next;
 		next = NULL;
