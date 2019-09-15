@@ -689,6 +689,10 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	// output argument transfer from son to this
 	double nargin = son->Vars["nargin"].value();
 	double nargout = son->Vars["nargout"].value();
+	//Undefined output variables are defined as empty
+	for (auto v : son->u.argout)
+		if (son->Vars.find(v) == son->Vars.end() && (son->GOvars.find(v) == son->GOvars.end() || son->GOvars[v].front()->IsEmpty()))
+			son->SetVar(v.c_str(), new CVar);
 	//lhs is either NULL (if not specified), T_ID or N_VECTOR
 	if (lhs)
 	{

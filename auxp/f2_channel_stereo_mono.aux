@@ -1,4 +1,4 @@
-function [axnew, axold] = f2_channel_stereo_mono(fig)
+function axnew = f2_channel_stereo_mono(fig)
 if nargin==0
 	fig=?foc;
 end
@@ -10,7 +10,9 @@ end
 ax=fig.children
 if ax.length==1
 	ax.pos(4) /=2
-	ax2 = fig.axes(ax.pos)
+	// as of now, this is not automatically registered to gcf. 
+	// Needs to send via output arg for On_F2 in showvar.cpp 9/15/2019
+	ax2 = fig.axes(ax.pos) 
 	ax.pos(2) += .4
 	axch = ax.children
 	id4line = []
@@ -70,7 +72,6 @@ elseif ax.length==2
 	else
 		xtic = ax(1).x.tick;
 	end
-	axold = ax(2)
 	ax(2).delete
 	ax.children.delete
 	ax.line(z)

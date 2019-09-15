@@ -272,22 +272,13 @@ void On_F2(HWND hDlg, CAstSig f2sig)
 {
 	try {
 		string emsg;
-		f2sig.SetNewScript(emsg, "[axadd axdel] = ?f2_channel_stereo_mono");
+		f2sig.SetNewScript(emsg, "axnew = ?f2_channel_stereo_mono");
 		f2sig.Compute();
 		CVar *cfig = f2sig.GetGOVariable("?foc");
-		CVar *paxs2Del, *paxs;
-		if (f2sig.GOvars.find("axadd") != f2sig.GOvars.end())
+		if (f2sig.GOvars.find("axnew") != f2sig.GOvars.end())
 		{
-			paxs = f2sig.GetGOVariable("axadd");
+			CVar *paxs = f2sig.GetGOVariable("axnew");
 			RegisterAx((CVar*)cfig, (CAxes*)(INT_PTR)(paxs->buf[0]), true);
-			//registers only the first two from paxs, if any
-			if (paxs->nSamples > 1)
-				RegisterAx((CVar*)cfig, (CAxes*)(INT_PTR)(paxs->buf[1]), true);
-		}
-		if (f2sig.GOvars.find("axdel") != f2sig.GOvars.end())
-		{ // do this part again.... f2_channel_stereo_mono should return the delete ax so it can be removed from CPlotDlg::sbar.ax 9/14/2019
-			paxs2Del = f2sig.GetGOVariable("axdel");
-			RegisterAx((CVar*)cfig, (CAxes*)(INT_PTR)(paxs2Del->buf[0]), false);
 		}
 		RepaintGO(mShowDlg.pcast);
 	}

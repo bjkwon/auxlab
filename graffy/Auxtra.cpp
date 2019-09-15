@@ -346,11 +346,16 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 		return;
 	}
 
-	CGobj *hobj(NULL);
-	if (!(hobj = (CGobj *)GetGraffyHandle((INT_PTR)past->pgo->value())))
-		throw CAstException(pnode, past, "1st argument is not a valid graphic object identifier."); // probably this is repetitive.
-	if (!GetGraffyHandle((INT_PTR)past->pgo->value()))
-		throw CAstException(pnode, past, "1st argument is not a valid graphic object identifier."); // probably this is repetitive.
+	CGobj *hobj = (CGobj *)past->pgo;
+	if (!hobj)
+		throw CAstException(pnode, past, "1st argument is not a valid graphic object identifier."); //check
+	//remove from registered ax list
+	if (past->pgo->strut["type"] == string("axes"))
+	{
+		CFigure *cfg = (CFigure *)((CFigure*)hobj)->hPar;
+		RegisterAx((CVar*)cfg, (CAxes*)hobj, false);
+	}
+
 	map<CAstSig *, vector<CVar *>> scope_delList;
 	CAstSig *tp = past->dad;
 	while (tp)
