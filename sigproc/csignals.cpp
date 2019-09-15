@@ -126,6 +126,15 @@ body::body(bool *y, int len)
 	memcpy(buf, y, bufBlockSize*len);
 }
 
+body& body::operator=(const body* rhs)
+{ // shallow (ghost) copy
+	buf = rhs->buf;
+	nSamples = rhs->nSamples;
+	bufBlockSize = rhs->bufBlockSize;
+	nGroups = rhs->nGroups;
+	return *this;
+}
+
 body& body::operator=(const body& rhs)
 {
 	if (this != &rhs)
@@ -153,6 +162,15 @@ CSignal& CSignal::operator=(const body& rhs)
 		if (rhs.nSamples > 0)
 			body::operator=(rhs);
 	}
+	return *this;
+}
+CSignal& CSignal::operator=(const CSignal* rhs)
+{ // shallow (ghost) copy
+	tmark = rhs->tmark;
+	pf_basic = rhs->pf_basic;
+	pf_basic2 = rhs->pf_basic2;
+	pf_basic3 = rhs->pf_basic3;
+	body::operator=((body*)rhs);
 	return *this;
 }
 CSignal& CSignal::operator=(const CSignal& rhs)
@@ -216,7 +234,10 @@ bool CSignals::operator==(std::string rhstr)
 
 CTimeSeries& CTimeSeries::operator=(const CSignal& rhs)
 {
-	CSignal::operator=(rhs);
+	if (ghost)
+		CSignal::operator=(&rhs);
+	else
+		CSignal::operator=(rhs);
 	return *this;
 }
 
@@ -258,7 +279,16 @@ CTimeSeries& CTimeSeries::operator=(const CTimeSeries& rhs)
 {
 	if (this != &rhs)
 	{
-		CSignal::operator=(rhs);
+		if (rhs.ghost)
+		{
+			fs = rhs.fs;
+			if (!ghost && buf)
+				delete[] buf;
+			CSignal::operator=(&rhs);
+		}
+		else
+			CSignal::operator=(rhs);
+		ghost = rhs.ghost;
 		outarg = rhs.outarg;
 		if (rhs.chain)
 		{
@@ -267,7 +297,7 @@ CTimeSeries& CTimeSeries::operator=(const CTimeSeries& rhs)
 		}
 		else
 		{
-			delete chain;
+			if (!ghost) delete chain;
 			chain = NULL;
 		}
 	}
@@ -381,10 +411,13 @@ body& body::UpdateBuffer(unsigned int length)	// Set nSamples. Re-allocate buf i
 	return *this;
 }
 
-void body::Reset()
+void body::Reset(int code)
 {
-	if (buf && nSamples > 0)
-		delete[] buf;
+	if (code != -1) // if not ghost object
+	{
+		if (buf && nSamples > 0)
+			delete[] buf;
+	}
 	buf = NULL;
 	nSamples = 0;
 	nGroups = 1;
@@ -1126,7 +1159,10 @@ void CSignal::SetFs(int  newfs)
 
 CSignal& CSignal::Reset(int fs2set)	// Empty all data fields - sets nSamples to 0.
 {
-	body::Reset();
+	if (fs2set) //ghost object
+		body::Reset(-1);
+	else
+		body::Reset();
 	pf_basic = NULL;
 	pf_basic2 = NULL;
 	if (fs2set)	// if fs2set == 0 (default), keep the current fs.
@@ -1137,7 +1173,10 @@ CSignal& CSignal::Reset(int fs2set)	// Empty all data fields - sets nSamples to 
 
 CTimeSeries& CTimeSeries::Reset(int fs2set)	// Empty all data fields - sets nSamples to 0.
 {
-	CSignal::Reset(fs2set);
+	if (ghost)
+		CSignal::Reset(-1);
+	else
+		CSignal::Reset(fs2set);
 	if (chain) {
 		delete chain;
 		chain = NULL;
@@ -1980,7 +2019,7 @@ unsigned int CTimeSeries::CountChains(unsigned int *maxlength)
 	return res;
 }
 
-double CSignals::alldur()
+double CSignals::alldur() const
 {
 	double out = CTimeSeries::alldur();
 	if (next)
@@ -1988,11 +2027,10 @@ double CSignals::alldur()
 	return out;
 }
 
-double CTimeSeries::alldur()
+double CTimeSeries::alldur() const
 {
-	double out = CSignal::endt();
-	CTimeSeries *p(this);
-	for (; p; p = p->chain)
+	double out;
+	for (CTimeSeries *p = (CTimeSeries *)this; p; p = p->chain)
 		out = p->CSignal::endt();
 	return out;
 }
@@ -2009,6 +2047,7 @@ double CTimeSeries::RMS()
 	}
 	return _getdB(sqrt(cum / count));
 }
+
 
 double CTimeSeries::MakeChainless()
 { //This converts the null intervals of the signal to zero.
@@ -2174,7 +2213,7 @@ CTimeSeries& CTimeSeries::removeafter(double timems)
 		}
 		else if (last)
 		{
-			delete[] p;
+			if (!ghost)	delete[] p;
 			last->chain = NULL;
 			break;
 		}
@@ -2200,10 +2239,15 @@ CTimeSeries& CTimeSeries::timeshift(double timems)
 			if (pointsless > 0)
 			{
 				p->nSamples -= pointsless;
-				bool *tbuf = new bool[p->nSamples*bufBlockSize];
-				memcpy(tbuf, p->buf + pointsless, p->nSamples*bufBlockSize);
-				delete[] p->logbuf;
-				p->logbuf = tbuf;
+				if (!ghost)
+				{
+					bool *tbuf = new bool[p->nSamples*bufBlockSize];
+					memcpy(tbuf, p->buf + pointsless, p->nSamples*bufBlockSize);
+					delete[] p->logbuf;
+					p->logbuf = tbuf;
+				}
+				else
+					p->buf += pointsless;
 				p->tmark = 0;
 			}
 		}
@@ -2211,7 +2255,7 @@ CTimeSeries& CTimeSeries::timeshift(double timems)
 	//all chains at and prior to chainlevel are cleared here.
 	p = this;
 	for (int k(0); k < chainlevel; k++, p = p->chain)
-		delete[] p->buf;
+		if (!ghost) delete[] p->buf;
 	if (p != this) // or if chainlevel is non-zero 
 	{
 		// Make new chain after chainlevel. If p is NULL (make an empty CTimeSeries object to return);
@@ -2224,14 +2268,6 @@ CTimeSeries& CTimeSeries::timeshift(double timems)
 	return *this;
 }
 
-CTimeSeries CTimeSeries::Extract(double begin_ms, double end_ms)
-{
-	CTimeSeries out(*this);
-	out.removeafter(end_ms);
-	out.timeshift(begin_ms);
-	return out;
-}
-
 CTimeSeries& CTimeSeries::Crop(double begin_ms, double end_ms)
 {
 	if (begin_ms == end_ms) { Reset(); return *this; }
@@ -2242,10 +2278,9 @@ CTimeSeries& CTimeSeries::Crop(double begin_ms, double end_ms)
 		return *this;
 	}
 	removeafter(end_ms);
-	CTimeSeries p = timeshift(begin_ms);
+	timeshift(begin_ms);
 	return *this;
 }
-
 
 CSignal &CSignal::_atmost(unsigned int id, int unsigned len)
 {
@@ -3339,6 +3374,14 @@ CTimeSeries& CTimeSeries::each(double(*fn)(double))
 	return *this;
 }
 
+CTimeSeries& CTimeSeries::GhostCopy(CTimeSeries *pref)
+{
+	pref->ghost = true;
+	*this = *pref;
+	pref->ghost = false;
+	return *this;
+}
+
 CTimeSeries & CTimeSeries::MFFN(double(*fn)(double), complex<double>(*cfn)(complex<double>))
 {
 	if (nSamples == 0) return *this;
@@ -3560,12 +3603,16 @@ void CSignals::SetNextChan(CTimeSeries *second)
 		throw errstr;
 	}
 	if (next) {
-		delete next;
+		if (!next->ghost) delete next;
 		next = NULL;
 	}
 	if (second) {
 		next = new CTimeSeries;
+		if (ghost)
+			next->ghost = ghost;
 		*next = *second;
+		if (ghost)
+			next->ghost = ghost;
 	}
 }
 
@@ -3585,7 +3632,8 @@ CSignals& CSignals::Reset(int fs2set)	// Empty all data fields - sets nSamples t
 {
 	CTimeSeries::Reset(fs2set);
 	if (next) {
-		delete next;
+		if (!next->ghost)
+			delete next;
 		next = NULL;
 	}
 	return *this;
@@ -3772,6 +3820,18 @@ CSignals& CSignals::Crop(double begin_ms, double end_ms)
 {
 	CTimeSeries::Crop(begin_ms, end_ms);
 	if (next)		next->Crop(begin_ms, end_ms);
+	return *this;
+}
+
+CSignals& CSignals::GhostCopy(CSignals *pref)
+{
+	CTimeSeries::GhostCopy(pref);
+	if (pref->next) {
+		if (next)
+			if (!next->ghost) delete next;
+		next = new CTimeSeries;
+		next->GhostCopy(pref);
+	}
 	return *this;
 }
 

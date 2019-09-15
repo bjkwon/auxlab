@@ -13,7 +13,7 @@
 #include "graffy.h"
 
 GRAPHY_EXPORT CLine::CLine(CWndDlg * base, CGobj * pParent)
-: symbol(0), lineWidth(1), id0(0), id1(0), markersize(4), markerColor(-1)
+: symbol(0), lineWidth(1), t1(-1), t2(-1), markersize(4), markerColor(-1)
 {
 	type = GRAFFY_line;
 	m_dlg = base;
@@ -45,8 +45,8 @@ GRAPHY_EXPORT CLine& CLine::operator=(const CLine& rhs)
 	if (this != &rhs)
 	{
 		CGobj::operator=(rhs);
-		id0 = rhs.id0;
-		id1 = rhs.id1;
+		t1 = rhs.t1;
+		t2 = rhs.t2;
 		lineStyle = rhs.lineStyle;
 		lineWidth = rhs.lineWidth;
 		markerColor = rhs.markerColor;

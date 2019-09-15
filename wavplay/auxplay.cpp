@@ -43,17 +43,103 @@ void _double_to_short(double* dint, short* pshort, int len)
 		pshort[i] = (short)(_double_to_24bit(dint[i]) >> 8);
 	}
 }
-short * makemonobuffer(const CSignals &sig, int &length)
+short * makemonobuffer(const CSignals &sig, int &length, int ch)
 {	//For now this is only 16-bit playback (Sep 2008)
 	//if there's a gap between current and next chain
 	int gap = 0;
-	if (sig.chain)
-		gap = (int)(sig.chain->tmark / 1000. * sig.GetFs() + .5) - sig.nSamples;
-	short *Buffer2Play = new short[sig.nSamples + gap];
-	_double_to_short(sig.buf, Buffer2Play, sig.nSamples);
-	memset(Buffer2Play + sig.nSamples, 0, gap * sizeof(short));
-	length = sig.nSamples + gap;
-	return Buffer2Play;
+	int fs = sig.GetFs();
+	short *buffer2Play;
+	if (ch >0 && sig.tmark > 0)
+	{ // this is done only for the first time makemonobuffer is run for a playback
+		length = (int)(sig.tmark / 1000. * fs + .5);
+		buffer2Play = new short[length];
+		memset(buffer2Play, 0, length * sizeof(short));
+	}
+	else
+	{
+		if (sig.chain)
+			gap = (int)(sig.chain->tmark / 1000. * fs + .5) - sig.nSamples;
+		buffer2Play = new short[sig.nSamples + gap];
+		_double_to_short(sig.buf, buffer2Play, sig.nSamples);
+		memset(buffer2Play + sig.nSamples, 0, gap * sizeof(short));
+		length = sig.nSamples + gap;
+	}
+	return buffer2Play;
+}
+short * makestereobuffer(CSignals &sig, int &length, CSignals &ghcopy)
+{ // for 16-bit playback
+	// sterero buffer is made for the duration where at least one channel is present, plus a zero buffer till the point where the signal is present again in either channel
+	CSignals *p = (CSignals *)&sig;
+	multimap<double, int> timepoints;
+	const int fs = sig.GetFs();
+	for (int k = 0; p && k < 2; k++, p=(CSignals*)p->next)
+	{
+		for (CTimeSeries *q = p; q; q = q->chain)
+		{
+			timepoints.insert(pair<double, int>(q->tmark, 1));
+			timepoints.insert(pair<double, int>(q->CSignal::endt(), -1));
+			q->ghost = true;
+		}
+	}
+	auto it = timepoints.begin();
+	for (int sum = 0; it != timepoints.end(); it++)
+	{
+		sum += it->second;
+		if (sum == 0)
+			break;
+	}
+	const double lasttp = it->first;
+	double lasttp_with_silence = lasttp;
+	if (++it != timepoints.end())
+		lasttp_with_silence = it->first;
+	length = (int)(lasttp_with_silence / 1000. * fs + .5);
+	short *buffer2Play;
+	buffer2Play = new short[length*2];
+	memset(buffer2Play, 0, sizeof(short)*length * 2);
+	p = (CSignals *)&sig;
+	for (int k = 0; p && k < 2; k++, p = (CSignals*)p->next)
+	{
+		for (CTimeSeries *q = p; q; q = q->chain)
+		{
+			if (q->tmark > lasttp) break;
+			int offset = (int)(q->tmark / 1000. * fs + .5) * 2;
+			for (unsigned int m = 0; m < q->nSamples; m++)
+				buffer2Play[offset + m * 2 + k] = (short)(_double_to_24bit(q->buf[m]) >> 8);
+		}
+	}
+	ghcopy = sig;
+	p = &sig;
+	CTimeSeries *q, *q1=NULL, *q2=NULL;
+	for (int k = 0; p && k < 2; k++, p = (CSignals*)p->next)
+	{
+		for (q=p; q; q = q->chain)
+		{
+			if (q->tmark > lasttp)
+			{
+				q->tmark -= lasttp_with_silence;
+				CTimeSeries *tempNext = p->next;
+				if (k == 0)
+				{
+					p->next = tempNext;
+					q1 = q;
+				}
+				else
+				{
+					p->next = nullptr;
+					q2 = q;
+				}
+
+				break;
+			}
+		}
+	}
+	if (q1) 
+		ghcopy = *q1;
+	if (q2)
+		ghcopy.SetNextChan(q2);
+	if (!q1 && !q2)
+		ghcopy.Reset();
+	return buffer2Play;
 }
 short * makebuffer(const CSignals &sig, int &nChan, int &length)
 {	//For now this is only 16-bit playback (Sep 2008)
@@ -181,31 +267,66 @@ INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND 
 	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(), 
 		userDefinedMsgID, hApplWnd, nProgReport, loop, errstr);
 }
-INT_PTR PlayCSignals(CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
+INT_PTR PlayCSignals(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
 {
 	int nSamples4Block = (int)(*block_dur_ms / (1000. / (double)sig.GetFs()) + .5);
 	*block_dur_ms = (double)nSamples4Block *1000. / (double)sig.GetFs();
-	double _nBlocks = (double)sig.nSamples / nSamples4Block;
 	int nChan = 1, ecode(MMSYSERR_NOERROR);
-	int length, nBlocks = max(2, (int)ceil(_nBlocks));
 
 	INT_PTR res;
 	if (!sig.next)
 	{ // mono
+		int length;
 		CTimeSeries *p = (CTimeSeries *)&sig;
-		short *Buffer2Play = makemonobuffer(sig, length);
+		short *Buffer2Play = makemonobuffer(sig, length, 1);
+		double _nBlocks = (double)length / nSamples4Block;
+		int nBlocks = max(2, (int)ceil(_nBlocks));
 		res = (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(),
 			userDefinedMsgID, hApplWnd, nBlocks, loop, errstr);
-		sendtoEventLogger("PlayBufAsynch16 called\n");
+		if (sig.tmark > 0)
+		{ // if there was a null portion prior to actual signal, Buffer2Play made above is a zero memory block
+		  // here's makemonobuffer is called again with ghost copy of sig with tmark of zero.
+			CSignals ghcopy(sig.GetFs());
+			*(bool*)&sig.ghost = true;
+			ghcopy = sig;
+			//time-shift ghcopy by sig.tmark (so that it starts at 0)
+			double shift = ghcopy.tmark;
+			for (CTimeSeries *tp=&ghcopy; tp; tp=tp->chain)
+				tp->tmark -= shift; 
+			short *Buffer2Play2 = makemonobuffer(ghcopy, length, 0);
+			_nBlocks = (double)length / nSamples4Block;
+			nBlocks = max(2, (int)ceil(_nBlocks));
+			res = (INT_PTR)QueuePlay(res, DevID, Buffer2Play2, length, nChan, userDefinedMsgID, nBlocks, errstr, loop);
+		}
 		p = p->chain;
 		for (; p; p = p->chain)
 		{
-			short *Buffer2PlayMore = makemonobuffer(*p, length);
-			_nBlocks = (double)p->nSamples / nSamples4Block;
+			short *Buffer2PlayMore = makemonobuffer(*p, length, 0);
+			_nBlocks = (double)length / nSamples4Block;
 			nBlocks = (int)_nBlocks;
 			if (_nBlocks - (double)nBlocks > 0.1) nBlocks++;
 			res = QueuePlay(res, DevID, Buffer2PlayMore, length, nChan, userDefinedMsgID, nBlocks, errstr, loop);
-			sendtoEventLogger("QueuePlay called\n");
+		}
+	}
+	else // stereo
+	{
+		nChan = 2;
+		int length;
+		CSignals nextblock;
+		short *Buffer2Play = makestereobuffer((CSignals&)sig, length, nextblock);
+		double _nBlocks = (double)length / nSamples4Block;
+		int nBlocks = (int)_nBlocks;
+		if (_nBlocks - (double)nBlocks > 0.1) nBlocks++;
+		res = (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length , nChan, sig.GetFs(),
+			userDefinedMsgID, hApplWnd, nBlocks, loop, errstr);
+		while (!nextblock.IsEmpty())
+		{
+			CSignals nextblock2(nextblock);
+			short *Buffer2PlayMore = makestereobuffer(nextblock2, length, nextblock);
+			_nBlocks = (double)length / nSamples4Block;
+			nBlocks = (int)_nBlocks;
+			if (_nBlocks - (double)nBlocks > 0.1) nBlocks++;
+			res = QueuePlay(res, DevID, Buffer2PlayMore, length, nChan, userDefinedMsgID, nBlocks, errstr, loop);
 		}
 	}
 	return res;

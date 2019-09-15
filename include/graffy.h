@@ -156,7 +156,7 @@ public:
 //	list<map<double,double>> chain; // this is the same meaning as chain in CSignals
 	CTimeSeries sig;
 	CSignal xdata;
-	int id0, id1;
+	double t1, t2;
 	char symbol; // marker symbol
 	unsigned _int8 lineWidth;
 	unsigned _int8 markersize;

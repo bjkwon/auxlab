@@ -199,7 +199,8 @@ public:
 	HACCEL GetAccel();
 	void UpdateRects(CAxes *ax);
 	unsigned short GetMousePos(CPoint pt);
-	void GetGhost(CSignals *pout, CAxes* pax = NULL);
+	void GetGhost2(CSignals *pout, CAxes* pax = NULL);
+	void GetGhost(CSignals &pout, CAxes* pax = NULL);
 	void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 	void OnMenu(UINT nId);
 	void OnTimer(UINT id);

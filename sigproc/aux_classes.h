@@ -57,13 +57,14 @@ public:
 	virtual ~body();
 
 	body& operator=(const body& rhs);
+	body& operator=(const body* rhs);
 	body& operator+=(const double con);
 	body& operator*=(const double con);
 	body& operator/=(const double con);
 	body& operator-(void);	// Unary minus
 
 	body& UpdateBuffer(unsigned int length);
-	void Reset();
+	void Reset(int code=0);
 
 	double value() const;
 	string valuestr(int digits = 14) const;
@@ -157,6 +158,7 @@ public:
 	CSignal& reciprocal(void);	// Multiplicative inverse
 	CSignal& operator=(const body& rhs);
 	CSignal& operator=(const CSignal& rhs);
+	CSignal& operator=(const CSignal* rhs);
 	bool operator == (const CSignal &rhs);
 	bool operator == (double rhs);
 	bool operator == (string rhstr);
@@ -247,8 +249,6 @@ public:
 	CTimeSeries& basic(CSignal& (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt = NULL);
 	CTimeSeries basic(CSignal (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt = NULL);
 
-	CTimeSeries Extract(double begin_ms, double end_ms);
-
 	CTimeSeries& Reset(int fs2set = 0);
 	void SetChain(CTimeSeries *unit, double time_shifted = 0.);
 	void SetChain(double time_shifted);
@@ -306,6 +306,7 @@ public:
 
 	CTimeSeries& Modulate(CTimeSeries env);
 	CTimeSeries& SAM(double modRate, double modDepth, double initPhase);
+	CTimeSeries& GhostCopy(CTimeSeries *pref);
 
 	CTimeSeries * AtTimePoint(double timept);
 
@@ -320,7 +321,7 @@ public:
 	CTimeSeries(const CTimeSeries& src);
 	virtual ~CTimeSeries();
 
-	double alldur();
+	double alldur() const;
 
 };
 
@@ -383,10 +384,11 @@ public:
 	CSignals& ReplaceBetweenTPs(CSignals &newsig, double t1, double t2);
 	CSignals& LogOp(CSignals &rhs, int type);
 	CSignals& SAM(double modRate, double modDepth, double initPhase);
+	CSignals& GhostCopy(CSignals *pref);
 
 	CSignals& NullIn(double tpoint);
 
-	double alldur();
+	double alldur() const;
 	double * Mag();
 	CSignal Angle();
 	void DownSample(int q);

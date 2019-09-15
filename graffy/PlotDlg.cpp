@@ -520,7 +520,7 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	return count;
 }
 
-void CPlotDlg::GetGhost(CSignals *pout, CAxes* pax)
+void CPlotDlg::GetGhost2(CSignals *pout, CAxes* pax)
 { // ghost copy means make a CSignals object with ghost, i.e., no new memory allocation (therefore no clean up when done) 
   // if pax has multiple lines, it extracts only the first two 
 	double t1, t2, deltat;
@@ -1187,9 +1187,9 @@ void CPlotDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 
 void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point) 
 {
-	char buf[256];
-	sprintf(buf, "OnLButtonDown pt.x=%d, rect.y=%d\n", point.x, point.y);
-	sendtoEventLogger(buf);
+//	char buf[256];
+	//sprintf(buf, "OnLButtonDown pt.x=%d, rect.y=%d\n", point.x, point.y);
+	//sendtoEventLogger(buf);
 	mst.clickedOn = true;
 	mst.curPt = mst.last_clickPt = point;
 	edge.px1 = edge.px2 = -1;
@@ -1240,9 +1240,9 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
-	char buf[256];
-	sprintf(buf, "OnLButtonUp pt.x=%d, rect.y=%d\n", point.x, point.y);
-	sendtoEventLogger(buf);
+//	char buf[256];
+	//sprintf(buf, "OnLButtonUp pt.x=%d, rect.y=%d\n", point.x, point.y);
+	//sendtoEventLogger(buf);
 	CRect rt;
 	mst.clickedOn = false;
 	mst.curPt = point;
@@ -1609,7 +1609,7 @@ void CPlotDlg::setpbprogln()
 		if (playLoc0 > ax->rct.right) return;
 		if (playLoc > ax->rct.right) playLoc = ax->rct.right;
 		InvalidateRect(CRect(playLoc0-1 , ax->rct.top+1, playLoc0+1 , ax->rct.bottom+1), 0);
-//		InvalidateRect(CRect(playLoc-1 , ax->rct.top, playLoc+1 , ax->rct.bottom), 0);
+	//	InvalidateRect(CRect(playLoc-1 , ax->rct.top, playLoc+1 , ax->rct.bottom), 0);
 	}
 }
 
@@ -1659,7 +1659,7 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 				if (playLoc >= _ax->rct.right)
 				{
 					playLoc = min(playLoc, _ax->rct.right - 1);
-					InvalidateRect(_ax->rct, 0);
+	//				InvalidateRect(_ax->rct, 0);
 				}
 				MoveToEx(hdc, playLoc, _ax->rct.bottom - 1, NULL);
 				LineTo(hdc, playLoc, _ax->rct.top);
@@ -1674,9 +1674,9 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 				SelectObject(hdc, hp);
 				playLoc = _ax->timepoint2pix(selRange.tp1 + block * playingIndex / 1000);
 				// if playLoc goes out of range, invalidateRect only to erase playLoc0, i.e., don't update the screen with the newly advanced but out-of-range bar
-				char buf[256];
-				sprintf(buf, "index=%d, playCursor=%d, playLoc=%d\n", playingIndex, playCursor, playLoc);
-				sendtoEventLogger(buf);
+//				char buf[256];
+				//sprintf(buf, "index=%d, playCursor=%d, playLoc=%d\n", playingIndex, playCursor, playLoc);
+				//sendtoEventLogger(buf);
 				if (playLoc > curRange.px2)
 				{
 					InvalidateRect(CRect(playLoc0 - 1, _ax->rct.top+5, playLoc0 + 1, _ax->rct.bottom+5), 0);
@@ -1830,7 +1830,7 @@ void CPlotDlg::OnMenu(UINT nID)
 	CPosition pos;
 	int  len, iMul(1);
 	char errstr[256];
-	CSignals _sig, _sig2play, chainlessed;
+	CSignals _sig;
 	CSignal dummy;
 	char buf[64];
 	int k(0), deltapixel;
@@ -2021,7 +2021,6 @@ void CPlotDlg::OnMenu(UINT nID)
 		//DO this 7/11/2018----play pause play pause--then it doesn't pause but playing overlap instead...
 		if (!playing)
 		{
-			_sig.ghost = true;
 			if (!paused)
 			{
 				if (curRange == NO_SELECTION)
@@ -2040,12 +2039,12 @@ void CPlotDlg::OnMenu(UINT nID)
 				else
 				{
 					deltapixel = curRange.px2 - curRange.px1;
-					deltaxlim = selRange.tp2 - selRange.tp1;
+					deltaxlim = selRange.tp2 - selRange.tp1; 
 				}
 				_block = deltaxlim * PBPROG_ADVANCE_PIXELS / deltapixel * 1000.;
 				// Below, if this put too low maximum, the progress line may move smoothly, but the playback sound will be choppy.
 				block = max(block, _block);
-				GetGhost(&_sig);
+				GetGhost(_sig);
 				hAudio = PlayCSignals(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
 				if (!hAudio)
 					MessageBox(errstr, "Cannot play the audio"); // PlayArray fails if waveOutOpen fails
@@ -2058,17 +2057,18 @@ void CPlotDlg::OnMenu(UINT nID)
 					p->sig.strut["durTotal"] = CSignals(_sig.alldur());
 					p->sig.strut["durLeft"] = CSignals(_sig.alldur());
 					p->sig.strut["durPlayed"] = CSignals(0.);
+					playing = true;
 				}
 			}
 			else
-			{ // check thread synch, it didn't pause and resume properly 9/9/2019
+			{
 				PauseResumePlay(hAudio, true); // resume
 				paused = false;
+				playing = true;
 			}
-			playing = true;
 		}
 		else // if playing, pause
-		{ // check thread synch, it didn't pause and resume properly 9/9/2019
+		{
 			PauseResumePlay(hAudio, false); // paused
 			paused = true;
 			playing = false;
@@ -2097,7 +2097,7 @@ void CPlotDlg::OnMenu(UINT nID)
 		fullfname[0]=0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
 		_sig.ghost = true;
-		GetGhost(&_sig);
+		GetGhost2(&_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "Wav file (*.WAV)\0*.wav\0", "wav"))
 		{
 			if (!_sig.Wavwrite(fullfname, errstr))	MessageBox (errstr);
@@ -2114,7 +2114,7 @@ void CPlotDlg::OnMenu(UINT nID)
 		fullfname[0] = 0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
 		_sig.ghost = true;
-		GetGhost(&_sig);
+		GetGhost2(&_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "MP3 file (*.MP3)\0*.mp3\0", "mp3"))
 		{
 			if (!_sig.mp3write(fullfname, errstr))	MessageBox(errstr);
@@ -2129,6 +2129,47 @@ void CPlotDlg::OnMenu(UINT nID)
 	}
 	InvalidateRect(NULL);
 }
+
+
+void CPlotDlg::GetGhost(CSignals &out, CAxes* pax)
+{ 
+	vector<CAxes*> aa;
+	if (!pax)
+		aa = sbar->ax;
+	else
+		aa.push_back(sbar->ax.front());
+	double t1, t2; // t1, t2 is x limit, either screen limit or selection range
+	int count = 0;
+	CSignals *q = &out;
+	for (auto _ax : aa)
+	{
+		for (auto lyne : _ax->m_ln)
+		{
+			CTimeSeries *p = &lyne->sig;
+			if (count == 1)
+			{
+				q->next = new CTimeSeries;
+				q = (CSignals*) q->next;
+				q->next = NULL;
+			}
+			*q = q->GhostCopy((CSignals *)p);
+			if (lyne == _ax->m_ln.front())
+				out.SetFs(lyne->sig.GetFs());
+			if (lyne->sig.GetType() != CSIG_AUDIO) continue;
+			t1 = _ax->xlim[0] * 1000.;
+			t2 = _ax->xlim[1] * 1000.;
+			lyne->t1 = t1;
+			lyne->t2 = t2;
+			for (CTimeSeries *pp = p; pp; pp = pp->chain)
+				pp->ghost = true;
+			q->Crop(t1, t2);
+			for (CTimeSeries *pp = p; pp; pp = pp->chain)
+				pp->ghost = false;
+			if (++count == 2) return;
+		}
+	}
+}
+
 
 int CPlotDlg::GetSelect(CSignals *pout)
 {
@@ -2180,7 +2221,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	pax->xlim[0] = 0;  pax->xlim[1] = dfs / 2;
 	//Right now _sig is a chainless'ed version... do it later to keep the chain
 	_sig.ghost = true;
-	GetGhost(&_sig, paxBase);
+	GetGhost2(&_sig, paxBase);
 	if (pax->m_ln.empty()) lastxlim[0]=1.,lastxlim[1]=-1.;
 	for (; pax->m_ln.size()>0;)	
 	{
@@ -2392,7 +2433,7 @@ void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
 	char rmstext[64]={};
 	CSignals _sig;
 	_sig.ghost = true;
-	GetGhost(&_sig);
+	GetGhost2(&_sig);
 	if (_sig.GetType() == CSIG_AUDIO)
 	{
 		sformat(rmstring, "%.1f dB", _sig.RMS().buf[0]);

@@ -105,7 +105,7 @@ public:
 	int				nFadingBlocks; // The number of blocks for fading.
 	VOID*			playBuffer;
 	void*			doomedPt;
-	vector<NP>		nextPlay;
+	list<NP>		nextPlay;
 	HWAVEOUT		hwo;
 	WAVEOUTCAPS		woc;
 	WAVEHDR			wh[2];
@@ -310,7 +310,7 @@ int CWavePlay::preparenextchunk(char *errstr)
 	MMRESULT	rc=0;
 	char errmsg[256];
 	int nSamplesInBlock; // this is per each channel
-	NP thisnp = nextPlay.back();
+	NP thisnp = nextPlay.front();
 	playBuffer = thisnp.playBuffer;
 	if (thisnp.nChan != wfx.nChannels)
 	{
@@ -327,7 +327,7 @@ int CWavePlay::preparenextchunk(char *errstr)
 	nSamplesInBlock = thisnp.length / nTotalBlocks;
 	playBufferLen = nSamplesInBlock * wfx.nChannels;
 
-	nextPlay.pop_back();
+	nextPlay.pop_front();
 	buffer2Clean.push_back((short*)playBuffer);
 	return rc;
 }
@@ -450,8 +450,8 @@ unsigned int WINAPI Thread4MM(PVOID p)
 				pWP->index++;
 				playedPortionsBlock = (double)pWP->nPlayedBlocks / pWP->nTotalBlocks;
 				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - playedPortionsBlock));
-//				sprintf(errmsg, "played portion %.3f, id=%d, len per block = %d\n", playedPortionsBlock, pWP->index, pWP->playBufferLen);
-//				sendtoEventLogger(errmsg);
+				//sprintf(errmsg, "played portion %.3f, id=%d, len per block = %d\n", playedPortionsBlock, pWP->index, pWP->playBufferLen);
+				//sendtoEventLogger(errmsg);
 				pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 
 				break;
 			} 
