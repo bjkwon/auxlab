@@ -149,17 +149,6 @@ size_t str2vect(vector<string> &_out, const char* input, const char *delim, int 
 	return out.size();
 }
 
-string consoldateStr(vector<string> &input, char delim)
-{
-	string out;
-	for (size_t k=0; k<input.size(); k++)
-	{
-		out += input[k];
-		out += delim;
-	}
-	return out;
-}
-
 char* recoverNULL(int *dummy, char *dest, const char *src)
 { return NULL; }
 char* recoverNULL(float *dummy, char *dest, const char *src)
@@ -224,21 +213,6 @@ void splitevenindices(vector<unsigned int> &out, unsigned int nTotals, unsigned 
 		delete[] holder;
 	}
 }
-
-int sformat(string& out, size_t nLengthMax, const char* format, ...) 
-{
-	// Obsolete as of 5/2/2017 bjkwon
-	char *buffer = new char[nLengthMax];
-	va_list vl;
-	va_start(vl, format);
-	int res = vsnprintf(buffer, nLengthMax, format, vl);
-	buffer[nLengthMax-1] =0;
-	out = string(buffer);
-	delete[] buffer;
-	va_end(vl);
-	return res;
-}
-
 
 int sformat(string& out, const char* format, ...) 
 {

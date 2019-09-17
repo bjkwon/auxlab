@@ -79,19 +79,6 @@ char* getVersionString(const char* executableName, char* verStrOut, size_t verSt
 	return verStrOut;
 }
 
-char* getVersionStringAndUpdateTitle  (HWND hDlg, const char* executableName, char* verStrOut, size_t verStrOutLen)
-{
-	char zbuf[256];
-	getVersionString(executableName, verStrOut, verStrOutLen);
-	if (hDlg!=NULL)
-	{
-		GetWindowText(hDlg, zbuf, sizeof(zbuf));
-		strcat (zbuf, " ");
-		SetWindowText (hDlg, strcat (zbuf, verStrOut));
-	}
-	return verStrOut;
-}
-
 #define EDITPRINTFBACKUPFILE "backup.log"
 static char backupfile[260] = {};
 void Append2Edit (HWND hwndEdit, char *str)
@@ -301,4 +288,50 @@ void sendtoEventLogger(char *str)
 	cd.cbData = (DWORD)strlen((char*)sendbuffer) + 1;
 	SendMessage(hEventLogger, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cd);
 }
+
+void GetLocalTimeStr(string &strOut)
+{
+	SYSTEMTIME lt;
+	GetLocalTime(&lt);
+	sformat(strOut, "[%02d/%02d/%4d, %02d:%02d:%02d]", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond);
+}
+
+#ifndef NO_SOCKET
+int TransSocket(const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec)
+{
+	// returns the number of bytes successfully received (including the null char)
+	// if error occurs, a negative value returns (error code with a negative sign)
+	char RemoteAddress[64];
+	int res;
+	SOCKET sock;
+	struct sockaddr_in sa;
+	sa.sin_family = AF_INET;
+	sa.sin_port = htons(port);
+	sa.sin_addr.S_un.S_addr = inet_addr(ipa);
+	try {
+		sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (sock == INVALID_SOCKET) throw - 1;
+		if (connect(sock, (SOCKADDR *)&sa, sizeof(sa)))
+		{
+			HOSTENT *hont = gethostbyname(ipa);
+			if (hont == NULL) throw - 2; // HOST_NAME_CANNOT_RESOLVE;
+			struct in_addr hostAddress;
+			hostAddress.S_un.S_addr = *(u_long*)(hont->h_addr_list[0]);
+			strcpy(RemoteAddress, inet_ntoa(hostAddress));
+			sa.sin_addr.S_un.S_addr = inet_addr(RemoteAddress);
+			if (connect(sock, (SOCKADDR *)&sa, sizeof(sa))) throw - 3;
+		}
+		if ((res = send(sock, PipeMsg2Send, (int)strlen(PipeMsg2Send) + 1, 0)) == SOCKET_ERROR) throw - 999;
+		if ((res = recv(sock, PipeMsg2Rec, LenRec, 0)) == SOCKET_ERROR) throw - 999;
+		if ((res = closesocket(sock)) == SOCKET_ERROR) throw - 999;
+		return (int)strlen(PipeMsg2Rec) + 1;
+	}
+	catch (int ecode)
+	{
+		res = WSAGetLastError();
+		if (ecode < -1) closesocket(sock);
+		return -res;
+	}
+}
+#endif //NO_SOCKET
 

@@ -53,40 +53,6 @@ int countDeliminators (const char* buf, const char* deliminators)
 	return i; 
 }
 
-char* getfilenameonly(const char* filewpath, char* filename, size_t filenamesize)
-{
-	char fn[256], et[256];
-	char *tp = new char[strlen(fn)+strlen(et)+1];
-	strcpy(tp, fn);
-	strcat(tp, et);
-	strncpy(filename, tp, filenamesize-1);
-	filename[filenamesize]=0;
-	delete[] tp;
-	return filename;
-}
-
-vector<int> SpreadEvenly(int whole, int nGroups)
-{
-	vector<int> out;
-	int perGroup = whole / nGroups;
-	out.assign(nGroups, perGroup);
-	int remainder = whole - nGroups * perGroup;
-	double remainderPerGroup = (double)remainder / nGroups;
-	int k = 0;
-	double cumRemainder = remainderPerGroup;
-	for (auto it = out.begin(); it != out.end(); it++)
-	{
-		k++;
-		if (cumRemainder >= .5)
-		{
-			(*it)++; cumRemainder--;
-		}
-		else
-			cumRemainder += remainderPerGroup;
-	}
-	return out;
-}
-
 int countchar(const char *str, char c)
 {
 	int count(-1);
@@ -100,77 +66,6 @@ int countchar(const char *str, char c)
 	return count;
 }
 
-int countstr(const char *str, char* marker)
-{
-	int count(-1);
-	const char *ploc(str), *ploc2(str);
-	while (ploc2!=NULL)
-	{
-		ploc2 = strstr(ploc, marker);
-		if (ploc2!=NULL)	ploc = ploc2+1;
-		count++;
-	}
-	return count;
-}
-
-int countMarkers(const char *str, char* marker)
-{
-	//HAVEN'T VERIFIED 04/11/2009
-	int i,b=1;
-	size_t len, lenMarker;
-	char *ptFound, *ptCurrent, *newBuffer;
-	if (marker==NULL)
-		return -1;
-	i=0;
-	lenMarker = strlen(marker);
-	len = strlen(str);
-	newBuffer = (char*)calloc(len+1, sizeof(char));
-	strcpy(newBuffer, str);
-	ptCurrent=newBuffer;
-	while (b)
-	{
-		ptFound = strstr(ptCurrent, marker);
-		if (ptFound==ptCurrent)
-		{
-			ptCurrent = ptFound + lenMarker;
-		}
-		else 
-		{
-			if (ptFound==NULL)
-			{
-				ptFound = ptCurrent + strlen(ptCurrent);
-				b=0;
-			}
-			if (ptCurrent[0]!='\0')
-				i++;
-			ptCurrent = ptFound + lenMarker;
-		}
-	}
-	free(newBuffer);
-	return i;
-}
-
-int IsBetween (int x, int begin, int ending)
-{
-	// inclusive the edge points
-	if (x>=begin && x<=ending)
-		return 1;
-	else 
-		return 0;
-}
-
-char * CutEndSpace(char * str, char c)
-{
-	int i;
-	for (i=(int)strlen(str)-1; i>0; i--)
-	{
-		if (str[i]==c)
-			str[i]='\0';
-		else
-			return str;
-	}
-	return str;
-}
 
 void sprintfFloat(char *strOut, double f, int max_fp)
 {
@@ -233,77 +128,12 @@ char *trimRight (char* string, const char *chars2Trimmed)
 	return string;
 }
 
-int IsSemiMonotonic (int len, double *x)
-{
-	int i, updown;
-	updown = x[1]>x[0];
-	for (i=2; i<len; i++)
-	{
-		if ( updown != (x[i]>x[i-1]) )
-			return 0;
-	}
-	return 1;
-}
-
-int belowabove (double val, int len, double *x)
-{
-	if (val<x[0]) 
-		return -1;
-	if (val>=x[len-1]) 
-		return len-1;
-	return 0;
-}
-
-int GetMaxInd4Cut (double criterion, int len, double *x)
-{
-	// Find the greatest index of the array x, which has the element smaller than (or the same as) val.
-	// if it is the first one, returns -1. return value below -1 indicates an error.
-	if (len<=0) return -2; // invalid length
-	if (!IsSemiMonotonic(len, x)) return -3; // not (semi)monotonic
-	if (x[0]>x[1]) return -4; // must not be decreasing.
-
-	int lastID, curId, runlen(len);
-	curId=0;
-	lastID = belowabove (criterion,len,x);
-	if (lastID!=0)
-		return lastID;
-	while ( runlen>1 && curId<len)
-	{
-		runlen /= 2;
-		if (belowabove (criterion,runlen,x+curId)>0)
-			curId += runlen + belowabove (criterion,runlen,x+curId+runlen);
-	}
-	if (curId>=len) curId = len-1;
-	return curId;
-}
-
 int mod (int big, int divider)
 {
 // calculating int remainder
 	return (int)fmod((double)big, (double)divider);
 }
 
-int getrand(int x)
-{// generates a random number between 0 and x-1
-	if (x==0) return 0;
-	return mod(rand(),x);
-}
-
-short double2short(double x)
-{
-	// This maps a double variable raning -1 to 1, to a short variable ranging -32768 to 32767.
-	return (short)(x*32768.-.5);
-}
-
-double short2double(short x)
-{
-	return ((double)x+.5)/32767.5;
-}
-
-double getexp(double dB)
-{
-	return exp( log(10.)/20.*(dB));
-}
 
 char * FulfillFile (char *out, const char *path, const char * file)
 {
@@ -353,13 +183,6 @@ int GetSurroundedBy(char c1, char c2, const char* in, char* out, int iStart)
 	return i-1;
 }
 
-void GetLocalTimeStr(string &strOut)
-{
-	SYSTEMTIME lt;
-	GetLocalTime(&lt);
-	sformat(strOut, "[%02d/%02d/%4d, %02d:%02d:%02d]", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond);
-}
-
 int GetFileText(const char *fname, const char *mod, string &strOut)
 { // mod is either "rb" or "rt"
 	FILE *fp = fopen(fname, mod);
@@ -395,43 +218,3 @@ int mceil(double x)
 	else
 		return (int)ceiled;
 }
-
-#ifndef NO_SOCKET
-int TransSocket(const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec)
-{
-	// returns the number of bytes successfully received (including the null char)
-	// if error occurs, a negative value returns (error code with a negative sign)
-	char RemoteAddress[64];
-	int res;
-	SOCKET sock;
-	struct sockaddr_in sa;
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(port);
-	sa.sin_addr.S_un.S_addr = inet_addr(ipa);
-	try {
-		sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (sock == INVALID_SOCKET) throw - 1;
-		if (connect(sock, (SOCKADDR *)&sa, sizeof(sa)))
-		{
-			HOSTENT *hont = gethostbyname(ipa);
-			if (hont == NULL) throw - 2; // HOST_NAME_CANNOT_RESOLVE;
-			struct in_addr hostAddress;
-			hostAddress.S_un.S_addr = *(u_long*)(hont->h_addr_list[0]);
-			strcpy(RemoteAddress, inet_ntoa(hostAddress));
-			sa.sin_addr.S_un.S_addr = inet_addr(RemoteAddress);
-			if (connect(sock, (SOCKADDR *)&sa, sizeof(sa))) throw - 3;
-		}
-		if ((res = send(sock, PipeMsg2Send, (int)strlen(PipeMsg2Send) + 1, 0)) == SOCKET_ERROR) throw - 999;
-		if ((res = recv(sock, PipeMsg2Rec, LenRec, 0)) == SOCKET_ERROR) throw - 999;
-		if ((res = closesocket(sock)) == SOCKET_ERROR) throw - 999;
-		return (int)strlen(PipeMsg2Rec) + 1;
-	}
-	catch (int ecode)
-	{
-		res = WSAGetLastError();
-		if (ecode<-1) closesocket(sock);
-		return -res;
-	}
-}
-#endif //NO_SOCKET
-

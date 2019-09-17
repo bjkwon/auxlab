@@ -41,9 +41,6 @@ int countstr(const char *str, char* marker);
 int countchar(const char *str, char c);
 
 int printf_INI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...);
-//int ReadINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen);
-//int ReadINI(char *errstr, const char *fname, const char *heading, std::string &strOut);
-//int sscanfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...);
 int GetSurroundedBy(char c1, char c2, const char* in, char* out, int iStart);
 vector<int> SpreadEvenly(int whole, int nGroups);
 
@@ -90,10 +87,6 @@ void GetLocalTimeStr(string &strOut);
 int GetFileText(const char *fname, const char *mod, string &strOut);
 int mceil(double x);
 
-
-#ifndef NO_SOCKET
-int TransSocket (const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec);
-#endif //NO_SOCKET
 
 //Obsolete....for compatibility only
 int str2intarray(int* out, int maxSize_x, const char * str, const char *deliminators);

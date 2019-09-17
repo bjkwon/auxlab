@@ -18,59 +18,6 @@
 #define MAX_HEADING_LENGTH		128
 #define MAX_CHAR 29998
 
-char* deeblank (char* stringarray, char deliminator)
-{
-	unsigned int i, j, temp=0;
-	char *dump;
-
-	size_t len1 = strlen(stringarray);
-
-	dump = (char*)calloc (len1+1,1);
-
-	i=0; // index for dump
-	j=0; // moving index for stringarray
-	while (j<len1)
-	{
-		while (stringarray[j]==deliminator)
-			j++; // j : the address of the next non-deliminator
-		memcpy(dump+i, stringarray+j, 1);
-		i++;    j++;
-	}
-	strcpy (stringarray, dump);
-	free(dump);
-	return stringarray;
-}
-
-int howmanychr(const char* buffer, const char c)
-{
-	const char *pt;
-	int res=0;
-
-	pt = strchr (buffer, (int)c);
-
-	while (pt!=NULL)
-	{
-		res++;
-		pt = strchr (pt+1, (int)c);
-	}
-	return res;
-}
-
-int howmanystr(const char* buffer, const char* str)
-{
-	const char *pt;
-	int res=0;
-
-	pt = strstr (buffer, str);
-
-	while (pt!=NULL)
-	{
-		res++;
-		pt = strstr (pt+strlen(str), str);
-	}
-	return res;
-}
-
 char firstnonwhitechar(char *str)
 {
 	//Assuming that str is a pointer from other str function (such as strchr), 
@@ -215,36 +162,6 @@ int printfINI (char *errstr, const char *fname, const char *heading, const char 
 	return 1;
 }
 
-
-int sscanfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...)
-{
-	//This works only for non-string sscanf--for string extraction, use ReadItemFromINI
-	// Returns -1 (EOF) for sscanf error, other negative int for other errors. 0 for unsuccessful sscanf conversion (up to you whether to consider it as an error)
-	int res;
-	DWORD dw;
-
-	HANDLE	hFile = CreateFile (fname, GENERIC_READ, FILE_SHARE_READ, NULL,	OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile==INVALID_HANDLE_VALUE)  { sprintf(errstr,"%s cannot be opened for reading.", fname); return AUD_ERR_FILE_NOT_FOUND; }
-	LONG filesize = GetFileSize(hFile, &dw);
-	CloseHandle(hFile);
-	char *buffer = new char[filesize+10];
-	if ((res=ReadINI(errstr, fname, heading, buffer, filesize+9))<=0) {delete[] buffer; return res;}
-
-	va_list pl;
-	int *list[36];
-	va_start (pl, szFormat) ;
-	for (int i=0; i<36; i++)	list[i] = va_arg(pl, int*);
-	res = sscanf(buffer, szFormat, list[0], list[1], list[2], list[3], list[4], list[5], list[6],
-		list[7], list[8], list[9], list[10], list[11], list[12], list[13], list[14], list[15],
-		list[16], list[17], list[18], list[19], list[20], list[21], list[22], list[23], list[24], list[25],
-		list[26], list[27], list[28], list[29], list[30], list[31], list[32], list[33], list[34], list[35]);
-	va_end (pl) ;
-	if (res==EOF)	sprintf(errstr, "sscanf returned EOF for %s", heading);
-	delete[] buffer;
-	return res;
-}
-
-
 int ReadINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen)
 {
 	string tmpstr;
@@ -326,21 +243,4 @@ int ReadINI(char *errstr, const char *fname, const char *heading, string &strOut
 		delete[] buffer;
 		return (int)outputLength;
 	}
-}
-
-//Obsolete functions... only for backward compatibility purposes
-
-int readINI2Buffer (char *errstr, const char *fname, const char *heading, char * dynamicBuffer, int length)
-{
-	return ReadINI(errstr, fname, heading, dynamicBuffer, length);
-}
-
-int strscanfINI (char *errstr, const char *fname, const char *heading, char *strBuffer, size_t strLen)
-{
-	return ReadINI(errstr, fname, heading, strBuffer, strLen);
-}
-
-int ReadItemFromINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen)
-{
-	return ReadINI(errstr, fname, heading, strout, strLen);
 }

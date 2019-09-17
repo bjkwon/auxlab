@@ -37,6 +37,7 @@ char* RetrieveVersionString(const char* executableName, char* verStrOut, size_t 
 char* getVersionString (const char* executableName, char* verStrOut, size_t verStrOutLen);
 char* getVersionStringAndUpdateTitle (HWND hDlg, const char* executableName, char* verStringOut, size_t verStrOutLen);
 void EditPrintf (HWND hwndEdit, const char * szFormat, ...);
+void EditPrintfFileBackup (const char * filename);
 void ClearEditPrintf (HWND hwndEdit);
 void SetDlgItemDouble (HWND hDlg, int id, char *formatstr, double x);
 void GetCurrentProcInfo (char *path, char *procName, char *verStr);
@@ -47,7 +48,7 @@ int ShowDlgItem (HWND hwnd, int id, int nCmdShow);
 int printfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...);
 int ReadINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen);
 int ReadINI(char *errstr, const char *fname, const char *heading, std::string &strOut);
-int sscanfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...);
+
 
 HANDLE InitPipe (char *PipeName, char *errStr);
 int CallPipe (HWND hDlg, char *pipenode, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec, char *errstr);
@@ -65,15 +66,12 @@ int spyWindowMessage(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* c
 int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr);
 int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr);
 int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr);
-
+void setHWNDEventLogger(HWND hEL);
+void sendtoEventLogger(char *str);
+bool IsEventLoggerReady();
 
 #ifdef __cplusplus
 double GetDlgItemDouble (HWND hDlg, int id, int* lpTrans=NULL);
-
-
-#ifndef NO_SOCKET
-int TransSocket (const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec);
-#endif //NO_SOCKET
 
 #else
 double GetDlgItemDouble (HWND hDlg, int id, int* lpTrans);
@@ -87,13 +85,17 @@ INT_PTR InputBox(
     bool bMultiLine = false,
     HWND hwndParent = 0);
 
+#ifndef NO_SOCKET
+int TransSocket (const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec);
+#endif //NO_SOCKET
+
 class CFileDlg
 {
 public:
 	OPENFILENAME ofn;
 	void InitFileDlg(HWND hwnd, HINSTANCE hInst, const char *initDir);
-	int FileOpenDlg(LPSTR pstrFileName, LPSTR pstrTitleName, LPSTR szFilter, LPSTR lpstrDefExt);
-	int FileSaveDlg(LPSTR pstrFileName, LPSTR pstrTitleName, LPSTR szFilter, LPSTR lpstrDefExt);
+	int FileOpenDlg(LPSTR pstrFileName, LPSTR pstrTitleName, LPCSTR szFilter, LPCSTR lpstrDefExt);
+	int FileSaveDlg(LPSTR pstrFileName, LPSTR pstrTitleName, LPCSTR szFilter, LPCSTR lpstrDefExt);
 	CFileDlg(void);
 	char LastPath[MAX_PATH];
 	char InitDir[MAX_PATH];

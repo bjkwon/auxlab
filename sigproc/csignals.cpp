@@ -62,8 +62,6 @@ Or is there any other way??? 10/14/2018
 void filter(int nTabs, double *num, double *den, int length, double *in, double *out);
 void filter(int nTabs, double *num, int length, double *in, double *out);
 
-#define DOUBLE2SHORT(x)	((short)(max(min((x),1),-1)*(double)0x007fff))
-
 static double quantizetmark(double delta, int fs)
 {
 	//quantize delta based on the fs grid.  3/31/2016. Rev. 5/19/2018
