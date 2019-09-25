@@ -76,6 +76,7 @@ short * makestereobuffer(CSignals &sig, int &length, CSignals &ghcopy)
 	{
 		for (CTimeSeries *q = p; q; q = q->chain)
 		{
+			if (q->IsEmpty()) continue;
 			timepoints.insert(pair<double, int>(q->tmark, 1));
 			timepoints.insert(pair<double, int>(q->CSignal::endt(), -1));
 			q->ghost = true;
@@ -86,25 +87,30 @@ short * makestereobuffer(CSignals &sig, int &length, CSignals &ghcopy)
 	{
 		sum += it->second;
 		if (sum == 0)
-			break;
+		{
+			auto jt = it;
+			if (++jt == timepoints.end())
+				break;
+		}
 	}
 	const double lasttp = it->first;
 	double lasttp_with_silence = lasttp;
 	if (++it != timepoints.end())
 		lasttp_with_silence = it->first;
 	length = (int)(lasttp_with_silence / 1000. * fs + .5);
+	int nChan = sig.next ? 2 : 1;
 	short *buffer2Play;
-	buffer2Play = new short[length*2];
-	memset(buffer2Play, 0, sizeof(short)*length * 2);
+	buffer2Play = new short[length*nChan];
+	memset(buffer2Play, 0, sizeof(short)*length * nChan);
 	p = (CSignals *)&sig;
-	for (int k = 0; p && k < 2; k++, p = (CSignals*)p->next)
+	for (int ch = 0; p && ch < 2; ch++, p = (CSignals*)p->next)
 	{
 		for (CTimeSeries *q = p; q; q = q->chain)
 		{
 			if (q->tmark > lasttp) break;
 			int offset = (int)(q->tmark / 1000. * fs + .5) * 2;
 			for (unsigned int m = 0; m < q->nSamples; m++)
-				buffer2Play[offset + m * 2 + k] = (short)(_double_to_24bit(q->buf[m]) >> 8);
+				buffer2Play[offset + m * nChan + ch] = (short)(_double_to_24bit(q->buf[m]) >> 8);
 		}
 	}
 	ghcopy = sig;
@@ -274,8 +280,10 @@ INT_PTR PlayCSignals(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND
 	int nChan = 1, ecode(MMSYSERR_NOERROR);
 
 	INT_PTR res;
-	if (!sig.next)
+	if (0) //(!sig.next)
 	{ // mono
+		if (sig.IsEmpty()) 
+			return 0;
 		int length;
 		CTimeSeries *p = (CTimeSeries *)&sig;
 		short *Buffer2Play = makemonobuffer(sig, length, 1);
@@ -310,10 +318,12 @@ INT_PTR PlayCSignals(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND
 	}
 	else // stereo
 	{
-		nChan = 2;
+		nChan = sig.next ? 2 : 1;
 		int length;
 		CSignals nextblock;
 		short *Buffer2Play = makestereobuffer((CSignals&)sig, length, nextblock);
+		if (!Buffer2Play) // sig is empty
+			return 0;
 		double _nBlocks = (double)length / nSamples4Block;
 		int nBlocks = (int)_nBlocks;
 		if (_nBlocks - (double)nBlocks > 0.1) nBlocks++;

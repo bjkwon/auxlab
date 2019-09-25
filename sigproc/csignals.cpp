@@ -2215,6 +2215,11 @@ CTimeSeries& CTimeSeries::removeafter(double timems)
 			last->chain = NULL;
 			break;
 		}
+		else
+		{ // if p->tmark is less than timems AND last is NULL, which means the very first p happening after timems
+			Reset(fs);
+			break;
+		}
 		last = p;
 	}
 	return *this;
@@ -2276,7 +2281,8 @@ CTimeSeries& CTimeSeries::Crop(double begin_ms, double end_ms)
 		return *this;
 	}
 	removeafter(end_ms);
-	timeshift(begin_ms);
+	if (nSamples>0)
+		timeshift(begin_ms);
 	return *this;
 }
 

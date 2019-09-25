@@ -1327,7 +1327,7 @@ void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 	mst.curAx = NULL;
 	ClickOn = 0;
 	gcmp=CPoint(-1,-1);
-
+	lbuttondownpoint = CPoint(-1, -1);
 }
 
 void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
@@ -1377,11 +1377,30 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 		}
 		else
 		{
+			// if the first point clicked is outside the axes, skip
 			cax = _ax;
+			char buffer[256];
+			sprintf(buffer, "OnMouseMove cur(%d,%d), bdp.x=%d ClickOn=%d\n", point.x, point.y, lbuttondownpoint.x, ClickOn);
+			sendtoEventLogger(buffer);
+			if (lbuttondownpoint.x == -1 && !cax->rct.PtInRect(point))
+				continue;
 			if (ClickOn & (unsigned short)128)
 				lbuttondownpoint.x = cax->rct.left;
 			else if (ClickOn & (unsigned short)32)
 				lbuttondownpoint.x = cax->rct.right;
+			// if clicked point was outside axes but current point goes inside,
+			// fake the clicked point as the edge of axes
+			if (ClickOn == 0 && cax->rct.PtInRect(point))
+			{ // approaching from the right side
+				ClickOn = 15;
+				lbuttondownpoint.x = cax->rct.right;
+			}
+			else if (ClickOn == 1 && cax->rct.PtInRect(point))
+			{ // approaching from the left side
+				ClickOn = 15;
+				lbuttondownpoint.x = cax->rct.left;
+			}
+			// end of faking...
 			if (ClickOn)
 			{ // lbuttondownpoint.x is the x point when mouse was clicked
 				CRect rect2Invalidate;
@@ -1391,7 +1410,7 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 				{
 					if (edge.px1 == -1) edge.px1 = lbuttondownpoint.x;
 					curRange.px1 = lbuttondownpoint.x;
-					curRange.px2 = point.x;
+					curRange.px2 = min(point.x, cax->rct.right);
 					edge.px2 = max(lastpoint.x, max(edge.px2, point.x));
 					rect2Invalidate.right = edge.px2;
 
@@ -1406,7 +1425,7 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 				{
 					if (edge.px1 == -1) edge.px1 = lbuttondownpoint.x;
 					curRange.px2 = lbuttondownpoint.x;
-					curRange.px1 = point.x;
+					curRange.px1 = max(point.x, cax->rct.left);
 					if (point.x > lastpoint.x) // moving left but just turned right 
 						rect2Invalidate.left = lastpoint.x;
 					else
@@ -2045,19 +2064,22 @@ void CPlotDlg::OnMenu(UINT nID)
 				// Below, if this put too low maximum, the progress line may move smoothly, but the playback sound will be choppy.
 				block = max(block, _block);
 				GetGhost(_sig);
-				hAudio = PlayCSignals(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
-				if (!hAudio)
-					MessageBox(errstr, "Cannot play the audio"); // PlayArray fails if waveOutOpen fails
-				else
+				if (!_sig.IsEmpty())
 				{
-					AUD_PLAYBACK * p = (AUD_PLAYBACK*)hAudio;
-					p->sig.SetValue((double)(INT_PTR)hAudio);
-					p->sig.strut["type"] = string("audio_playback");
-					p->sig.strut["devID"] = CSignals((double)devID);
-					p->sig.strut["durTotal"] = CSignals(_sig.alldur());
-					p->sig.strut["durLeft"] = CSignals(_sig.alldur());
-					p->sig.strut["durPlayed"] = CSignals(0.);
-					playing = true;
+					hAudio = PlayCSignals(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
+					if (!hAudio)
+						MessageBox(errstr, "Cannot play the audio"); // PlayArray fails if waveOutOpen fails
+					else
+					{
+						AUD_PLAYBACK * p = (AUD_PLAYBACK*)hAudio;
+						p->sig.SetValue((double)(INT_PTR)hAudio);
+						p->sig.strut["type"] = string("audio_playback");
+						p->sig.strut["devID"] = CSignals((double)devID);
+						p->sig.strut["durTotal"] = CSignals(_sig.alldur());
+						p->sig.strut["durLeft"] = CSignals(_sig.alldur());
+						p->sig.strut["durPlayed"] = CSignals(0.);
+						playing = true;
+					}
 				}
 			}
 			else
@@ -2133,39 +2155,66 @@ void CPlotDlg::OnMenu(UINT nID)
 
 void CPlotDlg::GetGhost(CSignals &out, CAxes* pax)
 { 
+	// If there's one registered axes, take the first two for stere (one for mono)
+	// If there are two or more registered axes, take one lyne from each of the first two axes 
+	//     (if there's no lyne in an axes, make an empty (or null) signal for that channel)
+	// Therefore, two (or more) axes --> stereo output
+	//            one axes --> mono (if there's one lyne); stereo (if there are multiple lyne's)
+	// 9/17/2019
 	vector<CAxes*> aa;
 	if (!pax)
 		aa = sbar->ax;
 	else
 		aa.push_back(sbar->ax.front());
+	int count = min((int)aa.size(), 2);
+	if (count == 1)
+	{
+		for (auto lyne : aa.front()->m_ln)
+		{
+			CTimeSeries *p = &lyne->sig;
+			if (lyne->sig.GetType() == CSIG_AUDIO)
+				count++;
+		}
+	}
 	double t1, t2; // t1, t2 is x limit, either screen limit or selection range
-	int count = 0;
+	int _count = 0;
 	CSignals *q = &out;
 	for (auto _ax : aa)
 	{
+		if (curRange == NO_SELECTION)
+		{
+			t1 = _ax->xlim[0] * 1000.;
+			t2 = _ax->xlim[1] * 1000.;
+		}
+		else
+		{
+			t1 = _ax->pix2timepoint(curRange.px1) * 1000.;
+			t2 = _ax->pix2timepoint(curRange.px2) * 1000.;
+		}
 		for (auto lyne : _ax->m_ln)
 		{
 			CTimeSeries *p = &lyne->sig;
-			if (count == 1)
+			if (count > 1 && _count == 1)
 			{
 				q->next = new CTimeSeries;
 				q = (CSignals*) q->next;
 				q->next = NULL;
 			}
-			*q = q->GhostCopy((CSignals *)p);
+			*q = ((CTimeSeries*)q)->GhostCopy(p);
 			if (lyne == _ax->m_ln.front())
 				out.SetFs(lyne->sig.GetFs());
+			if (lyne->sig.IsEmpty() && lyne == _ax->m_ln.back() && _count == 0)
+			{
+				_count++;
+				continue;
+			}
 			if (lyne->sig.GetType() != CSIG_AUDIO) continue;
-			t1 = _ax->xlim[0] * 1000.;
-			t2 = _ax->xlim[1] * 1000.;
-			lyne->t1 = t1;
-			lyne->t2 = t2;
 			for (CTimeSeries *pp = p; pp; pp = pp->chain)
 				pp->ghost = true;
 			q->Crop(t1, t2);
 			for (CTimeSeries *pp = p; pp; pp = pp->chain)
 				pp->ghost = false;
-			if (++count == 2) return;
+			if (++_count == 2) return;
 		}
 	}
 }
