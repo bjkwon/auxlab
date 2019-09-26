@@ -236,43 +236,7 @@ short * makebuffer(const ctimesig &sig, int &nChan, size_t &length)
 	return Buffer2Play;
 }
 
-INT_PTR PlayArray16(const ctimesig &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
-{
-	int fs = sig.fs;
-	
-	int nSamples4Block = (int)(*block_dur_ms / (1000. / fs) + .5);
-	*block_dur_ms = nSamples4Block * 1000. / fs;
-	double _nBlocks = (double)sig.pdata->size()/ nSamples4Block;
-	int nBlocks = max(2, (int)ceil(_nBlocks));
-//	return PlayArray16(sig, DevID, userDefinedMsgID, hApplWnd, nBlocks, errstr, loop);
-	errstr[0] = 0;
-	int nChan, ecode(MMSYSERR_NOERROR);
-	size_t length;
-	short *Buffer2Play = makebuffer(sig, nChan, length);
-	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, (int)length, nChan, sig.fs, 
-		userDefinedMsgID, hApplWnd, nBlocks, loop, errstr);
-}
 
-INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
-{// returns a negative number if error occurrs
- // This play the sound by specified block duration, generating event notification in every block
- // block_dur_ms is adjusted by the quantization of fs. Therefore, user should check if it has been adjusted during this call.
- // But block_dur_ms is not adjusted by the playbuffer situation that happens inside PlayBufAsynch16 (wavplay.cpp).
-	int nSamples4Block = (int)(*block_dur_ms / (1000. / (double)sig.GetFs()) + .5);
-	*block_dur_ms = (double)nSamples4Block *1000. / (double)sig.GetFs();
-	double _nBlocks = (double)sig.nSamples / nSamples4Block;
-	int nBlocks = max(2, (int)ceil(_nBlocks));
-	return PlayArray16(sig, DevID, userDefinedMsgID, hApplWnd, nBlocks, errstr, loop);
-}
-INT_PTR PlayArray16(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, char *errstr, int loop)
-{// Re-do error treatment 6/1/2016 bjk
-	errstr[0] = 0;
-	int nChan, ecode(MMSYSERR_NOERROR);
-	int length;
-	short *Buffer2Play = makebuffer(sig, nChan, length);
-	return (INT_PTR)PlayBufAsynch16(DevID, Buffer2Play, length, nChan, sig.GetFs(), 
-		userDefinedMsgID, hApplWnd, nProgReport, loop, errstr);
-}
 INT_PTR PlayCSignals(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop)
 {
 	int nSamples4Block = (int)(*block_dur_ms / (1000. / (double)sig.GetFs()) + .5);

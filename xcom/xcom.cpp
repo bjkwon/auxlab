@@ -1977,14 +1977,15 @@ int xcom::RunTest(const char *infile, const char *intended_result_file, const ch
 			}
 			else if (type == CSIG_AUDIO)
 			{
-				PlayArray16(past->Sig, 0, 0, NULL, 2, errstr, 1);
+				double block = CAstSig::play_block_ms;
+				PlayCSignals(past->Sig, 0, 0, NULL, &block, errstr, 1);
 				CSignals tp;
 				if (!tp.Wavread(ref.c_str(), errstr))
 				{
 					oss << "audio file" << ref << " not found line " << lineID;
 					throw oss.str().c_str();
 				}
-				PlayArray16(tp, 0, 0, NULL, 2, errstr, 1);
+				PlayCSignals(tp, 0, 0, NULL, &block, errstr, 1);
 			}
 		}
 	}
