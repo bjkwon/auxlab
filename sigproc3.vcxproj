@@ -229,6 +229,8 @@
     <ClCompile Include="$(SrcPath)psycon.tab.c" />
     <ClCompile Include="$(SrcPath)psycon.yy.c" />
     <ClCompile Include="$(SrcPath)Built_in_Funcs.cpp" />
+    <ClCompile Include="$(SrcPath)operators.cpp" />
+    <ClCompile Include="$(SrcPath)vartypes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)caux.h" />

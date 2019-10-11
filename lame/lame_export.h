@@ -99,8 +99,8 @@ extern wchar_t* utf8ToUnicode(char const* str);
 extern void dosToLongFileName(char* filename);
 extern void setProcessPriority(int priority);
 
-extern int lame_bj_encode(lame_t gf, int argc, char** argv, csignals *px, char *errstr);
-extern int lame_bj_decode(lame_t gf, const char *filename, csignals *px, char *errstr);
+extern int lame_bj_encode(lame_t gf, const char *filename, csignals_mp3_aiff *px, char *errstr);
+extern int lame_bj_decode(lame_t gf, const char *filename, csignals_mp3_aiff *px, char *errstr);
 extern char* lame_getenv(char const* var);
 
 int		lame_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_delay, int *enc_padding);

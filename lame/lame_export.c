@@ -405,16 +405,13 @@ EXT_LAME_BJ int write_mp3(int length, double *buf_l, double *buf_r, int fs, cons
 {
 	lame_t  gf;
 	gf = lame_init(); /* initialize libmp3lame */
-	char **argv = (char**)calloc(4, sizeof(char*));
-	argv[3] = (char *)filename;
-	csignals x;
+	csignals_mp3_aiff x;
 	x.fs = fs;
 	x.buf_l = buf_l;
 	x.buf_r = buf_r;
 	x.length = length;
-	int ret = lame_bj_encode(gf, 4, argv, &x, errstr);
+	int ret = lame_bj_encode(gf, filename, &x, errstr);
 	lame_close(gf);
-	free(argv);
 	return ret;
 }
 
@@ -422,7 +419,7 @@ EXT_LAME_BJ int read_mp3(int *length, double *buf_l, double *buf_r, int *fs, con
 {
 	lame_t  gf;
 	gf = lame_init(); /* initialize libmp3lame */
-	csignals x;
+	csignals_mp3_aiff x;
 	lame_set_decode_only(gf, 1);
 	x.buf_l = buf_l;
 	x.buf_r = buf_r;
@@ -456,7 +453,7 @@ EXT_LAME_BJ int	read_aiff_header(const char *filename, int *nSamples, int *nChan
 {
 	lame_t  gf;
 	gf = lame_init(); /* initialize libmp3lame */
-	csignals x;
+	csignals_mp3_aiff x;
 	int input_format = global_reader.input_format;
 	global_reader.input_format = sf_aiff;
 	init_infile(gf, filename, &x);

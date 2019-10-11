@@ -333,7 +333,7 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 			throw past->ExceptionMsg(p, fnsigs, "parameter must be either a scalar or a time sequence.");
 		if (param.GetType() == CSIG_TSERIES)
 		{
-			double audioDur = past->Sig.dur();
+			double audioDur = past->Sig.dur().front();
 			if (param.GetFs() == 0) // relative
 				for (CTimeSeries *p = &param; p; p = p->chain)
 				{
@@ -355,10 +355,10 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 			for (CTimeSeries *p = &param; p; p = p->chain)
 				if (!p->chain) 
 					pLast = p;
-			if (pLast->tmark != past->Sig.dur())
+			if (pLast->tmark != past->Sig.dur().front())
 			{
 				CTimeSeries newParam(past->Sig.GetFs());
-				newParam.tmark = past->Sig.dur();
+				newParam.tmark = past->Sig.dur().front();
 				newParam.SetValue(pLast->value());
 				pLast->chain = new CTimeSeries;
 				*pLast->chain = newParam; // this way the copied version goes to chain
@@ -372,11 +372,12 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 				}
 		}
 		fname = pnode->str;
-		if (fname == "respeed") past->Sig.pf_basic2 = &CSignal::resample;
-		else if (fname == "movespec") past->Sig.pf_basic2 = &CSignal::movespec;
 		for (auto it = paramopt.strut.begin(); it != paramopt.strut.end(); it++)
 			param.strut[(*it).first] = (*it).second;
-		past->Sig.basic(past->Sig.pf_basic2, &param);
+		if (fname == "respeed")
+			past->Sig.runFct2modify(&CSignal::resample, &param);
+		else if (fname == "movespec")
+			past->Sig.runFct2modify(&CSignal::movespec, &param);
 		if (param.IsString())
 			throw past->ExceptionMsg(pnode, ("Error in respeed:" + param.string()).c_str());
 	}
@@ -385,17 +386,6 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 	{ // Take care of overlapping chains after processing
 		past->Sig.MergeChains();
 	}
-}
-
-void _movespec(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
-{
-	past->checkAudioSig(pnode, past->Sig);
-	CAstSig tp(past);
-	CSignals param = tp.Compute(p);
-	if (!param.IsScalar())
-		throw past->ExceptionMsg(p, fnsigs, "parameter must be a scalar (frequency to shift).");
-	double shift = param.value();
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::movespec, &shift); // NOT YET
 }
 
 void processEscapes(string &str)
@@ -469,11 +459,11 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 			sprintf(&outStr[0], fmt1str.c_str(), vstring.c_str());
 			break;
 		}
-		unsigned int n = (unsigned int)past->Sig.CSignal::length();
+		unsigned int n = (unsigned int)past->Sig.CSignal::length().front();
 		past->Sig.UpdateBuffer(n + (unsigned int)strlen(&outStr[0])+1);
 		strcpy(&past->Sig.strbuf[n], &outStr[0]);
 	}
-	unsigned int n = (unsigned int)past->Sig.CSignal::length();
+	unsigned int n = (unsigned int)past->Sig.CSignal::length().front();
 	past->Sig.UpdateBuffer(n + (unsigned int)strlen(fmtstr)+1);
 	strcpy(&past->Sig.strbuf[n], &fmtstr[0]);
 	past->Sig.bufBlockSize = 1;
@@ -737,9 +727,18 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	size_t pdot = filename.rfind('.');
 	string extension = filename.substr(pdot + 1);
 	if (extension.empty())
-		throw past->ExceptionMsg(p, "The extension Must be specified .wav .mp3 or .txt");
+		throw past->ExceptionMsg(p, "The extension must be specified .wav .mp3 or .txt");
 	else if (extension == "mp3")
 	{
+		/* For now, MakeChainless makes the whole audio data into one big piece.
+		   Compared to wavwrite, short null portions in the middle should not be handled
+		   separately, instead save into mp3 as the part of the audio data.
+		   If the null portions in the middle are long, it would be better to
+		   convert those null portions into separate silent portions and save each piece into 
+		   separate mp3 block, but as of today, I'm not sure how to do it.
+		   Maybe call lame_encoder_loop in lame_main.c for each block while FILE * outf is open?
+		   Let's figure it out later. 10/3/2019
+		   */
 		past->Sig.MakeChainless();
 		char errStr[256] = { 0 };
 		int res = write_mp3(past->Sig.nSamples, past->Sig.buf, past->Sig.next ? past->Sig.next->buf : NULL, past->Sig.GetFs(), filename.c_str(), errStr);
@@ -876,7 +875,7 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			if (nRepeats<1)
 				throw past->ExceptionMsg(p, fnsigs, "Repeat counter must be equal or greater than one.");
 		}
-		INT_PTR h = PlayArrayNext16(audio, (INT_PTR)sig.value(), 0, WM__AUDIOEVENT1, &block, errstr, nRepeats);
+		INT_PTR h = PlayCSignals((INT_PTR)sig.value(), audio, 0, WM__AUDIOEVENT1, &block, errstr, nRepeats);
 		if (!h)
 			past->Sig.SetValue(-1.);
 		else
@@ -1371,7 +1370,7 @@ void _fft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 			throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());
 		}
 	}
-	past->Sig = past->Sig.basic(past->Sig.pf_basic3 = &CSignal::FFT, (void*)&param);
+	past->Sig = past->Sig.runFct2getsig(&CSignal::FFT, (void*)&param);
 }
 
 void _ifft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1393,19 +1392,19 @@ void _ifft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg());
 		}
 	}
-	past->Sig = past->Sig.basic(past->Sig.pf_basic3 = &CSignal::iFFT, (void*)&param);
+	past->Sig = past->Sig.runFct2getsig(&CSignal::iFFT, (void*)&param);
 }
 
 void _envelope(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::HilbertEnv);
+	past->Sig.runFct2modify(&CSignal::HilbertEnv);
 }
 
 void _hilbert(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkAudioSig(pnode,  past->Sig);
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::Hilbert);
+	past->Sig.runFct2modify(&CSignal::Hilbert);
 }
 
 #endif //NO_FFTW
@@ -1423,7 +1422,7 @@ void _sort(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			throw past->ExceptionMsg(pnode, fnsigs, "2nd argument must be a scalar.");
 		if (past->Sig.value() < 0) order = -1.;
 	}
-	past->Sig = sig.basic(sig.pf_basic2 = &CSignal::sort, &order);
+	past->Sig = sig.runFct2modify(&CSignal::sort, &order);
 }
 
 void _decfir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1449,8 +1448,7 @@ void _conv(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	//p should be non NULL
 	CSignals sig = past->Sig;
 	CSignals array2 = past->Compute(p);
-
-	past->Sig = sig.basic(sig.pf_basic2 = &CSignal::conv, &array2);
+	past->Sig = sig.runFct2modify(&CSignal::conv, &array2);
 }
 
 void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1480,9 +1478,9 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		coeffs.push_back(num);
 		coeffs.push_back(den);
 		if (fname == "filt")
-			sig.basic(sig.pf_basic2 = &CSignal::filter, &coeffs);
+			sig.runFct2modify(&CSignal::filter, &coeffs);
 		else if (fname == "filtfilt")
-			sig.basic(sig.pf_basic2 = &CSignal::filtfilt, &coeffs);
+			sig.runFct2modify(&CSignal::filtfilt, &coeffs);
 	}
 	else
 	{
@@ -1560,7 +1558,7 @@ void _iir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 		params.push_back(&rippledB);
 		params.push_back(&stopbandFreqORAttenDB);
 
-		sigX.basic(sigX.pf_basic2 = &CSignal::IIR, &params);
+		sigX.runFct2modify(&CSignal::IIR, &params);
 		past->Sig = sigX;
 	}
 	catch (const char* estr) 
@@ -1581,7 +1579,7 @@ void _squeeze(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 void _hamming(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkSignal(pnode, past->Sig);
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::Hamming);
+	past->Sig.runFct2modify(&CSignal::Hamming);
 }
 
 void _blackman(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1600,7 +1598,7 @@ void _blackman(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 		temp.checkScalar(pnode, temp.Sig);
 		alpha = temp.Sig.value();
 	}
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::Blackman, &alpha);
+	past->Sig.runFct2modify(&CSignal::Blackman, &alpha);
 }
 
 void _fm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1651,7 +1649,7 @@ void _std(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 		}
 		catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
 	}
-	past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::stdev, &arg);
+	past->Sig = past->Sig.runFct2getvals(&CSignal::stdev, &arg);
 }
 
 
@@ -1688,12 +1686,15 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 {
 	CVar additionalArg(past->Sig.GetFs());
 	string fname = pnode->str;
-	if (fname == "sum")	past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::sum);
-	else if (fname == "mean") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::mean);
+	if (fname == "sum")	past->Sig = past->Sig.runFct2getvals(&CSignal::sum);
+	else if (fname == "mean") past->Sig = past->Sig.runFct2getvals(&CSignal::mean);
 	else if (fname == "length")
 	{
-		if (past->Sig.next) 
-			throw past->ExceptionMsg(pnode, "Cannot be a stereo audio signal.");
+		if (past->Sig.next)
+		{
+			if (past->Sig.next->nSamples!= past->Sig.nSamples)
+				throw past->ExceptionMsg(pnode, "A stereo signal with different lengths for L and R.");
+		}
 		if (past->Sig.IsGO())
 		{
 			double out = past->Sig.length().buf[0];
@@ -1712,7 +1713,7 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 			}
 			else
 			{
-				past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::length);
+				past->Sig = past->Sig.runFct2getvals(&CSignal::length);
 			}
 		}
 	}
@@ -1726,11 +1727,11 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 			return;
 		}
 		past->checkAudioSig(pnode, past->Sig);
-		if (fname == "begint") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::begint);
-		else if (fname == "endt") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::endt);
-		else if (fname == "dur") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::dur);
-		else if (fname == "rms") past->Sig = past->Sig.basic(past->Sig.pf_basic = &CSignal::RMS);
-		else if (fname == "rmsall") past->Sig = past->Sig.RMS(); // overall RMS; scalar or two-element array
+		if (fname == "begint") past->Sig = past->Sig.runFct2getvals(&CSignal::begint);
+		else if (fname == "endt") past->Sig = past->Sig.runFct2getvals(&CSignal::endt);
+		else if (fname == "dur") past->Sig = past->Sig.runFct2getvals(&CSignal::dur);
+		else if (fname == "rms") past->Sig = past->Sig.runFct2getvals(&CSignal::RMS);
+		else if (fname == "rmsall") past->Sig = past->Sig.RMS(); // overall RMS from artificially concatenated chain's 
 	}
 	//commenting out 3/6/2019--don't know what this was for. Now causing crash.
 //	if (past->pAst->type == N_VECTOR)
@@ -1745,8 +1746,8 @@ void _mostleast(CAstSig *past, const AstNode *pnode, const AstNode *p, string &f
 	string func = pnode->str;
 	CVar sig = past->Sig;
 	CVar param = past->Compute(p);
-	if (func == "atmost") past->Sig = sig.basic(sig.pf_basic2 = &CSignal::_atmost, &param);
-	else if (func == "atleast") past->Sig = sig.basic(sig.pf_basic2 = &CSignal::_atleast, &param);
+	if (func == "atmost") past->Sig = sig.runFct2modify(&CSignal::_atmost, &param);
+	else if (func == "atleast") past->Sig = sig.runFct2modify(&CSignal::_atleast, &param);
 }
 
 void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1758,8 +1759,8 @@ void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	CVar *pt(NULL);
 	if (past->pAst->type == N_VECTOR && past->pAst->alt->next) pt =  &additionalArg;
 	if (past->pLast && past->pLast->type==N_VECTOR) pt = &additionalArg;
-	if (fname == "max") past->Sig = sig.basic(sig.pf_basic = &CSignal::_max, pt);
-	else if (fname == "min") past->Sig = sig.basic(sig.pf_basic = &CSignal::_min, pt);
+	if (fname == "max") past->Sig = sig.runFct2getvals(&CSignal::_max, pt);
+	else if (fname == "min") past->Sig = sig.runFct2getvals(&CSignal::_min, pt);
 	if (past->Sig.IsComplex()) past->Sig.SetValue(-1); // do it again 6/2/2018
 	if (past->pAst->type == N_VECTOR)
 	{
@@ -1837,7 +1838,7 @@ void _ramp(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &f
 	if (!param.IsScalar())
 		throw past->ExceptionMsg(p, fnsigs, "Ramp_duration must be a scalar.");
 	double ramptime = param.value();
-	past->Sig.basic(past->Sig.pf_basic2 = &CSignal::dramp, &ramptime);
+	past->Sig.runFct2modify(&CSignal::dramp, &ramptime);
 }
 
 void _sam(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
@@ -1901,10 +1902,10 @@ void _tone(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	int len, nArgs(0);
 	for (const AstNode *cp = p; cp; cp = cp->next)
 		++nArgs;
-	if (!past->Sig.IsVector() || past->Sig.nSamples>2)
+	if (!past->Sig.IsScalar() && (!past->Sig.IsVector() || past->Sig.nSamples>2))
 		throw past->ExceptionMsg(p, fnsigs, "Frequency must be either a constant or two-element array.");
 	body freq = past->Sig; //should be same as tp.Compute(p);
-	if (freq._max() >= past->GetFs() / 2)
+	if (freq._max().front() >= past->GetFs() / 2)
 		throw past->ExceptionMsg(p, fnsigs, "Frequency exceeds Nyquist frequency.");
 	CVar duration = past->Compute(p->next);
 	past->checkScalar(pnode, duration);
@@ -1974,7 +1975,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			int oldFs = past->GetFs();
 			CSignals ratio(1);
 			ratio.SetValue(past->Sig.GetFs() / (double)oldFs);
-			past->Sig.basic(past->Sig.pf_basic2 = &CSignal::resample, &ratio);
+			past->Sig.runFct2modify(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
 				throw past->ExceptionMsg(p, fnsigs, ratio.string().c_str());
 			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), oldFs);
@@ -2016,7 +2017,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			past->Sig.SetFs(ffs);
 			past->Sig.UpdateBuffer(len);
 			if (nChans>1)
-				past->Sig.SetNextChan(&past->Sig);
+				past->Sig.SetNextChan((CTimeSeries *)&past->Sig);
 			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
 				throw past->ExceptionMsg(p, fnsigs, errStr);
 		}
@@ -2027,7 +2028,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			past->Sig.SetFs(ffs);
 			past->Sig.UpdateBuffer(len);
 			if (nChans > 1)
-				past->Sig.SetNextChan(&past->Sig);
+				past->Sig.SetNextChan((CTimeSeries *)&past->Sig);
 			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
 				throw past->ExceptionMsg(p, fnsigs, errStr);
 		}
@@ -2096,7 +2097,7 @@ void _tsq_gettimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::s
 			int id = 0;
 			for (CTimeSeries *p = &past->Sig; p; p = p->chain)
 			{
-				double durseg = p->dur();
+				double durseg = p->dur().front();
 				for (int k = 0; k < nItems; k++)
 				{
 					dbuf[id*nItems + k] *= durseg;

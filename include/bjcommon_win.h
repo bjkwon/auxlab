@@ -48,7 +48,7 @@ int ShowDlgItem (HWND hwnd, int id, int nCmdShow);
 int printfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...);
 int ReadINI (char *errstr, const char *fname, const char *heading, char *strout, size_t strLen);
 int ReadINI(char *errstr, const char *fname, const char *heading, std::string &strOut);
-int sscanfINI (char *errstr, const char *fname, const char *heading, const char * szFormat, ...);
+
 
 HANDLE InitPipe (char *PipeName, char *errStr);
 int CallPipe (HWND hDlg, char *pipenode, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec, char *errstr);
@@ -84,6 +84,10 @@ INT_PTR InputBox(
     DWORD nResultSize,
     bool bMultiLine = false,
     HWND hwndParent = 0);
+
+#ifndef NO_SOCKET
+int TransSocket (const char *ipa, unsigned short port, const char *PipeMsg2Send, char *PipeMsg2Rec, int LenRec);
+#endif //NO_SOCKET
 
 class CFileDlg
 {

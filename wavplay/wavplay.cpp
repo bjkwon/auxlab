@@ -94,13 +94,12 @@ public:
 	DWORD			totalSamples;
 	DWORD			lastPt;
 	DWORD			nTotalBlocks;
-	DWORD			nPlayedBlocks;
+	DWORD			playedCount;
 	DWORD			playBufferLen; // Data count being played, not byte count. For stereo, as twice long as mono.
 
 	bool			blockMode;
 	int				playcount; // 1 for regular, > 1 for repeated (looping) play. Don't allow 0.
 	int				fading;
-	int				index;
 	int				nFadeOutSamples;
 	int				nFadingBlocks; // The number of blocks for fading.
 	VOID*			playBuffer;
@@ -131,14 +130,13 @@ vector<CWavePlay*> pWlist;
 	SetFilePointer(hf, NULL,NULL, FILE_END); WriteFile(hf, fout, strlen(fout), &dw, NULL); CloseHandle(hf);}
 
 CWavePlay::CWavePlay()
-	: playBuffer(NULL), hThread(NULL), playcount(1), fading(0), lastPt(0), nPlayedBlocks(0), doomedPt(NULL), fadeoutEnv(NULL), passing(true)
+	: playBuffer(NULL), hThread(NULL), playcount(1), fading(0), lastPt(0), playedCount(0), doomedPt(NULL), fadeoutEnv(NULL), passing(true)
 {
 	threadID = GetCurrentThreadId();
 	wfx.wFormatTag = WAVE_FORMAT_PCM;
 	wfx.wBitsPerSample = 16;
 	wfx.cbSize = 0;
 	hPlayStruct.sig.ghost = true;
-	index = 0;
 }
 
 CWavePlay::~CWavePlay()
@@ -222,7 +220,6 @@ int CWavePlay::setPlayPoint(int id)
 
 int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 {
-	nPlayedBlocks++;
 	MMRESULT	rc;
 	char errmsg[256], errstr[256];
 	unsigned int remainingSamples;
@@ -235,7 +232,7 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 	*dbuf += lastPlayedDuration;
 
 	if (!blockMode)
-		SendMessage(hWnd_calling, msgID, (WPARAM)&hPlayStruct.sig, nPlayedBlocks);
+		SendMessage(hWnd_calling, msgID, (WPARAM)&hPlayStruct.sig, playedCount);
 	remainingSamples = totalSamples - lastPt;
 	if (remainingSamples < 2) remainingSamples = 0;
 	if (remainingSamples >= playBufferLen && remainingSamples < 2 * playBufferLen)
@@ -269,23 +266,22 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 				}
 				else
 				{
-					nPlayedBlocks = lastPt = 0;
+					playedCount = lastPt = 0;
 					return cleanUp();
 				}
 			}
 			else
 			{
+				playedCount = 0;
 				if (passing)
 				{
 					passing = false;
-					index = 0;
 					preparenextchunk(errstr); // initiate nextplay 
 				}
 				//if remainingSamples is not zero, it should pass through and call waveOutPrepareHeader one more time
 				//next time around, remainingSamples should be zero and setPlayPoint is called with the new header
 				if (remainingSamples == 0) //the last OnDone
 				{
-					nPlayedBlocks = 0;
 					lastPt = 0; // Resetting for setPlayPoint
 					passing = true;
 				}
@@ -294,7 +290,7 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 		else
 		{
 			playcount--;
-			nPlayedBlocks = lastPt = 0;
+			playedCount = lastPt = 0;
 			passing = true;
 			playBufferLen = totalSamples / nTotalBlocks * wfx.nChannels;
 		}
@@ -402,7 +398,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 		pWP->hPlayStruct.DevID = param.DevID;
 		pWP->hPlayStruct.blockDuration = (INT_PTR)((double)param.length / param.fs * 1000.);
 		pWP->hPlayStruct.totalDuration = pWP->hPlayStruct.blockDuration * param.playcount;
-		double playedPortionsBlock = 0.;
+		double relativeTime = 0.;
 		int originalLoopCounts = param.playcount;
 		pWP->hPlayStruct.remainingDuration = pWP->hPlayStruct.totalDuration;
 		PostThreadMessage(pWP->callingThreadID, DISPATCH_PLAYBACK_HANDLE, (WPARAM)&pWP->hPlayStruct, (LPARAM)"");
@@ -442,16 +438,20 @@ unsigned int WINAPI Thread4MM(PVOID p)
 					//	pWP->buffer2Clean.push_back(param->dataBuffer); // this will lead to an incorrect pointer and proper buffer is not stored and something else might be stored twice, which will crash the application. 7/11/2016 bjk
 					already_double_buffered = true;
 				}
-//				sendtoEventLogger("WOM_OPEN\n");
+				sendtoEventLogger("WOM_OPEN\n");
 				break;
 			case WOM_CLOSE: //This is no longer processed because waveOutClose is not called while this message playcount is running (i.e., it is called either before or after the message playcount)
 				break;
 			case WOM_DONE:
-				pWP->index++;
-				playedPortionsBlock = (double)pWP->nPlayedBlocks / pWP->nTotalBlocks;
-				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - playedPortionsBlock));
-				//sprintf(errmsg, "played portion %.3f, id=%d, len per block = %d\n", playedPortionsBlock, pWP->index, pWP->playBufferLen);
-				//sendtoEventLogger(errmsg);
+				pWP->playedCount++;
+				relativeTime = (double)pWP->playedCount / pWP->nTotalBlocks;
+				{
+					WAVEHDR *pwh = (WAVEHDR *)msg.lParam;
+					int lastPlayedBufLen = pwh->dwBufferLength * 8 / pWP->wfx.wBitsPerSample;
+					sprintf(errmsg, "Block %d, rel. timepoint %.3f, block length = %d\n", pWP->playedCount, relativeTime, lastPlayedBufLen);
+					sendtoEventLogger(errmsg);
+				}
+				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - relativeTime));
 				pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 
 				break;
 			} 
@@ -506,7 +506,7 @@ WPARAM wavBuffer2snd(UINT DevID, SHORT *dataBuffer, int length, int nChan, int f
 	param.hApplWnd = hApplWnd;
 	param.length = length;
 	param.nChan = nChan;
-	param.nProgReport = max(nProgReport,1);
+	param.nProgReport = max(nProgReport, 2); // even if nBlock was 1, we need 2 buffers (because of double-buffering)
 	param.userDefinedMsgID = userDefinedMsgID;
 	param.callingthreadID = GetCurrentThreadId();
 	param.playcount = playcount;
@@ -536,17 +536,6 @@ WPARAM wavBuffer2snd(UINT DevID, SHORT *dataBuffer, int length, int nChan, int f
 	}
 	// Does the while playcount above ever exit? 3/18/2017 bjkwon
 	return 0;
-}
-
-//DO NOT CALL PlayBufAsynch16 DIRECTLY FROM OUTSIDE.... IT WILL CRASH AS IT TRIES TO FREE dataBuffer
-// Instead, call the member function PlayArray to play something.
-
-INT_PTR PlayBufAsynch16(UINT DevID, short *dataBuffer, int length, int nChan, int fs, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, int playcount, char* errstr)
-// playcount play when nProgReport == -1
-{
-	if (nProgReport == -1 && userDefinedMsgID == 0)
-		userDefinedMsgID = WM_USER + 293;	// default message for event notification
-	return wavBuffer2snd(DevID, dataBuffer, length, nChan, fs, userDefinedMsgID, hApplWnd, nProgReport, playcount, errstr);
 }
 
 bool FindCWavePlay(INT_PTR pHandle)

@@ -77,8 +77,7 @@ int GetDevCaps(UINT_PTR id);
 //  Specify 2 for the nProgReport even though you are not utilizing any messaging back to hWnd..
 //  This is just due to the way wavBuffer2snd is written in wavplay.cpp  Jan 19, 2013. BJ Kwon
 INT_PTR PlayCSignals(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop);
-INT_PTR PlayArrayNext16(const CSignals &sig, INT_PTR pWP, int DevID, UINT userDefinedMsgID, double *block_dur_ms, char *errstr, int loop);
-INT_PTR PlayBufAsynch16(UINT DevID, short *dataBuffer, int length, int nChan, int fs, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, int loop, char* errstr);
+INT_PTR PlayCSignals(INT_PTR pWP, const CSignals &sig, int DevID, UINT userDefinedMsgID, double *block_dur_ms, char *errstr, int loop);
 INT_PTR QueuePlay(INT_PTR pWP, UINT DevID, SHORT *dataBuffer, int length, int nChan, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop);
 int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bits, const char *callbackname, double duration, double block_dur_ms, int recordID, char *errmsg);
 

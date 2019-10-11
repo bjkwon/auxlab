@@ -860,7 +860,13 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	case CSIG_TSERIES:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;
+		if (pvar->next) cout << "[L] " << endl;
 		printf_tseries(pvar, pvar->GetFs()>0);
+		if (pvar->next)
+		{
+			cout << "[R] " << endl;
+			printf_tseries(pvar->next, pvar->next->GetFs() > 0);
+		}
 		break;
 	case CSIG_VECTOR:
 		for (int p = 0; p < offset; p++) cout << " ";

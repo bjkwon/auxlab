@@ -390,7 +390,7 @@ void CVectorsheetDlg::FillUp()
 		}
 		bool aud(psig->GetType() == CSIG_AUDIO);
 		bool logical = false, stringdata = false;
-		bool compl = psig->IsComplex();
+		bool compl = psig->body::IsComplex();
 		if (psig->bufBlockSize == 1)
 		{
 			if (psig->GetFs() == 2) stringdata = true;
@@ -404,9 +404,9 @@ void CVectorsheetDlg::FillUp()
 			LvItem.pszText = buf;
 			for (unsigned int q = id1; q <= id2; q++)
 			{
-				if (aud && !psig->IsComplex())
+				if (aud && !psig->body::IsComplex())
 					sprintf(buf, xcom::outstream_value(p->buf[q], 0).str().c_str());
-				else if (aud && psig->IsComplex())
+				else if (aud && psig->body::IsComplex())
 					sprintf(buf, outstream_complex(p->cbuf[q]).str().c_str());
 				else if (logical)
 					sprintf(buf, "%d", p->logbuf[q]);
@@ -445,7 +445,7 @@ void CVectorsheetDlg::FillUp()
 		}
 		bool aud(psig->GetType() == CSIG_AUDIO);
 		bool logical = false, stringdata = false;
-		bool compl = psig->IsComplex();
+		bool compl = psig->body::IsComplex();
 		if (psig->bufBlockSize == 1)
 		{
 			if (psig->GetFs() == 2) stringdata = true;
@@ -458,9 +458,9 @@ void CVectorsheetDlg::FillUp()
 			LvItem.pszText = buf;
 			for (unsigned int q = id1; q <= id2; q++)
 			{
-				if (aud && !psig->IsComplex())
+				if (aud && !psig->body::IsComplex())
 					sprintf(buf, xcom::outstream_value(psig->buf[(k + jd1) * len + q], 0).str().c_str());
-				else if (aud && psig->IsComplex())
+				else if (aud && psig->body::IsComplex())
 					sprintf(buf, outstream_complex(psig->cbuf[(k + jd1) * len + q]).str().c_str());
 				else if (logical)
 					sprintf(buf, "%d", psig->logbuf[(k + jd1) * len + q]);

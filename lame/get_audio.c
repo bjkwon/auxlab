@@ -98,7 +98,7 @@ char   *strchr(), *strrchr();
 #define FLOAT_TO_UNSIGNED(f) ((unsigned long)(((long)((f) - 2147483648.0)) + 2147483647L + 1))
 #define UNSIGNED_TO_FLOAT(u) (((double)((long)((u) - 2147483647L - 1))) + 2147483648.0)
 
-int set_basic_info(lame_global_flags * gfp, const csignals * px);
+int set_basic_info(lame_global_flags * gfp, const csignals_mp3_aiff * px);
 
 static unsigned int uint32_high_low(unsigned char *bytes)
 {
@@ -504,7 +504,7 @@ lame_get_file_size(FILE * fp)
 
 
 FILE   *
-init_outfile(char const *outPath, int decode, csignals *px)
+init_outfile(char const *outPath, int decode, csignals_mp3_aiff *px)
 {
     FILE   *outf;
 
@@ -594,7 +594,7 @@ setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
 }
 
 int
-init_infile(lame_t gfp, char const *inPath, csignals *px)
+init_infile(lame_t gfp, char const *inPath, csignals_mp3_aiff *px)
 {
     int     enc_delay = 0, enc_padding = 0;
     /* open the input file */
@@ -1702,7 +1702,7 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
 
 
 static int
-set_basic_info(lame_global_flags * gfp, const csignals * px)
+set_basic_info(lame_global_flags * gfp, const csignals_mp3_aiff * px)
 {
     global. count_samples_carefully = 0;
     global. pcm_is_unsigned_8bit = global_raw_pcm.in_signed == 1 ? 0 : 1;

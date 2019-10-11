@@ -45,7 +45,7 @@ typedef enum sound_file_format_e {
 
 int     is_mpeg_file_format( int input_format );
 
-int     init_infile(lame_t gfp, char const * inPath, csignals *px);
+int     init_infile(lame_t gfp, char const * inPath, csignals_mp3_aiff *px);
 int     samples_to_skip_at_start(void);
 int     samples_to_skip_at_end(void);
 void    close_infile(void);
@@ -55,7 +55,7 @@ int     get_audio_float(lame_t gfp, float buffer[2][1152]);
 int     get_audio_double(lame_t gfp, double buffer[2][1152]);
 hip_t   get_hip(void);
 
-FILE   *init_outfile(char const *outPath, int decode, csignals *px);
+FILE   *init_outfile(char const *outPath, int decode, csignals_mp3_aiff *px);
 int     WriteWaveHeader(FILE * const fp, int pcmbytes, int freq, int channels, int bits);
 void    put_audio16(FILE* outf, short Buffer[2][1152], int iread, int nch);
 void	put_audio_to_buf(short Buffer[2][1152], int iread, double *buf_l, double *buf_r, int nch);

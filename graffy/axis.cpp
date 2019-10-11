@@ -391,8 +391,8 @@ GRAPHY_EXPORT void CAxes::setxlim()
 	{
 		if (line->xdata.nSamples) // case of no chain.
 		{
-			xlim[0] = min(line->xdata._min(), xlim[0]) - 1;
-			xlim[1] = max(line->xdata._max(), xlim[1]) + 1;
+			xlim[0] = min(line->xdata._min().front(), xlim[0]) - 1;
+			xlim[1] = max(line->xdata._max().front(), xlim[1]) + 1;
 		}
 		else
 		{

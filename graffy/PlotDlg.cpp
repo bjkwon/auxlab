@@ -46,10 +46,9 @@ if tics1 is not empty, OnPaint will not set tics1.
 
 extern HWND hPlotDlgCurrent;
 extern mutex mtx4PlotDlg;
-extern condition_variable cvPlotDlg;
+//extern HWND hwnd_AudioCapture;
 
 mutex mtx_OnPaint;
-condition_variable cv_OnPaint;
 
 FILE *fpp;
 
@@ -113,7 +112,6 @@ CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
 	menu.LoadMenu(IDR_POPMENU);
 	subMenu = menu.GetSubMenu(0);
 	gcmp=CPoint(-1,-1);
-	z0pt=CPoint(-1,-1);
 	hInst = hInstance;
 	hAccel = LoadAccelerators(hInst, MAKEINTRESOURCE(IDR_ACCELERATOR));
 	for (int k(0); k<10; k++) hTTtimeax[k]=NULL;
@@ -376,14 +374,14 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	int count = 0;
 	double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rct.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
 	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
-	bool non_monotonic = false;
+	bool monotonic = true; // actually, monotonically increasing, to be precise
 	if (tseries)
 	{
 		nSamplesPerPixel = xPerPixel * fs;
 		double tmarkms = p->tmark / 1000.;
 		//index corresponding to x1
 		if (x2 < tmarkms) return 0;
-		double dur = p->durc() / 1000.;
+		double dur = p->durc().front() / 1000.;
 		if (x1 > p->tmark / 1000. + dur) return 0;
 		rightEdge = min(rightEdge, pax->double2pixel(p->tmark / 1000.+dur, 'x'));
 		//if part selected, it begins greater of begin_of_sel and tmark
@@ -408,37 +406,21 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 			//first index that is equal or greater than idBegin
 			// To do--check if it is not monotonically increasing
 			// and call non_monotonic = true here if so.
-
-			int	p = 0;
-			double lastxdata = lyne->xdata.buf[0] - 1;
-			for (; p < (INT)lyne->xdata.nSamples; p++)
+			double lastval = lyne->xdata.buf[0];
+			for (unsigned int k = 1; k < lyne->xdata.nSamples; k++)
 			{
-				if (lyne->xdata.buf[p] < lastxdata) // non monotonically increasing
+				if (lyne->xdata.buf[k] - lastval)
 				{
-					non_monotonic = true; 
-					idLast = idBegin = 0;
+					monotonic = false;
 					break;
 				}
-				if (lyne->xdata.buf[p] >= idBegin)
-					break;
-			}
-			if (!non_monotonic)
-			{
-				idBegin = p;
-				//last index that is equal or less than idLast
-				p = lyne->xdata.nSamples - 1;
-				for (; p >= 0; p--)
-				{
-					if (lyne->xdata.buf[p] <= idLast)
-						break;
-				}
-				idLast = p + 1;
+				lastval = lyne->xdata.buf[k];
 			}
 		}
-		nSamples2Display = idLast - idBegin;
+		nSamples2Display = !lyne->xdata.IsEmpty() ? lyne->xdata.nSamples : idLast - idBegin;
 	}
 	//make this conditional prettier when you have time 4/8/2019
-	if (nSamplesPerPixel > 2. && !non_monotonic)
+	if (nSamplesPerPixel > 2. && monotonic)
 	{
 		double adder = 0;
 		int cok;
@@ -452,6 +434,10 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 			unsigned int k = 0;
 			for (; k < p->nSamples; k++)
 			{
+				if (k == 99)
+				{
+					double ss = 30.;
+				}
 				temp = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
 			}
 			cok = k;
@@ -497,6 +483,10 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 		{
 			for (unsigned int k = 0; k < p->nSamples; k++)
 			{
+				if (k == 99)
+				{
+					double ss = 30.;
+				}
 				CPoint pt0 = pt;
 				pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
 				if (pt0 != pt)
@@ -519,98 +509,6 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	}
 	return count;
 }
-
-void CPlotDlg::GetGhost2(CSignals *pout, CAxes* pax)
-{ // ghost copy means make a CSignals object with ghost, i.e., no new memory allocation (therefore no clean up when done) 
-  // if pax has multiple lines, it extracts only the first two 
-	double t1, t2, deltat;
-	if (!pax) pax = sbar->ax.front();
-	for (auto lyne : pax->m_ln)
-	{
-		if (lyne->sig.GetType() != CSIG_AUDIO) continue;
-		t1 = pax->xlim[0] * 1000.;
-		t2 = pax->xlim[1] * 1000.;
-		deltat = t2 - t1;
-		if (curRange != NO_SELECTION)
-		{
-			t1 = pax->xlim[0] * 1000. + deltat * (curRange.px1 - pax->rct.left) / pax->rct.Width();
-			t2 = pax->xlim[0] * 1000. + deltat * (curRange.px2 - pax->rct.left) / pax->rct.Width();
-		}
-		unsigned int id1, id2; // begin and end indices
-		//assuming that tmark was 0
-		id1 = (unsigned int)( (t1 - lyne->sig.tmark) / 1000. * lyne->sig.GetFs() +.5);
-		id2 = (unsigned int)( (t2 - lyne->sig.tmark) / 1000. * lyne->sig.GetFs() + .5);
-		pout->buf = lyne->sig.buf + id1;
-		if (id2 > lyne->sig.nSamples)
-		{
-			id2 = lyne->sig.nSamples - 1;
-			pout->chain = lyne->chain;
-		}
-		pout->nSamples = id2 - id1 + 1;
-		pout->SetFs(lyne->sig.GetFs());
-
-		CTimeSeries *q = lyne->sig.chain;
-		CTimeSeries *p = new CTimeSeries(q->GetFs());
-		pout->chain = p;
-		p->tmark = q->tmark;
-		p->ghost = true;
-		p->buf = q->buf;
-		if (q->tmark > t1) 
-			id1 = 0;
-		else
-			id1 = (unsigned int)((t1 - q->tmark) / 1000. * lyne->sig.GetFs() + .5);
-		id2 = (unsigned int)((t2 - q->tmark) / 1000. * lyne->sig.GetFs() + .5) - 1 ;
-		p->nSamples = id2 - id1 + 1;
-	}
-
-	return;
-
-
-
-
-
-
-
-
-	//vector<CAxes*> temp;
-	//if (pax) temp.push_back(pax);
-	//else temp = gcf.ax;
-	//unsigned int count(0);
-	//double t1, t2, deltat;
-	CTimeSeries part;
-//	unique_lock<mutex> locker(mtx_OnPaint);
-	//for (vector<CAxes*>::iterator px= temp.begin(); px != temp.end(); px++)
-	//{
-	//	for (vector<CLine*>::iterator pline = (*px)->m_ln.begin(); pline != (*px)->m_ln.end(); pline++)
-	//	{
-	//		if ((*pline)->sig.GetType() == CSIG_AUDIO)
-	//		{
-	//			t1 = (*px)->xlim[0] * 1000.;
-	//			t2 = (*px)->xlim[1] * 1000.;
-	//			deltat = t2 - t1;
-	//			if (curRange != NO_SELECTION)
-	//			{
-	//				t1 = (*px)->xlim[0] * 1000. + deltat*(curRange.px1 - (*px)->rct.left) / (*px)->rct.Width();
-	//				t2 = (*px)->xlim[0] * 1000. + deltat*(curRange.px2 - (*px)->rct.left) / (*px)->rct.Width();
-	//			}
-	//			else if (playCursor > 0)
-	//				t1 = (*px)->xlim[0] * 1000. + deltat*(playCursor - (*px)->rct.left) / (*px)->rct.Width();
-	//			count++;
-	//			if (count == 3) break;
-	//			pout->ghost = false;
-	//			if (count == 1)
-	//				*pout = (*pline)->sig.Extract(t1, t2);
-	//			else
-	//			{
-	//				part = (*pline)->sig.Extract(t1, t2);
-	//				pout->SetNextChan(&part);
-	//			}
-	//		}
-	//	}
-	//}
-	//cv_OnPaint.notify_one();
-}
-
 
 CPen * OnPaint_createpen_with_linestyle(CLine *pln, CDC& dc, CPen **pOldPen)
 {
@@ -648,11 +546,12 @@ CPen * OnPaint_createpen_with_linestyle(CLine *pln, CDC& dc, CPen **pOldPen)
 
 void CPlotDlg::OnPaint() 
 {
+	//return here if hDlg is NULL (rare but it could happe) or coming without ax or text, as in figure function
+	if (hDlg == NULL || (gcf.ax.empty() && gcf.text.empty()))  return;
 	opacity = gcf.inScope ? 0xff : 0xc0;
 	SetLayeredWindowAttributes(hDlg, 0, opacity, LWA_ALPHA);
 	char buf[256];
 	PAINTSTRUCT  ps;
-	if (hDlg==NULL) return;
 	HDC hdc = BeginPaint(hDlg, &ps);
 	if (hdc==NULL) { EndPaint(hDlg, &ps); return; }
 	CDC dc(hdc, hDlg);
@@ -679,25 +578,27 @@ void CPlotDlg::OnPaint()
 	if (strlen(buf) == 0)
 		SetTimer(FIRST_DISPLAY_STATUSBAR, 200);
 
-//	sendtoEventLogger("OnPaint before locker2\n");
-	unique_lock<mutex> locker2(mtx_OnPaint);
-//	sendtoEventLogger("OnPaint after locker2\n");
-	for (size_t k=0; k< gcf.ax.size(); )
+	size_t k = 0;
+	int temp = 0;
+	for (unique_lock<mutex> locker(mtx_OnPaint); k< gcf.ax.size(); temp++)
 	{
+		if (temp < 1)
+		{
+			sprintf(buf, "(OnPaint) mtx_OnPaint locked: %d\n", locker.owns_lock());
+			sendtoEventLogger(buf);
+		}
 		// drawing lines
 		if (!paxready)
 			pax = gcf.ax[k];
 		else
 			paxready=false;
-		if (find(sbinfo.vax.begin(), sbinfo.vax.end(), pax) == sbinfo.vax.end())
-			sbinfo.vax.push_back(gcf.ax[k]);
+		//if (find(sbinfo.vax.begin(), sbinfo.vax.end(), pax) == sbinfo.vax.end())
+		//	sbinfo.vax.push_back(gcf.ax[k]);
 		if (!pax->m_ln.empty()) 
 			pax->xTimeScale = pax->m_ln.front()->sig.IsTimeSignal();
 		if (!pax->visible) continue;
-		if (!axis_expanding)
-			CPosition lastpos(pax->pos);
-		else
-			pax->pos.Set(clientRt, pax->rct); // do this again
+		if (axis_expanding)
+			pax->pos.Set(clientRt, pax->rct); // do this again; what's this? 10/9/2019
 		pax->rct=DrawAxis(&dc, &ps, pax);
 		//when mouse is moving while clicked
 		if (curRange != NO_SELECTION && pax->hPar->type==GRAFFY_figure ) // this applies only to waveform axis (not FFT axis)
@@ -721,8 +622,6 @@ void CPlotDlg::OnPaint()
 		else
 		{
 			unique_lock<mutex> locker(mtx4PlotDlg);
-			if (!locker.owns_lock())
-				cvPlotDlg.wait(locker);
 			for (auto lyne : pax->m_ln)
 			{
 				CPen *pPenOld = NULL;
@@ -778,7 +677,6 @@ void CPlotDlg::OnPaint()
 								::MessageBox(NULL, buf, "exceed", 0);
 							}
 #endif // _DEBUG
-
 						}
 						if (lyne->symbol != 0)
 						{
@@ -831,6 +729,7 @@ void CPlotDlg::OnPaint()
 		// also when InvalidateRect(NULL) is called, always remake ticks
 		if (pax->m_ln.size() > 0)
 		{
+			//When there's nothing in axes.. bypass this part.. Otherwise,  gengrids will crash!! 10/5/2019
 			if (pax->xtick.tics1.empty() && pax->xtick.automatic)
 			{
 				if (pax->m_ln.front()->sig.IsTimeSignal())
@@ -898,9 +797,12 @@ void CPlotDlg::OnPaint()
 			sbinfo.xBegin = pax0->xlim[0];
 			sbinfo.xEnd = pax0->xlim[1];
 		}
+		if (temp<1)
+		{
+			sendtoEventLogger("(OnPaint) mtx_OnPaint unlocked.\n");
+		}
 	} // end of Drawing axes
 
-	cv_OnPaint.notify_one();
 	  //Drawing texts
 	HFONT fontOriginal = (HFONT)dc.SelectObject(GetStockObject(SYSTEM_FONT));
 	CSize sz;
@@ -1309,7 +1211,7 @@ void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 		}
 		if (curRange.px2-curRange.px1<=3) curRange.reset();
 		InvalidateRect(&rt);
-		sbar->dBRMS(FULL);
+		sbar->dBRMS();
 		selRange.tp1 = cax->pix2timepoint(curRange.px1); 
 		selRange.tp2 = cax->pix2timepoint(curRange.px2); 
 		if (ClickOn && gcf.ax.front()->hChild)
@@ -1458,20 +1360,6 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 			else edge.px1 = -1;
 		}
 	}
-	return;
-	unsigned short  mousePt = GetMousePos(point);
-	if (mousePt == 0x000f) // RC_WAVEFORM
-	{
-		cax = CurrentPoint2CurrentAxis(&point);
-		if (cax)
-		{
-			cax->GetCoordinate(point, sbinfo.xCur, sbinfo.yCur);
-		}
-	}
-	if (mousePt == 0) // outside ANY axis
-	{ // clean the status of current location 
-		::SendMessage(sbar->hStatusbar, SB_SETTEXT, 2, (LPARAM)"");
-	}
 }
 
 void CSBAR::showXLIM(CAxes *pax, CPoint point)
@@ -1496,7 +1384,7 @@ void CSBAR::showXLIM(CAxes *pax, CPoint point)
 	// Is dB RMS displayed?
 	::SendMessage(hStatusbar, SB_GETTEXT, 6, (LPARAM)buf);
 	if (strlen(buf) == 0)
-		dBRMS(FULL);
+		dBRMS();
 }
 void CSBAR::showXSEL(int ch)
 {
@@ -1557,66 +1445,24 @@ void CSBAR::showCursor(CPoint point)
 	}
 }
 
-static inline double _getdB(double x)
-{
-	// 3 dB is added to make rms of full scale sinusoid 0 dB
-	return 20 * log10(x) + 3.0103;
-}
-
 void CSBAR::dBRMS(SHOWSTATUS st)
 {
-	char buf0[32], buf[256] = {};
-	if (!ax.empty() && !ax.front()->m_ln.empty() && ax.front()->m_ln.front()->sig.GetType()==CSIG_AUDIO)
-		sprintf(buf, "[dBRMS] ");
-	switch (st)
+	//st is no longer used, but keep it for the future 10/4/2019
+	CSignals gcopy, res;
+	char buf0[32] = {}, buf[256] = {};
+	if (ax.empty() || ax.front()->m_ln.empty()) return;
+	if (!ax.front()->m_ln.front()->sig.IsAudio()) return;
+	sprintf(buf, "[dBRMS] ");
+	base->GetGhost(gcopy);
+	res = gcopy.RMS(); // Remember, gcopy loses the previous data after this call.
+	sprintf(buf0, "%.1f ", res.value());
+	strcat(buf, buf0);
+	if (res.next)
 	{
-	case FULL: // show dBRMS of all signals
-		for (auto _ax : ax)
-		{
-			if (_ax->xTimeScale)
-			{
-				for (auto lyn : _ax->m_ln)
-				{
-					if (lyn->sig.GetType()== CSIG_AUDIO)
-					{
-						POINT ind; // begin and end (not an actual point)
-						if (base->curRange != NO_SELECTION)
-						{
-							base->selRange.tp1 = _ax->pix2timepoint(base->curRange.px1);
-							base->selRange.tp2 = _ax->pix2timepoint(base->curRange.px2);
-							ind.x = (int)round(base->selRange.tp1 * lyn->sig.GetFs());
-							ind.y = (int)round(base->selRange.tp2 * lyn->sig.GetFs());
-						}
-						else
-						{
-							ind = base->GetIndDisplayed(_ax);
-						}
-						double rmscum = 0.;
-						int rmslen = 0;
-						for (CTimeSeries *p = &lyn->sig; p; p = p->chain)
-						{
-							const int id1 = (int)round(p->tmark / 1000. * p->GetFs());
-							const int id2 = id1 + p->nSamples;
-							if (ind.y < id1) continue;
-							if (ind.x > id2) continue;
-							CSignals ghostcopy;
-							ghostcopy.ghost = true;
-							ghostcopy.buf = (double*)(p->logbuf + ind.x * p->bufBlockSize);
-							ghostcopy.nSamples = min(ind.y, id2) - max(ind.x, id1);
-							rmslen += ghostcopy.nSamples;
-							for (unsigned int k=0; k< ghostcopy.nSamples; k++)
-								rmscum += p->buf[k] * p->buf[k];
-						}
-						sprintf(buf0, "%.1f ", _getdB(sqrt(rmscum / rmslen)));
-						if (strlen(buf) > 8) strcat(buf, "| ");
-						strcat(buf, buf0);
-					}
-				}
-			}
-		}
-		::SendMessage(hStatusbar, SB_SETTEXT, 6, (LPARAM)buf);
-		break;
+		sprintf(buf0, "| %.1f ", res.next->value());
+		strcat(buf, buf0);
 	}
+	::SendMessage(hStatusbar, SB_SETTEXT, 6, (LPARAM)buf);
 }
 
 #define LOG(X) fprintf(fpp,(X));
@@ -2064,7 +1910,7 @@ void CPlotDlg::OnMenu(UINT nID)
 				// Below, if this put too low maximum, the progress line may move smoothly, but the playback sound will be choppy.
 				block = max(block, _block);
 				GetGhost(_sig);
-				if (!_sig.IsEmpty())
+				if (!_sig.IsEmpty() || (_sig.next && !_sig.next->IsEmpty()))
 				{
 					hAudio = PlayCSignals(_sig, devID, WM__AUDIOEVENT, hDlg, &block, errstr, 1);
 					if (!hAudio)
@@ -2118,8 +1964,7 @@ void CPlotDlg::OnMenu(UINT nID)
 #ifndef NO_PLAYSND
 		fullfname[0]=0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
-		_sig.ghost = true;
-		GetGhost2(&_sig);
+		GetGhost(_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "Wav file (*.WAV)\0*.wav\0", "wav"))
 		{
 			if (!_sig.Wavwrite(fullfname, errstr))	MessageBox (errstr);
@@ -2135,8 +1980,7 @@ void CPlotDlg::OnMenu(UINT nID)
 #ifndef NO_PLAYSND
 		fullfname[0] = 0;
 		fileDlg.InitFileDlg(hDlg, hInst, "");
-		_sig.ghost = true;
-		GetGhost2(&_sig);
+		GetGhost(_sig);
 		if (fileDlg.FileSaveDlg(fullfname, fname, "MP3 file (*.MP3)\0*.mp3\0", "mp3"))
 		{
 			if (!_sig.mp3write(fullfname, errstr))	MessageBox(errstr);
@@ -2200,6 +2044,7 @@ void CPlotDlg::GetGhost(CSignals &out, CAxes* pax)
 				q = (CSignals*) q->next;
 				q->next = NULL;
 			}
+			//don't use the <= operator here, because p is not CSignals *
 			*q = ((CTimeSeries*)q)->GhostCopy(p);
 			if (lyne == _ax->m_ln.front())
 				out.SetFs(lyne->sig.GetFs());
@@ -2247,7 +2092,7 @@ void CPlotDlg::getFFTdata(CTimeSeries *psig_mag, double *fft, int len)
 		psig_mag->buf[len / 2] = 20.*log10(fft[len / 2] * fft[len / 2]);  // Nyquist freq. 
 	*/
 	if (len % 2 == 0) psig_mag->nSamples--; // Nyquist component excluded
-	double maxmag = psig_mag->_max();
+	double maxmag = psig_mag->_max().front();
 	*psig_mag += -maxmag;
 }
 
@@ -2269,8 +2114,15 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	dfs = (double)paxBase->m_ln.front()->sig.GetFs();
 	pax->xlim[0] = 0;  pax->xlim[1] = dfs / 2;
 	//Right now _sig is a chainless'ed version... do it later to keep the chain
-	_sig.ghost = true;
-	GetGhost2(&_sig, paxBase);
+	GetGhost(_sig);
+	//if _sig is stereo, each is the two registered signals
+	//if paxBase has only one m_ln, spectrum should show only the one corresponding one.
+	if (paxBase->m_ln.size() == 1 && _sig.next)
+	{ // which, _sig or _sig.next, is the same as paxBase->m_ln[0]?
+		if (_sig.buf != paxBase->m_ln.front()->sig.buf)
+			_sig = *_sig.next;
+		_sig.next = nullptr;
+	}
 	if (pax->m_ln.empty()) lastxlim[0]=1.,lastxlim[1]=-1.;
 	for (; pax->m_ln.size()>0;)	
 	{
@@ -2298,11 +2150,21 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	CSignals mag;
 	getFFTdata(&mag, fft, len);
 	if (_sig.next)
-	{//stereo
-		plan = fftw_plan_r2r_1d(len, _sig.next->buf, fft, FFTW_R2HC, FFTW_ESTIMATE);
+	{
+		int len2 = _sig.next->nSamples;
+		if (len2 > len)
+		{
+			delete[] freq;
+			delete[] fft;
+			freq = new double[len2 / 2 + 1];
+			fft = new double[len2];
+		}
+		for (int k = 0; k < len2 / 2 + 1; k++)
+			freq[k] = dfs / len2 * k;
+		plan = fftw_plan_r2r_1d(len2, _sig.next->buf, fft, FFTW_R2HC, FFTW_ESTIMATE);
 		fftw_execute(plan);
 		mag.next = new CTimeSeries; // this will be deleted during the cleanup of mag... really?
-		getFFTdata(mag.next, fft, len);
+		getFFTdata(mag.next, fft, len2);
 	}
 	PlotCSignals(pax, freq, &mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
 	strcpy(pax->xtick.format,"%.2gk"); // pax->xtick.format is called in anticipation of drawticks. i.e., format is used in drawticks
@@ -2450,85 +2312,4 @@ void CPlotDlg::HandleLostFocus(UINT umsg, LPARAM lParam)
 void CPlotDlg::dBRMS(SHOWSTATUS st)
 {
 	sbar->dBRMS(st);
-}
-
-
-void CPlotDlg::ShowStatusBar(SHOWSTATUS status, const char* msg)
-{
-	char buf[64]={}, buf2[64];
-	string rmstring;
-
-	if (status==CURSOR_LOCATION)
-	{
-		for (vector<CAxes *>::iterator it = sbinfo.vax.begin(); it != sbinfo.vax.end(); it++)
-		{
-			if ((*it)->m_ln.size() > 0)
-			{
-				if ((*it)->m_ln[0]->sig.IsTimeSignal())
-					sprintf(buf, "(%.3fs,%.3f)", sbinfo.xCur, sbinfo.yCur);
-				else
-					sprintf(buf, "(%.3f,%.3f)", sbinfo.xCur, sbinfo.yCur);
-				::SendMessage(sbar->hStatusbar, SB_SETTEXT, 2, (LPARAM)buf);
-				return;
-			}
-		}
-	}
-	else if (status==CURSOR_LOCATION_SPECTRUM)
-	{
-		::SendMessage (sbar->hStatusbar, SB_SETTEXT, 2, (LPARAM)msg);
-		return;
-	}
-
-	char rmstext[64]={};
-	CSignals _sig;
-	_sig.ghost = true;
-	GetGhost2(&_sig);
-	if (_sig.GetType() == CSIG_AUDIO)
-	{
-		sformat(rmstring, "%.1f dB", _sig.RMS().buf[0]);
-		if (_sig.next)
-		{
-			rmstring.insert(0, "(L)");
-			rmstring += " (R)";
-			sprintf(buf, "%.1f dB", _sig.next->RMS());
-			rmstring += buf;
-		}
-		strcpy(rmstext, rmstring.c_str());
-	}
-	if (_sig.IsTimeSignal() && strlen(rmstext) > 0)
-		strcat(rmstext, "RMS");
-	::SendMessage (sbar->hStatusbar, SB_SETTEXT, 6, (LPARAM)rmstext);
-
-	//From OnPaint()---maybe use predefined format for non-audio???
-//	char *format = pax0->xtick.format[0]? pax0->xtick.format : "%.2f";
-//	sprintf(buf, format, pax0->xlim[0]);
-//	sprintf(buf2, format, pax0->xlim[1]);
-
-	if (sbinfo.vax.empty())  return;
-	
-	sbinfo.xBegin = sbinfo.vax[0]->xlim[0];
-	sbinfo.xEnd = sbinfo.vax[0]->xlim[1];
-	sprintf(buf, "%.3f", sbinfo.xBegin); 
-	sprintf(buf2, "%.3f", sbinfo.xEnd);
-//	sprintf(buf3, "%.3f", sbinfo.xCur);
-	if (_sig.IsTimeSignal()) // for now, assume that two axes have both same sig type (check only the last one)
-	{	strcat(buf, "s"); strcat(buf2, "s");   }
-	::SendMessage (sbar->hStatusbar, SB_SETTEXT, 0, (LPARAM)buf);
-	::SendMessage (sbar->hStatusbar, SB_SETTEXT, 1, (LPARAM)buf2);
-//	sprintf(buf, "(%s,%.3f)", buf3, sbinfo.yCur);
-//	::SendMessage (hStatusbar, SB_SETTEXT, 2, (LPARAM)buf);
-	if (curRange==NO_SELECTION)
-	{buf[0]=0; buf2[0]=0;}
-	else
-	{ // for now, use the last one---assume that two axes have both same sig type 
-		sprintf(buf, "%.3f", sbinfo.xSelBegin); 
-		sprintf(buf2, "%.3f", sbinfo.xSelEnd);
-		if (_sig.IsTimeSignal()) // for now, assume that two axes have both same sig type (check only the last one)
-		{	strcat(buf, "s"); strcat(buf2, "s");  }
-	}
-	if (playCursor<0) // if play cursor is set, do not update selection range status bar
-	{
-		::SendMessage(sbar->hStatusbar, SB_SETTEXT, 4, (LPARAM)buf);
-		::SendMessage(sbar->hStatusbar, SB_SETTEXT, 5, (LPARAM)buf2);
-	}
 }

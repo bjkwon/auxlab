@@ -7,7 +7,7 @@ typedef struct {
 	int nChans;
 	double *buf_l;
 	double *buf_r;
-} csignals;
+} csignals_mp3_aiff;
 
 #endif
 /* end of lame_aux.h */

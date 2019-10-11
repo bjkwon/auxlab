@@ -38,7 +38,6 @@ DWORD threadID; // delete this after 7/25/2019
 #include <mutex>
 #include <thread>
 extern mutex mtx_OnPaint;
-extern condition_variable cv_OnPaint;
 
 void initLineList(); // from Auxtra.cpp
 
@@ -758,7 +757,7 @@ GRAPHY_EXPORT void SetRange(HANDLE _ax, const char xy, double x1, double x2)
 GRAPHY_EXPORT void ShowStatusBar(HANDLE _fig)
 {
 	CFigure *pfig = static_cast<CFigure *>(_fig);
-	((CPlotDlg*)pfig->m_dlg)->ShowStatusBar();
+	((CPlotDlg*)pfig->m_dlg)->dBRMS();
 }
 // if (data.GetType() == CSIG_VECTOR) strcpy(ax->xtick.format, "%.0f"); // for non-audio, plot(x) call, don't bother to show any decimal point on x-axis.
 
@@ -965,11 +964,6 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	// to do: this now applies all figures, but should only apply to those created inside pctx
 	char buf[512] = {}, buf2[256];
 	vector<CGobj*> h = graffy_CFigs();
-	if (h.empty())
-	{
-		sprintf(buf, "(RepaintGO) no figs\n");
-		sendtoEventLogger(buf);
-	}
 	if (pctx)
 	{
 		for (auto fig = h.begin(); fig != h.end(); fig++)
@@ -1004,10 +998,14 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 			}
 		}
 	}
-	unique_lock<mutex> locker(mtx_OnPaint);
-	if (!locker.owns_lock())
-		cv_OnPaint.wait(locker);
-	invalidateRedrawCue();
+	if (!h.empty())
+	{
+		unique_lock<mutex> locker(mtx_OnPaint);
+		sprintf(buf, "(RepaintGO) mtx_OnPaint locked? %d\n", locker.owns_lock());
+		sendtoEventLogger(buf);
+		invalidateRedrawCue();
+		sendtoEventLogger("(RepaintGO) mtx_OnPaint unlocked.\n");
+	}
 }
 
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS)

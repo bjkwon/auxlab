@@ -147,11 +147,15 @@ CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s
 	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
 		adjust_AstNode(pnode);
 #endif
-	str1 = p->str;
-	str1 += " : ";
-	str1 += s2 + '\n';
-	str1 += s1;
-	outstr = str1;
+	ostringstream oss;
+	if (p->str)
+		oss << p->str;
+	else if (p->type == T_NUMBER)
+		oss << p->dval;
+	else
+		oss << "unknown type ";
+	oss << " : " << s2 << s1;
+	outstr = str1 = oss.str().c_str();
 #ifdef _WINDOWS
 	if (pCtx && pCtx->u.debug.status == typed_line) return;
 #endif

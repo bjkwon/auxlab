@@ -58,6 +58,9 @@ extern vector<UINT> exc;
 queue<audiocapture_status_carry *> msgq;
 condition_variable cv;
 
+extern HWND hwnd_AudioCapture;
+
+
 CAudcapStatus mCaptureStatus;
 BOOL CALLBACK audiocaptuestatusProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 void AudioCaptureStatus(unique_ptr<audiocapture_status_carry> pmsg);
@@ -1230,6 +1233,7 @@ void CShowvarDlg::OnSize(UINT state, int cx, int cy)
 void CShowvarDlg::OnClose()
 {
 	OnDestroy();
+	hwnd_AudioCapture = NULL;
 }
 
 void CShowvarDlg::AdjustWidths(int redraw)
@@ -1313,7 +1317,7 @@ void CShowvarDlg::OnSysCommand(UINT cmd, int x, int y)
 		break;
 	case ID_HELP_SYSMENU5:
 		if (!mCaptureStatus.hDlg)
-			mCaptureStatus.hDlg = CreateDialog(hInst, "AUDIOCAPTURE", hDlg, (DLGPROC)audiocaptuestatusProc);
+			hwnd_AudioCapture = mCaptureStatus.hDlg = CreateDialog(hInst, "AUDIOCAPTURE", hDlg, (DLGPROC)audiocaptuestatusProc);
 		else
 			::ShowWindow(mCaptureStatus.hDlg, SW_SHOW);
 		break;
@@ -1924,6 +1928,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			tcount0Last = GetTickCount();
 			sendtoEventLogger("going into callback 0\n");
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+			if (mCaptureStatus.hDlg) 
 			{
 				tcount0 = GetTickCount();
 				unique_ptr<audiocapture_status_carry> msng(new audiocapture_status_carry);
@@ -1976,6 +1981,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			case WIM_DATA:
 				tcount0 = GetTickCount();
 				elapsed = tcount0 - tcount0Last;
+				if (mCaptureStatus.hDlg)
 				{
 					unique_lock<mutex> lk(mtx);
 					msng.ind = ind++;
@@ -2350,7 +2356,7 @@ void CShowvarDlg::showsize(CVar *pvar, char *outbuf)
 	case CSIG_STRING:
 	case CSIG_VECTOR:
 		if (pvar->nGroups == 1)
-			sprintf(outbuf, "%d", (int)pvar->CSignal::length());
+			sprintf(outbuf, "%d", (int)pvar->CSignal::length().front());
 		else
 			sprintf(outbuf, "%dx%d", pvar->nGroups, pvar->Len());
 		break;
@@ -2485,13 +2491,16 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	LvItem.iItem = ListView_GetItemCount(hList);
 	::SendMessage(hList, LVM_INSERTITEM, 0, (LPARAM)&LvItem);
 	LvItem.iSubItem = 1; //second item
-	if (type == CSIG_AUDIO)
+	if (pvar->IsAudio())
 	{
+		CSignals rmsig;
+		rmsig <= pvar;
+		rmsig.RMS();
 		if (pvar->IsLogical()) strcpy(buf, "logical");
-		else if (!pvar->next)		RMSDB(buf, "-Inf", "%5.1f", pvar->CSignal::RMS())
+		else if (!pvar->next)		RMSDB(buf, "-Inf", "%5.1f", rmsig.value())
 		else {
-			RMSDB(buf1, "-Inf", "%5.1f", pvar->CSignal::RMS())
-				RMSDB(buf2, "-Inf", "%5.1f", pvar->next->CSignal::RMS())
+			RMSDB(buf1, "-Inf", "%5.1f", rmsig.value())
+				RMSDB(buf2, "-Inf", "%5.1f", rmsig.next->value())
 				sprintf(buf, "%s,%s", buf1, buf2);
 		}
 	}
@@ -2509,7 +2518,7 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	LvItem.pszText = buf;
 	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
 	LvItem.iSubItem = 3;
-	if (type == CSIG_AUDIO)
+	if (pvar->IsAudio())
 	{
 		out = xcom::outstream_tmarks(pvar, true).str().c_str();
 		if (pvar->next) 

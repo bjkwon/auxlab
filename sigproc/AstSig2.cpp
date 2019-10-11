@@ -287,11 +287,11 @@ CVar &CDeepProc::TimeExtract(const AstNode *pnode, AstNode *p)
 
 	CTimeSeries *pts = level.psigBase;
 	for (; pts; pts = pts->chain)
-		pbase->endpoint = pts->CSignal::endt();
+		pbase->endpoint = pts->CSignal::endt().front();
 	if (level.psigBase->next)
 	{
 		pts = level.psigBase->next;
-		pbase->endpoint = max(pbase->endpoint, pts->CSignal::endt());
+		pbase->endpoint = max(pbase->endpoint, pts->CSignal::endt().front());
 	}
 	CVar tp = pbase->gettimepoints(pnode, p);
 	CVar out(*level.psigBase);
@@ -317,7 +317,10 @@ bool CAstSig::builtin_func_call(CDeepProc &diggy, AstNode *p)
 			HandleAuxFunctions(p, diggy.level.root);
 			// while pgo is active, psigBase should point to pgo, not &Sig
 			// this causes a crash on the line Sig = *diggy.level.psigBase in read_node() in AstSig.cpp   4/7/2019
-			diggy.level.psigBase = pgo ? pgo : &Sig; 
+			//
+			// pgo changed to diggy.level.pgo because in ax.x.lim = [0 getfs/2] when p is getfs pgo should be cleared, but diggy.pbase (which is pgo) should be untouched.
+			// 10/10/2019
+			diggy.level.psigBase = diggy.level.pgo ? diggy.level.pgo : &Sig;
 			return true;
 		}
 	}
@@ -346,9 +349,9 @@ CVar &CDeepProc::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	CVar tsig, isig, isig2;
 	if (!p->child)	throw pbase->ExceptionMsg(pnode, "A variable index should be provided.");
 	eval_indexing(p->child, isig);
-	if (isig._max() > pbase->Sig.nSamples)
+	if (isig._max().front() > pbase->Sig.nSamples)
 	{
-		ostream << "Index " << (int)isig._max() << " exceeds the length of " << level.varname;
+		ostream << "Index " << (int)isig._max().front() << " exceeds the length of " << level.varname;
 		throw pbase->ExceptionMsg(pnode, ostream.str().c_str());
 	}
 	pbase->Sig = extract(pnode, isig);
@@ -368,9 +371,9 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 	out.UpdateBuffer(isig.nSamples);
 	//CSignal::Min() makes a vector
 	//body::Min() makes a scalar.
-	if (isig._min() <= 0.)
+	if (isig._min().front() <= 0.)
 	{
-		outstream << "Invalid index " << "for " << level.varname << " : " << (int)isig._min() << " (must be positive)";
+		outstream << "Invalid index " << "for " << level.varname << " : " << (int)isig._min().front() << " (must be positive)";
 		throw pbase->ExceptionMsg(pnode, outstream.str().c_str());
 	}
 	if ((level.psigBase)->IsComplex())
@@ -396,9 +399,9 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 	{
 		if ((level.psigBase)->IsGO())
 		{
-			if (isig._max() > (level.psigBase)->nSamples)
+			if (isig._max().front() > (level.psigBase)->nSamples)
 			{
-				outstream << "Index out of range: " << (int)isig._max();
+				outstream << "Index out of range: " << (int)isig._max().front();
 				throw pbase->ExceptionMsg(pnode, outstream.str().c_str());
 			}
 			if (isig.nSamples == 1)
@@ -521,8 +524,8 @@ CVar &CDeepProc::eval_indexing(const AstNode *pInd, CVar &isig)
 			}
 			char buf[128];
 			if (isig2.IsLogical()) pbase->index_array_satisfying_condition(isig2);
-			else if (isig2._max() > (double)level.psigBase->Len())
-				throw pbase->ExceptionMsg(pInd, "Out of range: 2nd index ", itoa((int)isig2._max(), buf, 10));
+			else if (isig2._max().front() > (double)level.psigBase->Len())
+				throw pbase->ExceptionMsg(pInd, "Out of range: 2nd index ", itoa((int)isig2._max().front(), buf, 10));
 			pbase->interweave_indices(isig, isig2, level.psigBase->Len());
 		}
 	}

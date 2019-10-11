@@ -672,7 +672,6 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 #include <mutex>
 #include <thread>
 extern mutex mtx_OnPaint;
-extern condition_variable cv_OnPaint;
 
 
 void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -693,7 +692,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	//First, check whether a graphic handle is given as the first param
 	CVar *pgo = past->pgo;
 	if (!past->Sig.IsGO())	pgo = NULL; // first param is not a graphic handle
-
+	char buf[256];
 	static vector<CVar> args;
 	static GRAFWNDDLGSTRUCT in;
 	//args is the argument list not including the graphic handle.
@@ -718,23 +717,17 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		bool newFig = false;
 		if (!pgo)
 		{
-			CVar *pgcf = past->GetVariable("gcf");
-			if (pgcf)
+			cfig = (CFigure *)past->GetVariable("gcf");
+			if (cfig)
 			{ 
-				cfig = (CFigure *)pgcf;
-//				if (!IsNamedPlot(cfig->m_dlg->hDlg)) // this is always true; gcf exists only for unnamed plots 8/15/2019
+				// gcf should not be a named plot
+				if (cfig->struts["gca"].empty()) // no axes present; create one.
 				{
-					// gcf found AND it is not a named plot
-					if (cfig->struts["gca"].empty()) // no axes present; create one.
-					{
-						cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-						RegisterAx((CVar*)cfig, cax, true);
-					}
-					else // use existing axes 
-						cax = (CAxes *)FindGObj(cfig->struts["gca"].front());
+					cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+					RegisterAx((CVar*)cfig, cax, true);
 				}
-//				else
-//					newFig = true;
+				else // use existing axes 
+					cax = (CAxes *)FindGObj(cfig->struts["gca"].front());
 			}
 			else
 				newFig = true;
@@ -755,13 +748,9 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				}
 			}
 			else if (pgo->strut["type"].string() == "axes")
-			{
 				cax = (CAxes *)FindGObj(pgo);
-			}
 			else
-			{
 				throw CAstException(p, past, fnsigs, "A non-graphic object nor a data array is given as the first argument.");
-			}
 		}
 		if (newFig)
 		{
@@ -769,6 +758,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 			_figure(past, pnode, NULL, fnsigs);
 			cfig = (CFigure *)past->pgo;
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+			sendtoEventLogger("(_plot_line) AddAxes called.\n");
 			past->Sig = temp;
 			past->pgo = NULL;
 			RegisterAx((CVar*)cfig, cax, true);
@@ -779,14 +769,14 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
 		if (!cfig) cfig = (CFigure*)((CVar*)cax)->struts["parent"].front();
 		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, true);
+		unique_lock<mutex> locker(mtx_OnPaint);
+		sprintf(buf, "(_plot_line) mtx_OnPaint locked = %d\n", locker.owns_lock());
+		sendtoEventLogger(buf);
 		if (isPlot)
 		{
 			//if there's existing line in the specified axes
 			if (!newFig && cax->strut["nextplot"] == string("replace"))
 			{
-				unique_lock<mutex> locker(mtx_OnPaint);
-				if (!locker.owns_lock())
-					cv_OnPaint.wait(locker);
 				cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
 				cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
 				cax->xtick.tics1.clear();
@@ -812,14 +802,12 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				}
 			}
 		}
-		unique_lock<mutex> locker2(mtx_OnPaint);
-		if (!locker2.owns_lock())
-			cv_OnPaint.wait(locker2);
 		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
 
 		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
 		if (!newFig)
 			cfig = (CFigure*)cax->struts["parent"].front();
+		sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked\n");
 	}
 	catch (const CAstException &e) { 
 		throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }

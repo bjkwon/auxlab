@@ -124,7 +124,6 @@ class CPlotDlg : public CWndDlg
 public:
 	vector<CRect> rctHist;
 	CPoint gcmp; //Current mouse point
-	CPoint z0pt; // point where zooming range begins
 	CString errStr;
 	CAxes * gca;
 	CMenu subMenu;
@@ -199,7 +198,6 @@ public:
 	HACCEL GetAccel();
 	void UpdateRects(CAxes *ax);
 	unsigned short GetMousePos(CPoint pt);
-	void GetGhost2(CSignals *pout, CAxes* pax = NULL);
 	void GetGhost(CSignals &pout, CAxes* pax = NULL);
 	void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
 	void OnMenu(UINT nId);
@@ -216,9 +214,8 @@ public:
 	int estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
 	void DrawMarker(CDC dc, CLine* mline, POINT *draw, int nDraws);
 	POINT GetIndDisplayed(CAxes *pax);
-	RANGE_ID GetIndSelected(CAxes *pax);
+//	RANGE_ID GetIndSelected(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);
-	void ShowStatusBar(SHOWSTATUS status=FULL, const char* msg=NULL); // to be gone
 	void dBRMS(SHOWSTATUS st = FULL); // currently not used. just leave it
 	void GetSignalIndicesofInterest(int code, CAxes *pax, int & ind1, int &ind2);
 	int GetSelect(CSignals *pout);

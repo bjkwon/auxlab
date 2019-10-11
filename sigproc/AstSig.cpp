@@ -1434,75 +1434,49 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 }
 
 CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
-{ // CHECK this..............5/25/2018
-	bool trinary(false);
-	CSignals tsig, isig,  rms, refRMS;
-	tsig = Compute(p->next); // p->next points to the last operand.
-	bool tseq = (tsig.nSamples == 1 && tsig.chain);
-	if (!tseq && tsig.GetType()!=CSIG_SCALAR && tsig.GetType() != CSIG_VECTOR)
-		throw ExceptionMsg(pnode,"The last operand should be scalar or 2-element vector.");
-	if (p->type == '@') 
-	{ // trinary
-		CSignals second = Compute(p->child->next);
-		if (second.GetType()==CSIG_AUDIO)
-		{	
-			trinary = true;
-			double srms = second.CSignal::RMS();
-			if (srms == -std::numeric_limits<double>::infinity())
-				throw ExceptionMsg(pnode,"x @ ref @ value ---- Invalid: RMS of ref is infinity.");
-			if (isnan(srms))
-				throw ExceptionMsg(pnode,"x @ ref @ value ---- Invalid: Left chan of ref is NULL.");
-			refRMS.SetValue(srms);
-			if (second.next && second.next->nSamples)
-			{
-				isig.SetValue(second.next->RMS());
-				refRMS.SetNextChan(&isig);
-			}
-			Compute(p->child);	// Sig has the first operand
-			if (!Sig.IsStereo() && second.IsStereo())
-				throw ExceptionMsg(pnode,"x @ ref @ value ---- if x is mono, ref must be mono.");
-		}
-		else
-			throw ExceptionMsg(pnode,"A @ B @ C ---- B must be an audio signal.");
+{
+	CSignals refRMS, dB = Compute(p->next);
+	// if tsig is scalar -- apply it across the board of Sig
+	// if tsig is two-element vector -- if Sig is stereo, apply each; if not, take only the first vector and case 1
+	// if tsig is stereo-scalar, apply the scalar to each L and R of Sig. If Sig is mono, ignore tsig.next
+	// if tsig is tseq, it must have the same chain and next structure (exception otherwise)
+	// if tsig is tseq, it must have the same chain and next structure (exception otherwise)
+	if (p->type == '@')
+	{// trinary
+		refRMS <= Compute(p->child->next);
+		if (!refRMS.IsAudio())
+			throw ExceptionMsg(pnode, "A @ B @ C ---- B must be an audio signal.");
+		refRMS.RMS(); // this should be called here, once another Compute is called refRMS.buf won't be valid
+		Sig = Compute(p->child);
 	}
 	else
-	{ // binary
-		refRMS.SetValue(-0.000262);	// the calculated rms value of a full scale sinusoid (necessary to avoid the clipping of rms adjusted full scale sinusoid)
-		Compute(p); // Sig has the first operand
-	}
-	checkAudioSig(pnode,  Sig);
-	if (!Sig.IsStereo() && !tsig.IsScalar()) throw ExceptionMsg(p->next, "Mono signal should be scaled with a scalar.");
-	double mrms = Sig.CSignal::RMS();
-	if (mrms == -std::numeric_limits<double>::infinity())
-		throw ExceptionMsg(pnode,"Invalid: The signal is all-zero (-infinity RMS).");
-	rms.SetValue(-mrms);
-	if (Sig.IsStereo() && Sig.next->nSamples)
 	{
-		if (tsig.nSamples>2)
-			throw ExceptionMsg(pnode,"For a stereo signal, the last operand should be a vector of two or less elements.");
-		double msrms = Sig.next->CSignal::RMS();
-		if (msrms == -std::numeric_limits<double>::infinity())
-			throw ExceptionMsg(pnode,"Invalid: The signal (2nd Chan) is all-zero (-infinity RMS).");
-		isig.SetValue(-msrms);
-		rms.SetNextChan(&isig);
-		if (tsig.nSamples==2)
-		{
-			double tp = tsig.buf[1];
-			tsig.SetValue(tsig.buf[0]);
-			isig.SetValue(tp);
-			tsig.SetNextChan(&isig);
-		}
+		refRMS <= Sig = Compute(p);
+		// A known hole in the logic here---if dB is stereo but first channel is scalar
+		// and next is chained, or vice versa, this will not work
+		// Currently it's difficult to define dB that way (maybe possible, but I can't think about an easy way)
+		// A new, simpler and intuitive way to define T_SEQ should be in place
+		// before fixing this hole.  10/7/2019
+		if (dB.chain || (dB.next && dB.next->chain))
+			refRMS = refRMS.runFct2getvals(&CSignal::RMS);
+		else
+			refRMS.RMS(); // this should be called before another Compute is called (then, refRMS.buf won't be valid)
 	}
-	rms += refRMS;
-	rms += tsig;
-	rms *= LOG10DIV20;
-	if (rms.GetType()==CSIG_AUDIO || rms.GetType()==CSIG_VECTOR)
-		Sig *= rms;
+	//Reject dB if empty, if string, or if bool
+	if (dB.IsEmpty() || dB.IsString() || dB.IsBool())
+		throw ExceptionMsg(pnode, "Target_RMS_dB after @ must be a valid real value.");
+	if (dB.nSamples > 1 && !dB.next)
+	{
+		dB.SetNextChan(new CTimeSeries(dB.buf[1]));
+		refRMS = refRMS + dB.operator-();
+	}
 	else
-		Sig *= rms.each(exp).transpose1();
+	{
+		refRMS = refRMS - dB;
+	}
+	Sig | -refRMS;
 	return Sig;
 }
-
 
 void CAstSig::prepare_endpoint(const AstNode *p, CVar *pvar)
 {  // p is the node the indexing starts (e.g., child of N_ARGS... wait is it also child of conditional p?
@@ -1510,8 +1484,6 @@ void CAstSig::prepare_endpoint(const AstNode *p, CVar *pvar)
 		endpoint = (double)pvar->nGroups;
 	else
 		endpoint = (double)pvar->nSamples;
-	//else
-	//	endpoint = (double)pvar->Len();
 }
 
 void CAstSig::interweave_indices(CVar &isig, CVar &isig2, unsigned int len)
@@ -1636,7 +1608,7 @@ string CAstSig::adjustfs(int newfs)
 		{
 			CSignals level = it.second.RMS();
 			ratio.SetValue(it.second.GetFs() / (double)newfs);
-			it.second.basic(it.second.pf_basic2 = &CSignal::resample, &ratio);
+			it.second.runFct2modify(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
 			{
 				sformat(out, "Error while resampling the variable %s\n[from libsamplerate]%s", it.first.c_str());
@@ -1957,7 +1929,6 @@ vector<CVar> CAstSig::Compute(void)
 		}
 		else
 		{
-
 			res.push_back(Compute(pAst));
 		}
 		Tick1 = GetTickCount0();
@@ -2368,13 +2339,14 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		// by default the 3rd arg of psigAtNode is false, but if this call is made during RHS handling (where pRHS is NULL), it tells psigAtNode to try builtin_func_call first. 8/28/2018
 
 		AstNode *pLast = read_nodes(diggy); // that's all about LHS.
-		// var = (any statement): pLast is T_ID and no alt, child represents (any statement)
-		// var(id) = (any statement): pLast is N_ARGS
-		// var.prop = (any statement): pLast is N_STRUCT
+		// var = (any expression): pLast is T_ID and no alt, child represents (any expression)
+		// var(id) = (any expression): pLast is N_ARGS
+		// var.prop = (any expression): pLast is N_STRUCT
 		/* when var is not available, i.e., diggy.level.psigBase is NULL,
-			var = (any statement) : from RHS to LHS
-			var(id) = (any statement) : error
-			var.prop = (any statement) : var is generated as a class variable with prop
+			var = (any expression) : from RHS to LHS
+			var(id) = (any expression) : error
+			var.prop = (any expression) : var is generated as a class variable with prop
+			(expression) : pnode and pLast are the same --> VERIFY 10/10/2019
 		*/
 		if (!pRHS)
 		{

@@ -27,9 +27,9 @@
 extern CAudcapStatus mCaptureStatus;
 extern mutex mtx;
 mutex mtx4PlotDlg;
+HWND hwnd_AudioCapture = NULL;
 extern queue<audiocapture_status_carry *> msgq;
 extern condition_variable cv;
-condition_variable cvPlotDlg;
 
 int MoveDlgItem(HWND hDlg, int id, CRect rt, BOOL repaint);
 
@@ -265,8 +265,7 @@ void CAudcapStatus::OnCommand(int idc, HWND hwndCtl, UINT event)
 			::InvalidateRect(hPlot, &cumAvgRt, 1);
 			::InvalidateRect(hPlot, txtId->textRect, 1);
 			::InvalidateRect(hPlot, txtAvg->textRect, 1);
-			//=======================================
-			cvPlotDlg.notify_one();
+			//======================================= end of mtx4PlotDlg scope
 		}
 		if (index == 1)
 			sprintf(buffer, "Elapsed time for block 1: %d ms.\n", blocktime);

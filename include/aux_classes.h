@@ -47,6 +47,7 @@ public:
 		bool *logbuf;
 	};
 	unsigned char bufBlockSize;
+	bool ghost;
 
 	body();
 	body(const body& src);
@@ -54,17 +55,19 @@ public:
 	body(complex<double> value);
 	body(double *y, int  len);
 	body(bool *y, int len);
+	body(const vector<double> & src);
 	virtual ~body();
 
 	body& operator=(const body& rhs);
-	body& operator=(const body* rhs);
+	body& operator=(const vector<double> & rhs);
+	body& operator<=(const body& rhs);
+
 	body& operator+=(const double con);
 	body& operator*=(const double con);
 	body& operator/=(const double con);
-	body& operator-(void);	// Unary minus
 
 	body& UpdateBuffer(unsigned int length);
-	void Reset(int code=0);
+	void Reset();
 
 	double value() const;
 	string valuestr(int digits = 14) const;
@@ -75,8 +78,9 @@ public:
 	void SetReal();
 	void Real();
 	void Imag();
+	bool IsComplex() const {return bufBlockSize == 2 * sizeof(double);	};
+	bool IsBool() const { return bufBlockSize == 1; };
 
-	bool IsComplex() const  { return (bufBlockSize==2*sizeof(double)); } 
 	void SwapContents1node(body &sec);
 	vector<double> ToVector();
 
@@ -100,18 +104,23 @@ public:
 	body& LogOp(body &rhs, int type);
 	body &insert(body &sec, int id);
 
-	double _max(unsigned int id0 = 0, unsigned int len = 0);
-	double _min(unsigned int id0 = 0, unsigned int len = 0);
 	body & interp1(body &that, body &qp);
-	double sum(unsigned int id0=0, unsigned int len = 0);
-	double mean(unsigned int id0 = 0, unsigned int len = 0) { if (len == 0) len = nSamples; return sum(id0, len) / (double)len; }
-	double stdev(unsigned int id0 = 0, unsigned int len = 0);
+	vector<double> _max(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> _min(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> sum(unsigned int id0=0, unsigned int len = 0) const;
+	vector<double> mean(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> stdev(unsigned int id0 = 0, unsigned int len = 0) const;
 
 	void* parg;
+
+protected:
+		body& operator<=(body * rhs);
 };
 
 class CSignal : public body
 {
+protected:
+	int fs;
 public:
 	double tmark;
 	unsigned int Len() { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }
@@ -158,25 +167,26 @@ public:
 	CSignal& reciprocal(void);	// Multiplicative inverse
 	CSignal& operator=(const body& rhs);
 	CSignal& operator=(const CSignal& rhs);
-	CSignal& operator=(const CSignal* rhs);
+	CSignal& operator<=(const CSignal& rhs);
 	bool operator == (const CSignal &rhs);
 	bool operator == (double rhs);
 	bool operator == (string rhstr);
 	CSignal& operator+=(CSignal *yy); // Concatenation
 	CSignal& operator>>=(double delta);
+	CSignal& operator-(void);	// Unary minus
 
 	// Retrieve signal characteristics (single channel ONLY)
 	int GetType() const; 
-	double RMS(unsigned int id0 = 0, unsigned int len = 0);
 	int GetFs() const {return fs;};
 	void SetFs(int  newfs);
 	double* GetBuffer() {return buf;}
-	double length(unsigned int id0 = 0, unsigned int len = 0);
-	double dur(unsigned int id0 = 0, unsigned int len = 0);
-	double durc(unsigned int id0 = 0, unsigned int len = 0) const;
-	double begint(unsigned int id0 = 0, unsigned int len = 0);
-	double endt(unsigned int id0 = 0, unsigned int len = 0);
-	
+	vector<double> length(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> dur(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> durc(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> begint(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> endt(unsigned int id0 = 0, unsigned int len = 0) const;
+	vector<double> RMS(unsigned int id0 = 0, unsigned int len = 0) const;
+
 	CSignal &_atmost(unsigned int id, int unsigned len);
 	CSignal &_atleast(unsigned int id, int unsigned len);
 	CSignal& sort(unsigned int id0 = 0, unsigned int len = 0);
@@ -189,13 +199,12 @@ public:
 	CSignal& IIR(unsigned int id0 = 0, unsigned int len = 0); 
 #endif // NO_IIR
 
-	bool IsScalar() const { return (GetType() == CSIG_SCALAR); }
-	bool IsVector() const {return (GetType() == CSIG_SCALAR || GetType() == CSIG_VECTOR);}
-	bool IsEmpty() const {return (GetType() == CSIG_EMPTY);}
-	bool IsSingle() const;
-	bool IsString() const {return (fs == 2 && nSamples>0);}
-	bool IsLogical() const {return (bufBlockSize==1 && fs != 2);} // logical can be either audio or non-audio, so GetType() of logical array will not tell you whether that's logical or not.
-	bool IsComplex() const  { return (bufBlockSize==2*sizeof(double)); } 
+	bool IsEmpty() const { return nSamples == 0 && tmark == 0.; }
+	bool IsScalar() const { return nSamples == 1; }
+	bool IsVector() const { return fs == 1 && nSamples > 1; }
+	inline bool IsAudio() const { return fs > 2 && nSamples > 1; }
+	bool IsString() const { return fs == 2; }
+
 	CSignal& Modulate(double *env, unsigned int lenEnv, unsigned int beginID=0);
 	CSignal& SAM(double modRate, double modDepth, double initPhase);
 
@@ -214,23 +223,27 @@ public:
 	char *getString(char *str, const int size);
 	CSignal &SetString(const char *str);
 	CSignal &SetString(const char c);
-	CSignal size(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal FFT(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal iFFT(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal FFT(unsigned int id0 = 0, unsigned int len = 0) const;
+	CSignal iFFT(unsigned int id0 = 0, unsigned int len = 0) const;
 
-	double (CSignal::*pf_basic)(unsigned int, unsigned int);
-	CSignal& (CSignal::*pf_basic2)(unsigned int, unsigned int);
-	CSignal (CSignal::*pf_basic3)(unsigned int, unsigned int);
+	bool IsSingle() const;
+	bool IsLogical() const { return (bufBlockSize == 1 && fs != 2); } // logical can be either audio or non-audio, so GetType() of logical array will not tell you whether that's logical or not.
 
 protected:
 	double _dur() { return (double)nSamples / fs*1000.; }// for backward compatibility 5/18
-	int fs;
+	CSignal& operator<=(CSignal * prhs);
+	CSignal & operator%(const CSignal & v); // scale operator (absolute)
+	CSignal & operator%(double v); // scale operator (absolute)
+	CSignal & operator|(double v); // scale operator (relative)
+	CSignal & operator|(const CSignal & RMS2adjust);
+
 private:
 	CSignal& _filter(vector<double> num, vector<double> den, unsigned int id0 = 0, unsigned int len = 0);
-	const CSignal& operator+(const CSignal& sec);
+	CSignal& operator+(const CSignal& sec);
+	CSignal& operator-(CSignal& sec);
 	const CSignal& operator*(const CSignal& sec);
-	const CSignal& operator-(const CSignal& sec);
 	const CSignal& operator/(const CSignal& sec);
+//	CSignal & operator@(const CSignal & sec);
 
 	friend class CSignalExt;
 };
@@ -239,15 +252,14 @@ class CTimeSeries : public CSignal
 {
 public:
 	CTimeSeries *chain;
-	bool ghost;
 	vector<CTimeSeries> outarg;
 
 	int WriteAXL(FILE* fp);
 	int IsTimeSignal();
 
-	CTimeSeries basic(double (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt=NULL);
-	CTimeSeries& basic(CSignal& (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt = NULL);
-	CTimeSeries basic(CSignal (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt = NULL);
+	CTimeSeries runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
+	CTimeSeries & runFct2modify(CSignal& (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
+	CTimeSeries runFct2getsig(CSignal (CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
 
 	CTimeSeries& Reset(int fs2set = 0);
 	void SetChain(CTimeSeries *unit, double time_shifted = 0.);
@@ -274,8 +286,9 @@ public:
 
 	CTimeSeries& operator=(const CSignal& rhs);
 	CTimeSeries& operator=(const CTimeSeries& rhs);
-	CTimeSeries& operator+=(const double con);
-	CTimeSeries& operator*=(const double con);
+	CTimeSeries& operator<=(const CTimeSeries& rhs);
+	CTimeSeries& operator+=(double con);
+	CTimeSeries& operator*=(double con);
 	CTimeSeries& operator/=(double con);
 	CTimeSeries& operator-(void);	// Unary minus
 	CTimeSeries& operator*=(CTimeSeries &scaleArray);
@@ -284,6 +297,10 @@ public:
 	CTimeSeries& operator-=(CTimeSeries &sec);
 	CTimeSeries& operator/=(CTimeSeries &scaleArray);
 	CTimeSeries& operator>>=(double delta);
+	CTimeSeries & operator%(double v);
+	CTimeSeries & operator|(double v);
+	CTimeSeries & operator|(CTimeSeries * RMS2adjust);
+
 	bool IsAudioOnAt(double timept);
 	int GetType() const;
 	void SwapContents1node(CTimeSeries &sec);
@@ -322,7 +339,23 @@ public:
 	virtual ~CTimeSeries();
 
 	double alldur() const;
+	bool IsEmpty() const { return chain == nullptr && CSignal::IsEmpty(); }
+	bool IsScalar() const;
+	bool IsVector() const;
+	bool IsAudio() const;
+	bool IsString() const;
+	bool IsComplex() const;
+	bool IsBool() const;
 
+	void SetComplex();
+	void SetReal();
+
+
+protected:
+	CTimeSeries& operator<=(CTimeSeries * prhs);
+	CTimeSeries & operator%(CTimeSeries * v);
+	CTimeSeries & operator+(CTimeSeries * sec);
+	CTimeSeries & operator-(CTimeSeries * sec);
 };
 
 class CSignals : public CTimeSeries
@@ -330,9 +363,9 @@ class CSignals : public CTimeSeries
 public:
 	CTimeSeries *next;
 
-	CSignals basic(double (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt = NULL);
-	CSignals& basic(CSignal& (CSignal::*pf_basic)(unsigned int, unsigned int), void *popt = NULL);
-	CSignals basic(CSignal(CSignal::*pf_basic)(unsigned int, unsigned int), void *popt = NULL);
+	CSignals runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL) ;
+	CSignals & runFct2modify(CSignal& (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
+	CSignals runFct2getsig(CSignal(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
 
 	CSignals();
 	CSignals(bool b);
@@ -356,8 +389,23 @@ public:
 	CSignals& operator*=(CSignals &sec);
 	CSignals& operator*=(const double con);
 	CSignals& operator*=(CSignal &sec);
+	CSignals & operator%(const CSignals &targetRMS);
+	CSignals & operator%(double v);
+	CSignals & operator|(double v);
+	CSignals & operator|(const CSignals & RMS2adjust);
 	int IsTimeSignal();
 	int IsStereo() { return 0 + (next!=NULL); }
+
+	inline bool IsEmpty() const { return next == nullptr && CTimeSeries::IsEmpty(); }
+	bool IsScalar() const;
+	bool IsVector() const;
+	bool IsAudio() const;
+	bool IsString() const;
+	bool IsComplex() const;
+	bool IsBool() const;
+
+	void SetComplex();
+	void SetReal();
 
 	double MakeChainless();
 	void SetValue(double v);
@@ -370,13 +418,17 @@ public:
 	int GetTypePlus() const;
 
 
-	CSignals RMS(); // scalar (mono) or 2-element (stereo) output
+	CSignals& RMS(); //to calculate the overall RMS; different from CSignal::RMS()
 
-	void SetNextChan(CTimeSeries *second);
+	void SetNextChan(CTimeSeries *second, bool need2makeghost = false);
 	CTimeSeries *DetachNextChan() {CTimeSeries *p=next;next=NULL;return p;}
 	CSignals& Reset(int fs2set=0);
 	CSignals& reciprocal(void);
+	CSignals & operator+(const CSignals & sec);
+	CSignals & operator-(CSignals & sec);
 	CSignals& operator-(void);
+	CSignals& operator<=(const CSignals& rhs); // ghost assignment operator2
+	CSignals& operator<=(CSignals * prhs); // ghost assignment operator2
 	CSignals& operator>>=(const double delta);
 	CSignals& Crop(double begin_ms, double end_ms);
 	CSignals& Modulate (CSignals env);
@@ -384,7 +436,6 @@ public:
 	CSignals& ReplaceBetweenTPs(CSignals &newsig, double t1, double t2);
 	CSignals& LogOp(CSignals &rhs, int type);
 	CSignals& SAM(double modRate, double modDepth, double initPhase);
-	CSignals& GhostCopy(CSignals *pref);
 
 	CSignals& NullIn(double tpoint);
 
@@ -405,7 +456,45 @@ public:
 	CSignals &transpose1();
 	CSignals & MFFN(double(*fn)(double), complex<double>(*cfn)(complex<double>));
 	CSignals & MFFN(double(*fn)(double, double), complex<double>(*cfn)(complex<double>, complex<double>), const CSignals &param);
-
+	int getBufferLength(double & lasttp, double & lasttp_with_silence, double blockDur) const;
+	void nextCSignals(double lasttp, double lasttp_with_silence, CSignals &ghcopy);
+	template<typename T>
+	int makebuffer(T * outbuffer, int length, double lasttp, double lasttp_with_silence, CSignals &ghcopy)
+	{
+		int nChan = next == nullptr ? 1 : 2;
+		memset(outbuffer, 0, sizeof(T) * length * nChan);
+		ghcopy <= *this;
+		CSignals * p = &ghcopy;
+		if (lasttp == 0. && lasttp_with_silence == 0.)
+		{ // BEGINNING WITH A NULL PORTION
+			// leave outbuffer alone, but update lasttp and lasttp_with_silence
+			lasttp = lasttp_with_silence = tmark;
+			if (nChan == 2)
+			{
+				if (next->tmark < lasttp)
+					lasttp = lasttp_with_silence = next->tmark;
+			}
+		}
+		else
+		{
+			for (int ch = 0; p && ch < 2; ch++, p = (CSignals*)p->next)
+			{
+				for (CTimeSeries *q = p; q; q = q->chain)
+				{
+					if (q->tmark > lasttp) break;
+					int offset = (int)(q->tmark / 1000. * fs + .5) * nChan;
+					if (is_same<T, short>::value)
+						for (unsigned int m = 0; m < q->nSamples; m++)
+							outbuffer[offset + m * nChan + ch] = (short)(_double_to_24bit(q->buf[m]) >> 8);
+					else if (is_same<T, double>::value)
+						for (unsigned int m = 0; m < q->nSamples; m++)
+							outbuffer[offset + m * nChan + ch] = (T)q->buf[m];
+				}
+			}
+		}
+		nextCSignals(lasttp, lasttp_with_silence, ghcopy);
+		return length;
+	}
 	vector<CSignals> outarg2;
 
 #if defined(_WINDOWS) || defined(_WINDLL)
@@ -449,5 +538,7 @@ public:
 	CVar();
 	virtual ~CVar();
 };
+
+
 
 #endif // AUX_CLASSES

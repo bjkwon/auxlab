@@ -287,6 +287,8 @@ public:
 	char callbackIdentifer[LEN_CALLBACKIDENTIFIER];
 	goaction setgo;
 
+//	vector<double>(CSignal::*funct)(unsigned int, unsigned int) const;
+
 private:
 	void HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot = NULL);
 	bool HandlePseudoVar(const AstNode *pnode);

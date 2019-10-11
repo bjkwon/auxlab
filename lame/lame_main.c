@@ -96,7 +96,7 @@ char   *strchr(), *strrchr();
 
 
 static FILE *
-init_files(lame_global_flags * gf, char const *inPath, char const *outPath, csignals *px)
+init_files(lame_global_flags * gf, char const *inPath, char const *outPath, csignals_mp3_aiff *px)
 {
     FILE   *outf;
 
@@ -273,14 +273,12 @@ d2bei_array(const double *src, int *dest, int count, int normalize)
 } /* d2bei_array */
 
 static int
-lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char *outPath, csignals *px, char *errstr)
+lame_encoder_loop(lame_global_flags * gf, FILE * outf, csignals_mp3_aiff *px, char *errstr)
 {
 	unsigned char mp3buffer[LAME_MAXMP3BUFFER] = {0};
     int     Buffer[2][1152];
     int     iread, imp3, owrite, in_limit=0;
     size_t  id3v2_size;
-
- //   encoder_progress_begin(gf, inPath, outPath);
 
     id3v2_size = lame_get_id3v2_tag(gf, 0, 0);
     if (id3v2_size > 0) {
@@ -364,10 +362,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
 		iread = min(1152, px->length - cum);
     } while (iread > 0);
 
-    if (nogap)
-        imp3 = lame_encode_flush_nogap(gf, mp3buffer, sizeof(mp3buffer)); /* may return one more mp3 frame */
-    else
-        imp3 = lame_encode_flush(gf, mp3buffer, sizeof(mp3buffer)); /* may return one more mp3 frame */
+    imp3 = lame_encode_flush(gf, mp3buffer, sizeof(mp3buffer)); /* may return one more mp3 frame */
 
     if (imp3 < 0) {
         if (imp3 == -1)
@@ -401,27 +396,22 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
 }
 
 static int
-lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char *outPath, csignals *px, char *errstr)
+lame_encoder(lame_global_flags * gf, FILE * outf, csignals_mp3_aiff *px, char *errstr)
 {
     int     ret;
 
-    ret = lame_encoder_loop(gf, outf, nogap, inPath, outPath, px, errstr);
+    ret = lame_encoder_loop(gf, outf, px, errstr);
     fclose(outf);       /* close the output file */
     close_infile();     /* close the input file */
     return ret==0?1:0;
 }
 
-int lame_bj_encode(lame_t gf, int argc, char **argv, csignals *px, char *errstr)
+int lame_bj_encode(lame_t gf, const char *filename, csignals_mp3_aiff *px, char *errstr)
 {
-	char    inPath[PATH_MAX + 1] = { 0 };
     char    outPath[PATH_MAX + 1];
     FILE   *outf = NULL;
 
-	lame_set_msgf(gf, NULL);
-	lame_set_errorf(gf, NULL);
-	lame_set_debugf(gf, NULL);
-
-	strcpy(outPath, argv[argc-1]);
+	strcpy(outPath, filename);
 
 	lame_set_VBR(gf, vbr_default);
 	lame_set_VBR_quality(gf, (float)2.);
@@ -430,7 +420,6 @@ int lame_bj_encode(lame_t gf, int argc, char **argv, csignals *px, char *errstr)
     if (global_ui_config.update_interval < 0.)
         global_ui_config.update_interval = 2.;
 
-	strcpy(inPath, "");
 	outf = fopen(outPath, "w+b");
     if (outf == NULL) 
 	{
@@ -450,10 +439,10 @@ int lame_bj_encode(lame_t gf, int argc, char **argv, csignals *px, char *errstr)
 		fclose(outf);
 		return 0;
 	}
-    return lame_encoder(gf, outf, 0, inPath, outPath, px, errstr);
+    return lame_encoder(gf, outf, px, errstr);
 }
 
-int lame_bj_decode(lame_t gf, const char *filename, csignals *px, char *errstr)
+int lame_bj_decode(lame_t gf, const char *filename, csignals_mp3_aiff *px, char *errstr)
 {
 	char    inPath[PATH_MAX + 1];
 	char    outPath[PATH_MAX + 1] = { 0 };
