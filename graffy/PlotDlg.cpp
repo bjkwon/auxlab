@@ -45,6 +45,7 @@ if tics1 is not empty, OnPaint will not set tics1.
 #define FIX(x) (int)((x))
 
 extern HWND hPlotDlgCurrent;
+extern HWND hwnd_AudioCapture;
 extern mutex mtx4PlotDlg;
 //extern HWND hwnd_AudioCapture;
 
@@ -89,11 +90,6 @@ static inline unsigned _int8 GetMousePosReAx(CPoint pt, CAxes* pax)
 	if (pax->xtick.rt.PtInRect(pt)) res = GRAF_REG1 << 2;
 	if (pax->ytick.rt.PtInRect(pt)) res += GRAF_REG1;
 	return res;
-}
-
-CPlotDlg::CPlotDlg()
-:axis_expanding(false), levelView(false), playing(false), paused(false), ClickOn(0), MoveOn(0), devID(0), playLoc(-1), zoom(0), spgram(false), selColor(RGB(150, 180, 155))
-{ // do not use this.
 }
 
 CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
@@ -202,16 +198,17 @@ BOOL CPlotDlg::validateScope(bool onoff)
 */
 BOOL CPlotDlg::OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
 {
+	SetClassLongPtr(hwnd, GCLP_HICON, (LONG)(LONG_PTR)LoadImage(hInst, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0));
+	mst.clickedOn = false;
+	sbar = new CSBAR(this);
+	if (lParam == -1) return TRUE; // if lParam is -1, no statusbar
 	SetLayeredWindowAttributes(hwnd, 0, opacity, LWA_ALPHA); // how can I transport transparency from application? Let's think about it tomorrow 1/6/2017 12:19am
 	hTTscript = CreateTT(hwnd, &ti_script);
     GetClientRect (hwnd, &ti_script.rect);
 	ti_script.rect.bottom = ti_script.rect.top + 30;
 	::SendMessage(hTTscript, TTM_ACTIVATE, TRUE, 0);	
 	::SendMessage(hTTscript, TTM_SETMAXTIPWIDTH, 0, 400);
-	//These two functions are typically called in pair--so sigproc and graffy can communicate with each other for GUI updates, etc.
-	SetClassLongPtr (hwnd, GCLP_HICON, (LONG)(LONG_PTR)LoadImage(hInst, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0));
 
-	sbar = new CSBAR(this);
 	sbar->hStatusbar = CreateWindow(STATUSCLASSNAME, "", WS_CHILD | WS_VISIBLE | WS_BORDER | SBS_SIZEGRIP,
 		0, 0, 0, 0, hwnd, (HMENU)0, hInst, NULL);
 	int width[] = { 40, 110, 2, 40, 40, 160, };
@@ -223,7 +220,6 @@ BOOL CPlotDlg::OnInitDialog(HWND hwnd, HWND hwndFocus, LPARAM lParam)
 	::SendMessage(sbar->hStatusbar, SB_SETPARTS, 12, (LPARAM)sbarWidthArray);
 	// This is necessary to set the showVarDlg window from showvar.cpp as the "anchor" for playback // check if it's still needed 9/4/2019
 	SetHWND_WAVPLAY((HWND)lParam); 
-	mst.clickedOn = false;
 	return TRUE;
 }
 
@@ -409,7 +405,7 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 			double lastval = lyne->xdata.buf[0];
 			for (unsigned int k = 1; k < lyne->xdata.nSamples; k++)
 			{
-				if (lyne->xdata.buf[k] - lastval)
+				if (lyne->xdata.buf[k] - lastval < 0)
 				{
 					monotonic = false;
 					break;
@@ -423,26 +419,11 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	if (nSamplesPerPixel > 2. && monotonic)
 	{
 		double adder = 0;
-		int cok;
 		int chunkID0 = idBegin;
 		int chunkID1 = idBegin + (int)nSamplesPerPixel;
 		const double remnant = nSamplesPerPixel - (int)nSamplesPerPixel;
 		pt.x = pax->double2pixel(max(x1, p->tmark/1000.), 'x');
-		if (lyne->xdata.nSamples)
-		{
-			POINT temp;
-			unsigned int k = 0;
-			for (; k < p->nSamples; k++)
-			{
-				if (k == 99)
-				{
-					double ss = 30.;
-				}
-				temp = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
-			}
-			cok = k;
-		}
-		for (; ;)
+		while (1)
 		{
 			double dtp;
 			if (chunkID0 >= idLast - 1)
@@ -483,10 +464,6 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 		{
 			for (unsigned int k = 0; k < p->nSamples; k++)
 			{
-				if (k == 99)
-				{
-					double ss = 30.;
-				}
 				CPoint pt0 = pt;
 				pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
 				if (pt0 != pt)
@@ -549,16 +526,16 @@ void CPlotDlg::OnPaint()
 	//return here if hDlg is NULL (rare but it could happe) or coming without ax or text, as in figure function
 	if (hDlg == NULL || (gcf.ax.empty() && gcf.text.empty()))  return;
 	opacity = gcf.inScope ? 0xff : 0xc0;
-	SetLayeredWindowAttributes(hDlg, 0, opacity, LWA_ALPHA);
 	char buf[256];
 	PAINTSTRUCT  ps;
 	HDC hdc = BeginPaint(hDlg, &ps);
-	if (hdc==NULL) { EndPaint(hDlg, &ps); return; }
+	if (hdc==NULL || gcf.visible != 1) { EndPaint(hDlg, &ps); return; }
 	CDC dc(hdc, hDlg);
 	CClientDC dc2(hDlg);
 	CPoint pt;
 	CRect clientRt;
 	CAxes* pax;
+	SetLayeredWindowAttributes(hDlg, 0, opacity, LWA_ALPHA);
 	GetClientRect(hDlg, &clientRt);
 	if (clientRt.Height()<15) { EndPaint(hDlg, &ps); return; }
 	//sprintf(buf, "OnPaint (%d,%d)-(%d,%d), playCursor = %d, playLock %d\n", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom, playCursor, playLoc);
@@ -621,7 +598,12 @@ void CPlotDlg::OnPaint()
 		}
 		else
 		{
-			unique_lock<mutex> locker(mtx4PlotDlg);
+			if (hDlg == hwnd_AudioCapture)
+			{
+				sendtoEventLogger("(OnPaint) mtx4PlotDlg locking\n");
+				unique_lock<mutex> locker(mtx4PlotDlg);
+				sendtoEventLogger("(OnPaint) mtx4PlotDlg locked\n");
+			}
 			for (auto lyne : pax->m_ln)
 			{
 				CPen *pPenOld = NULL;
@@ -723,6 +705,8 @@ void CPlotDlg::OnPaint()
 				}
 			}
 		}
+		if (hDlg == hwnd_AudioCapture)
+			sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked\n");
 		// add ticks and ticklabels
 		dc.SetBkColor(gcf.color);
 		// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
@@ -1142,13 +1126,13 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
-//	char buf[256];
-	//sprintf(buf, "OnLButtonUp pt.x=%d, rect.y=%d\n", point.x, point.y);
-	//sendtoEventLogger(buf);
+	//	char buf[256];
+		//sprintf(buf, "OnLButtonUp pt.x=%d, rect.y=%d\n", point.x, point.y);
+		//sendtoEventLogger(buf);
 	CRect rt;
 	mst.clickedOn = false;
 	mst.curPt = point;
-	if (axis_expanding | gcf.ax.empty()) {ClickOn=0; return;}
+	if (axis_expanding | gcf.ax.empty()) { ClickOn = 0; return; }
 	// if mst.curAx is one of the FFTAx
 	for (auto _ax : sbar->ax)
 	{
@@ -1166,65 +1150,67 @@ void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 
 	CAxes *cax = CurrentPoint2CurrentAxis(&mst.last_clickPt);
 	CAxes *pax = gcf.ax.front();
-	if (curRange.px2<0) // if button up without mouse moving, reset
+	if (curRange.px2 < 0) // if button up without mouse moving, reset
 		curRange.reset();
 	CSignals _sig;
-	clickedPt.x=-999; clickedPt.y=-999;
-//	lastPtDrawn.x=-1; lastPtDrawn.y=-1;
-//	KillTimer(MOUSE_CURSOR_SETTING);
-	switch(ClickOn)
+	clickedPt.x = -999; clickedPt.y = -999;
+	if (cax && curRange.px1 > 0 && curRange.px2 > 0)
 	{
-	case RC_WAVEFORM:  //0x000f
-		if (point.x > pax->rct.right || point.x < pax->rct.left) // mouse was up outside axis
-			cax = pax;
-		rt.top = cax->rct.top;
-		rt.bottom = cax->rct.bottom+1;
-		rt.left = point.x-1; //default
-		rt.right = point.x+1; //default
-		if (point.x > cax->rct.right) 
+		switch (ClickOn)
 		{
-			rt.left = curRange.px2-1;
-			rt.right = curRange.px2 = cax->rct.right;
-		}
-		else if (point.x < cax->rct.left) 
-		{
-			rt.right = curRange.px1+1;
-			rt.left = curRange.px1 = cax->rct.left+1;
-		}
-		else
-		{
-			if (point.x > lbuttondownpoint.x) // moving right
+		case RC_WAVEFORM:  //0x000f
+			if (point.x > pax->rct.right || point.x < pax->rct.left) // mouse was up outside axis
+				cax = pax;
+			rt.top = cax->rct.top;
+			rt.bottom = cax->rct.bottom + 1;
+			rt.left = point.x - 1; //default
+			rt.right = point.x + 1; //default
+			if (point.x > cax->rct.right)
 			{
-				curRange.px2 = point.x;
-				if (edge.px1>curRange.px2) { //moved right and left
-					rt.left = curRange.px2;
-					rt.right = edge.px1+2; }
+				rt.left = curRange.px2 - 1;
+				rt.right = curRange.px2 = cax->rct.right;
+			}
+			else if (point.x < cax->rct.left)
+			{
+				rt.right = curRange.px1 + 1;
+				rt.left = curRange.px1 = cax->rct.left + 1;
 			}
 			else
 			{
-				curRange.px1 = point.x;
-				if (edge.px1>0 && edge.px1<curRange.px1) { //moved left and right
-					rt.left = edge.px1-2;
-					rt.right = curRange.px1;
+				if (point.x > lbuttondownpoint.x) // moving right
+				{
+					curRange.px2 = point.x;
+					if (edge.px1 > curRange.px2) { //moved right and left
+						rt.left = curRange.px2;
+						rt.right = edge.px1 + 2;
+					}
+				}
+				else
+				{
+					curRange.px1 = point.x;
+					if (edge.px1 > 0 && edge.px1 < curRange.px1) { //moved left and right
+						rt.left = edge.px1 - 2;
+						rt.right = curRange.px1;
+					}
 				}
 			}
+			if (curRange.px2 - curRange.px1 <= 3) curRange.reset();
+			InvalidateRect(&rt);
+			sbar->dBRMS();
+			selRange.tp1 = cax->pix2timepoint(curRange.px1);
+			selRange.tp2 = cax->pix2timepoint(curRange.px2);
+			if (ClickOn && gcf.ax.front()->hChild)
+				OnMenu(IDM_SPECTRUM_INTERNAL);
+			break;
+		default:
+			unsigned short mask = ClickOn & 0xff00;
+			if (mask == RC_SPECTRUM)
+			{
+				ChangeColorSpecAx(cax, MoveOn = (bool)0);
+				InvalidateRect(NULL);
+			}
+			break;
 		}
-		if (curRange.px2-curRange.px1<=3) curRange.reset();
-		InvalidateRect(&rt);
-		sbar->dBRMS();
-		selRange.tp1 = cax->pix2timepoint(curRange.px1); 
-		selRange.tp2 = cax->pix2timepoint(curRange.px2); 
-		if (ClickOn && gcf.ax.front()->hChild)
-			OnMenu(IDM_SPECTRUM_INTERNAL);
-		break;
-	default:
-		unsigned short mask = ClickOn & 0xff00;
-		if (mask==RC_SPECTRUM)
-		{
-			ChangeColorSpecAx(cax, MoveOn = (bool)0);
-			InvalidateRect(NULL);
-		}
-		break;
 	}
 	mst.curAx = NULL;
 	ClickOn = 0;

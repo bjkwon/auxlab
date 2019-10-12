@@ -95,9 +95,23 @@ void CGobj::addRedrawCue(HWND h, RECT rt)
 	theApp.redraw.insert(pair<HWND, RECT>(h, rt));
 }
 
+void CGobj::eraseRedrawCue(HWND hErase)
+{
+	auto it = theApp.redraw.find(hErase);
+	if (it != theApp.redraw.end())
+	{
+		theApp.redraw.erase(it);
+	}
+}
+
 void addRedrawCue(HWND hDlg, RECT rt)
 {
 	theApp.GraffyRoot.addRedrawCue(hDlg, rt);
+}
+
+void eraseRedrawCue(HWND hDlg)
+{
+	theApp.GraffyRoot.eraseRedrawCue(hDlg);
 }
 
 void invalidateRedrawCue()
@@ -323,7 +337,7 @@ HANDLE CGraffyEnv::openChildFigure(CRect *rt, HWND hWndAppl)
 	fig.push_back(newFig = new CPlotDlg(hInst, NULL)); // this needs before CreateDialogParam
 
 	// due to z-order problem in Windows 7, parent is set NULL for win7.
-	if (!(newFig->hDlg = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_PLOT_CHILD), hWndAppl, (DLGPROC)DlgProc, (LPARAM)hWndAppl)))
+	if (!(newFig->hDlg = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_PLOT_CHILD), hWndAppl, (DLGPROC)DlgProc, (LPARAM)-1)))
 	{
 		MessageBox(NULL, "Cannot Create graffy dialog box", "", MB_OK);	fig.pop_back(); delete newFig; return NULL;
 	}
@@ -631,6 +645,12 @@ GRAPHY_EXPORT vector<CGobj*> graffy_CFigs()
 	return theApp.GraffyRoot.child;
 }
 
+GRAPHY_EXPORT void graffy_remove_CFigs(CGobj* hRemove)
+{
+
+
+}
+
 /*New 1*/
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *pfigsig)
 {
@@ -704,7 +724,7 @@ GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b)
 	return true;
 }
 
-void showdBRMS(CVar *xGO, int code)
+void showRMS(CVar *xGO, int code)
 {
 	string type = xGO->strut["type"].string();
 	if (type != "figure") return;
@@ -988,6 +1008,8 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 				// that's why tp->m_dlg->hDlg is checked in the if statement above
 				// 8/22/2019
 				tp->m_dlg->ShowWindow(SW_SHOW);
+				// ShowWindow(SW_SHOW) evokes WM_PAINT, so invalidateRedrawCue() shouldn't include this hDlg
+				eraseRedrawCue(tp->m_dlg->hDlg);
 				if (IsEventLoggerReady())
 				{
 					strcpy(buf2, "... made visible");

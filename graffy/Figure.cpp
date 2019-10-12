@@ -162,8 +162,9 @@ void CFigure::initGO(void * _hpar)
 	strut["type"] = CSignals(std::string("figure"));
 	struts["gca"].push_back(NULL);
 	struts["gca"].pop_back();
-	strut["visible"] = CSignals(false); // all figure windows are invisible when created; but at this time visible is -1 (so that the application knows this is uniniated)
+	// all figure windows are invisible when created; set visible -1 now (so that the application knows this is uniniated)
 	visible = -1;
+	strut["visible"] = CSignals(false);
 }
 
 CAxes *CFigure::axes(CPosition pos)

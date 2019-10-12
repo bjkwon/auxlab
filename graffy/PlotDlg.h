@@ -179,7 +179,6 @@ private:
 	RANGE_PX curRange;
 	vector<string> ttstat;
 public:
-	CPlotDlg();
 	CPlotDlg(HINSTANCE hInstance, CGobj *hPar = NULL);   // standard constructor
 	~CPlotDlg();
 	CAxes * CurrentPoint2CurrentAxis(Win32xx::CPoint *point);
@@ -214,7 +213,6 @@ public:
 	int estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
 	void DrawMarker(CDC dc, CLine* mline, POINT *draw, int nDraws);
 	POINT GetIndDisplayed(CAxes *pax);
-//	RANGE_ID GetIndSelected(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);
 	void dBRMS(SHOWSTATUS st = FULL); // currently not used. just leave it
 	void GetSignalIndicesofInterest(int code, CAxes *pax, int & ind1, int &ind2);

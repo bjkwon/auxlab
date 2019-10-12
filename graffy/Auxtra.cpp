@@ -581,6 +581,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	CFigure *cfig = (CFigure *)FindFigure(pgcf);
 	CAxes * cax;
 	cax = static_cast<CAxes *>(AddAxes(cfig, pos));
+	RegisterAx((CVar*)cfig, cax, true);
 
 	//taking care of line graphic handle output
 	cax->SetValue((double)(INT_PTR)cax);
@@ -742,7 +743,10 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				{
 					auto itgca = pgo->struts.find("gca");
 					if (itgca == pgo->struts.end() || itgca->second.empty())
+					{
 						cax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
+						RegisterAx((CVar*)FindFigure(pgo), cax, true);
+					}
 					else
 						cax = (CAxes *)FindGObj(pgo->struts["gca"].front());
 				}
@@ -849,9 +853,19 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	_plot_line(1, past, pnode, p, fnsigs);
 }
 
+GRAPHY_EXPORT void _showrms(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	if (!past->Sig.IsGO())
+		throw CAstException(p, past, "The argument must be a graphic handle.");
+	if (past->Sig.strut["type"].string() != "figure")
+		throw CAstException(p, past, "The argument must be a figure handle.");
+	CVar *pgo = past->pgo;
+	showRMS(pgo, 0);
+}
+
 
 GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
+{ // RegisterAx should be incorporated. 10/11/2019
 	CVar out;
 	CFigure *cfig;
 	CAxes *cax;

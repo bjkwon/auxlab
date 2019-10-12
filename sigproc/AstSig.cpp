@@ -1925,6 +1925,7 @@ vector<CVar> CAstSig::Compute(void)
 				res.push_back(Compute(p));
 				p = p->next;
 				lhs = NULL; // to clear lhs from the last statement in the block 7/23/2019
+				pgo = nullptr; // 10/11/2019
 			}
 		}
 		else

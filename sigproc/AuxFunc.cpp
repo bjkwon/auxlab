@@ -59,6 +59,7 @@ void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _showrms(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 
 /* 10/10/2018
@@ -2766,6 +2767,10 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	name = "repaint";
 	ft.funcsignature = "(graphic_handle)";
 	ft.func = &_repaint;
+	builtin[name] = ft;
+	name = "showrms";
+	ft.funcsignature = "(graphic_handle)";
+	ft.func = &_showrms;
 	builtin[name] = ft;
 #endif // _WINDOWS
 

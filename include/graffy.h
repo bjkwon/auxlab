@@ -126,6 +126,7 @@ public:
 	void setPos(CPosition &posIn);
 	virtual void initGO(void * _hpar);
 	static void addRedrawCue(HWND h, RECT rt);
+	void eraseRedrawCue(HWND hErase);
 };
 
 class CTick : public CGobj
@@ -326,6 +327,7 @@ GRAPHY_EXPORT HANDLE FindFigure(HWND h);
 
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures();
 GRAPHY_EXPORT vector<CGobj*> graffy_CFigs();
+GRAPHY_EXPORT void graffy_remove_CFigs(CGobj* h);
 GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID);
 GRAPHY_EXPORT HANDLE GCA(HANDLE _fig);
 GRAPHY_EXPORT CVar *GetFigGO(HWND h);
@@ -353,7 +355,7 @@ GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);
 GRAPHY_EXPORT void		ViewSpectrum(HANDLE _fig);
-GRAPHY_EXPORT void		showdBRMS(CVar *xGO, int code);  // currently not used. just leave it
+GRAPHY_EXPORT void		showRMS(CVar *xGO, int code);  // currently not used. just leave it
 
 
 GRAPHY_EXPORT HACCEL GetAccel(HANDLE hFig);

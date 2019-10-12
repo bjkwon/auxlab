@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.499
-// Date: 2/20/2019
+// Version: 1.699
+// Date: 10/12/2019
 
 
 #include "graffy.h" // this should come before the rest because of wxx820
@@ -83,7 +83,7 @@ vector<cfigdlg*> plots;
 
 CAstSig * CDebugDlg::pAstSig = NULL;
 int CShowvarDlg::nPlaybackCount = 0;
-mutex mtx;
+mutex mtx_audiocapture_status;
 
 FILE *fp;
 
@@ -316,6 +316,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 		{
 			static GRAFWNDDLGSTRUCT in;
 			CFigure * cfig = newFigure(CRect(0, 0, 500, 310), title.c_str(), varname, &in);
+			cfig->visible = 1;
 			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 			plotlines = PlotCSignals(cax, NULL, psig, -1);
 			RegisterAx((CVar*)cfig, cax, true);
@@ -1233,7 +1234,6 @@ void CShowvarDlg::OnSize(UINT state, int cx, int cy)
 void CShowvarDlg::OnClose()
 {
 	OnDestroy();
-	hwnd_AudioCapture = NULL;
 }
 
 void CShowvarDlg::AdjustWidths(int redraw)
@@ -1877,8 +1877,6 @@ typedef struct {
 	DWORD callingThread;
 } carrier;
 
-//#include <mutex>
-
 void cleanup_recording(CVar **pvar_callbackinput, CVar **pvar_callbackoutput)
 { 
 	SetEvent(hEventRecordingCallBack);
@@ -1983,7 +1981,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				elapsed = tcount0 - tcount0Last;
 				if (mCaptureStatus.hDlg)
 				{
-					unique_lock<mutex> lk(mtx);
+					unique_lock<mutex> lk(mtx_audiocapture_status);
 					msng.ind = ind++;
 					msng.elapsed = tcount0 - tcount0Last;
 					msng.lastCallbackTimeTaken = lastCallbackTimeTaken;
