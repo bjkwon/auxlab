@@ -228,7 +228,7 @@ void CHistDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 			SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
 			res2 = WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), str2conv.c_str(), (DWORD)str2conv.size(), &dw, NULL);
 			delete[] ir;
-			SetFocus(GetConsoleWindow());
+			SetForegroundWindow(GetConsoleWindow());
 		}
 		break;
 	case NM_CUSTOMDRAW:

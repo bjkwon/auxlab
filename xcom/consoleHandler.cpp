@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.699
+// Date: 10/13/2019
 // 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <windows.h> 
@@ -150,26 +150,49 @@ size_t ReadThisLine(string &linebuf, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO con
 	return out;
 }
 
+size_t ReadLines(HANDLE hCon, char *buf, CONSOLE_SCREEN_BUFFER_INFO coninfo0, CONSOLE_SCREEN_BUFFER_INFO coninfo, size_t offset)
+{
+	string line;
+	size_t res, last, readCount = ReadThisLine(line, hStdout, coninfo0, coninfo0.dwCursorPosition.Y, mainSpace.comPrompt.length());
+	strcpy(buf, line.c_str());
+	last = mainSpace.comPrompt.length() + readCount;
+	// Adjust coninfo based on offset (if current cursor is moved back (or even a previous line),
+	// we still need to inspect the entire input based on offset. Here, we temporarily modify coninfo.
+	coninfo.dwCursorPosition.X += (short)offset;
+	while (coninfo.dwCursorPosition.X >= coninfo0.dwMaximumWindowSize.X)
+	{
+		coninfo.dwCursorPosition.X -= coninfo0.dwMaximumWindowSize.X;
+		coninfo.dwCursorPosition.Y++;
+	}
+	for (short k = coninfo0.dwCursorPosition.Y + 1; k < coninfo.dwCursorPosition.Y + 1; k++)
+	{
+		readCount += res = ReadThisLine(line, hStdout, coninfo0, k, 0);
+		strcat(buf, line.c_str());
+		last += res;
+	}
+	return readCount;
+}
+
 
 size_t ReadTheseLines(char *readbuffer, DWORD &num, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO coninfo0, CONSOLE_SCREEN_BUFFER_INFO coninfo)
 {
 	string linebuf;
-	size_t res, last;
+	size_t res, last, readCount;
 	
-	res = ReadThisLine(linebuf, hStdout, coninfo0, coninfo0.dwCursorPosition.Y, mainSpace.comPrompt.length());
+	readCount = ReadThisLine(linebuf, hStdout, coninfo0, coninfo0.dwCursorPosition.Y, mainSpace.comPrompt.length());
 	strcpy(readbuffer, linebuf.c_str());
-	last = mainSpace.comPrompt.length()+res;
-	num = (DWORD)res;
+	last = mainSpace.comPrompt.length() + readCount;
+	if (num==0)
+		num = (DWORD)readCount;
 	//check when the line is continuing down to the next line.
-	for (int k=coninfo0.dwCursorPosition.Y+1; k<coninfo.dwCursorPosition.Y+1; k++)
+	for (int k=coninfo0.dwCursorPosition.Y+1; k < coninfo.dwCursorPosition.Y + 1 || num > readCount; k++)
 	{
-		res = ReadThisLine(linebuf, hStdout, coninfo0, k, 0);
+		readCount += res = ReadThisLine(linebuf, hStdout, coninfo0, k, 0);
 		if (res>0)
 		{
 			if (last%coninfo0.dwMaximumWindowSize.X)
 				last=0, num++, strcat(readbuffer, "\n");
 			strcat(readbuffer, linebuf.c_str());
-			num += (DWORD)res;
 			last += res;
 		}
 		else
@@ -206,6 +229,7 @@ DEBUG_KEY xcom::getinput(char* readbuffer)
 	bool controlkeydown(false);
 	WORD vcode;
 	DEBUG_KEY retval;
+	char zbuf[256];
 
 try {
 	while (loop)
@@ -249,7 +273,8 @@ try {
 				GetConsoleScreenBufferInfo(hStdout, &coninfo);
 				off = (coninfo.dwCursorPosition.Y-coninfo0.dwCursorPosition.Y)*coninfo0.dwMaximumWindowSize.Y + coninfo.dwCursorPosition.X-coninfo0.dwCursorPosition.X;
 				if (showscreen && off!=num) // This is likely ENTER key from histDlg 
-					num = (DWORD)ReadTheseLines(buf, num, hStdout, coninfo0, coninfo);
+					num = (DWORD)ReadLines(hStdout, buf, coninfo0, coninfo, offset);
+	//				ReadTheseLines(buf, num, hStdout, coninfo0, coninfo);
 				COORD      now;
 				switch(vcode)
 				{ 
@@ -261,6 +286,13 @@ try {
 					// if characters were already typed in or pasted on the console lines, they were registered in buf and num represents the count of them
 					// if characters were lightly copied (pressing enter from the history window), they were not registered in num, so num is zero
 //					buf[num++] = '\n'; //Without this line, when multiple lines are pasted with Control-V, Debug version will work, but Release will not (no line separation..just back to back and error will occur)
+
+					//if current line hits the end of the x limit (or goes beyond), move the cursor down one line
+					if (mainSpace.comPrompt.length() + num >= coninfo.dwMaximumWindowSize.X)
+					{
+						coninfo.dwCursorPosition.Y++;
+						SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
+					}
 					if (showscreen && !num)
 						num = (DWORD)ReadTheseLines(buf, num, hStdout, coninfo0, coninfo);
 					else // Either control-V followed by enter pressing in Debug or debug command (#step #cont ....)
@@ -286,14 +318,14 @@ try {
 					if (!offset) break;
 					memcpy(buf1, buf + num - offset + 1, offset);
 					memcpy(buf + num-- - offset--, buf1, offset + 1);
-					sprintf(buffer, "(VK_DELETE:buf1)%s", buf1);
 					SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf1), (LPARAM)buffer);
-					sprintf(buffer, "(VK_DELETE:buf)%s", buf);
 					SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf), (LPARAM)buffer);
 					if (showscreen)
 					{
 						WriteConsole(hStdout, buf1, (DWORD)strlen(buf1) + 1, &dw2, NULL);
 						sprintf(buffer, "(VK_DELETE:buf)WriteConsole wrote %d bytes", dw2);
+						sprintf(zbuf, "%s\n", buffer);
+						sendtoEventLogger(zbuf);
 						SendMessage(hLog, WM__LOG, -1, (LPARAM)buffer);
 					}
 					SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
