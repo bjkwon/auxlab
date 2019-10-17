@@ -564,6 +564,8 @@ void CPlotDlg::OnPaint()
 			sprintf(buf, "(OnPaint) mtx_OnPaint locked: %d\n", locker.owns_lock());
 			sendtoEventLogger(buf);
 		}
+		sprintf(buf, "(OnPaint) 0x%d ax %d\n", (INT_PTR)gcf.ax[k], k);
+		sendtoEventLogger(buf);
 		// drawing lines
 		if (!paxready)
 			pax = gcf.ax[k];
@@ -1073,15 +1075,16 @@ void CPlotDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 
 void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point) 
 {
-//	char buf[256];
-	//sprintf(buf, "OnLButtonDown pt.x=%d, rect.y=%d\n", point.x, point.y);
-	//sendtoEventLogger(buf);
+	CAxes *cax = CurrentPoint2CurrentAxis(&point);
+	if (!cax) return;
 	mst.clickedOn = true;
 	mst.curPt = mst.last_clickPt = point;
 	edge.px1 = edge.px2 = -1;
 	gcmp=point;
-	CAxes *cax = CurrentPoint2CurrentAxis(&point);
 	mst.curAx = cax;
+	char buf[256];
+	sprintf(buf, "(OnLButtonDown) ax=0x%x: xpt.x=%d, rect.y=%d\n", (INT_PTR)cax, point.x, point.y);
+	sendtoEventLogger(buf);
 	CSignals temp;
 	if (axis_expanding) {ClickOn=0; return;}
 	clickedPt = point;

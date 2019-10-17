@@ -281,7 +281,7 @@ void On_F2(HWND hDlg, CAstSig f2sig)
 		if (f2sig.GOvars.find("axnew") != f2sig.GOvars.end())
 		{
 			CVar *paxs = f2sig.GetGOVariable("axnew");
-			RegisterAx((CVar*)cfig, (CAxes*)(INT_PTR)(paxs->buf[0]), true);
+			RegisterAx((CVar*)cfig, (CAxes*)paxs, true);
 		}
 		RepaintGO(mShowDlg.pcast);
 	}

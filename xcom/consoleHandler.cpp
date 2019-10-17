@@ -166,40 +166,18 @@ size_t ReadLines(HANDLE hCon, char *buf, CONSOLE_SCREEN_BUFFER_INFO coninfo0, CO
 	}
 	for (short k = coninfo0.dwCursorPosition.Y + 1; k < coninfo.dwCursorPosition.Y + 1; k++)
 	{
+		if (last!=coninfo0.dwMaximumWindowSize.X)
+			readCount++, strcat(buf, "\n");
 		readCount += res = ReadThisLine(line, hStdout, coninfo0, k, 0);
-		strcat(buf, line.c_str());
-		last += res;
+		if (res > 0)
+		{
+			strcat(buf, line.c_str());
+			last += res;
+		}
 	}
 	return readCount;
 }
 
-
-size_t ReadTheseLines(char *readbuffer, DWORD &num, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO coninfo0, CONSOLE_SCREEN_BUFFER_INFO coninfo)
-{
-	string linebuf;
-	size_t res, last, readCount;
-	
-	readCount = ReadThisLine(linebuf, hStdout, coninfo0, coninfo0.dwCursorPosition.Y, mainSpace.comPrompt.length());
-	strcpy(readbuffer, linebuf.c_str());
-	last = mainSpace.comPrompt.length() + readCount;
-	if (num==0)
-		num = (DWORD)readCount;
-	//check when the line is continuing down to the next line.
-	for (int k=coninfo0.dwCursorPosition.Y+1; k < coninfo.dwCursorPosition.Y + 1 || num > readCount; k++)
-	{
-		readCount += res = ReadThisLine(linebuf, hStdout, coninfo0, k, 0);
-		if (res>0)
-		{
-			if (last%coninfo0.dwMaximumWindowSize.X)
-				last=0, num++, strcat(readbuffer, "\n");
-			strcat(readbuffer, linebuf.c_str());
-			last += res;
-		}
-		else
-			num++, strcat(readbuffer, "\n");
-	}
-	return num;
-}
 
 DEBUG_KEY xcom::getinput(char* readbuffer)
 {
@@ -283,9 +261,10 @@ try {
 					// For pasting, i.e., control-v---> keep in the loop; otherwise, get out of the loop
 					if (!controlkeydown) 
 						loop=false;
+
 					// if characters were already typed in or pasted on the console lines, they were registered in buf and num represents the count of them
 					// if characters were lightly copied (pressing enter from the history window), they were not registered in num, so num is zero
-//					buf[num++] = '\n'; //Without this line, when multiple lines are pasted with Control-V, Debug version will work, but Release will not (no line separation..just back to back and error will occur)
+					// Really??? 10/16/2019
 
 					//if current line hits the end of the x limit (or goes beyond), move the cursor down one line
 					if (mainSpace.comPrompt.length() + num >= coninfo.dwMaximumWindowSize.X)
@@ -294,9 +273,7 @@ try {
 						SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
 					}
 					if (showscreen && !num)
-						num = (DWORD)ReadTheseLines(buf, num, hStdout, coninfo0, coninfo);
-					else // Either control-V followed by enter pressing in Debug or debug command (#step #cont ....)
-						buf[num++] = '\n'; 
+						num = (DWORD)ReadLines(hStdout, buf, coninfo0, coninfo, offset);
 					{
 						int idd = 0;
 						while (idd<11)
