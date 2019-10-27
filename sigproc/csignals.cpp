@@ -193,7 +193,6 @@ CSignal& CSignal::operator<=(CSignal * rhs)
 }
 
 
-
 CSignal& CSignal::operator=(const CSignal& rhs)
 {   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
 	// Thus, BE Extra careful when making writing an assignment statement about the scaling..
@@ -442,7 +441,7 @@ void body::SetValue(complex<double> v)
 	cbuf[0] = v;
 }
 
-body& body::UpdateBuffer(unsigned int length)	// Set nSamples. Re-allocate buf if necessary to accommodate new length.
+body& body::UpdateBuffer(unsigned int length, unsigned int offset)	// Set nSamples. Re-allocate buf if necessary to accommodate new length.
 {
 	if (!ghost)
 	{
@@ -453,13 +452,14 @@ body& body::UpdateBuffer(unsigned int length)	// Set nSamples. Re-allocate buf i
 		if (length > nSamples) {
 			bool *newlogbuf = new bool[reqBufSize];
 			if (nSamples > 0)
-				memcpy(newlogbuf, buf, nSamples*bufBlockSize);
+				memcpy(newlogbuf + offset * bufBlockSize, buf, nSamples*bufBlockSize);
 			delete[] buf;
 			logbuf = newlogbuf;
 		}
 		//initializing with zeros for the rest
 		if (length > nSamples)
-			memset(logbuf + nSamples * bufBlockSize, 0, (length - nSamples)*bufBlockSize);
+			memset(logbuf + (nSamples + offset) * bufBlockSize, 0, (length - nSamples - offset)*bufBlockSize);
+		memset(logbuf, 0, offset * bufBlockSize);
 	}
 	//For ghost, the rationale for this call is unclear; but just update nSamples with length
 	nSamples = length;
@@ -1292,53 +1292,6 @@ void CTimeSeries::SetChain(double time_shifted)
 	}
 }
 
-const CSignal& CSignal::operator*(const CSignal& sec)
-{ // Exception handling is yet to be done 3/8/2019
-  //Currently only for real arrays. 3/8
-	if (sec.IsScalar())
-	{
-		const double val = sec.value();
-		for (unsigned int k = 0; k < nSamples; k++)
-			buf[k] *= val;
-	}
-	else
-	{
-		if (fs != sec.fs) throw "lhs and rhs must have the same fs";
-		if (sec.nSamples > nSamples)
-		{
-			UpdateBuffer(sec.nSamples);
-			memcpy(buf + nSamples, sec.buf + nSamples, sizeof(double)*(sec.nSamples - nSamples));
-		}
-		for (unsigned int k = 0; k < nSamples; k++)
-			buf[k] *= sec.buf[k];
-	}
-	return *this;
-}
-
-
-const CSignal& CSignal::operator/(const CSignal& sec)
-{ // Exception handling is yet to be done 3/8/2019
-  //Currently only for real arrays. 3/8
-	if (sec.IsScalar())
-	{
-		const double val = sec.value();
-		for (unsigned int k = 0; k < nSamples; k++)
-			buf[k] /= val;
-	}
-	else
-	{
-		if (fs != sec.fs) throw "lhs and rhs must have the same fs";
-		if (sec.nSamples > nSamples)
-		{
-			UpdateBuffer(sec.nSamples);
-			memcpy(buf + nSamples, sec.buf + nSamples, sizeof(double)*(sec.nSamples - nSamples));
-		}
-		for (unsigned int k = 0; k < nSamples; k++)
-			buf[k] /= sec.buf[k];
-	}
-	return *this;
-}
-
 void CTimeSeries::SwapContents1node(CTimeSeries &sec)
 {	// Swaps chain & tmark.	Leaves "next" intact!!!
 	CTimeSeries tmp(fs);
@@ -1403,17 +1356,17 @@ CSignal& CSignal::Modulate(vector<double> &tpoints, vector<double> &tvals)
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::operator+=(CTimeSeries &sec)
-{
-	if (IsEmpty() || GetType() == CSIG_NULL) return (*this = sec);
-	if (sec.IsEmpty() || sec.GetType() == CSIG_NULL) return *this;
-	if (IsSingle() && !sec.IsSingle())
-		SwapContents1node(sec);
-	if (sec.IsString() || IsString())
-		throw "Addition of string is allowed only with a scalar.";
-	AddMultChain('+', &sec);
-	return *this;
-}
+//CTimeSeries& CTimeSeries::operator+=(CTimeSeries &sec)
+//{
+//	if (IsEmpty() || GetType() == CSIG_NULL) return (*this = sec);
+//	if (sec.IsEmpty() || sec.GetType() == CSIG_NULL) return *this;
+//	if (IsSingle() && !sec.IsSingle())
+//		SwapContents1node(sec);
+//	if (sec.IsString() || IsString())
+//		throw "Addition of string is allowed only with a scalar.";
+//	AddMultChain('+', &sec);
+//	return *this;
+//}
 
 
 CTimeSeries& CTimeSeries::operator*=(CTimeSeries &sec)
@@ -1953,11 +1906,6 @@ CSignal& CSignal::Cumsum()
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::operator-=(CTimeSeries &sec)
-{
-	return *this += -sec;
-}
-
 CTimeSeries& CTimeSeries::operator/=(CTimeSeries &scaleArray)
 {
 	return *this *= scaleArray.reciprocal();
@@ -2010,15 +1958,12 @@ CTimeSeries& CTimeSeries::operator>>=(double delta)
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::AddChain(CTimeSeries &sec)
+CTimeSeries& CTimeSeries::AddChain(const CTimeSeries &sec)
 { // MAKE SURE sec is not empty
 	if (nSamples == 0)
 		return *this = sec;
 	if (chain == NULL)
-	{
-		chain = new CTimeSeries;
-		return *chain = sec;
-	}
+		return *(chain = new CTimeSeries(sec));
 	else
 		return chain->AddChain(sec);
 }
@@ -3591,7 +3536,7 @@ int CTimeSeries::WriteAXL(FILE* fp)
 	return (int)res;
 }
 
-int CTimeSeries::IsTimeSignal()
+int CTimeSeries::IsTimeSignal() const
 { // Assume that CSignal and next have the same type, except for null or empty
 	if (fs == 1 || fs == 2) return 0;
 	return 1;
@@ -3799,19 +3744,6 @@ CSignals& CSignals::operator+=(CTimeSeries &sec)
 	return (*this += (_sec));
 }
 
-CSignals& CSignals::operator+=(CSignals &sec)
-{
-	SwapCSignalsPutScalarSecond(*this, sec);
-	CTimeSeries copy;
-	bool stereosec(false);
-	if (sec.next) stereosec = true, copy = *sec.next;
-	else copy = sec;
-	CTimeSeries::operator+=(sec);
-	if (next)
-		if (stereosec)	*next += *sec.next;
-		else			*next += copy;
-	return *this;
-}
 
 const CSignals& CSignals::operator+=(CSignals *yy)
 {
@@ -3840,7 +3772,7 @@ CSignals& CSignals::operator*=(CSignals &sec)
 		else			*next *= sec;
 	return *this;
 }
-int CSignals::IsTimeSignal()
+int CSignals::IsTimeSignal() const
 { // Assume that CTimeSeries and next have the same type, except for null or empty
 	if (CTimeSeries::IsTimeSignal()) return 1;
 	if (!next) return 0;

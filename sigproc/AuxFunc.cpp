@@ -775,36 +775,36 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	double block = CAstSig::record_block_ms;
 	double duration = -1;
 	int nArgs = 0, devID = 0, nChans = 1;
-	string callbackname = "default_callback_audio_recording";
+	AstNode *cbnode = nullptr;
+	if (pnode->alt->alt)
+	{
+		cbnode = pnode->alt->alt;
+//		yydeleteAstNode(pnode->alt->alt, 0);
+		if (pnode->tail == pnode->alt->alt)
+			(AstNode *)pnode->tail = nullptr;
+		pnode->alt->alt = nullptr;
+	}
 	for (const AstNode *cp = p; cp; cp = cp->next)
 		++nArgs;
 	switch (nArgs)
 	{
-	case 5:
-		past->Compute(p->next->next->next->next);
-		if (!past->Sig.IsScalar())
-			throw past->ExceptionMsg(pnode, fnsigs, "The fifth argument must be a constant representing the block size for the callback in milliseconds.");
-		block = past->Sig.value();
 	case 4:
 		past->Compute(p->next->next->next);
 		if (!past->Sig.IsScalar())
-			throw past->ExceptionMsg(pnode, fnsigs, "The fourth argument is either 1 (mono) or 2 (stereo) for recording.");
-		nChans = (int)past->Sig.value();
-		if (nChans!=1 && nChans!=2)
-			throw past->ExceptionMsg(pnode, fnsigs, "The fourth argument is either 1 (mono) or 2 (stereo) for recording.");
+			throw past->ExceptionMsg(pnode, fnsigs, "The fourth argument must be a constant representing the block size for the callback in milliseconds.");
+		block = past->Sig.value();
 	case 3:
 		past->Compute(p->next->next);
 		if (!past->Sig.IsScalar())
-			throw past->ExceptionMsg(pnode, fnsigs, "The fourth argument must be a constant representing the duration to record, -1 means indefinite duration until stop is called.");
-		duration = past->Sig.value();
+			throw past->ExceptionMsg(pnode, fnsigs, "The third argument is either 1 (mono) or 2 (stereo) for recording.");
+		nChans = (int)past->Sig.value();
+		if (nChans != 1 && nChans != 2)
+			throw past->ExceptionMsg(pnode, fnsigs, "The third argument is either 1 (mono) or 2 (stereo) for recording.");
 	case 2:
 		past->Compute(p->next);
-		if (!past->Sig.IsString() && !past->Sig.IsEmpty())
-			throw past->ExceptionMsg(pnode, fnsigs, "The second argument must be the file name (may include the path) of the callback function.");
-		if (past->Sig.IsEmpty() || past->Sig.string().empty())
-			callbackname = "?default_callback_audio_recording";
-		else
-			callbackname = past->Sig.string();
+		if (!past->Sig.IsScalar())
+			throw past->ExceptionMsg(pnode, fnsigs, "The second argument must be a constant representing the duration to record, -1 means indefinite duration until stop is called.");
+		duration = past->Sig.value();
 	case 1:
 		past->Compute(p);
 		if (!past->Sig.IsScalar())
@@ -819,7 +819,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	past->Sig.strut["dev"] = CVar((double)devID);
 	past->Sig.strut["type"] = CVar(string("audio_record"));
 	past->Sig.strut["id"] = CVar(past->Sig.value());
-	past->Sig.strut["callback"] = callbackname;
+	past->Sig.strut["callback"] = "";
 	past->Sig.strut["channels"] = CVar((double)nChans);
 	past->Sig.strut["durLeft"] = CVar(duration/1000.);
 	past->Sig.strut["durRec"] = CVar(0.);
@@ -828,7 +828,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 
 	char errstr[256] = {};
 	int newfs, recordID = (int)past->Sig.value();
-	if ((newfs = Capture(devID, WM__AUDIOEVENT2, hShowDlg, past->pEnv->Fs, nChans, CAstSig::record_bytes, callbackname.c_str(), duration, block, recordID, errstr)) < 0)
+	if ((newfs = Capture(devID, WM__AUDIOEVENT2, hShowDlg, past->pEnv->Fs, nChans, CAstSig::record_bytes, cbnode, duration, block, recordID, errstr)) < 0)
 		throw past->ExceptionMsg(pnode, fnsigs, errstr);
 	past->Sig.strut["active"] = CVar((double)(1 == 1));
 	if (past->lhs && past->lhs->type == N_VECTOR && past->lhs->alt->next)

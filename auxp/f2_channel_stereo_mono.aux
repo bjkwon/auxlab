@@ -1,6 +1,12 @@
-function axnew = f2_channel_stereo_mono(fig)
+function axnew = f2_channel_stereo_mono(arg)
 if nargin==0
-	fig=?foc;
+	fig=?foc
+elseif nargin==1 && !arg.isclass
+// in this case, the signal to plot
+	fig=?foc
+	sig2plot = arg
+elseif nargin==1 && arg.isclass
+	fig=arg
 end
 if fig.length!=1
     msgbox("Error--Invalid figure window handle");
@@ -57,21 +63,26 @@ if ax.length==1
 elseif ax.length==2
 	ax(1).pos(4) *=2
 	ax(1).pos(2)=.18
-	if ax(1).children.length>0 && ax(2).children.length>0
-		z = [ax(1).children.ydata; ; ax(2).children.ydata;]
-	elseif ax(1).children.length==0 && ax(2).children.length>0
-		z = [[0 0].audio; ax(2).children.ydata]
-	elseif ax(1).children.length>0 && ax(2).children.length==0
-		z = [ax(1).children.ydata; [0 0].audio]
-	else
-		z =[[0 0].audio; [0 0].audio]
-	end
 	xtic=[]
-	if ax(2).x.lim(2)>=ax(1).x.lim(2)
-		xtic = ax(2).x.tick;
-	else
+	if nargin==1 && !arg.isclass
 		xtic = ax(1).x.tick;
-	end
+		z = arg
+	else
+		if ax(1).children.length>0 && ax(2).children.length>0
+			z = [ax(1).children.ydata; ; ax(2).children.ydata;]
+		elseif ax(1).children.length==0 && ax(2).children.length>0
+			z = [[0 0].audio; ax(2).children.ydata]
+		elseif ax(1).children.length>0 && ax(2).children.length==0
+			z = [ax(1).children.ydata; [0 0].audio]
+		else
+			z =[[0 0].audio; [0 0].audio]
+		end
+		if ax(2).x.lim(2)>=ax(1).x.lim(2)
+			xtic = ax(2).x.tick;
+		else
+			xtic = ax(1).x.tick;
+		end
+	end	
 	ax(2).delete
 	ax.children.delete
 	ax.line(z)

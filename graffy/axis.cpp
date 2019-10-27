@@ -418,6 +418,7 @@ GRAPHY_EXPORT void CAxes::setylim()
 {//to be called after CLine objects are prepared
 	ylim[0] = std::numeric_limits<double>::infinity();
 	ylim[1] = -std::numeric_limits<double>::infinity();
+	bool ylim_adjustmore = false;
 	for (size_t k = 0; k < m_ln.size(); k++)
 		if (m_ln[k]->sig.GetType() == CSIG_AUDIO)
 			ylim[0] = -1, ylim[1] = 1;
@@ -426,11 +427,21 @@ GRAPHY_EXPORT void CAxes::setylim()
 			if (m_ln[k]->sig.bufBlockSize == 1) ylim[0] = -.2, ylim[1] = 1.2;
 			else
 			{
-				ylim[0] = min(ylim[0], getMin(m_ln[k]->sig.nSamples * m_ln[k]->sig.bufBlockSize / 8, m_ln[k]->sig.buf));
-				ylim[1] = max(ylim[1], getMax(m_ln[k]->sig.nSamples * m_ln[k]->sig.bufBlockSize / 8, m_ln[k]->sig.buf));
+				for (CTimeSeries *p = &m_ln[k]->sig; p; p = p->chain)
+				{
+					ylim[0] = min(ylim[0], p->_min().front());
+					ylim[1] = max(ylim[1], p->_max().front());
+				}
+				ylim_adjustmore = m_ln[k]->sig.IsTimeSignal();
 			}
 		}
 	if (ylim[0] == ylim[1]) { ylim[0] -= 1.;	ylim[1] += 1.; }
+	else if (ylim_adjustmore)
+	{
+		double yRange = ylim[1] - ylim[0];
+		ylim[0] -= yRange / 10;
+		ylim[1] += yRange / 10;
+	}
 	ylimFull[0] = ylim[0]; ylimFull[1] = ylim[1];
 }
 

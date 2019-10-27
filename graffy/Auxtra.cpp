@@ -334,6 +334,21 @@ GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
 // 
+	if (!past->pgo) // if argument is scalar or vector with integer, delete(1:5), figure windows are deleted
+	{ // this is not in compliance with AUX syntax philosophy but recognized for the sake of convenience. 10/24/2019
+		CVar tsig = past->Sig;
+		vector<CVar*> figs = FindFigurebyvalue(tsig);
+		while (!figs.empty())
+		{
+			auto f = figs.front();
+			past->pgo = f;
+			_delete_graffy(past, pnode, p, fnsigs);
+			figs = FindFigurebyvalue(tsig);
+		}
+		past->pgo = nullptr;
+		return;
+	}
+
 	// To delete multiple GO's, delete one by one
 	if (past->pgo->GetType() == CSIG_HDLARRAY)
 	{
@@ -433,8 +448,8 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	}
 	if (nArgs == 1)
 	{
-		CSignals param = past->Compute(p);
-		if (param.GetType() == CSIG_VECTOR && param.nSamples == 4)
+		CVar param = past->Compute(p);
+		if (param.IsVector() && param.nSamples == 4)
 		{
 			rt.left = (LONG)param.buf[0];
 			rt.top = (LONG)param.buf[1];
@@ -465,7 +480,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 					return;
 				}
 				else
-					throw CAstException(pnode, past, "Argument must be a blank, or a 4-element vector specifying the figure position (screen coordinate).");
+					throw CAstException(pnode, past, "Argument must be a blank, figure handle (either integer alias or real handle), or a 4-element vector specifying the figure position (screen coordinate).");
 
 			}
 			past->Sig = *static_cast<CFigure *>(h);

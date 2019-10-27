@@ -24,11 +24,6 @@ static map<string, string> builtin_fnsigs;
 static map<string, bool> builtin_staticfn;
 static map<string, int> builtin_fn_nArg1, builtin_fn_nArg2;
 
-
-
-int OtherBuiltIn(const string &fname, CAstSig &ast, const AstNode *pnode, const AstNode *p, int nArgs, std::string &fnsigs);
-
-
 complex<double> cmpexp(complex<double> x) { return exp(x); }
 complex<double> cmpcos(complex<double> x) { return cos(x); }
 complex<double> cmpcosh(complex<double> x) { return cosh(x); }

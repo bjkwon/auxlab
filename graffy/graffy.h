@@ -333,7 +333,7 @@ GRAPHY_EXPORT HANDLE GCA(HANDLE _fig);
 GRAPHY_EXPORT CVar *GetFigGO(HWND h);
 GRAPHY_EXPORT int CloseFigure(HANDLE h);
 GRAPHY_EXPORT HANDLE FindWithCallbackID(const char *callbackid);
-
+GRAPHY_EXPORT vector<CVar*> FindFigurebyvalue(const CVar &vals);
 
 #ifdef _WIN32XX_WINCORE_H_
 #define NO_USING_NAMESPACE

@@ -114,6 +114,43 @@ void eraseRedrawCue(HWND hDlg)
 	theApp.GraffyRoot.eraseRedrawCue(hDlg);
 }
 
+vector<CVar*> FindFigurebyvalue(const CVar &vals)
+{
+	vector<CVar*> out;
+	char buf[256], buf2[16];
+	//reject if it's a time sequence
+	if (vals.IsTimeSignal())
+		return out;
+	CVar _vals = vals;
+	{
+		auto f = theApp.fig.begin();
+		for (auto h : theApp.hDlg_fig)
+		{
+			GetWindowText(h, buf, sizeof(buf));
+			if (_vals.IsString() && !strcmp(buf, _vals.string().c_str()))
+			{
+				out.push_back((CVar*)&(*f)->gcf);
+				return out;
+			}
+			// Assume that vals is an integer vector.
+			// make a case for vals with HDR_ARRAY
+			else
+			{ 
+				for (unsigned k = 0; k < _vals.nSamples; k++)
+				{
+					sprintf(buf2, "Figure %d", (int)_vals.buf[k]);
+					if (!strcmp(buf, buf2))
+					{
+						out.push_back((CVar*)&(*f)->gcf);
+						break;
+					}
+				}
+			}
+		}
+	}
+	return out;
+}
+
 void invalidateRedrawCue()
 {
 	char buf[512], buf2[256];

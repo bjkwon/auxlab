@@ -46,7 +46,7 @@ typedef struct
 	int len_buffer;
 	double duration; // in duration to record, in milliseconds; -1 if indefinite
 	char *buffer;
-	char callbackfilename[256];
+	AstNode * cbnode;
 } callback_trasnfer_record;
 
 
@@ -79,6 +79,6 @@ int GetDevCaps(UINT_PTR id);
 INT_PTR PlayCSignals(const CSignals &sig, int DevID, UINT userDefinedMsgID, HWND hApplWnd, double *block_dur_ms, char *errstr, int loop);
 INT_PTR PlayCSignals(INT_PTR pWP, const CSignals &sig, int DevID, UINT userDefinedMsgID, double *block_dur_ms, char *errstr, int loop);
 INT_PTR QueuePlay(INT_PTR pWP, UINT DevID, SHORT *dataBuffer, int length, int nChan, UINT userDefinedMsgID, int nProgReport, char *errstr, int loop);
-int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bits, const char *callbackname, double duration, double block_dur_ms, int recordID, char *errmsg);
+int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bits, AstNode *cbnode, double duration, double block_dur_ms, int recordID, char *errmsg);
 
 #endif

@@ -445,11 +445,35 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<C
 	u.currentLine = pCalling->line; // ? 10/18/2018
 	AstNode *p;
 	CAstSigEnv tempEnv(*pEnv);
+	//input parameter binding
+	// required nArgin
+	size_t nargin_expected = -1;
+	for (AstNode *p = (AstNode *)pCalling->child; p; p = p->next, nargin_expected++)
+	{
+		if (p->type == N_IDLIST)
+			p = p->child;
+	}
+	if (pInVar->cell.size() > nargin_expected)
+		throw ExceptionMsg(pCalling, " too many input args.");
+	if (pInVar->cell.size() < nargin_expected)
+		throw ExceptionMsg(pCalling, " insufficient input args.");
 	son = new CAstSig(&tempEnv);
 	son->u = u;
 	son->u.title = pCalling->str;
 	son->u.debug.status = null;
+	auto itInVar = pInVar->cell.begin();
+	for (AstNode *p = (AstNode *)pCalling->child; p; p = p->next)
+	{
+		if (p->type == N_IDLIST)
+			p = p->child;
+		else
+		{
+			son->SetVar(p->str, &*itInVar);
+			itInVar++;
+		}
+	}
 	son->SetVar("in", pInVar); //static--lingering from the previous callback
+	son->Vars["in"].cell.clear();
 	if (pCalling->alt->type == N_VECTOR)
 	{
 		p = pCalling->alt->child;
@@ -1435,7 +1459,8 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 
 CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 {
-	CSignals refRMS, dB = Compute(p->next);
+	CVar refRMS;
+	CSignals dB = Compute(p->next);
 	// if tsig is scalar -- apply it across the board of Sig
 	// if tsig is two-element vector -- if Sig is stereo, apply each; if not, take only the first vector and case 1
 	// if tsig is stereo-scalar, apply the scalar to each L and R of Sig. If Sig is mono, ignore tsig.next
@@ -1452,6 +1477,15 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 	else
 	{
 		refRMS <= Sig = Compute(p);
+		if (dB.IsScalar() && dB.chain) // scalar time sequence
+		{
+			for (CTimeSeries *p = &dB; p; p = p->chain)
+			{
+				p->buf[0] = pow(10, p->buf[0] / 20.);
+			}
+			Sig % dB;
+			return Sig;
+		}
 		// A known hole in the logic here---if dB is stereo but first channel is scalar
 		// and next is chained, or vice versa, this will not work
 		// Currently it's difficult to define dB that way (maybe possible, but I can't think about an easy way)
@@ -1799,7 +1833,7 @@ CVar &CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)
 	CVar tsig1 = Compute(p);
 	if (!tsig1.IsScalar())
 		throw ExceptionMsg(pnode, "Time marker1 should be scalar");
-	CSignals tsig2 = Compute(p->next);
+	CVar tsig2 = Compute(p->next);
 	if (!tsig2.IsScalar())
 		throw ExceptionMsg(pnode, "Time marker2 should be scalar");
 	tsig1 += &tsig2;
@@ -1909,7 +1943,7 @@ vector<CVar> CAstSig::Compute(void)
 	Sig.outarg2.clear();
 	Sig.SetNextChan(NULL);
 	Sig.functionEvalRes = false;
-	pgo = NULL;
+//	pgo = NULL;
 	lhs = NULL;
 	try {
 		if (!pAst) {
@@ -2167,7 +2201,7 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 	AstNode *pUDF;
 	if (pn->type == T_ID || pn->type == N_STRUCT)
 	{
-		if (this==xscope.front() && pn->str[0]=='?') 
+		if (pn->str[0] == '?' && this==xscope.front())
 			throw ExceptionMsg(pn, "The caracter '?' cannot be used as a function or variable name in the base workspace.");
 	}
 	if ((pUDF=ReadUDF(emsg, pn->str)))
@@ -2431,9 +2465,25 @@ CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 			throw ExceptionMsg(p, "Logical operation is only for logical arrays.");
 		Sig.LogOp(rsig, pnode->type); // rsig is a dummy for func signature.
 		break;
-	case T_LOGIC_OR:
 	case T_LOGIC_AND:
 		rsig = ConditionalOperation(p, p->child);
+		if (!rsig.logbuf[0])
+		{
+			Sig.bufBlockSize = 1;
+			Sig.logbuf[0] = false;
+			break;
+		}
+		ConditionalOperation(p->next, p->next->child);
+		Sig.LogOp(rsig, pnode->type);
+		break;
+	case T_LOGIC_OR:
+		rsig = ConditionalOperation(p, p->child);
+		if (rsig.logbuf[0])
+		{
+			Sig.bufBlockSize = 1;
+			Sig.logbuf[0] = true;
+			break;
+		}
 		ConditionalOperation(p->next, p->next->child);
 		Sig.LogOp(rsig, pnode->type);
 		break;
@@ -2532,11 +2582,11 @@ try {
 		return TID((AstNode*)pnode, NULL, &tsig); //Make sure endpoint has been prepared prior to this
 	case '+':
 	case '-':
-		tsig = Compute(p);
-		blockCell(pnode,  tsig);
-		if (pnode->type=='+')	Compute(p->next);
-		else					-Compute(p->next);
-		blockCell(pnode,  Sig);
+		if (pnode->type=='+')	tsig = Compute(p->next);
+		else					tsig = -Compute(p->next);
+		blockCell(pnode, Sig);
+		Compute(p);
+		blockCell(pnode, Sig);
 		Sig += tsig;
 		return TID((AstNode*)pnode, NULL, &Sig);
 	case '*':
@@ -2609,7 +2659,7 @@ try {
 			pLast = p;
 			hold_at_break_point(p);
 			Compute(p);
-			pgo = NULL; // without this, go lingers on the next line 2/9/2019
+//			pgo = NULL; // without this, go lingers on the next line 2/9/2019
 			Sig.Reset(1); // without this, fs=3 lingers on the next line 2/9/2019
 		}
 		break;

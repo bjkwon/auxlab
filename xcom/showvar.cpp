@@ -114,6 +114,8 @@ void Back2BaseScope(int closeauxcon);
 
 unsigned int WINAPI debugThread2 (PVOID var) ;
 
+void On_F2(HWND hDlg, CAstSig f2sig, CSignals * psig = nullptr);
+
 int MoveDlgItem(HWND hDlg, int id, CRect rt, BOOL repaint)
 {
 	HWND h = GetDlgItem(hDlg, id);
@@ -271,11 +273,17 @@ CFigure * CShowvarDlg::newFigure(CRect rt, string title, const char *varname, GR
 	return out;
 }
 
-void On_F2(HWND hDlg, CAstSig f2sig)
+void On_F2(HWND hDlg, CAstSig f2sig, CSignals * psig)
 {
 	try {
 		string emsg;
-		f2sig.SetNewScript(emsg, "axnew = ?f2_channel_stereo_mono");
+		if (psig)
+		{
+			f2sig.Vars["arg"] = *psig;
+			f2sig.SetNewScript(emsg, "axnew = ?f2_channel_stereo_mono(arg)");
+		}
+		else
+			f2sig.SetNewScript(emsg, "axnew = ?f2_channel_stereo_mono");
 		f2sig.Compute();
 		CVar *cfig = f2sig.GetGOVariable("?foc");
 		if (f2sig.GOvars.find("axnew") != f2sig.GOvars.end())
@@ -528,7 +536,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 					// cfig->ax must have one or two elements (no zero element)
 					if (cfig->ax.size() > 1)
 					{ // the old sig is audio, stereo
-						if (type == CSIG_TSERIES || type == CSIG_VECTOR)
+						if (type == CSIG_TSERIES)
 						{
 							//delete both axes and plot afresh
 						}
@@ -539,12 +547,12 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 						}
 						else
 						{ //new sig is audio mono. Delete one axes. Update sig in the remaining axes and keep xlim
-
+							On_F2(thisDlg->hDlg, mShowDlg.pcast, psig);
+							showRMS(cfig, 0);
 						}
 					}
 					else // previously one axes
 					{
-						
 						switch (type)
 						{
 						case CSIG_AUDIO:
@@ -552,12 +560,13 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 							{ // previously one, now two axes needed
 							  //Update the line objects and call OnF2
 								mShowDlg.plotvar_update2(cfig->ax.front(), psig);
-	//							On_F2(pmsg->hwnd, mShowDlg.pcast);
+								On_F2(thisDlg->hDlg, mShowDlg.pcast);
 							}
 							else
 							{
 								mShowDlg.plotvar_update(cfig, psig);
 							}
+							showRMS(cfig, 0);
 							break;
 						case CSIG_VECTOR:
 							//Update sig
@@ -1912,7 +1921,29 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	DWORD lastCallbackTimeTaken;
 	callback_trasnfer_record * precorder = NULL;
 	try {
-		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, pmsg->cbp.callbackfilename))
+		char callbackname[256];
+		vector<CVar> callbackparam;
+		if (!pmsg->cbp.cbnode)
+			strcpy(callbackname, "default_callback_audio_recording");
+		else
+		{ // decode pnode for callback. if input args are not right, throw 
+			assert(pmsg->cbp.cbnode->type == N_STRUCT);
+			strcpy(callbackname, pmsg->cbp.cbnode->str);
+			if (pmsg->cbp.cbnode->alt)
+			{
+				CAstSig tp(pmsg->pcast);
+				for (AstNode *p = pmsg->cbp.cbnode->alt->child; p; p = p->next)
+				{
+					tp.Compute(p); // --> is exception handled properly?
+					pvar_callbackinput->appendcell(tp.Sig);
+				}
+				yydeleteAstNode(pmsg->cbp.cbnode->alt, 0);
+				if (pmsg->cbp.cbnode->tail == pmsg->cbp.cbnode->alt)
+					(AstNode *)pmsg->cbp.cbnode->tail = nullptr;
+				pmsg->cbp.cbnode->alt = nullptr;
+			}
+		}
+		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, callbackname))
 		{
 			//Reserve the output variable vector
 			pvar_callbackoutputVector.push_back(new CVar);
@@ -2071,7 +2102,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 		char buffer[512];
-		sprintf (buffer, "%s%s.aux", estr, pmsg->cbp.callbackfilename);
+		sprintf (buffer, "%s%s.aux", estr, pmsg->cbp.cbnode->str);
 		pmsg->parent->MessageBox(buffer, "Audio record error");
 		// callback not found; 1) delete pvar_callbackinput
 		// 2) close the thread

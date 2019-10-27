@@ -348,13 +348,19 @@ int CPlotDlg::estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *lyne, RECT
 int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
 {
 	//need these two lines because after selection play is done, InvalidateRect might have been called for this part
-	if (rcPaint.left > pax->rct.right) return 0; 
+	if (rcPaint.left > pax->rct.right) return 0;
 	if (rcPaint.right < pax->rct.left) return 0;
 	if (rcPaint.right > pax->rct.right) rcPaint.right = pax->rct.right;
 	if (rcPaint.left < pax->rct.left) rcPaint.left = pax->rct.left;
+	POINT pt = { -91128,-911282 };
+	if (p->nSamples == 1)
+	{
+		pt = pax->double2pixelpt(p->tmark / 1000., p->buf[0], NULL);
+		*out = pt;
+		return 1;
+	}
 	POINT pp = GetIndDisplayed(pax);//The indices of xlim[0] and xlim[1], if p were to be a single chain.
 	if (pp.x == pp.y) return -2;
-	POINT pt = { -91128,-911282 };
 	const int fs = lyne->sig.GetFs();
 	CRect rcPal = rcPaint; // the area to draw
 	rcPal.IntersectRect(rcPal, pax->rct);
@@ -594,7 +600,7 @@ void CPlotDlg::OnPaint()
 		POINT *draw= new POINT [1];
 		int nDraws = 0, estCount = 1;
 		if (pax->m_ln.empty())
-		{ // Need this to bypass axes without line object
+		{ // to bypass axes without line object
 			k++;
 			continue;
 		}
@@ -610,18 +616,15 @@ void CPlotDlg::OnPaint()
 			{
 				CPen *pPenOld = NULL;
 				if (!lyne->visible) continue;
-				for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
+				if (lyne->sig.IsScalar() && lyne->sig.chain)
 				{
-					auto anSamples = p->nSamples;
-					auto atuck = p->nGroups;
-					auto atmark = p->tmark;
 					BYTE clcode;
 					vector<DWORD> kolor;
 					clcode = HIBYTE(HIWORD(lyne->color));
 					if (clcode == 'L' || clcode == 'R')
-						kolor = Colormap(clcode, clcode, 'r', atuck);
+						kolor = Colormap(clcode, clcode, 'r', 1);
 					if (clcode == 'l' || clcode == 'r')
-						kolor = Colormap(clcode, clcode + 'R' - 'r', 'c', atuck);
+						kolor = Colormap(clcode, clcode + 'R' - 'r', 'c', 1);
 					else if (clcode == 'M')
 					{
 						CVar cmap = lyne->strut["color"];
@@ -634,73 +637,133 @@ void CPlotDlg::OnPaint()
 					else
 						kolor.push_back(lyne->color);
 					auto colorIt = kolor.begin();
-					for (unsigned int m = 0; m < atuck; m++)
+					unsigned int pos = 0, nDraws = lyne->sig.CountChains();
+					draw = new POINT[nDraws + 1];
+					for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
+						makeDrawVector(draw + pos++, p, pax, lyne, (CRect)ps.rcPaint);
+					lyne->color = *colorIt;
+					if (lyne->symbol != 0)
 					{
-						lyne->color = *colorIt;
-						p->nSamples = p->Len();
-						p->nGroups = 1;
-						memcpy(p->buf, p->buf + m * p->nSamples, p->bufBlockSize*p->nSamples);
-						if (p->IsTimeSignal())
-							p->tmark += 1000.* m*p->nSamples / p->GetFs();
-						if (lyne->lineWidth > 0 || lyne->symbol != 0)
+						LineStyle org = lyne->lineStyle;
+						lyne->lineStyle = LineStyle_solid;
+						if (lyne->lineWidth == 0)
+							lyne->lineWidth = 1;
+						OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+						DrawMarker(dc, lyne, draw, nDraws);
+						lyne->lineStyle = org;
+					}
+					ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+					if (lyne->lineWidth > 0)
+					{
+						if (lyne->lineStyle != LineStyle_noline)
 						{
-							int tp = estimateDrawCounts(p, pax, lyne, ps.rcPaint);
-							if (tp > estCount)
+							int nOutOfAx = 0;
+							for (int k = nDraws - 1; k > 0; k--)
 							{
-								estCount = tp;
-								delete[] draw;
-								draw = new POINT[estCount + 1];
+								if (draw[k].x > pax->rct.right) nOutOfAx++;
+								else break;
 							}
-							nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
-							if (lyne->sig.nSamples==1)
-								lyne->initial = lyne->final = draw[0];
-#ifdef _DEBUG
-							if (nDraws > estCount)
-							{
-								sprintf(buf, "left=%d,right=%d,est=%d,actual=%d", ps.rcPaint.left, ps.rcPaint.right, estCount, nDraws);
-								::MessageBox(NULL, buf, "exceed", 0);
-							}
-#endif // _DEBUG
+							dc.Polyline(draw, nDraws - nOutOfAx);
 						}
-						if (lyne->symbol != 0)
+						if (kolor.size() > 1)
 						{
-							LineStyle org = lyne->lineStyle;
-							lyne->lineStyle = LineStyle_solid;
-							if (lyne->lineWidth == 0)
-								lyne->lineWidth = 1;
-							OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-							DrawMarker(dc, lyne, draw, nDraws);
-							lyne->lineStyle = org;
+							colorIt++;
+							if (colorIt == kolor.end())		colorIt = kolor.begin();
 						}
-						ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-						if (lyne->lineWidth > 0)
+						if (ppen)
 						{
-							if (p->IsTimeSignal()) {
-								if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
-								if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
-							}
-							if (nDraws > 0 && lyne->lineStyle != LineStyle_noline)
+							dc.SelectObject(pPenOld);
+							delete ppen;
+						}
+					}
+				}
+				else
+				{
+					for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
+					{
+						auto anSamples = p->nSamples;
+						auto atuck = p->nGroups;
+						auto atmark = p->tmark;
+						BYTE clcode;
+						vector<DWORD> kolor;
+						clcode = HIBYTE(HIWORD(lyne->color));
+						if (clcode == 'L' || clcode == 'R')
+							kolor = Colormap(clcode, clcode, 'r', atuck);
+						if (clcode == 'l' || clcode == 'r')
+							kolor = Colormap(clcode, clcode + 'R' - 'r', 'c', atuck);
+						else if (clcode == 'M')
+						{
+							CVar cmap = lyne->strut["color"];
+							for (unsigned int k = 0; k < cmap.nSamples; k += 3)
 							{
-								int nOutOfAx = 0;
-								for (int k = nDraws - 1; k > 0; k--)
+								DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
+								kolor.push_back(dw);
+							}
+						}
+						else
+							kolor.push_back(lyne->color);
+						auto colorIt = kolor.begin();
+						for (unsigned int m = 0; m < atuck; m++)
+						{
+							lyne->color = *colorIt;
+							p->nSamples = p->Len();
+							p->nGroups = 1;
+							memcpy(p->buf, p->buf + m * p->nSamples, p->bufBlockSize*p->nSamples);
+							if (p->IsTimeSignal())
+								p->tmark += 1000.* m*p->nSamples / p->GetFs();
+							if (lyne->lineWidth > 0 || lyne->symbol != 0)
+							{
+								int tp = estimateDrawCounts(p, pax, lyne, ps.rcPaint);
+								if (tp > estCount)
 								{
-									if (draw[k].x > pax->rct.right) nOutOfAx++;
-									else break;
+									estCount = tp;
+									delete[] draw;
+									draw = new POINT[estCount + 1];
 								}
-								dc.Polyline(draw, nDraws - nOutOfAx);
+								nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
+								if (lyne->sig.nSamples == 1)
+									lyne->initial = lyne->final = draw[0];
 							}
-							if (kolor.size() > 1)
+							if (lyne->symbol != 0)
 							{
-								colorIt++;
-								if (colorIt == kolor.end())		colorIt = kolor.begin();
+								LineStyle org = lyne->lineStyle;
+								lyne->lineStyle = LineStyle_solid;
+								if (lyne->lineWidth == 0)
+									lyne->lineWidth = 1;
+								OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+								DrawMarker(dc, lyne, draw, nDraws);
+								lyne->lineStyle = org;
 							}
-							p->nGroups = atuck;
-							p->tmark = atmark;
-							p->nSamples = anSamples;
-							if (ppen)
+							ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
+							if (lyne->lineWidth > 0)
 							{
-								dc.SelectObject(pPenOld);
-								delete ppen;
+								if (p->IsTimeSignal()) {
+									if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
+									if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
+								}
+								if (nDraws > 0 && lyne->lineStyle != LineStyle_noline)
+								{
+									int nOutOfAx = 0;
+									for (int k = nDraws - 1; k > 0; k--)
+									{
+										if (draw[k].x > pax->rct.right) nOutOfAx++;
+										else break;
+									}
+									dc.Polyline(draw, nDraws - nOutOfAx);
+								}
+								if (kolor.size() > 1)
+								{
+									colorIt++;
+									if (colorIt == kolor.end())		colorIt = kolor.begin();
+								}
+								p->nGroups = atuck;
+								p->tmark = atmark;
+								p->nSamples = anSamples;
+								if (ppen)
+								{
+									dc.SelectObject(pPenOld);
+									delete ppen;
+								}
 							}
 						}
 					}
@@ -1076,55 +1139,36 @@ void CPlotDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point) 
 {
 	CAxes *cax = CurrentPoint2CurrentAxis(&point);
-	if (!cax) return;
 	mst.clickedOn = true;
 	mst.curPt = mst.last_clickPt = point;
 	edge.px1 = edge.px2 = -1;
 	gcmp=point;
 	mst.curAx = cax;
-	char buf[256];
-	sprintf(buf, "(OnLButtonDown) ax=0x%x: xpt.x=%d, rect.y=%d\n", (INT_PTR)cax, point.x, point.y);
-	sendtoEventLogger(buf);
-	CSignals temp;
-	if (axis_expanding) {ClickOn=0; return;}
-	clickedPt = point;
-	switch(ClickOn = GetMousePos(point)) // ClickOn indicates where mouse was click.
+	if (cax)
 	{
-	case RC_WAVEFORM:  //0x000f
-		if (curRange != NO_SELECTION) // if there's previous selection
+		ClickOn = GetMousePos(point);
+		char buf[256];
+		sprintf(buf, "(OnLButtonDown) ax=0x%x: xpt.x=%d, rect.y=%d\n", (INT_PTR)cax, point.x, point.y);
+		sendtoEventLogger(buf);
+		CSignals temp;
+		if (axis_expanding) {ClickOn=0; return;}
+		clickedPt = point;
+		if (ClickOn == RC_WAVEFORM)
 		{
-			sbar->showXSEL(-1);
-			for (size_t k=0; k<gcf.ax.size(); k++)
+			if (curRange != NO_SELECTION) // if there's previous selection
 			{
-				CRect rt(curRange.px1, gcf.ax[k]->rct.top, curRange.px2+1, gcf.ax[k]->rct.bottom+1);
-				InvalidateRect(&rt);
+				sbar->showXSEL(-1);
+				for (size_t k = 0; k < gcf.ax.size(); k++)
+				{
+					CRect rt(curRange.px1, gcf.ax[k]->rct.top, curRange.px2 + 1, gcf.ax[k]->rct.bottom + 1);
+					InvalidateRect(&rt);
+				}
 			}
+			lbuttondownpoint.x = gcmp.x;
+			curRange.reset();
 		}
-		lbuttondownpoint.x = gcmp.x;
-		curRange.reset();
-		//sprintf(buf, "ButtonDown pt(%d,%d)\n", point.x, point.y);
-		//sendtoEventLogger(buf);
-
-		//temp.ghost = true;
-		//GetGhost(&temp, cax, false);
-		//if (temp.IsTimeSignal())
-		//{
-		//	if (playCursor > 0) // if a playCursor was set, then reset here
-		//	{
-		//		for (size_t k = 0; k < gcf.ax.size(); k++)
-		//		{
-		//			CRect rt(playCursor - 1, gcf.ax[k]->rct.top, playCursor + 1, gcf.ax[k]->rct.bottom + 1);
-		//			InvalidateRect(&rt);
-		//		}
-		//		playCursor = -1;
-		//	}
-		//	SetTimer(MOUSE_CURSOR_SETTING, 1000);
-		//}
-		break;
-	default:
-		gcmp=CPoint(-1,-1);
-		break;
 	}
+	gcmp = CPoint(-1, -1);
 }
 
 void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
@@ -1439,17 +1483,21 @@ void CSBAR::dBRMS(SHOWSTATUS st)
 	//st is no longer used, but keep it for the future 10/4/2019
 	CSignals gcopy, res;
 	char buf0[32] = {}, buf[256] = {};
-	if (ax.empty() || ax.front()->m_ln.empty()) return;
-	if (!ax.front()->m_ln.front()->sig.IsAudio()) return;
-	sprintf(buf, "[dBRMS] ");
-	base->GetGhost(gcopy);
-	res = gcopy.RMS(); // Remember, gcopy loses the previous data after this call.
-	sprintf(buf0, "%.1f ", res.value());
-	strcat(buf, buf0);
-	if (res.next)
+	if (ax.empty() || ax.front()->m_ln.empty() || !ax.front()->m_ln.front()->sig.IsAudio())
 	{
-		sprintf(buf0, "| %.1f ", res.next->value());
+	}
+	else
+	{
+		sprintf(buf, "[dBRMS] ");
+		base->GetGhost(gcopy);
+		res = gcopy.RMS(); // Remember, gcopy loses the previous data after this call.
+		sprintf(buf0, "%.1f ", res.value());
 		strcat(buf, buf0);
+		if (res.next)
+		{
+			sprintf(buf0, "| %.1f ", res.next->value());
+			strcat(buf, buf0);
+		}
 	}
 	::SendMessage(hStatusbar, SB_SETTEXT, 6, (LPARAM)buf);
 }

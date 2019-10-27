@@ -76,7 +76,7 @@ public:
 	WAVEOUTCAPS		woc;
 	WAVEHDR			wh[2];
 	WAVEFORMATEX	wfx;
-	string			callbackname;
+	AstNode   	    *cbnode;
 	short			devID;
 
 	CWaveRecord();
@@ -140,7 +140,7 @@ typedef struct {
 	DWORD recordID;
 	double duration;
 	double block_dur_ms;
-	string callback;
+	AstNode * callback;
 } record_param;
 
 void ThreadCapture(const record_param &p)
@@ -173,7 +173,7 @@ void ThreadCapture(const record_param &p)
 	pWP->wfx.nAvgBytesPerSec = pWP->wfx.nSamplesPerSec * pWP->wfx.nBlockAlign;
 	pWP->bitswidth = p.bytes;
 	pWP->devID = p.devID;
-	pWP->callbackname = p.callback;
+	pWP->cbnode = p.callback;
 
 	char buf[256];
 	sprintf(buf, "ThreadCapture created by %d, waveInOpen called\n", pWP->callingThreadID);
@@ -220,7 +220,7 @@ void ThreadCapture(const record_param &p)
 			break;
 		case WIM_OPEN:
 			sendtoEventLogger("WIM_OPEN\n");
-			strcpy(send2OnSoundEven.callbackfilename, pWP->callbackname.c_str());
+			send2OnSoundEven.cbnode = pWP->cbnode;
 			send2OnSoundEven.devID = pWP->devID;
 			send2OnSoundEven.nChans = p.nChans;
 			send2OnSoundEven.fs = pWP->wfx.nSamplesPerSec;
@@ -305,7 +305,7 @@ static inline CWaveRecord* findbyID(int id)
 }
 
 
-int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, const char *callbackname, double duration, double block_dur_ms, int recordID, char *errmsg)
+int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, AstNode *cbnode, double duration, double block_dur_ms, int recordID, char *errmsg)
 {
 	if (findbyID(recordID))
 	{
@@ -372,7 +372,7 @@ int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChan
 		carrier.block_dur_ms = block_dur_ms;
 		carrier.hWnd_calling = hApplWnd;
 		carrier.msgID = userDefinedMsgID;
-		carrier.callback = callbackname;
+		carrier.callback = cbnode;
 		carrier.recordID = recordID;
 		carrier.devID = DevID;
 

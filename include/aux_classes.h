@@ -18,6 +18,7 @@ using namespace std;
 #include <complex>
 #include <vector>
 #include <map>
+#include <functional>
 
 #define CSIG_EMPTY		0
 #define CSIG_STRING		1
@@ -66,7 +67,7 @@ public:
 	body& operator*=(const double con);
 	body& operator/=(const double con);
 
-	body& UpdateBuffer(unsigned int length);
+	body& UpdateBuffer(unsigned int length, unsigned int offset = 0);
 	void Reset();
 
 	double value() const;
@@ -230,20 +231,25 @@ public:
 	bool IsLogical() const { return (bufBlockSize == 1 && fs != 2); } // logical can be either audio or non-audio, so GetType() of logical array will not tell you whether that's logical or not.
 
 protected:
-	double _dur() { return (double)nSamples / fs*1000.; }// for backward compatibility 5/18
+	double _dur() { return (double)nSamples / fs*1000.; }// for backward compatibility 5/18. No reason to get rid of it. 10/18/2019
 	CSignal& operator<=(CSignal * prhs);
 	CSignal & operator%(const CSignal & v); // scale operator (absolute)
 	CSignal & operator%(double v); // scale operator (absolute)
 	CSignal & operator|(double v); // scale operator (relative)
 	CSignal & operator|(const CSignal & RMS2adjust);
+	CSignal & operator*(pair<vector<double>, vector<double>> coef);
+	pair<unsigned int, unsigned int> grid() const {	return make_pair((unsigned int)round(tmark*fs/1000.), nSamples-1+ (unsigned int)round(tmark*fs / 1000.));	};
+	bool overlap(const CSignal &sec);
+	function<double(double)> op;
+	function<double(double)> op1(double me) { return [me](double you) {return me + you; }; };
+	function<double(double)> op2(double me) { return [me](double you) {return me - you; }; };
+	function<double(double)> op3(double me) { return [me](double you) {return me * you; }; };
+	function<double(double)> op4(double me) { return [me](double you) {return me / you; }; };
+	bool operate(const CSignal& sec, char op);
 
 private:
 	CSignal& _filter(vector<double> num, vector<double> den, unsigned int id0 = 0, unsigned int len = 0);
-	CSignal& operator+(const CSignal& sec);
-	CSignal& operator-(CSignal& sec);
-	const CSignal& operator*(const CSignal& sec);
-	const CSignal& operator/(const CSignal& sec);
-//	CSignal & operator@(const CSignal & sec);
+	int operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset);
 
 	friend class CSignalExt;
 };
@@ -255,7 +261,7 @@ public:
 	vector<CTimeSeries> outarg;
 
 	int WriteAXL(FILE* fp);
-	int IsTimeSignal();
+	int IsTimeSignal() const;
 
 	CTimeSeries runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
 	CTimeSeries & runFct2modify(CSignal& (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
@@ -264,7 +270,7 @@ public:
 	CTimeSeries& Reset(int fs2set = 0);
 	void SetChain(CTimeSeries *unit, double time_shifted = 0.);
 	void SetChain(double time_shifted);
-	CTimeSeries& AddChain(CTimeSeries &sec);
+	CTimeSeries& AddChain(const CTimeSeries &sec);
 	CTimeSeries * GetDeepestChain();
 	CTimeSeries * ExtractDeepestChain(CTimeSeries *deepchain);
 	unsigned int CountChains(unsigned int *maxlength=NULL);
@@ -273,7 +279,6 @@ public:
 	CTimeSeries& MergeChains();
 	CTimeSeries& ConnectChains();
 	CTimeSeries& MC(CTimeSeries &out, std::vector<double> tmarks, int  id1, int  id2);
-	double RMS();  // kept for backward compatibility 5/23/2018
 	CTimeSeries& reciprocal(void);	// Multiplicative inverse
 	CTimeSeries& timeshift(double tp_ms);
 	CTimeSeries& removeafter(double timems);
@@ -292,7 +297,6 @@ public:
 	CTimeSeries& operator/=(double con);
 	CTimeSeries& operator-(void);	// Unary minus
 	CTimeSeries& operator*=(CTimeSeries &scaleArray);
-	CTimeSeries& operator+=(CTimeSeries &sec);
 	CTimeSeries& operator+=(CTimeSeries *yy); // Concatenation
 	CTimeSeries& operator-=(CTimeSeries &sec);
 	CTimeSeries& operator/=(CTimeSeries &scaleArray);
@@ -350,12 +354,15 @@ public:
 	void SetComplex();
 	void SetReal();
 
-
 protected:
 	CTimeSeries& operator<=(CTimeSeries * prhs);
 	CTimeSeries & operator%(CTimeSeries * v);
 	CTimeSeries & operator+(CTimeSeries * sec);
 	CTimeSeries & operator-(CTimeSeries * sec);
+	bool operate(const CTimeSeries& sec, char op);
+
+private:
+	void sort_by_tmark();
 };
 
 class CSignals : public CTimeSeries
@@ -383,17 +390,14 @@ public:
 	CSignals& operator=(const CSignals& rhs);
 	CSignals& operator+=(const double con);
 	CSignals& operator+=(CTimeSeries &sec);
-	CSignals& operator+=(CSignals &sec);
 	const CSignals& operator+=(CSignals *yy);
-	const CSignals& operator+=(CSignal *yy);
 	CSignals& operator*=(CSignals &sec);
 	CSignals& operator*=(const double con);
-	CSignals& operator*=(CSignal &sec);
 	CSignals & operator%(const CSignals &targetRMS);
 	CSignals & operator%(double v);
 	CSignals & operator|(double v);
 	CSignals & operator|(const CSignals & RMS2adjust);
-	int IsTimeSignal();
+	int IsTimeSignal() const;
 	int IsStereo() { return 0 + (next!=NULL); }
 
 	inline bool IsEmpty() const { return next == nullptr && CTimeSeries::IsEmpty(); }
@@ -424,8 +428,6 @@ public:
 	CTimeSeries *DetachNextChan() {CTimeSeries *p=next;next=NULL;return p;}
 	CSignals& Reset(int fs2set=0);
 	CSignals& reciprocal(void);
-	CSignals & operator+(const CSignals & sec);
-	CSignals & operator-(CSignals & sec);
 	CSignals& operator-(void);
 	CSignals& operator<=(const CSignals& rhs); // ghost assignment operator2
 	CSignals& operator<=(CSignals * prhs); // ghost assignment operator2
@@ -506,6 +508,10 @@ public:
 	int Wavread(const char *wavname, char *errstr);
 #endif // NO_SF
 #endif //_WINDOWS
+
+protected:
+	bool operate(const CSignals& sec, char op);
+
 };
 
 class CVar : public CSignals
@@ -537,6 +543,18 @@ public:
 	CVar(const CVar& src);
 	CVar();
 	virtual ~CVar();
+
+	CVar & operator+(const CVar & sec);
+	CVar & operator-(const CVar & sec);
+	CVar & operator*(const CVar & sec);
+	CVar & operator/(const CVar & sec);
+	CVar & operator-();
+	CVar & operator+=(CVar * psec);
+	CVar & operator+=(const CVar & sec);
+	CVar & operator-=(const CVar & sec);
+	CVar & operator*=(const CVar & sec);
+	CVar & operator/=(const CVar & sec);
+
 };
 
 
