@@ -89,18 +89,20 @@ CAxis::~CAxis()
 void CAxis::initGO(void * _hpar)
 {
 	CGobj::initGO(_hpar);
-	strut["type"] = CSignals(std::string("axis"));
-	strut["xyz"] = CSignals((std::string)"");
+	strut["type"] = std::string("axis");
+	strut["xyz"] = std::string("");
 	double lim[2] = { 0, -1, };
-	strut["lim"] = lim;
-	strut["fontname"] = CSignals((std::string)"(fontname)");
-	strut["fontsize"] = CSignals(-1.);
-	strut["scale"] = CSignals((std::string)"linear");
-	strut["tick"] = CSignals(1); // empty with fs=1
-	strut["tickdir"] = CSignals(1); // empty with fs=1
-	strut["ticklabel"] = CSignals((std::string)"");
-	strut["grid"] = CSignals(false);
-	strut["auto"] = CSignals(true);
+	strut["lim"] = CSignals(lim, 2);
+	strut["fontname"] = std::string("(fontname)");
+	strut["fontsize"] = CVar(-1.);
+	strut["scale"] = std::string("linear");
+	strut["tick"] = CVar(1); // empty with fs=1
+	strut["tickdir"] = CVar(1); // empty with fs=1
+	strut["ticklabel"] = std::string("");
+	bool b = false;
+	strut["grid"] = CSignals(&b, 1);
+	b = true;
+	strut["auto"] = CSignals(&b, 1);
 }
 
 CAxis& CAxis::operator=(const CAxis& rhs)
@@ -157,8 +159,9 @@ GRAPHY_EXPORT CAxes::CAxes(CWndDlg * base, CGobj* pParent /*=NULL*/)
 void CAxes::initGO(void * _hpar)
 {
 	CGobj::initGO(_hpar);
-	strut["type"] = CSignals(std::string("axes"));
-	strut["box"] = CSignals(true);
+	bool b = true;
+	strut["type"] = std::string("axes");
+	strut["box"] = CSignals(&b, 1);
 	CSignals empty;
 	strut["sel"] = empty;
 	strut["linewidth"] = CSignals(1.);
@@ -168,7 +171,7 @@ void CAxes::initGO(void * _hpar)
 	CAxis *mor2 = new CAxis(m_dlg, this);
 	struts["y"].push_back(mor2);
 	mor2->SetValue((double)(INT_PTR)(void*)mor2);
-	strut["nextplot"] = CSignals(std::string("replace"));
+	strut["nextplot"] = std::string("replace");
 }
 
 POINT CAxes::GetRef()
@@ -486,9 +489,9 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	if (xdata)
 		in->xdata = CSignal(xdata, pydata->nSamples);
 	setxlim();
-	in->strut["xdata"] = CSignals(in->xdata);
+	in->strut["xdata"] = CVar(CSignals(in->xdata));
 	buf[0] = cymbol;
-	in->strut["marker"] = CSignals(std::string(buf));
+	in->strut["marker"] = std::string(buf);
 	CSignals sig_color;
 	vector<DWORD> cmap;
 	if (hi) // color not specified, L or R specified.
@@ -526,13 +529,13 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	strut["pos"].buf[1] = pos.y0;
 	strut["pos"].buf[2] = pos.width;
 	strut["pos"].buf[3] = pos.height;
-	struts["x"].front()->strut["fontsize"] = CSignals(999.); // ???? where can I find this?
-	struts["x"].front()->strut["tick"] = CSignals(CSignal(xtick.tics1));
-	struts["y"].front()->strut["tick"] = CSignals(CSignal(ytick.tics1));
-	struts["x"].front()->strut["lim"] = CSignals(xlim, 2);
-	struts["y"].front()->strut["lim"] = CSignals(ylim, 2);
-	struts["x"].front()->strut["xyz"] = CSignals(std::string("x"));
-	struts["y"].front()->strut["xyz"] = CSignals(std::string("y"));
+	struts["x"].front()->strut["fontsize"] = CVar(999.); // ???? where can I find this?
+	struts["x"].front()->strut["tick"] = CVar(CSignals(CSignal(xtick.tics1)));
+	struts["y"].front()->strut["tick"] = CVar(CSignals(CSignal(ytick.tics1)));
+	struts["x"].front()->strut["lim"] = CVar(CSignals(xlim, 2));
+	struts["y"].front()->strut["lim"] = CVar(CSignals(ylim, 2));
+	struts["x"].front()->strut["xyz"] = std::string("x");
+	struts["y"].front()->strut["xyz"] = std::string("y");
 	return in; //This is the line object that was just created.
 }
 

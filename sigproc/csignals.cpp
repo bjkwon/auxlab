@@ -229,6 +229,12 @@ CVar& CVar::operator=(const CVar& rhs)
 	}
 	return *this;
 }
+
+CVar & CVar::operator=(CVar * rhs)
+{
+	return *this = *rhs;
+}
+
 bool CSignals::operator==(const CSignals &rhs)
 {
 	if (!CTimeSeries::operator==(rhs)) return false;
@@ -1190,7 +1196,7 @@ CSignal::CSignal(double *y, int len)
 	memcpy((void*)buf, (void*)y, sizeof(double)*len);
 }
 
-vector<double> body::ToVector()
+vector<double> body::ToVector() const
 {
 	vector<double> out;
 	out.resize((size_t)nSamples);
@@ -1308,33 +1314,6 @@ void CTimeSeries::SwapContents1node(CTimeSeries &sec)
 	tmp.chain = NULL;
 }
 
-CTimeSeries& CTimeSeries::operator+=(double con)
-{
-	body::operator+=(con);
-	if (chain) *chain += con;
-	return *this;
-}
-
-CTimeSeries& CTimeSeries::operator*=(double con)
-{
-	body::operator*=(con);
-	if (chain) *chain *= con;
-	return *this;
-}
-
-CTimeSeries& CTimeSeries::operator-(void)	// Unary minus
-{
-	CSignal::operator-();
-	if (chain)	-*chain;
-	return *this;
-}
-
-CTimeSeries& CTimeSeries::operator/=(double con)
-{
-	body::operator/=(con);
-	if (chain) *chain /= con;
-	return *this;
-}
 
 CSignal& CSignal::Modulate(vector<double> &tpoints, vector<double> &tvals)
 {
@@ -1369,15 +1348,6 @@ CSignal& CSignal::Modulate(vector<double> &tpoints, vector<double> &tvals)
 //}
 
 
-CTimeSeries& CTimeSeries::operator*=(CTimeSeries &sec)
-{
-	if (IsEmpty() || GetType() == CSIG_NULL) return (*this = sec);
-	if (sec.IsEmpty() || sec.GetType() == CSIG_NULL) return *this;
-	if (IsSingle() && !sec.IsSingle())
-		SwapContents1node(sec);
-	AddMultChain('*', &sec);
-	return *this;
-}
 
 CSignal& CSignal::operator+=(CSignal *yy)
 {
@@ -1908,7 +1878,8 @@ CSignal& CSignal::Cumsum()
 
 CTimeSeries& CTimeSeries::operator/=(CTimeSeries &scaleArray)
 {
-	return *this *= scaleArray.reciprocal();
+	operate(scaleArray, '/');
+	return *this;
 }
 
 CSignal& CSignal::reciprocal(void)
@@ -2655,7 +2626,7 @@ CTimeSeries& CTimeSeries::Insert(double timept, CTimeSeries &newchunk)
 		//Now, *this is prepared (the new signal buffer can be inserted)
 		for (p = &newchunk; p; p = p->chain)
 			p->tmark += timept;
-		*this += newchunk;
+		operate(newchunk, '+');
 		return *this;
 	}
 	else
@@ -3303,7 +3274,7 @@ CSignal& CSignal::IIR(unsigned int id0, unsigned int len)
 }
 #endif // NO_IIR
 
-std::string CSignal::string()
+std::string CSignal::string() const
 {
 	unsigned int k;
 	std::string out;
@@ -3548,13 +3519,14 @@ CSignals::CSignals()
 {
 }
 
-CSignals::CSignals(bool b)
+CSignals::CSignals(bool *b, unsigned int len)
 	: next(NULL)
 {
 	Reset(1);
 	bufBlockSize = 1; // logical array
-	UpdateBuffer(1);
-	logbuf[0] = b;
+	UpdateBuffer(len);
+	bool bv = *b;
+	for_each(logbuf, logbuf + len, [bv](bool v) { v = bv; });
 }
 
 CSignals::CSignals(int sampleRate)
@@ -3725,25 +3697,17 @@ CSignals & CSignals::RMS()
 	return *this = out;
 }
 
-CSignals& CSignals::operator-(void)	// Unary minus
+
+CSignals& CSignals::operator+=(double con)
 {
-	CTimeSeries::operator-();
-	if (next)	-*next;
+	operate(CSignals(con), '+');
+	return *this ;
+}
+CSignals& CSignals::operator*=(double con)
+{
+	operate(CSignals(con), '*');
 	return *this;
 }
-
-CSignals& CSignals::operator+=(const double con)
-{
-	CSignals _sec(con);
-	return (*this += (_sec));
-}
-
-CSignals& CSignals::operator+=(CTimeSeries &sec)
-{
-	CSignals _sec(sec);
-	return (*this += (_sec));
-}
-
 
 const CSignals& CSignals::operator+=(CSignals *yy)
 {
@@ -3757,21 +3721,8 @@ const CSignals& CSignals::operator+=(CSignals *yy)
 	return *this;
 }
 
-CSignals& CSignals::operator*=(const double con)
-{
-	CSignals _sec(con);
-	return (*this *= (_sec));
-}
 
-CSignals& CSignals::operator*=(CSignals &sec)
-{
-	SwapCSignalsPutScalarSecond(*this, sec);
-	CTimeSeries::operator*=(sec);
-	if (next)
-		if (sec.next)	*next *= *sec.next;
-		else			*next *= sec;
-	return *this;
-}
+
 int CSignals::IsTimeSignal() const
 { // Assume that CTimeSeries and next have the same type, except for null or empty
 	if (CTimeSeries::IsTimeSignal()) return 1;
@@ -4393,14 +4344,14 @@ CVar&  CVar::length()
 	return *this;
 }
 
-bool CVar::IsAudioObj()
+bool CVar::IsAudioObj() const
 {
 	if (strut.empty()) return false;
-	if (strut.find("type") == strut.end()) return false;
-	CSignals type = strut["type"];
-	if (type.GetType() != CSIG_STRING) return false;
+	auto type = strut.find("type");
+	if (type == strut.end()) return false;
+	if (!(*type).second.IsString()) return false;
 	//The text content may be audio_playback or audio_playback (inactive)
-	if (type.string().find("audio_playback") != 0 && type.string().find("audio_record") != 0) return false;
+	if ((*type).second.string().find("audio_playback") != 0 && (*type).second.string().find("audio_record") != 0) return false;
 	return true;
 }
 
@@ -4423,6 +4374,11 @@ CVar::CVar(const CVar& src)
 {
 	*this = src;
 }
+CVar::CVar(CVar * src)
+: functionEvalRes(false)
+{
+	*this = *src;
+}
 
 CVar& CVar::Reset(int fs2set)
 {
@@ -4433,7 +4389,7 @@ CVar& CVar::Reset(int fs2set)
 	return *this;
 }
 
-int CVar::GetType()
+int CVar::GetType() const
 {
 	if (fs == 3)
 		return CSIG_HDLARRAY;

@@ -200,7 +200,7 @@ void CAstSig::blockComplex(const AstNode *pnode, CVar &checkthis)
 void _diff(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkSignal(pnode, past->Sig);
-	CSignals sig = past->Sig;
+	CVar sig = past->Sig;
 	int order=1;
 	if (p) {
 		past->Compute(p);
@@ -215,7 +215,7 @@ void _diff(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 void _nullin(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals sig = past->Sig;
+	CVar sig = past->Sig;
 	past->Compute(p);
 	past->checkScalar(p, past->Sig);
 	sig.NullIn(past->Sig.value());
@@ -432,7 +432,7 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 					throw past->ExceptionMsg(pnode, fnsigs, "Not enough arguments.");
 				if (nGroupIndex == 2 && *szStart == 's')
 					vstring = tast.ComputeString(p);
-				else if (tast.Compute(p).IsScalar())
+				else if (tast.Compute(p)->IsScalar())
 					v = tast.Sig.value();
 				else
 					throw past->ExceptionMsg(pnode, fnsigs, "Scalar value expected for this argument.");
@@ -557,10 +557,10 @@ void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 
 void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	CSignals first = past->Sig;
+	CVar first = past->Sig;
 	if (!first.IsScalar()) throw past->ExceptionMsg(pnode, "All arguments must be scalars (check 1st arg).");
 	double val1, val2, step;
-	CSignals third, second = past->Compute(p->next);
+	CVar third, second = past->Compute(p->next);
 	if (!second.IsScalar()) throw past->ExceptionMsg(pnode, "All arguments must be scalars (check 2nd arg)."); 
 	val1 = first.value();
 	val2 = second.value();
@@ -584,9 +584,9 @@ void _interp1(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 	// Probably allow only vectors... 
 	// Assume qp is non-decreasing sequence.
 	// 3 / 6 / 2019
-	CSignals rx = past->Sig;
-	CSignals ry = past->Compute(p);
-	CSignals qx = past->Compute(p->next);
+	CVar rx = past->Sig;
+	CVar ry = past->Compute(p);
+	CVar qx = past->Compute(p->next);
 	vector<double> rv = rx.ToVector();
 	vector<double>::iterator it = rv.begin();
 	past->Sig.UpdateBuffer(qx.nSamples);
@@ -681,7 +681,7 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	past->checkAudioSig(p, past->Sig);
 	string option;
 	string filename;
-	CSignals third;
+	CVar third;
 	try {
 		CAstSig tp(past);
 		tp.Compute(p);
@@ -708,7 +708,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	past->checkAudioSig(p, past->Sig);
 	string option;
 	string filename;
-	CSignals third;
+	CVar third;
 	try {
 		CAstSig tp(past);
 		tp.Compute(p);
@@ -859,14 +859,14 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			throw past->ExceptionMsg(pnode, fnsigs, "The base must be an audio signal or an audio handle (1)");
 		if (sig.strut.find("type")== sig.strut.end())
 			throw past->ExceptionMsg(pnode, fnsigs, "The base must be an audio signal or an audio handle (2)");
-		CSignals type = sig.strut["type"];
+		CVar type = sig.strut["type"];
 		if (type.GetType()!=CSIG_STRING || type.string() != "audio_playback")
 			throw past->ExceptionMsg(pnode, fnsigs, "The base must be an audio signal or an audio handle (3)");
 		if (!p)
 			throw past->ExceptionMsg(pnode, fnsigs, "Audio signal not given.");
 		past->Compute(p);
 		past->checkAudioSig(p, past->Sig);
-		CSignals audio = past->Sig;
+		CVar audio = past->Sig;
 		if (p->next)
 		{
 			past->Compute(p->next);
@@ -920,13 +920,13 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			p->sig.SetValue((double)(INT_PTR)h);
 //			p->sig.strut["data"] = sig; // Let's not do this any more.. no strong need. 9/9/2019
 			p->sig.strut.insert(pair<string, CVar>("type", string("audio_playback")));
-			p->sig.strut.insert(pair<string, CVar>("devID", CSignals((double)devID)));
-			p->sig.strut.insert(pair<string, CVar>("durTotal", CSignals(addtime)));
+			p->sig.strut.insert(pair<string, CVar>("devID", CVar((double)devID)));
+			p->sig.strut.insert(pair<string, CVar>("durTotal", CVar(addtime)));
 			if (p->sig.strut.find("durLeft") == p->sig.strut.end())
-				p->sig.strut.insert(pair<string, CVar>("durLeft", CSignals(addtime)));
+				p->sig.strut.insert(pair<string, CVar>("durLeft", CVar(addtime)));
 			else
 				*(p->sig.strut["durLeft"].buf) += addtime;
-			p->sig.strut.insert(pair<string, CVar>("durPlayed", CSignals(0.)));
+			p->sig.strut.insert(pair<string, CVar>("durPlayed", CVar(0.)));
 			past->Sig = p->sig; //only to return to xcom
 		}
 	}
@@ -1058,7 +1058,7 @@ void _include(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 			if (!tast.SetNewScriptFromFile(emsg, filename.c_str(), NULL, body))
 				if (!emsg.empty())
 					throw emsg.c_str();
-			vector<CVar> res = tast.Compute();
+			vector<CVar *> res = tast.Compute();
 			past->Sig = res.back();
 			for (map<string, CVar>::iterator it = tast.Vars.begin(); it != tast.Vars.end(); it++)
 				past->Vars[it->first] = it->second;
@@ -1076,7 +1076,7 @@ void _eval(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	string str = past->ComputeString(p);
 	try {
 		CAstSig tast(str.c_str(), past);
-		vector<CVar> res = tast.Compute();
+		vector<CVar *> res = tast.Compute();
 		//transporting variables 
 		for (map<string, CVar>::iterator it = tast.Vars.begin(); it != tast.Vars.end(); it++)
 			past->SetVar(it->first.c_str(), &it->second);
@@ -1106,7 +1106,7 @@ void _str2num(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 		tast.SetNewScript(emsg, "[]");
 	if (!isAllNodeT_NUM(tast.pAst->child))
 		tast.SetNewScript(emsg, "[]");
-	vector<CVar> res = tast.Compute();
+	vector<CVar *> res = tast.Compute();
 	past->Sig = res.back();
 }
 
@@ -1137,7 +1137,7 @@ void _ones(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 void _matrix(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->blockCell(pnode, past->Sig);
-	CSignals second;
+	CVar second;
 	try {
 		CAstSig tp(past);
 		second = tp.Compute(p);
@@ -1221,26 +1221,26 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 				_splitpath(ls.cFileName, NULL, NULL, fname, ext);
 			char fullname[256];
 			CVar tp;
-			tp.strut["name"] = CSignals(CSignal(string(fname)));
-			tp.strut["ext"] = CSignals(CSignal(string(ext)));
+			tp.strut["name"] = string(fname);
+			tp.strut["ext"] = string(ext);
 			if (fname[0] != '.' || fname[1] != '\0')
 			{
 				if (pathonly[0])
-					tp.strut["path"] = CSignals(CSignal(string(pathonly)));
+					tp.strut["path"] = string(pathonly);
 				else
 				{
 					char *pt = strstr(fullname, fname);
 					if (pt) *pt = 0;
-					tp.strut["path"] = CSignals(CSignal(string(fullname)));
+					tp.strut["path"] = string(fullname);
 				}
-				tp.strut["bytes"] = CSignals((double)((unsigned __int64)(ls.nFileSizeHigh * (MAXDWORD + 1)) + ls.nFileSizeLow));
+				tp.strut["bytes"] = CVar((double)((unsigned __int64)(ls.nFileSizeHigh * (MAXDWORD + 1)) + ls.nFileSizeLow));
 				FILETIME ft = ls.ftLastWriteTime;
 				SYSTEMTIME lt;
 				FileTimeToSystemTime(&ft, &lt);
 				sprintf(fullname, "%02d/%02d/%4d, %02d:%02d:%02d", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond);
-				tp.strut["date"] = CSignals(CSignal(string(fullname)));
-				bool b = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
-				tp.strut["isdir"] = CSignals(b);
+				tp.strut["date"] = string(fullname);
+				CVar b(double(ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY));
+				tp.strut["isdir"] = b;
 				past->Sig.appendcell(tp);
 			}
 		} while (FindNextFile(hFind, &ls));
@@ -1303,8 +1303,8 @@ void _or(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	}
 	else
 	{
-		CSignals x1 = past->Sig;
-		CSignals x2 = past->Compute(p);
+		CVar x1 = past->Sig;
+		CVar x2 = past->Compute(p);
 		if (!x2.IsLogical())
 			throw past->ExceptionMsg(pnode, fnsigs, "argument must be a logical variable.");
 		past->Sig.Reset(1);
@@ -1338,8 +1338,8 @@ void _and(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	}
 	else
 	{
-		CSignals x1 = past->Sig;
-		CSignals x2 = past->Compute(p);
+		CVar x1 = past->Sig;
+		CVar x2 = past->Compute(p);
 		if (!x2.IsLogical())
 			throw past->ExceptionMsg(pnode, fnsigs, "argument must be a logical variable.");
 		past->Sig.Reset(1);
@@ -1428,11 +1428,11 @@ void _sort(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 
 void _decfir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	CSignals second = past->Compute(p->next);
-	CSignals third = past->Compute(p->next->next);
+	CVar second = past->Compute(p->next);
+	CVar third = past->Compute(p->next->next);
 	if (!third.IsScalar())
 		throw past->ExceptionMsg(pnode, fnsigs, "3rd argument must be a scalar: offset");
-	CSignals fourth = past->Compute(p->next->next->next);
+	CVar fourth = past->Compute(p->next->next->next);
 	if (!fourth.IsScalar())
 		throw past->ExceptionMsg(pnode, fnsigs, "4th argument must be a scalar: nChan");
 	int offset = (int)third.value()-1; // because AUX is one-based
@@ -1447,17 +1447,17 @@ void _conv(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 {
 	//For only real (double) arrays 3/4/2019
 	//p should be non NULL
-	CSignals sig = past->Sig;
-	CSignals array2 = past->Compute(p);
+	CVar sig = past->Sig;
+	CVar array2 = past->Compute(p);
 	past->Sig = sig.runFct2modify(&CSignal::conv, &array2);
 }
 
 void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals sig = past->Sig;
+	CVar sig = past->Sig;
 	string fname = pnode->str;
-	CSignals third, second = past->Compute(p);
+	CVar third, second = past->Compute(p);
 	if (p->next) {	// 3 args
 		third = past->Compute(p->next);
 	} else {				// 2 args
@@ -1498,7 +1498,7 @@ void _iir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 	const AstNode *args = p;
 	string fname = pnode->str;
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals sigX(past->Sig);
+	CVar sigX(past->Sig);
 	string emsg;
 	past->Compute(p);
 	freqs[0] = past->Sig.value();
@@ -1604,9 +1604,9 @@ void _blackman(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 
 void _fm(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	CSignals fifth, second = past->Compute(p->next);
-	CSignals third = past->Compute(p->next->next);
-	CSignals fourth = past->Compute(p->next->next->next);
+	CVar fifth, second = past->Compute(p->next);
+	CVar third = past->Compute(p->next->next);
+	CVar fourth = past->Compute(p->next->next->next);
 	if (!second.IsScalar()) throw past->ExceptionMsg(p, fnsigs, "freq2 must be a scalar.");
 	if (!third.IsScalar()) throw past->ExceptionMsg(p, fnsigs, "mod_rate must be a scalar.");
 	if (!fourth.IsScalar()) throw past->ExceptionMsg(p, fnsigs, "duration must be a scalar.");
@@ -1755,7 +1755,7 @@ void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 {
 	if (past->Sig.IsEmpty()) return; //for empty input, empty output
 	string fname = pnode->str;
-	CSignals sig = past->Sig;
+	CVar sig = past->Sig;
 	CVar additionalArg(sig.GetFs());
 	CVar *pt(NULL);
 	if (past->pAst->type == N_VECTOR && past->pAst->alt->next) pt =  &additionalArg;
@@ -1829,7 +1829,7 @@ void _vector(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string 
 void _ramp(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	CSignals param;
+	CVar param;
 	try {
 		CAstSig tp(past);
 		tp.Compute(p);
@@ -1914,7 +1914,7 @@ void _tone(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		throw past->ExceptionMsg(p, fnsigs, "Duration must be positive.");
 	if (nArgs == 3)
 	{
-		CSignals _initph = past->Compute(p->next->next);
+		CVar _initph = past->Compute(p->next->next);
 		if (!_initph.IsScalar())
 			throw past->ExceptionMsg(p, fnsigs, "Initial_phase must be a scalar.");
 		initPhase = _initph.value();
@@ -1935,7 +1935,7 @@ void _tone(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 
 void _tparamonly(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	CSignals dur = past->Sig;
+	CVar dur = past->Sig;
 	if (!dur.IsScalar())
 		throw past->ExceptionMsg(p, fnsigs, "duration must be a scalar.");
 	if (dur.value()<0.)
@@ -1974,7 +1974,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		if (past->Sig.GetFs() != past->GetFs())
 		{
 			int oldFs = past->GetFs();
-			CSignals ratio(1);
+			CVar ratio(1);
 			ratio.SetValue(past->Sig.GetFs() / (double)oldFs);
 			past->Sig.runFct2modify(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
@@ -2893,7 +2893,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 	//1) Groupizing this part
 	//2) _minmax return complex if complex...
 
-	CSignals param, arg;
+	CVar param, arg;
 	// if Sig is real, negative forbid functions are checked here and proper function pointers are set... really??? 8/21/2018
 	switch (res)
 	{

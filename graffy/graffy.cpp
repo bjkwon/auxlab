@@ -1067,7 +1067,7 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	}
 }
 
-GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, CVar RHS)
+GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CVar & RHS)
 {
 	//put NULL for the first param to invoke InvalidateRect 
 	CFigure *cfig;

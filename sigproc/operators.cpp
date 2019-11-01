@@ -9,8 +9,8 @@ bool CSignal::overlap(const CSignal &sec)
 }
 
 int CSignal::operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset)
-{
-	if (fs != sec.fs) throw "lhs and rhs must have the same fs";
+{//The case of scalar sec is handled separately. Here we only separately allow the case of *this scalar.
+	if (nSamples > 1 && fs != sec.fs) throw "lhs and rhs must have the same fs";
 	// if this and sec are do not overlap, return here
 	if (sec.grid().first > grid().second || sec.grid().second < grid().first)
 		return 0;
@@ -268,12 +268,24 @@ CVar & CVar::operator+=(CVar * psec)
 	return *this;
 }
 
-CSignal& CSignal::operator-(void)
+CSignal& CSignal::operator-(void) 	// Unary minus
 {
 	if (bufBlockSize == sizeof(double))
 		for (unsigned int k = 0; k < nSamples; k++) buf[k] = -buf[k];
 	if (bufBlockSize == 2 * sizeof(double))
 		for (unsigned int k = 0; k < nSamples; k++) cbuf[k] = -cbuf[k];
+	return *this;
+}
+CTimeSeries& CTimeSeries::operator-(void) 	// Unary minus
+{
+	for (CTimeSeries *p = this; p; p = p->chain)
+		p->CSignal::operator-();
+	return *this;
+}
+CSignals& CSignals::operator-(void)	// Unary minus
+{
+	CTimeSeries::operator-();
+	if (next)	-*next;
 	return *this;
 }
 

@@ -34,7 +34,6 @@ void ReplaceStr(string &str, const char *from, const char *to) { ReplaceStr(str,
 
 HMODULE hLib(NULL);
 
-CSignals fourth, third, first, second;
 DWORD colordw;
 double blocksize;
 
@@ -522,23 +521,23 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CSignals *pGO(NULL);
-	vector<CSignals> args;
+	vector<CVar *> args;
 	if (past->pgo)
 		pGO = past->pgo;
 	else if (past->Sig.IsGO())
 		pGO = &past->Sig;
 	else
-		args.push_back(past->Sig);
+		args.push_back(&past->Sig);
 	if (pGO)
 		args.push_back(past->Compute(p));
 	for (const AstNode *pp(p); pp; pp = pp->next)
 		args.push_back(past->Compute(pp));
 	int count = 0;
-	vector<CSignals>::reverse_iterator rit = args.rbegin();
-	if ((*rit).GetType() != CSIG_STRING) throw CAstException(pnode, past, "The last argument must be string.");
+	vector<CVar *>::reverse_iterator rit = args.rbegin();
+	if ((**rit).GetType() != CSIG_STRING) throw CAstException(pnode, past, "The last argument must be string.");
 	for (rit++; count<2; rit++, count++)
 	{
-		if ((*rit).GetType() != CSIG_SCALAR) 
+		if ((**rit).GetType() != CSIG_SCALAR) 
 			throw CAstException(pnode, past, "X- and Y- positions must be scalar.");
 	}
 	CSignals *pgcf = past->GetVariable("gcf");
@@ -553,7 +552,8 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	else
 		pgcf = pGO;
 	CFigure *cfig = (CFigure *)pgcf;
-	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back().string().c_str(), (args.end()-3)->value(), (args.end() - 2)->value(), 0, 0));
+	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back()->string().c_str(), 
+		(*(args.end()-3))->value(), (*(args.end() - 2))->value(), 0, 0));
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
 	past->Sig = *(past->pgo = ctxt); 
@@ -647,7 +647,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 		else
 		{
 			CAstSig tp(past);
-			if (!tp.Compute(pp).IsString())
+			if (!tp.Compute(pp)->IsString())
 				past->Compute(pp);
 			pp = p->next;
 		}
@@ -658,7 +658,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 		{//check whether pp is processed into a string...We need to know whether this is x-ploy or xy-plot
 		 //it should have survived error handling in _plot_line
 			CAstSig tp(past);
-			if (tp.Compute(pp).IsString())
+			if (tp.Compute(pp)->IsString())
 				ignoreLast = true;
 		}
 		if ((!pp || ignoreLast) && !xdata) // NULL p: the last; NULL xdata: not xy plot

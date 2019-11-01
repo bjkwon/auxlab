@@ -73,7 +73,7 @@ void CGobj::initGO(void * hpar)
 	strut["color"] = CSignals(buf, 3);
 	strut["userdata"] = CSignals(1); // empty
 	strut["tag"] = CSignals(std::string(""));
-	strut["visible"] = CSignals(true);
+	strut["visible"] = CSignals(double(true));
 	if (hpar)
 	{ // hpar is non-NULL except for CFigure, for which SetValue is done differently (either string or integer value)
 		geneal = ((CGobj *)hpar)->geneal;
@@ -140,7 +140,7 @@ GRAPHY_EXPORT CFigure::CFigure()
 	initGO(NULL);
 	vector<DWORD> cl(1, color=RGB(230, 230, 210)); // color can disppear later 12/5
 	strut["color"] = COLORREF2CSignals(cl, CSignals());
-	strut["visible"] = CSignals(false); // all figure windows are invisible when created.
+	strut["visible"] = CSignals(double(false)); // all figure windows are invisible when created.
 }
 
 CFigure::~CFigure()
@@ -164,7 +164,7 @@ void CFigure::initGO(void * _hpar)
 	struts["gca"].pop_back();
 	// all figure windows are invisible when created; set visible -1 now (so that the application knows this is uniniated)
 	visible = -1;
-	strut["visible"] = CSignals(false);
+	strut["visible"] = CSignals(double(false));
 }
 
 CAxes *CFigure::axes(CPosition pos)

@@ -1,3 +1,8 @@
+/*
+Chaging return type of CAstSig::TID from CVar & to CVar *
+
+*/
+
 // AUXLAB 
 //
 // Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
@@ -59,7 +64,7 @@ void dummy_fun6a(const char* pt)
 {
 }
 
-void dummy_fun7(CAstSig *a, const char *b, CVar c)
+void dummy_fun7(CAstSig *a, const char *b, const CVar &c)
 {
 }
 
@@ -319,11 +324,11 @@ bool CAstSig::isInterrupted(void)
 }
 
 
-CVar &CAstSig::Eval(AstNode *pnode)
+CVar * CAstSig::Eval(AstNode *pnode)
 {
 	try {
 		if (!pnode)
-			return Sig;
+			return &Sig;
 		return Compute(pnode); 
 	} catch (const CAstException &e) {
 		char errmsg[500];
@@ -404,7 +409,7 @@ void CAstSig::hold_at_break_point(const AstNode *pnode)
 	}
 }
 
-void CAstSig::astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar), void(*fp8)(CAstSig *))
+void CAstSig::astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, const CVar &), void(*fp8)(CAstSig *))
 {
 	fpmsg.UpdateDebuggerGUI = fp1;
 	fpmsg.HoldAtBreakPoint = fp2;
@@ -840,8 +845,8 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		if (p->type==T_ID || p->type == T_FOR || p->type == T_IF || p->type == T_WHILE || p->type == N_IDLIST || p->type == N_VECTOR)
 			hold_at_break_point(p);
 		Compute(p);
-		pgo = NULL; // without this, go lingers on the next line
-		Sig.Reset(1); // without this, fs=3 lingers on the next line
+//		pgo = NULL; // without this, go lingers on the next line
+//		Sig.Reset(1); // without this, fs=3 lingers on the next line
 		if (fExit) break;
 		p=p->next;
 	}
@@ -1457,10 +1462,9 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 	return pnode4Func;
 }
 
-CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
+CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 {
-	CVar refRMS;
-	CSignals dB = Compute(p->next);
+	CVar refRMS, dB = Compute(p->next);
 	// if tsig is scalar -- apply it across the board of Sig
 	// if tsig is two-element vector -- if Sig is stereo, apply each; if not, take only the first vector and case 1
 	// if tsig is stereo-scalar, apply the scalar to each L and R of Sig. If Sig is mono, ignore tsig.next
@@ -1476,7 +1480,8 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 	}
 	else
 	{
-		refRMS <= Sig = Compute(p);
+		Sig = Compute(p);
+		refRMS <= Sig;
 		if (dB.IsScalar() && dB.chain) // scalar time sequence
 		{
 			for (CTimeSeries *p = &dB; p; p = p->chain)
@@ -1484,7 +1489,7 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 				p->buf[0] = pow(10, p->buf[0] / 20.);
 			}
 			Sig % dB;
-			return Sig;
+			return &Sig;
 		}
 		// A known hole in the logic here---if dB is stereo but first channel is scalar
 		// and next is chained, or vice versa, this will not work
@@ -1509,7 +1514,7 @@ CVar &CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 		refRMS = refRMS - dB;
 	}
 	Sig | -refRMS;
-	return Sig;
+	return &Sig;
 }
 
 void CAstSig::prepare_endpoint(const AstNode *p, CVar *pvar)
@@ -1563,7 +1568,7 @@ void CAstSig::index_array_satisfying_condition(CVar &isig)
 }
 
 
-CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
+CVar * CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 { 
 	//For now (6/12/2018) only [vector1][vector2] where two vectors have the same length.
 	CVar tsig2, tsig = Compute(p);
@@ -1628,7 +1633,7 @@ CVar &CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 			*run = tp;
 		}
 	}
-	return Sig;
+	return &Sig;
 }
 
 string CAstSig::adjustfs(int newfs)
@@ -1649,15 +1654,14 @@ string CAstSig::adjustfs(int newfs)
 				return out;
 			}
 			it.second.SetFs(newfs);
-			CSignals level2 = it.second.RMS();
-			it.second *= level2.value() / level.value();
+			it.second *= CSignals(it.second.RMS().value() / level.value());
 		}
 	}
 	pEnv->Fs = newfs; //Sample rate adjusted
 	return out;
 }
 
-CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
+CVar * CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 {
 //	int res;
 	string dummy;
@@ -1692,10 +1696,10 @@ CVar &CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 			}
 		}
 	}
-	return Sig; // nominal return value 
+	return &Sig; // nominal return value 
 }
 
-CVar &CAstSig::NodeMatrix(const AstNode *pnode, AstNode *p)
+CVar * CAstSig::NodeMatrix(const AstNode *pnode, AstNode *p)
 { //[x1; x2]  if for a stereo audio signal, both x1 and x2 must be audio
 	// if none of these elements are audio, it can have multiple rows [x1; x2; x3; .... xn]. But these elements must be the same length.
 	CVar esig, tsig = Compute(p);
@@ -1706,7 +1710,7 @@ CVar &CAstSig::NodeMatrix(const AstNode *pnode, AstNode *p)
 	else if (tsig.GetType() == CSIG_TSERIES) audio = 10;
 	else if (tsig.GetType() == CSIG_STRING || tsig.GetType() == CSIG_SCALAR || tsig.GetType() == CSIG_VECTOR) audio = -1;
 	if (audio == 0 && !p->next)
-		return Sig.Reset();
+		return &Sig.Reset();
 	CVar *psig = &tsig;
 	unsigned int k(1);
 	AstNode *pp = pnode->tail; // temporary holder for the matrix-wide dot operation
@@ -1752,10 +1756,10 @@ CVar &CAstSig::NodeMatrix(const AstNode *pnode, AstNode *p)
 	//Finally the matrix-wide dot operation
 	/*if (pp && pp->type == N_STRUCT)
 		NodeCall(pp, pp->child, NULL, true);*/
-	return Sig;
+	return &Sig;
 }
 
-CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
+CVar * CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 {
 	unsigned int len;
 	vector<double> databuf;
@@ -1763,7 +1767,7 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 	//First it checks whether every item has the same nGroups
 	//Also checks if it's complex
 	CVar tsig = Compute(p);
-	if (tsig.GetType()==CSIG_AUDIO) return Sig = tsig;
+	if (tsig.GetType()==CSIG_AUDIO) return &(Sig = tsig);
 	bool thisisGO = false;
 	bool beginswithempty = tsig.IsEmpty();
 	thisisGO = tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO();
@@ -1806,7 +1810,7 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 				out.buf[out.nSamples-1] = (double)(INT_PTR)pgo;
 			}
 		}
-		return Sig = out;
+		return &(Sig = out);
 	}
 	out.UpdateBuffer(ngroups*totalLen);
 	out.nGroups = ngroups;
@@ -1825,24 +1829,26 @@ CVar &CAstSig::NodeVector(const AstNode *pnode, AstNode *p)
 		col += len;
 	}
 	out.bufBlockSize = Sig.bufBlockSize;
-	return Sig = out;
+	return &(Sig = out);
 }
 
-CVar &CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)
+vector<double> CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)
 { // assume: pnode type is N_TIME_EXTRACT
+	vector<double> out;
 	CVar tsig1 = Compute(p);
 	if (!tsig1.IsScalar())
 		throw ExceptionMsg(pnode, "Time marker1 should be scalar");
 	CVar tsig2 = Compute(p->next);
 	if (!tsig2.IsScalar())
 		throw ExceptionMsg(pnode, "Time marker2 should be scalar");
-	tsig1 += &tsig2;
-	return Sig = tsig1;
+	out.push_back(tsig1.value());
+	out.push_back(tsig2.value());
+	return out;
 }
 
 #define MARKERCHARS "os.x+*d^v<>ph"
 
-bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, CVar &tsig)
+bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &tsig)
 {
 	if (psig->strut.find(propname) == psig->strut.end())
 		if (psig->struts.find(propname) == psig->struts.end())
@@ -1931,11 +1937,11 @@ vector<AstNode *> copy_AstNode(const AstNode *psrc, AstNode *ptarget)
 	return out;
 }
 
-vector<CVar> CAstSig::Compute(void)
+vector<CVar *> CAstSig::Compute(void)
 { 
 	// There are many reasons to use this function as a Gateway function in the application, avoiding calling Compute(pAst) directly.
 	// Call Compute(pAst) only if you know exactly what's going on. 11/8/2017 bjk
-	vector<CVar> res;
+	vector<CVar*> res;
 	Sig.cell.clear();
 	Sig.strut.clear();
 	Sig.struts.clear();
@@ -1944,10 +1950,10 @@ vector<CVar> CAstSig::Compute(void)
 	Sig.SetNextChan(NULL);
 	Sig.functionEvalRes = false;
 //	pgo = NULL;
-	lhs = NULL;
+//	lhs = NULL;
 	try {
 		if (!pAst) {
-			res.push_back(Sig);
+			res.push_back(&Sig);
 			return res;
 		}
 		fBreak = false;
@@ -1959,7 +1965,7 @@ vector<CVar> CAstSig::Compute(void)
 				res.push_back(Compute(p));
 				p = p->next;
 				lhs = NULL; // to clear lhs from the last statement in the block 7/23/2019
-				pgo = nullptr; // 10/11/2019
+//				pgo = nullptr; // 10/11/2019
 			}
 		}
 		else
@@ -1970,19 +1976,10 @@ vector<CVar> CAstSig::Compute(void)
 		return res;
 	}
 	catch (const CAstException &e) {
-		if (!e.out.empty())
-		{
-			for (size_t k=0; k<e.out.size(); k++)
-				res.push_back(*e.out[(int)k]);
-			return res;
-		}
-		else
-		{
-			char errmsg[2048];
-			strncpy(errmsg, e.getErrMsg().c_str(), sizeof(errmsg) / sizeof(*errmsg));
-			errmsg[sizeof(errmsg) / sizeof(*errmsg) - 1] = '\0';
-			throw errmsg;
-		}
+		char errmsg[2048];
+		strncpy(errmsg, e.getErrMsg().c_str(), sizeof(errmsg) / sizeof(*errmsg));
+		errmsg[sizeof(errmsg) / sizeof(*errmsg) - 1] = '\0';
+		throw errmsg;
 	}
 }
 
@@ -2186,7 +2183,23 @@ AstNode *CAstSig::read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn)
 	return res;
 }
 
-AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
+CVar *CAstSig::eval_RHS(AstNode *pnode)
+{
+	CVar *out = nullptr;
+	AstNode *p = pnode->child;
+	//while (p)
+	for (AstNode *p = pnode; ; p=p->child)
+	{
+		if (!p->child)
+		{
+			out = Compute(p);
+			break;
+		}
+	}
+	return out;
+}
+
+AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn, AstNode *ppar, bool &RHSpresent)
 {
 	if (pn->type == T_OP_CONCAT || pn->type == '+' || pn->type == '-' || pn->type == T_TRANSPOSE || pn->type == T_MATRIXMULT
 		|| pn->type == '*' || pn->type == '/' || pn->type == T_OP_SHIFT || pn->type == T_NEGATIVE || (pn==diggy.level.root && IsCondition(pn)))
@@ -2279,65 +2292,85 @@ AstNode *CAstSig::read_node(CDeepProc &diggy, AstNode *pn,  AstNode *ppar)
 				}
 				diggy.level.psigBase = pres;
 			}
-			//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
-			else if (!(pres = GetVariable(pn->str, diggy.level.psigBase)) )
-			{
-				if (diggy.level.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
-				{
-					if (!pn->alt) return NULL; // if pn is the last node, no exception and continue to check RHS
-					if (pn->alt->type == N_STRUCT) return NULL; // (something_not_existing).var = RHS
-				}
-				out << "Variable or function not available: " << pn->str;
-				throw ExceptionMsg(pn, out.str().c_str());
-			}
-			if (pres->IsGO())
-			{ // the variable pn->str is a GO
-				Sig = *(diggy.level.psigBase = pgo = pres);
-				if (pn->child) setgo.type = pn->str;
-			}
-			/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
-			// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
-			else if (pgo && !diggy.level.root->child && !setgo.frozen)
-				pgo = NULL;
-			if (pn->alt)
-			{
-				p = pn->alt;
-				if (p->type == N_CELL)
-					//either x{2} or x{2}(3). x or x(2) doesn't come here.
-					// I.E., p->child should be non-NULL
-				{
-					size_t cellind = (int)Compute(p->child).value(); // check the validity of ind...probably it will be longer than this.
-					if (cellind > pres->cell.size())
-						throw ExceptionMsg(pn, "specified index exceeding the cell size.");
-					Sig = *(diggy.level.psigBase = &pres->cell.at(cellind - 1)); 
-				}
-				else if (p->type == N_STRUCT)
-				{
-					if (!pres->cell.empty() || (!pres->IsStruct() && !pres->IsEmpty()))
-					{
-						if (p->str[0] != '#' && !IsValidBuiltin(p->str))
-							if (!ReadUDF(emsg, p->str))
-								if (!emsg.empty())
-									throw ExceptionMsg(pn, emsg.c_str()); // check the message
-								else
-								{
-									out << "Unknown variable, function, or keyword identifier : " << p->str;
-									if (pn->str) out << " for " << pn->str;
-									throw ExceptionMsg(pn, out.str().c_str());
-								}
-					}
-					Sig = *(diggy.level.psigBase = pres);
-				}
-				else
-					Sig = *(diggy.level.psigBase = pres);
-			}
 			else
 			{
-				//text(f,.5,.5,"hello") comes here to process f
-				//axes([.1 .1 .6 .6]).color=[1 1 1] comes here, too. // diggy.level.psigBase should not have &Sig of axes (the ghost pointer) that was just created. 
-				// It should have pgo. Otherwise, it will crash because &Sig goes out of scope soon.
-				// That is properly done in builtin_func_call in AstSig2.cpp 4/7/2019
-				Sig = *(diggy.level.psigBase = pres);
+				// If RHS exists (i.e., child is non-null), no need to get the LHS variable completely,
+				// i.e., a.prop_layer_1.prop_layer_2 = (something else)
+				// you don't need to getvariable at the level of prop_layer_2
+				// (you still need to go down to the level prop_layer_1, though)
+//				if (psigRHS)
+				{
+//					Sig = *psigRHS;
+//					CVar *pres = diggy.TID_RHS2LHS(pn, pLast, pn->child, &Sig);
+				}
+//				else
+				RHSpresent |= pn->child != nullptr;
+				bool indicator = RHSpresent && pn->alt == nullptr;
+				// if indicator true, no need to GetVariable
+		//		if (!pn->child)
+				{
+
+					//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
+					if (!(pres = GetVariable(pn->str, diggy.level.psigBase)))
+					{
+						if (diggy.level.root->child && (pn->type == N_STRUCT || pn->type == T_ID))
+						{
+							if (!pn->alt) return NULL; // if pn is the last node, no exception and continue to check RHS
+							if (pn->alt->type == N_STRUCT) return NULL; // (something_not_existing).var = RHS
+						}
+						out << "Variable or function not available: " << pn->str;
+						throw ExceptionMsg(pn, out.str().c_str());
+					}
+					if (pres->IsGO())
+					{ // the variable pn->str is a GO
+						Sig = *(diggy.level.psigBase = pgo = pres);
+						if (pn->child) setgo.type = pn->str;
+					}
+					/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
+					// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
+					else if (pgo && !diggy.level.root->child && !setgo.frozen)
+						pgo = NULL;
+					if (pn->alt)
+					{
+						p = pn->alt;
+						if (p->type == N_CELL)
+							//either x{2} or x{2}(3). x or x(2) doesn't come here.
+							// I.E., p->child should be non-NULL
+						{
+							size_t cellind = (int)Compute(p->child)->value(); // check the validity of ind...probably it will be longer than this.
+							if (cellind > pres->cell.size())
+								throw ExceptionMsg(pn, "specified index exceeding the cell size.");
+							Sig = *(diggy.level.psigBase = &pres->cell.at(cellind - 1));
+						}
+						else if (p->type == N_STRUCT)
+						{
+							if (!pres->cell.empty() || (!pres->IsStruct() && !pres->IsEmpty()))
+							{
+								if (p->str[0] != '#' && !IsValidBuiltin(p->str))
+									if (!ReadUDF(emsg, p->str))
+										if (!emsg.empty())
+											throw ExceptionMsg(pn, emsg.c_str()); // check the message
+										else
+										{
+											out << "Unknown variable, function, or keyword identifier : " << p->str;
+											if (pn->str) out << " for " << pn->str;
+											throw ExceptionMsg(pn, out.str().c_str());
+										}
+							}
+							Sig = *(diggy.level.psigBase = pres);
+						}
+						else
+							Sig = *(diggy.level.psigBase = pres);
+					}
+					else
+					{
+						//text(f,.5,.5,"hello") comes here to process f
+						//axes([.1 .1 .6 .6]).color=[1 1 1] comes here, too. // diggy.level.psigBase should not have &Sig of axes (the ghost pointer) that was just created. 
+						// It should have pgo. Otherwise, it will crash because &Sig goes out of scope soon.
+						// That is properly done in builtin_func_call in AstSig2.cpp 4/7/2019
+						Sig = *(diggy.level.psigBase = pres);
+					}
+				}
 			}
 		}
 	}
@@ -2350,9 +2383,13 @@ AstNode *CAstSig::read_nodes(CDeepProc &diggy)
 	AstNode *pn = diggy.level.root;
 	AstNode *p, *pPrev=NULL;
 	CVar pvar;
+	bool RHS = false;
 	while (pn)
 	{
-		p = read_node(diggy, pn, pPrev);
+		// Sig gets the info on the last node after this call.
+		// when diggy.level.root->child is not NULL, 
+		// if pn->alt is terminal (not null), it doesn't have to go thru getvariable.
+		p = read_node(diggy, pn, pPrev, RHS);
 		if (!p) return pn;
 		if (p->type == N_ARGS)
 			pPrev = pn;
@@ -2363,7 +2400,7 @@ AstNode *CAstSig::read_nodes(CDeepProc &diggy)
 	return NULL; // shouldn't come thru here; only for the formality
 }
 
-CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
+CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 {
 	CDeepProc diggy(this, pnode, psig); // psig is NULL except for T_REPLICA
 	if (pnode)
@@ -2385,10 +2422,10 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		*/
 		if (!pRHS)
 		{
-			if (diggy.level.psigBase->IsGO()) return *pgo;
-			else	return Sig;
+			if (diggy.level.psigBase->IsGO()) return pgo;
+			else	return &Sig;
 		}
-		CVar res;
+		CVar *pres;
 		lhs = pLast;
 		if (!diggy.level.psigBase)
 		{
@@ -2397,7 +2434,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 			Script += diggy.level.varname;
 	//		return define_new_variable(pnode, pRHS);
 		}
-		res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
+		pres = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
 		if (diggy.level.psigBase)
 			Script = diggy.level.varname;
 		else
@@ -2411,7 +2448,7 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 //		res = diggy.TID_RHS2LHS(pnode, pLast, pRHS, &Sig);
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
-			if (res.IsGO())
+			if (pres->IsGO())
 				fpmsg.SetGoProperties(this, setgo.type, *diggy.level.psigBase);
 			else
 			{
@@ -2419,16 +2456,16 @@ CVar &CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 				// we need to send the whole content of f.pos, not just f.pos(2), to SetGoProperties
 				// 3/30/2019
 				if (pnode->tail->type==N_ARGS)
-					res = pgo->strut[setgo.type];
+					pres = &pgo->strut[setgo.type];
 				if (GOpresent(pnode)) u.repaint = true;
-				fpmsg.SetGoProperties(this, setgo.type, res);
+				fpmsg.SetGoProperties(this, setgo.type, *pres);
 			}
 		}
 	}
-	return Sig;
+	return &Sig;
 }
 
-CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
+CVar * CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 {
 //	why pgo = NULL; ? 
 // pgo should be reset right after all Compute calls so upon exiting ConditionalOperation
@@ -2510,12 +2547,12 @@ CVar &CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 	return TID(pnode->alt, NULL, &Sig);
 }
 
-CVar &CAstSig::Compute(const AstNode *pnode)
+CVar * CAstSig::Compute(const AstNode *pnode)
 {
 	CVar tsig, isig, lsig, rsig;
 	bool trinary(false);
 	if (!pnode) 
-	{	Sig.Reset(1); return Sig; }
+	{	Sig.Reset(1); return &Sig; }
 	AstNode *p = pnode->child;
 try {
 	if (GfInterrupted)
@@ -2534,22 +2571,23 @@ try {
 			Compute(pnode->alt);
 			Sig += &tsig;
 		}
-		return Sig;
+		return &Sig;
 	case T_NUMBER:
 		Sig.Reset();
 		Sig.SetValue(pnode->dval);
-		return TID(pnode->alt, NULL, &Sig);
-		break;
+		return TID(pnode->alt, p, &Sig);
 	case T_STRING:
 		Sig.Reset();
 		Sig.SetString(pnode->str);
-		return TID(pnode->alt, NULL, &Sig);
-		break;
+		return TID(pnode->alt, p, &Sig);
 	case N_MATRIX:
+		// As of 10/30/2019,
+		// [4 5; 6 7] = 33 does to give an error ("LHS must be an l-value"). This doesn't create any further problem. But should be addressed at some point.
+		// In order to resolve it, yacc for N_MATRIX (psycon.y) should be modified.  N_MATRIX uses the child node as part of the matrix and this causes a conflict with RHS if given.
 		Sig.Reset();
 		if (p) 	NodeMatrix(pnode, p);
 		else	Sig.Reset(1);
-		return TID(pnode->alt, NULL, &Sig);
+		return TID(pnode->alt, p, &Sig);
 	case N_VECTOR:
 		if (!p) Sig.Reset();
 		else if (p->next)
@@ -2583,7 +2621,7 @@ try {
 	case '+':
 	case '-':
 		if (pnode->type=='+')	tsig = Compute(p->next);
-		else					tsig = -Compute(p->next);
+		else					tsig = -*Compute(p->next);
 		blockCell(pnode, Sig);
 		Compute(p);
 		blockCell(pnode, Sig);
@@ -2596,7 +2634,7 @@ try {
 		blockCell(pnode,  Sig);
 		blockString(pnode,  Sig);
 		if (pnode->type=='*')	Compute(p->next);
-		else if (pnode->type == '/')	Compute(p->next).reciprocal();
+		else if (pnode->type == '/')	Compute(p->next)->reciprocal();
 		else
 		{
 			checkVector(pnode, tsig);
@@ -2621,7 +2659,7 @@ try {
 		Transpose(pnode, p);
 		return TID((AstNode*)pnode, NULL, &Sig);
 	case T_NEGATIVE:
-		-Compute(p);
+		-*Compute(p);
 		blockString(pnode,  Sig);
 		return TID((AstNode*)pnode, NULL, &Sig);
 	case T_OP_SHIFT:
@@ -2745,10 +2783,10 @@ try {
 } catch (const exception &e) {
 	throw ExceptionMsg(pnode, (string("Internal error! ") + e.what()).c_str());
 } 
-return Sig;
+return &Sig;
 }
 
-CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
+void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 {
 	CVar tsig = Compute(p->next);
 	if (pgo)
@@ -2756,7 +2794,11 @@ CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 		vector<CVar*> tp;
 		tp.push_back(pgo);
 		Compute(p);
-		if (Sig.IsEmpty()) return Sig = *pgo;
+		if (Sig.IsEmpty())
+		{
+			Sig = *pgo;
+			return;
+		}
 		//Now, Sig can be CSIG_HDLARRAY, then use it as is.
 		if (!pgo)
 			throw ExceptionMsg(p, "RHS is a graphic handle. LHS is not. Can't concatenate.");
@@ -2765,7 +2807,7 @@ CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 			Sig.UpdateBuffer(Sig.nSamples + 1);
 			Sig.buf[Sig.nSamples - 1] = (double)(INT_PTR)tp.front();
 		}
-		return Sig;
+		return;
 	}
 	Compute(p);
 	if (pgo)
@@ -2812,7 +2854,6 @@ CVar &CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 			Sig.MergeChains();
 		}
 	}
-	return Sig;
 }
 
 CVar *CAstSig::HandleSig(CVar *ptarget, CVar *pGraffyobj)
@@ -2837,7 +2878,7 @@ CVar *CAstSig::HandleSig(CVar *ptarget, CVar *pGraffyobj)
 	return ptarget;
 }
 
-CVar &CAstSig::InitCell(const AstNode *pnode, AstNode *p)
+CVar * CAstSig::InitCell(const AstNode *pnode, AstNode *p)
 {
 	try {
 		CAstSig temp(this); // temp is used to protect Sig
@@ -2849,21 +2890,20 @@ CVar &CAstSig::InitCell(const AstNode *pnode, AstNode *p)
 		Sig.Reset(1);
 		Sig.cell.reserve(count);
 		for (; p; p = p->next)
-			Sig.appendcell(temp.Compute(p));
+			Sig.appendcell(*temp.Compute(p));
 		if (pnode->str)
 			SetVar(pnode->str, &Sig);
-		return Sig;
+		return &Sig;
 	}
 	catch (const CAstException &e) {
 		throw ExceptionMsg(pnode, e.getErrMsg().c_str());
 	}
 }
 
-CVar &CAstSig::Transpose(const AstNode *pnode, AstNode *p)
+void CAstSig::Transpose(const AstNode *pnode, AstNode *p)
 {
 	Compute(p);
 	Sig.transpose();
-	return Sig;
 }
 
 CAstSig &CAstSig::Reset(const int fs, const char* path)
@@ -3089,7 +3129,7 @@ bool CAstSig::Var_never_updated(const AstNode *p)
 
 string CAstSig::ComputeString(const AstNode *p)
 {
-	return (p->type==T_STRING) ? p->str : Compute(p).string();
+	return (p->type==T_STRING) ? p->str : Compute(p)->string();
 }
 
 void godeep(CVar *var, CVar *pref)

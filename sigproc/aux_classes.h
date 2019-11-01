@@ -83,7 +83,7 @@ public:
 	bool IsBool() const { return bufBlockSize == 1; };
 
 	void SwapContents1node(body &sec);
-	vector<double> ToVector();
+	vector<double> ToVector() const;
 
 	body &addmult(char type, body &arg, unsigned int id0 = 0, unsigned int len = 0);
 
@@ -220,7 +220,7 @@ public:
 
 	virtual ~CSignal();	
 
-	string string();
+	string string() const;
 	char *getString(char *str, const int size);
 	CSignal &SetString(const char *str);
 	CSignal &SetString(const char c);
@@ -298,7 +298,6 @@ public:
 	CTimeSeries& operator-(void);	// Unary minus
 	CTimeSeries& operator*=(CTimeSeries &scaleArray);
 	CTimeSeries& operator+=(CTimeSeries *yy); // Concatenation
-	CTimeSeries& operator-=(CTimeSeries &sec);
 	CTimeSeries& operator/=(CTimeSeries &scaleArray);
 	CTimeSeries& operator>>=(double delta);
 	CTimeSeries & operator%(double v);
@@ -375,24 +374,22 @@ public:
 	CSignals runFct2getsig(CSignal(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
 
 	CSignals();
-	CSignals(bool b);
 	CSignals(int sampleRate);
 	CSignals(double value);
 	CSignals(double *y, int  len);
 	CSignals(const CTimeSeries& src);
 	CSignals(const CSignals& src);
 	CSignals(std::string str); // make a string CSignals
+	CSignals(bool *b, unsigned int len);
 	~CSignals();
 	bool operator == (const CSignals& rhs);
 	bool operator == (double rhs);
 	bool operator == (std::string rhstr);
 	CSignals& operator=(const CTimeSeries& rhs);
 	CSignals& operator=(const CSignals& rhs);
-	CSignals& operator+=(const double con);
-	CSignals& operator+=(CTimeSeries &sec);
+	CSignals& operator+=(double con);
 	const CSignals& operator+=(CSignals *yy);
-	CSignals& operator*=(CSignals &sec);
-	CSignals& operator*=(const double con);
+	CSignals& operator*=(double con);
 	CSignals & operator%(const CSignals &targetRMS);
 	CSignals & operator%(double v);
 	CSignals & operator|(double v);
@@ -526,14 +523,15 @@ public:
 
 	bool IsStruct() const { return (!strut.empty() || !struts.empty()); }
 	bool IsEmpty() const { return (CSignal::GetType() == CSIG_EMPTY && cell.empty() && strut.empty() && struts.empty()); }
-	bool IsAudioObj();
+	bool IsAudioObj() const;
 	CVar& Reset(int fs2set = 0);
-	int GetType();
+	int GetType() const;
 	int GetTypePlus();
 	bool IsGO() const;
 
-	CVar& operator=(const CSignals& rhs);
-	CVar& operator=(const CVar& rhs);
+	CVar & operator=(const CSignals& rhs);
+	CVar & operator=(const CVar& rhs);
+	CVar & operator=(CVar * rhs);
 	CVar& initcell(CVar &sec);
 	CVar& appendcell(CVar &sec);
 	CVar& setcell(unsigned int id, CVar &sec);
@@ -541,6 +539,7 @@ public:
 
 	CVar(const CSignals& src);
 	CVar(const CVar& src);
+	CVar(CVar * src);
 	CVar();
 	virtual ~CVar();
 

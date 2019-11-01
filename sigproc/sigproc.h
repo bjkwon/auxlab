@@ -106,7 +106,6 @@ public:
 	CAstException(CAstSig *pContext, const string s1, const string s2);
 	CAstException(const AstNode *p0, CAstSig *past, const char* msg);
 	string getErrMsg() const {return outstr;};
-	vector<CSignals *> out;
 private:
 	void makeOutStr();
 };
@@ -189,7 +188,7 @@ public:
 	void(*ShowVariables)(CAstSig *pcast);
 	void(*Back2BaseScope)(int);
 	void(*ValidateFig)(const char*);
-	void(*SetGoProperties)(CAstSig *past, const char *type, CVar RHS);
+	void(*SetGoProperties)(CAstSig *past, const char *type, const CVar & RHS);
 	void(*RepaintGO)(CAstSig *pctx);
 	CFuncPointers();
 	virtual ~CFuncPointers() {};
@@ -287,8 +286,6 @@ public:
 	char callbackIdentifer[LEN_CALLBACKIDENTIFIER];
 	goaction setgo;
 
-//	vector<double>(CSignal::*funct)(unsigned int, unsigned int) const;
-
 private:
 	void HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot = NULL);
 	bool HandlePseudoVar(const AstNode *pnode);
@@ -303,8 +300,8 @@ private:
 	void hold_at_break_point(const AstNode *pnode);
 	void prepare_endpoint(const AstNode *p, CVar *pvar);
 	bool builtin_func_call(CDeepProc &diggy, AstNode *p);
-	CVar &Concatenate(const AstNode *pnode, AstNode *p);
-	AstNode *read_node(CDeepProc &diggy, AstNode *pn, AstNode *pPrev=NULL);
+	void Concatenate(const AstNode *pnode, AstNode *p);
+	AstNode *read_node(CDeepProc &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
 	AstNode *read_nodes(CDeepProc &diggy);
 	AstNode *read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn);
 	void interweave_indices(CVar &isig, CVar &isig2, unsigned int len);
@@ -313,16 +310,18 @@ private:
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2);
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
 	void outputbinding(size_t nArgout);
+	CVar *eval_RHS(AstNode *pnode);
+
 public:
 	string ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *> &pOutVars);
 	string adjustfs(int newfs);
-	CVar &ConditionalOperation(const AstNode *pnode, AstNode *p);
+	CVar * ConditionalOperation(const AstNode *pnode, AstNode *p);
 	int updateGO(CVar &ref);
 	void ClearVar(AstNode *pnode, CVar *psig);
-	CVar &pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout = NULL);
-	CVar &TSeq(const AstNode *pnode, AstNode *p);
-	bool isThisAllowedPropGO(CVar *psig, const char *type, CVar &tsig);
-	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, CVar), void(*fp8)(CAstSig *));
+	CVar * pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout = NULL);
+	CVar * TSeq(const AstNode *pnode, AstNode *p);
+	bool isThisAllowedPropGO(CVar *psig, const char *type, const CVar &tsig);
+	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, const CVar &), void(*fp8)(CAstSig *));
 	bool IsThisBreakpoint(const AstNode *pnode);
 	void checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg = "");
 	void checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg="");
@@ -358,33 +357,32 @@ public:
 
 	AstNode *SetNewScript(string &emsg, const char *str, const char *premsg = NULL);
 	AstNode *SetNewScriptFromFile(string &emsg, const char *full_filename, const char *str, string &filecontent);
-	vector<CVar> Compute(void);
-	CVar &Compute(const AstNode *pnode);
-	CVar &InitCell(const AstNode *pnode, AstNode *p);
-	CVar &SetLevel(const AstNode *pnode, AstNode *p);
-	CVar &NodeVector(const AstNode *pnode, AstNode *p);
-	CVar &NodeMatrix(const AstNode *pnode, AstNode *p);
-	CVar &define_new_variable(const AstNode *pnode, AstNode *pRHS);
+	vector<CVar*> Compute(void);
+	CVar * Compute(const AstNode *pnode);
+	CVar * InitCell(const AstNode *pnode, AstNode *p);
+	CVar * SetLevel(const AstNode *pnode, AstNode *p);
+	CVar * NodeVector(const AstNode *pnode, AstNode *p);
+	CVar * NodeMatrix(const AstNode *pnode, AstNode *p);
+	void define_new_variable(const AstNode *pnode, AstNode *pRHS);
 	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
 	CVar *GetVariable(const char *varname, CVar *pvar = NULL);
-	CVar &TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
-	CVar &Eval(AstNode *pnode);
-	CVar &Transpose(const AstNode *pnode, AstNode *p);
+	CVar * TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
+	CVar * Eval(AstNode *pnode);
+	void Transpose(const AstNode *pnode, AstNode *p);
 	CAstSig &Reset(const int fs = 0, const char* path=NULL);
 	CAstSig &SetVar(const char *name, CVar *psig, CVar *pBase = NULL);
 	CAstSig &SetGloVar(const char *name, CVar *psig, CVar *pBase = NULL);
 	const char *GetPath() {return pEnv->AuxPath.c_str();}
 	int GetFs(void) {return pEnv->Fs;}
-	string ComputeString(const AstNode *p);
+	string ComputeString(const AstNode *p) ;
 	string GetScript() {return Script;}
 	void set_interrupt(bool ch);
 	bool isInterrupted(void);
-	CVar &gettimepoints(const AstNode *pnode, AstNode *p);
+	vector<double> gettimepoints(const AstNode *pnode, AstNode *p);
 	unsigned long tic();
 	unsigned long toc();
 
 	int isthislocaludf(void);
-	int isthislocaludf(string fname);
 
 	int ClearVar(const char *var, CVar *psigBase=NULL);
 	void EnumVar(vector<string> &var);
@@ -406,18 +404,19 @@ public:
 	virtual ~CDeepProc() {};
 	CAstSig *pbase;
 	NODEDIGGER level;
+	char status[8]; // limit to 7 characters
 
-	CVar &TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig);
-	CVar &TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar * TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig);
+	CVar * TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &ExtractByIndex(const AstNode *pnode, AstNode *p);
 	CVar &eval_indexing(const AstNode *pInd, CVar &indSig);
 	CVar &TID_indexing(AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &extract(const AstNode *pnode, CTimeSeries &isig);
-	CVar &TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
-	CVar &TimeExtract(const AstNode *pnode, AstNode *p);
+	CVar * TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
+	CVar * TimeExtract(const AstNode *pnode, AstNode *p);
 };
 
 
 
-#endif // SIGPROC
+#endif // SIGPRO;C

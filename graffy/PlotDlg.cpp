@@ -1778,8 +1778,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			memcpy(pax->xlimFull, xlim, sizeof(double)*2);
 			pax->xtick.tics1.clear(); pax->xtick.automatic = true;
 			pax->ytick.tics1.clear(); pax->ytick.automatic = true;
-			pax->struts["x"].front()->strut["auto"] = CSignals(true);
-			pax->struts["y"].front()->strut["auto"] = CSignals(true);
+			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
+			pax->struts["y"].front()->strut["auto"] = CSignals(double(true));
 			if (paxFFT = (CAxes*)pax->hChild) ShowSpectrum(paxFFT, pax);
 			pax->struts["x"].front()->strut["lim"] = (CSignals)CSignal(pax->xlim, 2);
 			rt = pax->rct;
@@ -1817,8 +1817,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			if (!pax->m_ln.size()) break;
 			pax->xtick.tics1.clear(); pax->xtick.automatic = true;
 			pax->ytick.tics1.clear(); pax->ytick.automatic = true;
-			pax->struts["x"].front()->strut["auto"] = CSignals(true);
-			pax->struts["y"].front()->strut["auto"] = CSignals(true);
+			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
+			pax->struts["y"].front()->strut["auto"] = CSignals(double(true));
 			if (paxFFT = (CAxes*)pax->hChild) ShowSpectrum(paxFFT, pax);
 			pax->struts["x"].front()->strut["lim"] = (CSignals)CSignal(pax->xlim, 2);
 			rt = pax->rct;
@@ -1867,8 +1867,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			vector<double>::iterator it = pax->xtick.tics1.begin();
 			double p, step = *(it + 1) - *it;
 			pax->xtick.automatic = true;
-			pax->struts["x"].front()->strut["auto"] = CSignals(true);
-			pax->struts["y"].front()->strut["auto"] = CSignals(true);
+			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
+			pax->struts["y"].front()->strut["auto"] = CSignals(double(true));
 			// tick step size is not changed during left/right stepping
 			if (nID == IDM_RIGHT_STEP)
 			{
@@ -2130,7 +2130,7 @@ void CPlotDlg::getFFTdata(CTimeSeries *psig_mag, double *fft, int len)
 	*/
 	if (len % 2 == 0) psig_mag->nSamples--; // Nyquist component excluded
 	double maxmag = psig_mag->_max().front();
-	*psig_mag += -maxmag;
+	(CVar)*psig_mag-=CSignals(maxmag);
 }
 
 void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)

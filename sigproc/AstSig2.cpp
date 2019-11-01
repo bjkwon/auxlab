@@ -27,74 +27,71 @@
 #include "cipsycon.tab.h"
 #endif
 
-CVar &CAstSig::define_new_variable(const AstNode *pnode, AstNode *pRHS)
+void CAstSig::define_new_variable(const AstNode *pnode, AstNode *pRHS)
 {
-	if (pRHS)
-	{ 
+	if (!pRHS)
+		throw ExceptionMsg(pnode, "Internal error--define_new_variable()");
 	// evaluate RHS and setvar RHS 
 	// if it's top level, Setvar(pnode->str, compute(RHS))
 	// if it's not, pvarLast[pnode->str] = compute(RHS) .... pvarLast should be either empty or struct'ed with other variable(s).... if not throw exception 
 	// 
-		//Before evaluating RHS, if replica is referred under this node, it should throw, because LHS was unknown and replica is not ready. 9/17/2018
-		if (searchtree(pRHS, T_REPLICA))
-			throw ExceptionMsg(pnode, "LHS not ready and cannot evaluate based on the LHS.");
-		Compute(pRHS);
-		const char *tstr0 = NULL, *tstr = NULL;
-		//Top level assignment--acceptable only for T_ID without alt or T_ID---N_STRUCT
-		// pnode->type should be T_ID at this point
-		CVar sigClass;
-		if (pnode->alt)
+	//Before evaluating RHS, if replica is referred under this node, it should throw, because LHS was unknown and replica is not ready. 9/17/2018
+	if (searchtree(pRHS, T_REPLICA))
+		throw ExceptionMsg(pnode, "LHS not ready and cannot evaluate based on the LHS.");
+	Compute(pRHS);
+	const char *tstr0 = NULL, *tstr = NULL;
+	//Top level assignment--acceptable only for T_ID without alt or T_ID---N_STRUCT
+	// pnode->type should be T_ID at this point
+	CVar sigClass;
+	if (pnode->alt)
+	{
+		if (pnode->alt->alt)
 		{
-			if (pnode->alt->alt)
-			{
-				if (pnode->alt->alt->type == N_STRUCT)
-					throw ExceptionMsg(pnode, "Only one-level of class member definition allowed");
-				else
-					throw ExceptionMsg(pnode, "specified class member not available.");
-			}
-			tstr = pnode->alt->str;
-			if (pnode->type == N_HOOK)
-			{
-				SetGloVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
-				tstr0 = pnode->str;
-			}
+			if (pnode->alt->alt->type == N_STRUCT)
+				throw ExceptionMsg(pnode, "Only one-level of class member definition allowed");
 			else
-			{
-				// SetVar takes a blank sigClass and fills in the strut contents 
-				SetVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
-				tstr0 = pnode->str;
-			}
+				throw ExceptionMsg(pnode, "specified class member not available.");
 		}
-		else
-			tstr = pnode->str;
+		tstr = pnode->alt->str;
 		if (pnode->type == N_HOOK)
 		{
-			if (Sig.GetType() == CSIG_HDLARRAY)
-				SetGloVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
-			else if (pgo)
-				SetGloVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
-			else if (!pnode->alt)
-				SetGloVar(tstr, &Sig);
+			SetGloVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
+			tstr0 = pnode->str;
 		}
 		else
 		{
-			if (Sig.GetType() == CSIG_HDLARRAY)
-				SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
-			else if (pgo)
-				SetVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
-			else
-				SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+			// SetVar takes a blank sigClass and fills in the strut contents 
+			SetVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
+			tstr0 = pnode->str;
 		}
-		if (tstr0) // For struct variable, the base name is set here.
-		{
-			if (pnode->type == N_HOOK)
-				SetGloVar(tstr0, &sigClass);
-			else
-				SetVar(tstr0, &sigClass);
-		}
-		return Sig;
 	}
-	throw ExceptionMsg(pnode, "Internal error--define_new_variable()");
+	else
+		tstr = pnode->str;
+	if (pnode->type == N_HOOK)
+	{
+		if (Sig.GetType() == CSIG_HDLARRAY)
+			SetGloVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+		else if (pgo)
+			SetGloVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
+		else if (!pnode->alt)
+			SetGloVar(tstr, &Sig);
+	}
+	else
+	{
+		if (Sig.GetType() == CSIG_HDLARRAY)
+			SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+		else if (pgo)
+			SetVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
+		else
+			SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
+	}
+	if (tstr0) // For struct variable, the base name is set here.
+	{
+		if (pnode->type == N_HOOK)
+			SetGloVar(tstr0, &sigClass);
+		else
+			SetVar(tstr0, &sigClass);
+	}
 }
 
 void CAstSig::replica_prep(CVar *psig)
@@ -257,25 +254,28 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 	return pbase->Sig;
 }
 
-CVar &CDeepProc::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS)
+CVar * CDeepProc::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS)
 {
-	CVar isig;
 	if (pRHS)
 	{
-		isig = pbase->gettimepoints(pnode, p->child);
+		vector<double> tpoints = pbase->gettimepoints(pnode, p->child);
 		if (pbase->searchtree(pRHS, T_REPLICA))
 			pbase->replica = TimeExtract(pnode, p->child);
 		CVar tsig = pbase->Compute(pRHS); // rhs
 		if (tsig.GetType() != CSIG_AUDIO && !tsig.IsEmpty())
 			throw pbase->ExceptionMsg(p, "Referencing timepoint(s) in an audio variable requires another audio signal on the RHS.");
+		CVar isig(1);
+		isig.UpdateBuffer(2);
+		isig.buf[0] = tpoints[0];
+		isig.buf[1] = tpoints[1];
 		pbase->insertreplace(pnode, level.psigBase, tsig, isig);
-		return *level.psigBase;
+		return level.psigBase;
 	}
 	else
 		return TimeExtract(pnode, p->child);
 }
 
-CVar &CDeepProc::TimeExtract(const AstNode *pnode, AstNode *p)
+CVar * CDeepProc::TimeExtract(const AstNode *pnode, AstNode *p)
 {
 	char estr[256];
 	if (!level.psigBase)
@@ -293,10 +293,10 @@ CVar &CDeepProc::TimeExtract(const AstNode *pnode, AstNode *p)
 		pts = level.psigBase->next;
 		pbase->endpoint = max(pbase->endpoint, pts->CSignal::endt().front());
 	}
-	CVar tp = pbase->gettimepoints(pnode, p);
+	vector<double> tpoints = pbase->gettimepoints(pnode, p);
 	CVar out(*level.psigBase);
-	out.Crop(tp.buf[0], tp.buf[1]);
-	return pbase->Sig = out;
+	out.Crop(tpoints[0], tpoints[1]);
+	return &(pbase->Sig = out);
 }
 
 bool CAstSig::builtin_func_call(CDeepProc &diggy, AstNode *p)
@@ -535,7 +535,7 @@ CVar &CDeepProc::eval_indexing(const AstNode *pInd, CVar &isig)
 	return isig;
 }
 
-CVar &CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
 {
 	unsigned int id = 0;
 	CVar isig;
@@ -590,10 +590,10 @@ CVar &CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 	else
 		throw pbase->ExceptionMsg(pRHS, "Invalid RHS; For LHS with conditional indexing, RHS should be either a scalar, empty, or .. (self).");
 	pbase->SetVar(pnode->str, level.psigBase);
-	return pbase->Sig;
+	return &pbase->Sig;
 }
 
-CVar &CDeepProc::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CDeepProc::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
 { // Computes pRHS, if available, and assign it to LHS.
 	// 2 cases where psig is not Sig: first, a(2), second, a.sqrt
 	CVar tsig;
@@ -628,5 +628,5 @@ CVar &CDeepProc::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS,
 	default:  // T-Y-5
 		return pbase->Compute(pRHS); // check... this may not happen.. if so, inspect.
 	}
-	return pbase->Sig;
+	return &pbase->Sig;
 }
