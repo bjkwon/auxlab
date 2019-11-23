@@ -646,10 +646,13 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 		}
 		else
 		{
-			CAstSig tp(past);
-			if (!tp.Compute(pp)->IsString())
-				past->Compute(pp);
-			pp = p->next;
+			if (p)
+			{
+				CAstSig tp(past);
+				if (!tp.Compute(pp)->IsString())
+					past->Compute(pp);
+				pp = p->next;
+			}
 		}
 		past->blockCell(pnode, past->Sig);
 		past->blockString(pnode, past->Sig);

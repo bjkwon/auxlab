@@ -147,7 +147,6 @@ block_func: line_func	/* block_func can be NULL */
 				$$ = $2;
 			else if ($1->type == N_BLOCK) 
 			{
-//				$$ = $1;
 				$1->tail->next = $2;
 				$1->tail = $2;
 			} 
@@ -441,35 +440,54 @@ arg_list: arg
 
 matrix: /* empty */
 	{
+	// N_MATRIX consists of "outer" N_MATRIX--alt for dot notation 
+	// and "inner" N_VECTOR--alt for all successive items thru next
+	// the str field of the outer N_MATRIX node is cast to the inner N_VECTOR.
+	// this "fake" str pointer is freed during normal clean-up
+	// 11/4/2019
 		$$ = newAstNode(N_MATRIX, @$);
-		$$->tail = $$->child = newAstNode(N_VECTOR, @$);
+		AstNode * p = newAstNode(N_VECTOR, @$);
+		$$->str = (char*)p;
 	}
 	| vector
 	{ //yyn=61
 		$$ = newAstNode(N_MATRIX, @$);
-		$$->child = $$->tail = $1;
+		AstNode * p = newAstNode(N_VECTOR, @$);
+		p->alt = p->tail = $1;
+		$$->str = (char*)p;
 	}
 	| matrix ';' vector
 	{
 		$$ = $1;
-		$1->tail = $1->tail->next = $3;		
+		AstNode * p = (AstNode *)$1->str;
+		p->tail = p->tail->next = (AstNode *)$3; 
+//		$1->tail = $1->tail->next = p->alt;		
 	}
 	| matrix ';'
 ;
 
 vector: exp_range
 	{ //yyn=64
+	// N_VECTOR consists of "outer" N_VECTOR--alt for dot notation 
+	// and "inner" N_VECTOR--alt for all successive items thru next
+	// Because N_VECTOR doesn't use str, the inner N_VECTOR is created there and cast for further uses.
+	// this "fake" str pointer is freed during normal clean-up
+	// 11/4/2019
 		$$ = newAstNode(N_VECTOR, @$);
-		$$->child = $$->tail = $1;
+		AstNode * p = newAstNode(N_VECTOR, @$);
+		p->alt = p->tail = $1;
+		$$->str = (char*)p;
 	}
 	| vector exp_range
 	{
-		$1->tail = $1->tail->next = $2;
+		AstNode * p = (AstNode *)$1->str;
+		p->tail = p->tail->next = $2;
 		$$ = $1;
 	}
 	| vector ',' exp_range
 	{
-		$1->tail = $1->tail->next = $3;
+		AstNode * p = (AstNode *)$1->str;
+		p->tail = p->tail->next = $3;
 		$$ = $1;
 	}
 ;
@@ -537,7 +555,7 @@ compop: "+="
 ;
 
 assign2this: '=' exp_range
-	{ //81
+	{ //84
 		$$ = $2;
 	}
 	| '=' condition
@@ -567,12 +585,12 @@ assign2this: '=' exp_range
 ;
 
 varblock:	 T_ID
-	{ //84
+	{ //87
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 	}
 	|	tid '.' T_ID
-	{//85
+	{//88
 		$$ = $1;
 		AstNode *p = newAstNode(N_STRUCT, @$);
 		p->str = $3;
@@ -581,17 +599,13 @@ varblock:	 T_ID
 			$$->alt->alt = p; //always initiating
 			$$->tail = p; // so that next concatenation can point to p, even thought p is "hidden" underneath $$->alt
 		}
+		if ($$->tail) 
+		{
+			$$->tail = $$->tail->alt = p;
+		}
 		else
 		{
-			// When tid is N_VECTOR, it needs to nullify tail; otherwise, it may create a conflict down the road: for example 90 to 91.
-			if ($$->tail!=NULL && ($$->type==N_VECTOR || $$->type==N_MATRIX) )
-				$$->tail=NULL;
-			//Concatenated dot expressions go through $$->tail
-			if ($$->tail!=NULL)
-				$$->tail->alt = p; // update $$->tail
-			else
-				$$->alt = p; // initiate $$->tail
-			$$->tail = p;
+			$$->tail = $$->alt = p;
 		}
 	}
 	| condition '.' T_ID
@@ -607,7 +621,7 @@ varblock:	 T_ID
 		$$->tail = p;
 	}
 	| varblock '{' exp '}'
-	{//87
+	{//90
 		$$ = $1;
 		$$->tail = $$->alt->alt = newAstNode(N_CELL, @$);
 		$$->tail->child = $3;
@@ -620,7 +634,7 @@ varblock:	 T_ID
 		$$->tail->child->next = $5;
 	}
 	| '[' vector ']'
-	{//tid-vector 89
+	{//tid-vector 92
 		$$ = $2;
 	}
 	| '$' varblock
@@ -639,14 +653,14 @@ tid: varblock
 		$$->tail = $$->alt = $3;
 	}
 	| T_ID '{' exp '}'
-	{ //93
+	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 		$$->tail = $$->alt = newAstNode(N_CELL, @$);
 		$$->alt->child = $3;
 	}
 	| T_ID '{' exp '}' '(' arg_list ')'
-	{ //94
+	{ //97
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 		$$->alt = newAstNode(N_CELL, @$);
@@ -670,7 +684,7 @@ tid: varblock
 			$$->tail = $$->alt = $3;
 	}
 	| varblock '(' ')'
-	{ // 97
+	{ // 100
 		if ($$->alt != NULL  && $$->alt->type==N_STRUCT)
 		{ // dot notation with a blank parentheses, e.g., a.sqrt() or (1:2:5).sqrt()
 			$$ = $1;
@@ -712,7 +726,7 @@ tid: varblock
 		$3->next = $5;
 	}
 	| tid '\''
-	{ 	
+	{ 	//106
 		$$ = newAstNode(T_TRANSPOSE, @$);
  		$$->child = $1;
 	}
@@ -763,19 +777,13 @@ tid: varblock
 
 /* Here, both rules of tid and varblock should be included... tid assign2this alone is not enough 8/18/2018*/
 assign: tid assign2this
-	{ //111
+	{ //114
 		$$ = $1;
 		$$->child = $2;
 	}
 	| varblock assign2this
 	{
 		$$ = $1;
-		//If LHS is vector, move the child node (the vector content) to alt. That's OK because the vector on LHS cannot have index or arg_list. Note that this is not really a vector, but only a list of variable list to store the results of RHS. 9/13/2018
-		if ($1->type==N_VECTOR)
-		{ 
-			if ($$->alt) yydeleteAstNode($$->alt, 1); // $$->alt shouldn't have a meaningful node, but instead of overwriting, let's clean it properly.
-			$$->alt = $$->child;
-		}
 		$$->child = $2;
 	}
 	| varblock '=' assign
@@ -825,12 +833,12 @@ assign: tid assign2this
 
 
 exp: T_NUMBER
-	{ // 116
+	{ // 119
 		$$ = newAstNode(T_NUMBER, @$);
 		$$->dval = $1;
 	}
 	| T_STRING
-	{ // 117
+	{ // 120
 		$$ = newAstNode(T_STRING, @$);
 		$$->str = $1;
 	}
@@ -840,7 +848,7 @@ exp: T_NUMBER
 	}
 	| initcell
 	| tid
-	{//120
+	{//123
 		$$ = $1;
 	}
 	| tid '(' exp '~' exp ')'
@@ -935,9 +943,10 @@ funcdef: func_static_or_not T_ID block func_end
 		$$->child->next = $5;
 		if ($2->type!=N_VECTOR)
 		{
+			$$->alt = newAstNode(N_VECTOR, @2);
 			AstNode *p = newAstNode(N_VECTOR, @2);
-			p->child = p->tail = $2;
-			$$->alt = p;
+			p->alt = p->tail = $2;
+			$$->alt->str = (char*)p;
 		}
 		else
 		{
@@ -959,9 +968,10 @@ funcdef: func_static_or_not T_ID block func_end
 		$6->next = $8;
 		if ($2->type!=N_VECTOR)
 		{
+			$$->alt = newAstNode(N_VECTOR, @2);
 			AstNode *p = newAstNode(N_VECTOR, @2);
-			p->child = p->tail = $2;
-			$$->alt = p;
+			p->alt = p->tail = $2;
+			$$->alt->str = (char*)p;
 		}
 		else
 		{
@@ -995,7 +1005,7 @@ case_list: /* empty */
 		$$ = $1;
 	}
 ;
-//147
+//152
 csig: exp_range
 ;
 

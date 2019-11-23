@@ -1134,7 +1134,8 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	}
 	else if (type == "axis")
 	{
-		CSignals onoff(false);
+		bool b = false;
+		CSignals onoff(&b, 1);
 		h = FindGObj(pctx->pgo->struts["parent"].front());
 		CAxes *cax = static_cast<CAxes *>(h);
 		cfig = (CFigure *)cax->hPar;
@@ -1169,7 +1170,6 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 			{
 				cax->ytick.automatic = false;
 				cax->ytick.tics1 = RHS.body::ToVector();
-				CSignals onoff(false);
 			}
 		}
 		pctx->pgo->strut["auto"] = onoff;

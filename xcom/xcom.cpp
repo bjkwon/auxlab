@@ -922,8 +922,13 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		echo(varname, &temp, offset-1, " [Handle]");
 		passingdown = true;
 	case CSIG_STRUCT:
+	{
+		CSignals tp = *pvar;
+		CVar tp2 = tp;
+		if (pvar->nSamples > 0)
+			echo(varname, &tp2, offset, postscript);
 		if (!passingdown)		cout << varname << " [Structure]" << endl;
-		for (map<string, CVar>::iterator it = pvar->strut.begin(); it!= pvar->strut.end(); it++)
+		for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
 		{
 			ostringstream var0;
 			var0 << '.' << it->first;
@@ -939,6 +944,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 				echo(var0.str().c_str(), &temp, offset, " [Handle]");
 			}
 		}
+	}
 		break;
 	default:
 		break;
@@ -984,6 +990,22 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 				p = pnode->alt;
 				if (pnode->child)
 					echo(pctx->Script.c_str(), pvar);
+				else if (p && p->type == N_ARGS)
+				{
+					echo(pnode->str, pvar);
+				}
+				else if (p && p->type == N_STRUCT)
+				{
+					string lhsvar = pnode->str;
+					CVar *pVarShow;
+					for (; p; p = p->next)
+					{
+						lhsvar += string(".") + p->str;
+						pVarShow = pctx->GetVariable(p->str, pvar);
+						pvar = pVarShow;
+					}
+					echo(lhsvar.c_str(), pvar);
+				}
 				else if (p && CAstSig::IsCELL_STRUCT_pnode_TID_ARGS(pnode, p))
 				{
 					vector<string> parse;
@@ -993,8 +1015,8 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 				else
 					echo(pnode->str, pvar);
 			}
-			else
-				printf("unhandled case; type=%d, str=%s,dval=%f\n", pnode->type, pnode->str, pnode->dval);
+			else // +-*/%^...
+				echo(pctx->Script.c_str(), pvar);
 		}
 	}
 }
@@ -1048,12 +1070,12 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 					echo(dt, pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); 
 			}
 		}
-		else if (CAstSig::IsVECTOR(pContext->pAst) && pContext->pAst->alt && pContext->pAst->alt->type!=N_STRUCT) // pContext->pAst->alt is necessary to ensure that there's a vector on the LHS 
+		else if (pContext->lhs && CAstSig::IsVECTOR(pContext->lhs))// && pContext->pAst->alt && pContext->pAst->alt->type!=N_STRUCT) // pContext->pAst->alt is necessary to ensure that there's a vector on the LHS 
 		{
-			for (const AstNode *pp = pContext->pAst->alt; !pContext->pAst->suppress && pp; pp = pp->next, dt++)
+			for (AstNode *pp = ((AstNode *)pContext->pAst->str)->alt; !pContext->lhs->suppress && pp; pp = pp->next, dt++)
 				echo(dt, pContext, pp);
 		}
-		else
+		else // see if lhs makes more sense than pAst 
 			echo(dt, pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
 	}
 	catch (const char *_errmsg) {

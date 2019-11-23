@@ -528,6 +528,7 @@ public:
 	int GetType() const;
 	int GetTypePlus();
 	bool IsGO() const;
+	void set_class_head(const CSignals & rhs);
 
 	CVar & operator=(const CSignals& rhs);
 	CVar & operator=(const CVar& rhs);

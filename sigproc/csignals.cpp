@@ -1036,7 +1036,8 @@ vector<double> body::_max(unsigned int id, int unsigned len) const
 		if (local < 0) local = 0.;
 	}
 	out.push_back(local);
-	out.push_back((double)mid + 1 - id);
+	if (parg)
+		((CVar*)parg)->SetValue((double)mid + 1 - id);
 	return out;
 }
 
@@ -1073,13 +1074,9 @@ vector<double> body::_min(unsigned int id, unsigned int len) const
 		if (local > 1) local = 1.;
 	}
 	out.push_back(local);
-	out.push_back((double)mid + 1 - id);
+	if (parg)
+		((CVar*)parg)->SetValue((double)mid + 1 - id);
 	return out;
-}
-
-
-bool othre(double thr, double subject) {
-	return subject >= thr;
 }
 
 body & body::interp1(body &that, body &qx)
@@ -4417,6 +4414,11 @@ int CVar::GetTypePlus()
 		return res;
 }
 
+void CVar::set_class_head(const CSignals & rhs)
+{
+	CSignals::operator=(rhs);
+}
+
 static inline int _double_to_24bit(double x)
 {
 	// This maps a double variable raning -1 to 1, to a short variable ranging -16388608 to 16388607.
@@ -4500,59 +4502,3 @@ void CSignals::nextCSignals(double lasttp, double lasttp_with_silence, CSignals 
 	if (!q1 && !q2)
 		ghcopy.Reset();
 }
-
-//The following types of buffer can be made:
-// 8-bit, signed 16-bit, signed 24-bit, double
-//template<class T>
-//int CSignals::makebuffer(T * outbuffer, int length, double lasttp, double lasttp_with_silence, CSignals &ghcopy) const
-//{ // for 16-bit playback
-//	// sterero buffer is made for the duration where at least one channel is present, plus a zero buffer till the point where the signal is present again in either channel
-//	int nChan = next==NULL ? 1 : 2;
-//	memset(outbuffer, 0, sizeof(short) * length * nChan);
-//	CSignals * p = &ghcopy;
-//	for (int ch = 0; p && ch < 2; ch++, p = (CSignals*)p->next)
-//	{
-//		for (CTimeSeries *q = p; q; q = q->chain)
-//		{
-//			if (q->tmark > lasttp) break;
-//			int offset = (int)(q->tmark / 1000. * fs + .5) * nChan;
-//			if constexpr (typeid(T) == typeid(short))
-//				for (unsigned int m = 0; m < q->nSamples; m++)
-//					outbuffer[offset + m * nChan + ch] = (short)(_double_to_24bit(q->buf[m]) >> 8);
-//			else if constexpr (typeid(T) == typeid(double))
-//				for (unsigned int m = 0; m < q->nSamples; m++)
-//					outbuffer[offset + m * nChan + ch] = q->buf[m];
-//		}
-//	}
-//	p = &ghcopy;
-//	CTimeSeries *q, *q1 = NULL, *q2 = NULL;
-//	for (int k = 0; p && k < 2; k++, p = (CSignals*)p->next)
-//	{
-//		for (q = p; q; q = q->chain)
-//		{
-//			if (q->tmark > lasttp)
-//			{
-//				q->tmark -= lasttp_with_silence;
-//				CTimeSeries *tempNext = p->next;
-//				if (k == 0)
-//				{
-//					p->next = tempNext;
-//					q1 = q;
-//				}
-//				else
-//				{
-//					p->next = nullptr;
-//					q2 = q;
-//				}
-//				break;
-//			}
-//		}
-//	}
-//	if (q1)
-//		ghcopy = *q1;
-//	if (q2)
-//		ghcopy.SetNextChan(q2, true);
-//	if (!q1 && !q2)
-//		ghcopy.Reset();
-//	return length;
-//}

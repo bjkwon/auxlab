@@ -27,6 +27,7 @@ int CSignal::operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned i
 		tmark = sec.tmark;
 	}
 	UpdateBuffer(nSamples + count2add, offset2copy);
+	nGroups = sec.nGroups;
 	if (i1 == 0 && i2 == 0 && f2 == 0)
 	{
 		double val = buf[0];
@@ -93,6 +94,9 @@ bool CSignal::operate(const CSignal& sec, char op)
 {
 	// Exception handling is yet to be done 3/8/2019
 	  //Currently only for real arrays. 3/8
+	// If fs for one is 1 and for the other is >3 (such as 44100)
+	// make fs for this the big number
+	if (fs == 1 && sec.fs > 3) fs = sec.fs;
 	if (sec.IsScalar())
 	{
 		double val = sec.value();
@@ -110,39 +114,34 @@ bool CSignal::operate(const CSignal& sec, char op)
 		unsigned int offset, idBegin, idEnd;
 		if (!operator_prep(sec, idBegin, idEnd, offset)) // if not overlapping, just skip
 			return false;
-		if (idBegin == 0 && idEnd == 1 && offset == 0)
-		{// if *this is scalar
-			idEnd = sec.nSamples;
-			idBegin++;
-			double val = buf[0];
-			if (op == '+')
-				for_each(buf + idBegin, buf + idEnd, [val](double &v) { v += val; });
-			else if (op == '-')
-				for_each(buf + idBegin, buf + idEnd, [val](double &v) { v -= val; });
-			else if (op == '*')
-				for_each(buf + idBegin, buf + idEnd, [val](double &v) { v *= val; });
-			else if (op == '/')
-				for_each(buf + idBegin, buf + idEnd, [val](double &v) { v /= val; });
-		}
-		else
-		{
-			int k = 0;
-			double *secbuffer = sec.buf + offset;
-			if (op == '+')
-				for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v += secbuffer[k++]; });
-			else if (op == '-')
-				for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v -= secbuffer[k++]; });
-			else if (op == '*')
-				for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v *= secbuffer[k++]; });
-			else if (op == '/')
-				for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v /= secbuffer[k++]; });
-		}
+		int k = 0;
+		double *secbuffer = sec.buf + offset;
+		if (op == '+')
+			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v += secbuffer[k++]; });
+		else if (op == '-')
+			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v -= secbuffer[k++]; });
+		else if (op == '*')
+			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v *= secbuffer[k++]; });
+		else if (op == '/')
+			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v /= secbuffer[k++]; });
 	}
 	return true;
 }
 
 bool CTimeSeries::operate(const CTimeSeries& sec, char op)
 {
+	if (sec.nSamples == 1 && !sec.chain)
+	{
+		for (CTimeSeries *p = this; p; p = p->chain)
+			p->CSignal::operate(sec, op);
+		return true;
+	}
+	else if (nSamples == 1 && !chain)
+	{
+		CTimeSeries tp = *this;
+		*this = sec;
+		return operate(tp, op);
+	}
 	vector<const CTimeSeries*> sec_chains;
 	for (const CTimeSeries *q = &sec; q; q = q->chain)
 		sec_chains.push_back(q);

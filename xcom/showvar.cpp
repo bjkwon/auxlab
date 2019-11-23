@@ -320,7 +320,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 		{
 
 		}
-		else if (type == CSIG_AUDIO || type == CSIG_TSERIES || type == CSIG_VECTOR)
+		else if (psig->IsAudio() || psig->IsTimeSignal() || psig->IsVector())//(type == CSIG_AUDIO || type == CSIG_TSERIES || type == CSIG_VECTOR)
 		{
 			static GRAFWNDDLGSTRUCT in;
 			CFigure * cfig = newFigure(CRect(0, 0, 500, 310), title.c_str(), varname, &in);
@@ -1087,22 +1087,24 @@ void CShowvarDlg::ArrangeControlsInit()
 	HINSTANCE hModule = GetModuleHandle(NULL);
 	char buf[256];
 	int res;
-	int width[] = { 60, 45, 50, 100, }; // audio
-	int width2[] = { 55, 38, 40, 100, }; // non-audio
-	for (int k = 0; k<4; k++)
+	int width[] = { 15, 60, 45, 50, 100, }; // audio
+	int width2[] = { 15, 55, 38, 40, 100, }; // non-audio
+	for (int k = 0; k<5; k++)
 	{
 		LvCol.cx = width[k];
 		LvCol.pszText = buf;
-		LoadString(hModule, IDS_STRING105 + k, buf, sizeof(buf));
-		if (k == 0)	strcpy(buf, "Name");
+		if (k == 0)	buf[0] = 0;
+		else
+			LoadString(hModule, IDS_STRING105 + k - 1, buf, sizeof(buf));
 		res = (int)SendDlgItemMessage(IDC_LIST1, LVM_INSERTCOLUMN, k, (LPARAM)&LvCol);
 	}
-	for (int k = 0; k<4; k++)
+	for (int k = 0; k<5; k++)
 	{
 		LvCol.cx = width2[k];
 		LvCol.pszText = buf;
-		LoadString(hModule, IDS_STRING101 + k, buf, sizeof(buf));
-		if (k == 0)	strcpy(buf, "Name");
+		if (k == 0)	buf[0] = 0;
+		else
+			LoadString(hModule, IDS_STRING101 + k - 1, buf, sizeof(buf));
 		res = (int)SendDlgItemMessage(IDC_LIST2, LVM_INSERTCOLUMN, k, (LPARAM)&LvCol);
 	}
 
@@ -1150,15 +1152,16 @@ void CShowvarDlg::ArrangeControlsInit()
 DWORD CShowvarDlg::calculate_width(int newwidth[], int newwidth2[])
 {// Calculates the minimum width accommodating hList1 and hList2, based on the item count
  // Default column widths for listview control 
-	int width[] = { 60, 45, 50, 100, }; // audio
-	int width2[] = { 55, 38, 40, 100, }; // non-audio
+	int width[] = { 15, 60, 45, 50, 100, }; // audio
+	int width2[] = { 15, 55, 38, 40, 100, }; // non-audio
 	char buf[256];
 	HDC	hdc = GetDC(hList1);
 	CSize sz;
 	//hList1
 	int count1 = ListView_GetItemCount(hList1);
 	//p is item, k is subitem
-	for (int k = 0; k < 4; k++)
+	newwidth[0] = width[0];
+	for (int k = 1; k < 5; k++)
 	{
 		newwidth[k] = width[k];
 		for (int p = 0; p < count1; p++)
@@ -1171,7 +1174,8 @@ DWORD CShowvarDlg::calculate_width(int newwidth[], int newwidth2[])
 	//hList2
 	int count2 = ListView_GetItemCount(hList2);
 	//p is item, k is subitem
-	for (int k = 0; k < 4; k++)
+	newwidth2[0] = width2[0];
+	for (int k = 1; k < 5; k++)
 	{
 		newwidth2[k] = width2[k];
 		for (int p = 0; p < count2; p++)
@@ -1183,8 +1187,8 @@ DWORD CShowvarDlg::calculate_width(int newwidth[], int newwidth2[])
 	}
 	ReleaseDC(NULL, hdc);
 	int newWidth4Dlg1(0), newWidth4Dlg2(0);
-	for (int k = 0; k < 4; k++)	newWidth4Dlg1 += newwidth[k];
-	for (int k = 0; k < 4; k++)	newWidth4Dlg2 += newwidth2[k];
+	for (int k = 1; k < 5; k++)	newWidth4Dlg1 += newwidth[k];
+	for (int k = 1; k < 5; k++)	newWidth4Dlg2 += newwidth2[k];
 	DWORD out = max(newWidth4Dlg1, newWidth4Dlg2);
 	return out+24;// margin 24 <-- the width difference between Dlg rect and Dlg client rect
 }
@@ -1247,7 +1251,7 @@ void CShowvarDlg::OnClose()
 
 void CShowvarDlg::AdjustWidths(int redraw)
 { // Adjust the width of hDlg at least to accommodate hList1 and hList2
-	int width1[4], width2[4];
+	int width1[5], width2[5];
 	int wid = calculate_width(width1, width2);
 
 	// TASK for 4/19
@@ -1267,19 +1271,19 @@ void CShowvarDlg::AdjustWidths(int redraw)
 	}
 	//4th column width is set to fit the width of hDlg
 	int icum(0);
-	for (int k = 0; k < 3; k++)
+	for (int k = 0; k < 4; k++)
 	{
 		ListView_SetColumnWidth(hList1, k, width1[k]);
 		icum += width1[k];
 	}
-	ListView_SetColumnWidth(hList1, 3, rtDlg.Width()-icum-24); // 4th column
+	ListView_SetColumnWidth(hList1, 4, rtDlg.Width()-icum-24); // 5th column
 	icum = 0;
-	for (int k = 0; k < 3; k++)
+	for (int k = 0; k < 4; k++)
 	{
 		ListView_SetColumnWidth(hList2, k, width2[k]);
 		icum += width1[k];
 	}
-	ListView_SetColumnWidth(hList2, 3, rtDlg.Width() - icum-24); // 4th column
+	ListView_SetColumnWidth(hList2, 4, rtDlg.Width() - icum-24); // 5th column
 }
 
 void CShowvarDlg::OnDestroy()
@@ -1510,7 +1514,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	case NM_DBLCLK:
 		lpnmitem = (LPNMITEMACTIVATE) lParam;
 		if ((clickedRow = lpnmitem->iItem)==-1) break;
-		ListView_GetItemText(lpnmitem->hdr.hwndFrom, ListView_GetSelectionMark(lpnmitem->hdr.hwndFrom), 0, varname, 256);
+		ListView_GetItemText(lpnmitem->hdr.hwndFrom, ListView_GetSelectionMark(lpnmitem->hdr.hwndFrom), 1, varname, 256);
 		if (this != &mShowDlg)
 			GetWindowText(title);
 		if (varname[0] == '.') pvarname = varname + 1;
@@ -1643,7 +1647,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	case LVN_KEYDOWN:
 		lvnkeydown = (LPNMLVKEYDOWN)lParam;
 		varname[0] = 0;
-		ListView_GetItemText(lvnkeydown->hdr.hwndFrom, ListView_GetSelectionMark(lvnkeydown->hdr.hwndFrom), 0, varname, 256);
+		ListView_GetItemText(lvnkeydown->hdr.hwndFrom, ListView_GetSelectionMark(lvnkeydown->hdr.hwndFrom), 1, varname, 256);
 		if (this != &mShowDlg)
 			GetWindowText(title);
 		if (strlen(varname)>0)
@@ -1697,7 +1701,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 				{
 					if (ListView_GetItemState(lvnkeydown->hdr.hwndFrom, k, LVIS_SELECTED))
 					{
-						ListView_GetItemText(lvnkeydown->hdr.hwndFrom, k, 0, varname, 256);
+						ListView_GetItemText(lvnkeydown->hdr.hwndFrom, k, 1, varname, 256);
 						double block = CAstSig::play_block_ms;
 						int devID = 0;
 						psig = &(*pVars)[varname];
@@ -1924,7 +1928,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		char callbackname[256];
 		vector<CVar> callbackparam;
 		if (!pmsg->cbp.cbnode)
-			strcpy(callbackname, "default_callback_audio_recording");
+			strcpy(callbackname, "?default_callback_audio_recording");
 		else
 		{ // decode pnode for callback. if input args are not right, throw 
 			assert(pmsg->cbp.cbnode->type == N_STRUCT);
@@ -1949,7 +1953,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			pvar_callbackoutputVector.push_back(new CVar);
 			if (pCallbackUDF->alt->type == N_VECTOR)
 			{
-				for (AstNode *p = pCallbackUDF->alt->child->next; p; p = p->next)
+				for (AstNode *p = ((AstNode *)pCallbackUDF->alt->str)->next; p; p = p->next)
 					pvar_callbackoutputVector.push_back(new CVar);
 			}
 			pvar_callbackinput->strut["?index"].SetValue(0.);
@@ -2102,7 +2106,10 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 		char buffer[512];
-		sprintf (buffer, "%s%s.aux", estr, pmsg->cbp.cbnode->str);
+		if (pmsg->cbp.cbnode)
+			sprintf(buffer, "%s%s.aux not found", estr, pmsg->cbp.cbnode->str);
+		else
+			sprintf(buffer, "?default_callback_audio_recording.aux not found");
 		pmsg->parent->MessageBox(buffer, "Audio record error");
 		// callback not found; 1) delete pvar_callbackinput
 		// 2) close the thread
@@ -2186,9 +2193,9 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 		CloseHandle(hEventRecordingCallBack);
 		hEventRecordingCallBack = NULL;		
 		hEventRecordingReady = NULL;
-		if (pcast->lhs->type == N_VECTOR && pcast->lhs->alt->next)
+		if (pcast->lhs->type == N_VECTOR && ((AstNode*)pcast->lhs->str)->alt->next)
 		{
-			pcast->Vars[pcast->lhs->alt->next->str].strut["active"] = CVar(0.);
+			pcast->Vars[((AstNode*)pcast->lhs->str)->alt->next->str].strut["active"] = CVar(0.);
 		}
 	}
 }
@@ -2264,20 +2271,20 @@ LRESULT CShowvarDlg::ProcessCustomDraw (NMHDR *lParam)
 	case CDDS_SUBITEM | CDDS_ITEMPREPAINT: //Before a subitem is drawn
 		switch(lplvcd->iSubItem)
 		{
-		case 10:
-			lplvcd->clrText   = RGB(255,255,255);
-			lplvcd->clrTextBk = RGB(240,55,23);
-			return CDRF_NEWFONT;
 		case 0:
+			lplvcd->clrText   = RGB(255, 0, 50);
+			lplvcd->clrTextBk = RGB(120, 200, 200);
+			return CDRF_NEWFONT;
+		case 1:
 			lplvcd->clrText   = RGB(255,255,0);
 			lplvcd->clrTextBk = RGB(0,0,0);
 			return CDRF_NEWFONT;
-		case 1:
+		case 2:
 			lplvcd->clrText   = RGB(20,26,158);
 			lplvcd->clrTextBk = RGB(200,200,10);
 			return CDRF_NEWFONT;
-		case 2:
 		case 3:
+		case 4:
 			lplvcd->clrText   = RGB(12,15,46);
 			lplvcd->clrTextBk = RGB(200,200,200);
 			return CDRF_NEWFONT;
@@ -2285,13 +2292,13 @@ LRESULT CShowvarDlg::ProcessCustomDraw (NMHDR *lParam)
 			lplvcd->clrText   = RGB(120,0,128);
 			lplvcd->clrTextBk = RGB(20,200,200);
 			return CDRF_NEWFONT;
-		case 4:
 		case 5:
+		case 6:
 			lplvcd->clrText   = RGB(255,255,255);
 			lplvcd->clrTextBk = RGB(0,0,150);
 			return CDRF_NEWFONT;
-		case 6:
 		case 7:
+		case 8:
 			lplvcd->clrText   = RGB(42,45,46);
 			lplvcd->clrTextBk = RGB(200,200,200);
 			return CDRF_NEWFONT;
@@ -2345,7 +2352,13 @@ void CShowvarDlg::showtype(CVar *pvar, char *buf)
 		strcpy(buf, "HDL");
 		break;
 	case CSIG_STRUCT:
-		strcpy(buf, "CLAS");
+		if (pvar->nSamples == 0)
+			strcpy(buf, "CLAS");
+		else
+		{
+			CVar tp2 = (CSignals)*pvar;
+			showtype(&tp2, buf);
+		}
 		break;
 	}
 }
@@ -2399,7 +2412,13 @@ void CShowvarDlg::showsize(CVar *pvar, char *outbuf)
 		sprintf(outbuf, "1");
 		break;
 	case CSIG_STRUCT:
-		sprintf(outbuf, "---");
+		if (pvar->nSamples == 0)
+			sprintf(outbuf, "---");
+		else
+		{
+			CVar tp2 = (CSignals)*pvar;
+			showsize(&tp2, outbuf);
+		}
 		break;
 	case CSIG_EMPTY:
 		sprintf(outbuf, "0");
@@ -2480,6 +2499,15 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 			sprintf(outbuf, "Handle");
 		break;
 	case CSIG_STRUCT:
+		if (pvar->nSamples==0)
+			sprintf(outbuf, "----");
+		else
+		{
+			CSignals tp = *pvar;
+			CVar tp2 = tp;
+			showcontent(&tp2, outbuf, digits);
+		}
+		break;
 	case CSIG_CELL:
 		sprintf(outbuf, "----");
 		break;
@@ -2509,17 +2537,24 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	CSignals tp;
 	char buf[4096], buf1[256], buf2[256];
 	string out;
+	pvar->IsAudio() ? hList = GetDlgItem(IDC_LIST1) : hList = GetDlgItem(IDC_LIST2);
 	LvItem.iSubItem = 0; //First item (InsertITEM)
 	LvItem.pszText = buf;
+	if (pvar->IsStruct()) strcpy(buf, "C");
+	else if (pvar->IsGO()) strcpy(buf, "G");
+	else if (pvar->IsAudioObj()) strcpy(buf, "P");
+	else strcpy(buf, "");
+	LvItem.iItem = ListView_GetItemCount(hList);
+	::SendMessage(hList, LVM_INSERTITEM, 0, (LPARAM)&LvItem);
+	LvItem.iSubItem++; //second item, Name
 	if (this==&mShowDlg || varname[0]=='{') // for the main showVar dlg or cell dlg, don't add a dot.
 		strcpy(buf, varname.c_str());
 	else
 		sprintf(buf, ".%s", varname.c_str());
-	int type = pvar->GetType();
-	(type == CSIG_AUDIO || type == CSIG_NULL) ? hList = GetDlgItem(IDC_LIST1) : hList = GetDlgItem(IDC_LIST2);
-	LvItem.iItem = ListView_GetItemCount(hList);
-	::SendMessage(hList, LVM_INSERTITEM, 0, (LPARAM)&LvItem);
-	LvItem.iSubItem = 1; //second item
+	LvItem.pszText = buf;
+	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
+
+	LvItem.iSubItem++; //third item
 	if (pvar->IsAudio())
 	{
 		CSignals rmsig;
@@ -2542,11 +2577,11 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	}
 	LvItem.pszText = buf;
 	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
-	LvItem.iSubItem = 2;
+	LvItem.iSubItem++;
 	showsize(pvar, buf); // new buf ready
 	LvItem.pszText = buf;
 	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
-	LvItem.iSubItem = 3;
+	LvItem.iSubItem++;
 	if (pvar->IsAudio())
 	{
 		out = xcom::outstream_tmarks(pvar, true).str().c_str();
@@ -2588,24 +2623,29 @@ void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)
 	char buf[256];
 	LvItem.iSubItem = 0; //First item (InsertITEM)
 	LvItem.pszText = buf;
-	if (this == &mShowDlg || varname[0] == '{') // for the main showVar dlg or cell dlg, don't add a dot.
-		strcpy(buf, varname.c_str());
-	else
-		sprintf(buf, ".%s", varname.c_str());
+	strcpy(buf, "H");
 	HWND hList = GetDlgItem(IDC_LIST2);
 	LvItem.iItem = ListView_GetItemCount(hList);
 	::SendMessage(hList, LVM_INSERTITEM, 0, (LPARAM)&LvItem);
 
-	LvItem.iSubItem = 1; //second item
+	LvItem.iSubItem++; //second item (var name)
+	if (this == &mShowDlg || varname[0] == '{') // for the main showVar dlg or cell dlg, don't add a dot.
+		strcpy(buf, varname.c_str());
+	else
+		sprintf(buf, ".%s", varname.c_str());
+	LvItem.pszText = buf;
+	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
+
+	LvItem.iSubItem++; //third item
 	LvItem.pszText = "HDL";
 	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
 
-	LvItem.iSubItem = 2; //third item
+	LvItem.iSubItem++; //fourth item
 	sprintf(buf, "%d", gos.size());
 	LvItem.pszText = buf;
 	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
 
-	LvItem.iSubItem = 3; //fourth item
+	LvItem.iSubItem++; //fifth item
 	unsigned int k(0);
 	string strout = "[";
 	if (gos.empty())

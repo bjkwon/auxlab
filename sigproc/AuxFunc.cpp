@@ -831,9 +831,9 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	if ((newfs = Capture(devID, WM__AUDIOEVENT2, hShowDlg, past->pEnv->Fs, nChans, CAstSig::record_bytes, cbnode, duration, block, recordID, errstr)) < 0)
 		throw past->ExceptionMsg(pnode, fnsigs, errstr);
 	past->Sig.strut["active"] = CVar((double)(1 == 1));
-	if (past->lhs && past->lhs->type == N_VECTOR && past->lhs->alt->next)
+	if (past->lhs && past->lhs->type == N_VECTOR && ((AstNode*)past->lhs->str)->alt->next)
 	{ // [y, h] = record (.....), do output binding here.
-		past->SetVar(past->lhs->alt->next->str, &past->Sig);
+		past->SetVar(((AstNode*)past->lhs->str)->alt->next->str, &past->Sig);
 	}
 	// for a statement, y=h.start, y is not from the RHS directly, but is updated laster after the callback
 	// so we need to block the RHS from affecting the LHS.. Let's use -1 for suppress (to be used in CDeepProc::TID_tag in AstSig2.cpp)
@@ -1670,6 +1670,7 @@ void _size(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	double tp2 = past->Sig.Len();
 	if (arg.value() == 0.)
 	{
+		past->Sig.Reset(1);
 		past->Sig.UpdateBuffer(2);
 		past->Sig.buf[0] = tp1;
 		past->Sig.buf[1] = tp2;
@@ -1705,7 +1706,6 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		}
 		else
 		{
-			past->Sig.SetFs(1); // Don't call Reset because we need to leave the data buffer as is.
 			if (!past->Sig.cell.empty())
 				past->Sig.SetValue((double)past->Sig.cell.size());
 			else if (past->Sig.IsTimeSignal())
@@ -1716,6 +1716,7 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 			{
 				past->Sig = past->Sig.runFct2getvals(&CSignal::length);
 			}
+			past->Sig.SetFs(1);
 		}
 	}
 	else
@@ -1758,19 +1759,25 @@ void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	CVar sig = past->Sig;
 	CVar additionalArg(sig.GetFs());
 	CVar *pt(NULL);
-	if (past->pAst->type == N_VECTOR && past->pAst->alt->next) pt =  &additionalArg;
-	if (past->pLast && past->pLast->type==N_VECTOR) pt = &additionalArg;
+	AstNode *pp(NULL);
+	if (past->pAst->type == N_VECTOR)
+		pp = ((AstNode *)past->pAst->str)->alt;
+	else if (past->lhs && past->lhs->type == N_VECTOR)
+		pp = ((AstNode *)past->lhs->str)->alt;
+	if (pp)		pt = &additionalArg;
 	if (fname == "max") past->Sig = sig.runFct2getvals(&CSignal::_max, pt);
 	else if (fname == "min") past->Sig = sig.runFct2getvals(&CSignal::_min, pt);
 	if (past->Sig.IsComplex()) past->Sig.SetValue(-1); // do it again 6/2/2018
-	if (past->pAst->type == N_VECTOR)
+
+	//Improve outputbinding!!!!!! 11/5/2019
+	//this works only if single variables are present inside [ ] 
+	//for exmple, [a(5), b]=max(something) ... doesn't work
+
+	if (pp)
 	{
-		if (past->pAst->alt->next)
-			past->SetVar(past->pAst->alt->next->str, &additionalArg);
+		if (pp->next)
+			past->SetVar(pp->next->str, &additionalArg);
 	}
-	if (past->pLast && past->pLast->type == N_VECTOR)
-		if (past->pLast->alt->next)
-			past->SetVar(past->pLast->alt->next->str, &additionalArg);
 }
 
 AstNode *searchstr(AstNode *p, int findthis)
@@ -1896,6 +1903,39 @@ void _right(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &
 	past->Sig.next = NULL;
 }
 
+void _erase(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	if (!past->Sig.IsStruct())
+		throw past->ExceptionMsg(p, fnsigs, "Must be applied to a class/struct object.");
+	try {
+		CAstSig tp(past);
+		CVar param = tp.Compute(p);
+		if (!param.IsString())
+			throw past->ExceptionMsg(p, fnsigs, "Argument must be a string indicating the member of the class/struct object.");
+		auto it = past->Sig.strut.find(param.string());
+		if (it != past->Sig.strut.end())
+			past->Sig.strut.erase(it);
+		const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+		past->SetVar(pRoot->str, &past->Sig);
+		past->Sig.Reset(); // Let's not return anything from this call.
+	}
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
+}
+
+void _head(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	if (!past->Sig.IsStruct())
+		throw past->ExceptionMsg(p, fnsigs, "Must be applied to a class/struct object.");
+	try {
+		CAstSig tp(past);
+		CVar param = tp.Compute(p);
+		past->Sig.set_class_head(param);
+	}
+	catch (const CAstException &e) { throw past->ExceptionMsg(pnode, fnsigs, e.getErrMsg()); }
+	const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+	past->SetVar(pRoot->str, &past->Sig);
+	past->Sig.Reset(); // Let's not return anything from this call.
+}
 
 void _tone(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -2053,7 +2093,10 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 					throw buf;
 				}
 				CSignals tp(data, nItems);
-				past->Sig.appendcell((CVar)tp);
+				if (nLines == 1)
+					past->Sig = tp;
+				else
+					past->Sig.appendcell((CVar)tp);
 				delete[] data;
 			}
 		}
@@ -2387,6 +2430,14 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 		ft.func = &_mostleast;
 	builtin[name] = ft;
 	}
+	ft.funcsignature = "(member_variable_string)";
+	name = "erase";
+	ft.func = &_erase;
+	builtin[name] = ft;
+	ft.funcsignature = "(any_non-cell_non-class_expression)";
+	name = "head";
+	ft.func = &_head;
+	builtin[name] = ft;
 
 	ft.narg1 = 1;	ft.narg2 = 1;
 	const char *f5[] = { "min", "max", 0 };
@@ -2903,7 +2954,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		else if (fname == "log10")	fn0 = log10, cfn1 = r2c_log10;
 		if (structCall)
 		{
-			if (p && p->type != N_STRUCT) throw ExceptionMsg(pnode, fname, "Superfluous parameter(s)");
+			if (p && p->type != N_STRUCT) throw ExceptionMsg(pnode, fname, "Superfluous parameter(s) ");
 		}
 		else
 		{
@@ -2915,10 +2966,10 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			if (structCall)
 			{
 				string dotnotation = dotstring(pnode, pRoot);
-				throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object ");
 			}
 			else
-				throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object ");
 		}
 		Sig.MFFN(fn0, cfn1);
 		break;
@@ -2930,7 +2981,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			if (!p || p->type == N_STRUCT) throw ExceptionMsg(pnode, "", "requires second parameter.");
 			CVar Sig0 = Sig;
 			if (Sig.IsStruct() || !Sig.cell.empty() || Sig.GetFs() == 3)
-				throw ExceptionMsg(pnode, fname, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(pnode, fname, "Cannot take cell, class or handle object ");
 			param = Compute(p);
 			Sig = Sig0.MFFN(fn2, cfn2, param);
 		}
@@ -2944,10 +2995,10 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 				if (structCall)
 				{
 					string dotnotation = dotstring(pnode, pRoot);
-					throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object");
+					throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object ");
 				}
 				else
-					throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object");
+					throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object ");
 			}
 			Sig.MFFN(fn2, cfn2, param);
 		}
@@ -2967,10 +3018,10 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			if (structCall)
 			{
 				string dotnotation = dotstring(pnode, pRoot);
-				throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(pnode, dotnotation, "Cannot take cell, class or handle object ");
 			}
 			else
-				throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object");
+				throw ExceptionMsg(p, fname, "Cannot take cell, class or handle object ");
 		}
 		if (cfn1) Sig.each(cfn1);
 		else if (fn1) Sig.each(fn1);

@@ -20,6 +20,7 @@
 #include "sigproc.h"
 
 #include <algorithm> // for lowercase
+#include <assert.h>
 
 #ifndef CISIGPROC
 #include "psycon.tab.h"
@@ -27,72 +28,6 @@
 #include "cipsycon.tab.h"
 #endif
 
-void CAstSig::define_new_variable(const AstNode *pnode, AstNode *pRHS)
-{
-	if (!pRHS)
-		throw ExceptionMsg(pnode, "Internal error--define_new_variable()");
-	// evaluate RHS and setvar RHS 
-	// if it's top level, Setvar(pnode->str, compute(RHS))
-	// if it's not, pvarLast[pnode->str] = compute(RHS) .... pvarLast should be either empty or struct'ed with other variable(s).... if not throw exception 
-	// 
-	//Before evaluating RHS, if replica is referred under this node, it should throw, because LHS was unknown and replica is not ready. 9/17/2018
-	if (searchtree(pRHS, T_REPLICA))
-		throw ExceptionMsg(pnode, "LHS not ready and cannot evaluate based on the LHS.");
-	Compute(pRHS);
-	const char *tstr0 = NULL, *tstr = NULL;
-	//Top level assignment--acceptable only for T_ID without alt or T_ID---N_STRUCT
-	// pnode->type should be T_ID at this point
-	CVar sigClass;
-	if (pnode->alt)
-	{
-		if (pnode->alt->alt)
-		{
-			if (pnode->alt->alt->type == N_STRUCT)
-				throw ExceptionMsg(pnode, "Only one-level of class member definition allowed");
-			else
-				throw ExceptionMsg(pnode, "specified class member not available.");
-		}
-		tstr = pnode->alt->str;
-		if (pnode->type == N_HOOK)
-		{
-			SetGloVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
-			tstr0 = pnode->str;
-		}
-		else
-		{
-			// SetVar takes a blank sigClass and fills in the strut contents 
-			SetVar(pnode->alt->str, pgo ? pgo : &Sig, &sigClass);
-			tstr0 = pnode->str;
-		}
-	}
-	else
-		tstr = pnode->str;
-	if (pnode->type == N_HOOK)
-	{
-		if (Sig.GetType() == CSIG_HDLARRAY)
-			SetGloVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
-		else if (pgo)
-			SetGloVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
-		else if (!pnode->alt)
-			SetGloVar(tstr, &Sig);
-	}
-	else
-	{
-		if (Sig.GetType() == CSIG_HDLARRAY)
-			SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
-		else if (pgo)
-			SetVar(tstr, pgo, pnode->alt ? &sigClass : NULL);
-		else
-			SetVar(tstr, &Sig, pnode->alt ? &sigClass : NULL);
-	}
-	if (tstr0) // For struct variable, the base name is set here.
-	{
-		if (pnode->type == N_HOOK)
-			SetGloVar(tstr0, &sigClass);
-		else
-			SetVar(tstr0, &sigClass);
-	}
-}
 
 void CAstSig::replica_prep(CVar *psig)
 {// For GO's, prepping replica is not simple, because a copy of the psig doesn't represent the GO.
@@ -114,55 +49,211 @@ void CAstSig::replica_prep(CVar *psig)
 		replica = *psig;
 }
 
-CVar &CDeepProc::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
+void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 {
-	// psig is already prepared; i.e., with NULL pRHS, just return *psig. If pRHS exists, use psigBase 
-	// pRHS is never NULL... Check if it is the case if it comes from T-Y-2-1 (TID_tags)
-//	if so, return *psig;
-	CVar isig, tsig;
-	pbase->replica = *psig; // whether or not T_REPLICA is in pRHS, just put it here. Not much cost.
+	bool logicalindex = indsig.IsLogical();
+	AstNode *p = pnode->alt;
+	if (psigBase->GetType() != CSIG_AUDIO && indsig.IsLogical())
+	{ // For non-audio, if isig is the result of logical operation, get the corresponding indices 
+		CSignals trueID(1);
+		trueID.UpdateBuffer(indsig.nSamples);
+		int m = 0;
+		for (unsigned int k(0); k < indsig.nSamples; k++)
+			if (indsig.logbuf[k])
+				trueID.buf[m++] = k + 1; // because aux is one-based index
+		trueID.UpdateBuffer(m);
+		indsig = trueID;
+	}
+	if (!indsig.nSamples) return;
+	else if (indsig.IsScalar())
+	{
+		if (psigBase->GetType() == CSIG_AUDIO)
+		{
+			if (sec.IsTimeSignal())		// s(repl_RHS) = sound; //insert
+				psigBase->Insert(indsig.value(), sec);
+			else
+			{
+				unsigned int id = (unsigned int)round(indsig.value());
+				pbase->checkindexrange(pnode, psigBase, id, "LHS##vsdba2");
+				if (sec.IsComplex())
+				{
+					psigBase->SetComplex();
+					psigBase->cbuf[id - 1] = sec.cvalue();
+				}
+				else
+					psigBase->buf[id - 1] = sec.value();
+			}
+		}
+		else
+		{
+			unsigned int id = (unsigned int)round(indsig.value());
+			pbase->checkindexrange(pnode, psigBase, id, "LHS");
+			if (sec.IsComplex())
+			{
+				psigBase->SetComplex();
+				psigBase->cbuf[id - 1] = sec.cvalue();
+			}
+			else
+				replace(pnode, psigBase, sec, id - 1, id - 1);
+		}
+	}
+	else // not done yet if sec is complex
+	{
+		//		pnode->type is either N_IXASSIGN (for non-cell LHS)
+		//		or cell index for cell LHS,  for example, T_NUMBER for cc{3}
+		unsigned int id1, id2;
+		AstNode *repl_RHS = pbase->searchtree(pnode->child, T_REPLICA);
+		if (psigBase->GetType() == CSIG_AUDIO)
+		{
+			if (pnode->type == N_ARGS || (pnode->next && pnode->next->type == N_CALL))
+			{
+				// CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
+				// actually works efficiently (without blindly adding to the buffer) when there's no change in nSamples
+				// so I'm not doing if (repl_RHS) here.
+				// for lines below, it just looks long, but having if (repl_RHS) won't do any harm (maybe tiny bit faster)
+				// so I'm not getting rid of it below. 
+				// Buf probably I really need to check logical cases instead!!!
+				// 11/7/2019
+				if (indsig.IsLogical()) // s(conditional_var)
+				{
+					for (CTimeSeries *p = &sec; p; p = p->chain)
+					{
+						int id((int)(p->tmark*sec.GetFs() / 1000 + .5));
+						for (unsigned int k = 0; k < p->nSamples; k++)
+							if (indsig.logbuf[id + k])
+								psigBase->buf[id + k] = p->buf[(int)k];
+					}
+				}
+				else // s(id1:id2) or cel{n}(id1:id2)
+				{ // x(1200:1201) = zeros(111) FAILED HERE	on memcpy line.... that's wrong. 1/20/2018
+					// this must be contiguous
+					if (!pbase->isContiguous(indsig, id1, id2))
+						replace(pnode, psigBase, sec, indsig); // if sec is a scalar, just assignment call by index 
+					else
+					{
+						pbase->checkindexrange(pnode, psigBase, id1, "LHS");
+						pbase->checkindexrange(pnode, psigBase, id2, "LHS");
+						if (sec.nSamples != id2 - id1 + 1)
+						{
+							if (!sec.IsScalar())
+								throw pbase->ExceptionMsg(pnode, "to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
+						}
+						if (sec.IsComplex() && !psigBase->IsComplex()) psigBase->SetComplex();
+						replace(pnode, psigBase, sec, id1 - 1, id2 - 1);
+					}
+				}
+			}
+			else if (!pnode->next && !pnode->str) // if s(conditional) is on the LHS, the RHS must be either a scalar, or the replica, i.e., s(conditional)
+			{
+				if (!repl_RHS && !indsig.IsLogical()) throw pbase->ExceptionMsg(pnode, "Internal logic error (insertreplace:0)--s(conditional?).");
+				if (sec.IsScalar())
+				{
+					double val = sec.value();
+					for (CTimeSeries *piece(psigBase), *index(&indsig); piece; piece = piece->chain, index = index->chain)
+					{
+						for (unsigned int k = 0; k < index->nSamples; k++)
+							if (index->logbuf[k]) piece->buf[k] = val;
+					}
+				}
+				else
+				{ // RHS is conditional (can be replica)
+				  // At this point no need to worry about replacing null with non-null (i.e., signal is always non-null in the signal portions of sec. 
+				  //   4/13/2017
+					for (CTimeSeries *p = &sec; p; p = p->chain)
+					{
+						int id = (int)(p->tmark * pbase->GetFs() / 1000 + .5);
+						for (unsigned int k = 0; k < p->nSamples; k++)
+							psigBase->buf[id + k] = p->buf[k];
+					}
+				}
+			}
+			else if (p->type == N_TIME_EXTRACT || (p->next && p->next->type == N_IDLIST))  // s(repl_RHS1~repl_RHS2)   or  cel{n}(repl_RHS1~repl_RHS2)
+			{
+				if (repl_RHS) //direct update of buf
+				{
+					id1 = (unsigned int)round(indsig.buf[0] * psigBase->GetFs() / 1000.);
+					memcpy(psigBase->logbuf + id1 * psigBase->bufBlockSize, sec.buf, sec.nSamples*sec.bufBlockSize);
+				}
+				else
+					psigBase->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
+			}
+			else if (pnode->alt->type == N_HOOK)
+			{
+				psigBase->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
+			}
+			else
+				throw pbase->ExceptionMsg(pnode, "Internal logic error (insertreplace:1) --unexpected node type.");
+		}
+		else
+		{
+			// v(1:5) or v([contiguous]) = (any array) to replace
+			// v(1:2:5) or v([non-contiguous]) = RHS; //LHS and RHS must match length.
+			bool contig = pbase->isContiguous(indsig, id1, id2);
+			if (!sec.IsEmpty() && !contig && sec.nSamples != 1 && sec.nSamples != indsig.nSamples) throw pbase->ExceptionMsg(pnode, "the number of replaced items must be the same as that of replacing items.");
+
+			if (repl_RHS) //direct update of buf
+			{
+				if (contig)
+					memcpy(psigBase->logbuf + id1 * psigBase->bufBlockSize, sec.buf, sec.nSamples*sec.bufBlockSize);
+				else
+				{
+					for (unsigned int k = 0; k < indsig.nSamples; k++)
+					{
+						memcpy(psigBase->logbuf + (int)indsig.buf[k] * psigBase->bufBlockSize, sec.buf + k * psigBase->bufBlockSize, psigBase->bufBlockSize);
+					}
+				}
+			}
+			else
+			{
+				if (contig)
+					replace(pnode, psigBase, sec, id1 - 1, id2 - 1);
+				else
+					replace(pnode, psigBase, sec, indsig);
+			}
+		}
+	}
+}
+
+CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
+{
+	CVar isig;
+	CVar *tsig = NULL;
 	eval_indexing(pLHS->child, isig);
-	tsig = pbase->Compute(pRHS);
-	//This is where elements of an existing array are changed, upated or replaced by indices.
-	pbase->insertreplace(pLHS, level.psigBase, tsig, isig);
+	if (pRHS)
+	{
+		tsig = pbase->Compute(pRHS);
+		//This is where elements of an existing array are changed, upated or replaced by indices.
+		insertreplace(pLHS, *tsig, isig);
+	}
+	else
+		insertreplace(pLHS, *psig, isig);
 	if (isig.nSamples > 0)
 	{
 		ostringstream oss;
 		oss << "(";
-		if (isig.nSamples == 1)
-		{
-			oss << (int)isig.value() << ")";
-		}
+		if (isig.nSamples > 1)  oss << "[";
+		if (isig.nSamples < 10)
+			for_each(isig.buf, isig.buf + isig.nSamples - 1, [&oss](double v) {oss << v << ' '; });
 		else
-		{
-			oss << "[";
-			for (unsigned int k = 0; k < isig.nSamples; k++)
-			{
-				oss << (int)isig.buf[k];
-				if (k == isig.nSamples - 1)
-					oss << "])";
-				else
-					oss << " ";
-			}
-		}
-		level.varname += oss.str();
+			oss << (int)isig.buf[0] << ' ' << (int)isig.buf[1] << " ... ";
+		if (isig.nSamples > 1)  oss << (int)isig.buf[isig.nSamples - 1] << "]";
+		oss << ")";
+		varname += oss.str();
 	}
-	return pbase->Sig=tsig;
+	return psigBase;
 }
 
-CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig)
 {
 	CVar isig;
 	if (p->alt) // T-Y-2-1 
 	{
 		if (p->alt->type == N_CELL)
 		{ // This applies to a{m} = RHS only. a{m}(n) = RHS  should be taken care of by TID_RHS2LHS::N_ARGS
-			pbase->replica = *psig;
-			*level.psigBase = pbase->Compute(pRHS); // Updating Vars by directly accessing the pointer attached to the current cell
+			*psigBase = pbase->Compute(pRHS); // Updating Vars by directly accessing the pointer attached to the current cell
 		}
 		else if (p->alt->type == N_ARGS) // regular indexing
 		{
-			//This may be obsolete and can be removed... check 11/6/2018
 			TID_indexing(p->alt, pRHS, psig);
 			if (pbase->pgo)
 			{ // need to get the member name right before N_ARGS
@@ -170,13 +261,12 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 				pbase->setgo.type = pp->str;
 			}
 		}
-		else if (p->alt->type == N_STRUCT)
-		{
-			pbase->define_new_variable(pnode, pRHS);
-			level.varname += '.';
-			level.varname += p->alt->str;
-		}
-//			throw pbase->ExceptionMsg(p, "Only one level of class definition allowed.");
+		//else if (p->alt->type == N_STRUCT)
+		//{
+		//	pbase->define_new_variable(pnode, pRHS, varname.c_str());
+		//	varname += '.';
+		//	varname += p->alt->str;
+		//}
 		else 
 			throw pbase->ExceptionMsg(p, "Unknown error.");
 	}
@@ -184,7 +274,7 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 	{ // no indexing--assign RHS to LHS (if RHS is available) or retrieve LHS
 		if (pRHS)
 		{
-			if (level.psigBase && level.psigBase->IsGO())
+			if (psigBase && psigBase->IsGO())
 			{ //reject an attempt to modify unchangeable struts
 				if (!strcmp(p->str,"children") || !strcmp(p->str, "parent") || !strcmp(p->str, "gcf") || !strcmp(p->str, "gca"))
 					throw pbase->ExceptionMsg(p, "LHS is unmodifiable.");
@@ -192,47 +282,57 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 			// illegal if p-str is a built-in function name
 			if (p->str[0] == '#' || pbase->IsValidBuiltin(p->str))
 				throw pbase->ExceptionMsg(p, "LHS must be l-value; cannot be a built-in function");
-			if (level.psigBase) pbase->replica_prep(level.psigBase);
-			CVar *pgo_org = pbase->pgo;
-			CVar tsig = pbase->Compute(pRHS);
+//			CVar *pgo_org = pbase->pgo;
+			CVar *psigRHS = pbase->Compute(pRHS);
 //			pgo = pgo_org; // if this is uncommented, a = var_go; won't assign the var_go to a if a is already a go. I forgot when/why I had to add this line. 11/29/2018. 
 			//I'm trying this to see if it solves the problem. THis may not be bullet-proof. 11/29/2018
-			if (!tsig.IsGO()) pbase->pgo = pgo_org;
+//			if (!psigRHS->IsGO()) pbase->pgo = pgo_org;
 			//This is where an existing variable is changed, upated or replaced by indices.
-			if (p == pnode)
+			if (p->type == N_VECTOR) 
+			{
+				// Just skip without calling SetVar, because outputbinding is done at PrepareAndCallUDF
+			}
+			else if (p == pnode)
 			{	//top-level: SetVar
-				if (tsig.GetType()==CSIG_HDLARRAY)
-					pbase->SetVar(p->str, &tsig);
-				else if (pbase->pgo)
-					pbase->SetVar(p->str, pbase->pgo);
-				else if (p->suppress!=-1) // for the case of (recorder).start--we should keep RHS from affecting the LHS
-					pbase->SetVar(p->str, &tsig);
+				if (p->suppress != -1) // for the case of (recorder).start--we should keep RHS from affecting the LHS
+				{
+					if (psigRHS->IsGO())
+						pbase->SetVar(p->str, pbase->pgo);
+					else
+						pbase->SetVar(p->str, psigRHS);
+				}
 			}
 			else
 			{ // p->type should be N_STRUCT
-				//if a member item p->str is available, level.psigBase is the pointer to that item
-				//if the item is not available, level.psigBase is the pointer to the base
-				if (level.psigBase->IsStruct())
+				//if a member item p->str is available, psigBase is the pointer to that item
+				//if the item is not available, psigBase is the pointer to the base
+				if (psigBase->IsStruct())
 				{// a.var_not_existing = RHS --> existing Sig is ignored and a new one comes in from Compute(pRHS)
-					if (tsig.GetFs()!=3)
+					if (psigRHS->GetFs()!=3)
 					{
-						if (tsig.IsGO())
-							level.psigBase->struts[p->str].push_back(pbase->pgo);
+						if (psigRHS->IsGO())
+							psigBase->struts[p->str].push_back(pbase->pgo);
 						else
 						{
-							level.psigBase->strut[p->str] = tsig;
-							level.varname += string(".") + p->str;
+							psigBase->strut[p->str] = psigRHS;
+							varname += string(".") + p->str;
 						}
 					}
 					else
-						level.psigBase->struts[pnode->str].push_back(&tsig); // check
+						psigBase->struts[pnode->str].push_back(psigRHS); // check
 				}
 				else
 				{
-					if (tsig.IsGO()) // If the base sig already has corresponding struts, it is a matter of replacing the content, but if the existing member is strut, it is complicated... 9/6/2018
+
+
+					if (psigRHS->IsGO()) // If the base sig already has corresponding struts, it is a matter of replacing the content, but if the existing member is strut, it is complicated... 9/6/2018
 						throw pbase->ExceptionMsg(p, "You are trying to update a GO member variable. This cannot be done due to a known bug. Clear the member variable and try again. Will be fixed someday. bj kwon 9/6/2018.");
 					else
-						*level.psigBase = tsig;
+						//if psigBase is not strut yet, make it now
+					{
+						psigBase->strut[p->str] = psigRHS;
+						varname += string(".") + p->str;
+					}
 				}
 				if (pbase->pgo) 
 					pbase->setgo.type = p->str;
@@ -244,17 +344,17 @@ CVar &CDeepProc::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *
 			if (pbase->Sig.nSamples)
 				throw pbase->ExceptionMsg(p, "not available member variable or function.");
 			if (p->type == N_CALL) 
-				return pbase->Sig;
+				return &pbase->Sig;
 			if (psig)
-				return pbase->Sig = *psig;
+				return psig;
 			else
-				return pbase->Sig;
+				return &pbase->Sig;
 		}
 	}
-	return pbase->Sig;
+	return psigBase;
 }
 
-CVar * CDeepProc::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS)
+CVar * CNodeProbe::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS)
 {
 	if (pRHS)
 	{
@@ -268,38 +368,41 @@ CVar * CDeepProc::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pR
 		isig.UpdateBuffer(2);
 		isig.buf[0] = tpoints[0];
 		isig.buf[1] = tpoints[1];
-		pbase->insertreplace(pnode, level.psigBase, tsig, isig);
-		return level.psigBase;
+		insertreplace(pnode, tsig, isig);
+		ostringstream oss;
+		oss << "(" << tpoints[0] << '~' << tpoints[1] << ")";
+		varname += oss.str();
+		return psigBase;
 	}
 	else
 		return TimeExtract(pnode, p->child);
 }
 
-CVar * CDeepProc::TimeExtract(const AstNode *pnode, AstNode *p)
+CVar * CNodeProbe::TimeExtract(const AstNode *pnode, AstNode *p)
 {
 	char estr[256];
-	if (!level.psigBase)
+	if (!psigBase)
 	{
 		strcat(estr, " for time extraction ~");
 		throw pbase->ExceptionMsg(pnode, estr);
 	}
-	pbase->checkAudioSig(pnode, *level.psigBase);
+	pbase->checkAudioSig(pnode, *psigBase);
 
-	CTimeSeries *pts = level.psigBase;
+	CTimeSeries *pts = psigBase;
 	for (; pts; pts = pts->chain)
 		pbase->endpoint = pts->CSignal::endt().front();
-	if (level.psigBase->next)
+	if (psigBase->next)
 	{
-		pts = level.psigBase->next;
+		pts = psigBase->next;
 		pbase->endpoint = max(pbase->endpoint, pts->CSignal::endt().front());
 	}
 	vector<double> tpoints = pbase->gettimepoints(pnode, p);
-	CVar out(*level.psigBase);
+	CVar out(*psigBase);
 	out.Crop(tpoints[0], tpoints[1]);
 	return &(pbase->Sig = out);
 }
 
-bool CAstSig::builtin_func_call(CDeepProc &diggy, AstNode *p)
+bool CAstSig::builtin_func_call(CNodeProbe &diggy, AstNode *p)
 {
 	/* p->type :
 	N_STRUCT --> struct call --> pvar must be ready
@@ -309,18 +412,18 @@ bool CAstSig::builtin_func_call(CDeepProc &diggy, AstNode *p)
 	{
 		if (p->str[0] == '$' || IsValidBuiltin(p->str)) // hook bypasses IsValidBuiltin
 		{
-			// if diggy.level.root->child is present, it generally means that RHS exists and should be rejected if LHS is a function call
+			// if diggy.root->child is present, it generally means that RHS exists and should be rejected if LHS is a function call
 			// The exception is if LHS has alt node, because it will go down through the next node and it may end up a non-function call.
-			if (diggy.level.root->child) 
-				if (!diggy.level.root->alt)
-					throw ExceptionMsg(diggy.level.root, "LHS must be an l-value. Isn't it a built-in function?");
-			HandleAuxFunctions(p, diggy.level.root);
+			if (diggy.root->child) 
+				if (!diggy.root->alt)
+					throw ExceptionMsg(diggy.root, "LHS must be an l-value. Isn't it a built-in function?");
+			HandleAuxFunctions(p, diggy.root);
 			// while pgo is active, psigBase should point to pgo, not &Sig
-			// this causes a crash on the line Sig = *diggy.level.psigBase in read_node() in AstSig.cpp   4/7/2019
+			// this causes a crash on the line Sig = *diggy.psigBase in read_node() in AstSig.cpp   4/7/2019
 			//
 			// pgo changed to diggy.level.pgo because in ax.x.lim = [0 getfs/2] when p is getfs pgo should be cleared, but diggy.pbase (which is pgo) should be untouched.
 			// 10/10/2019
-			diggy.level.psigBase = diggy.level.pgo ? diggy.level.pgo : &Sig;
+//			diggy.psigBase = pgo ? pgo : &Sig;
 			return true;
 		}
 	}
@@ -336,14 +439,15 @@ char *CAstSig::showGraffyHandle(char *outbuf, CVar *psig)
 	return outbuf;
 }
 
-CDeepProc::CDeepProc(CAstSig *past, AstNode *pnode, CVar *psig)
+CNodeProbe::CNodeProbe(CAstSig *past, AstNode *pnode, CVar *psig)
 {
+	psigBase = NULL;
 	pbase = past;
-	level.root = pnode;
-	level.psigBase = psig; // NULL except for T_REPLICA
+	root = pnode;
+	psigBase = psig; // NULL except for T_REPLICA
 }
 
-CVar &CDeepProc::ExtractByIndex(const AstNode *pnode, AstNode *p)
+CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 { // pnode->type should be N_ARGS
 	ostringstream ostream;
 	CVar tsig, isig, isig2;
@@ -351,21 +455,23 @@ CVar &CDeepProc::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	eval_indexing(p->child, isig);
 	if (isig._max().front() > pbase->Sig.nSamples)
 	{
-		ostream << "Index " << (int)isig._max().front() << " exceeds the length of " << level.varname;
+		ostream << "Index " << (int)isig._max().front() << " exceeds the length of " << varname;
 		throw pbase->ExceptionMsg(pnode, ostream.str().c_str());
 	}
 	pbase->Sig = extract(pnode, isig);
 	return pbase->Sig;
 }
 
-CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
+CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 {
+	// Improve--don't use out. Just return psigBase. 11/11/2019
+
 	//pinout comes with input and makes the output
 	//At the end, Sig is updated with pinout
 	//pinout always has the same or smaller buffer size, so let's not worry about calling UpdateBuffer() here
 	//Instead of throw an exception, errstr is copy'ed. Return value should be ignored.
 	// For success, errstr stays empty.
-	CSignals out((level.psigBase)->GetFs());
+	CSignals out((psigBase)->GetFs());
 	CTimeSeries *p = &out;
 	ostringstream outstream;
 	out.UpdateBuffer(isig.nSamples);
@@ -373,33 +479,33 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 	//body::Min() makes a scalar.
 	if (isig._min().front() <= 0.)
 	{
-		outstream << "Invalid index " << "for " << level.varname << " : " << (int)isig._min().front() << " (must be positive)";
+		outstream << "Invalid index " << "for " << varname << " : " << (int)isig._min().front() << " (must be positive)";
 		throw pbase->ExceptionMsg(pnode, outstream.str().c_str());
 	}
-	if ((level.psigBase)->IsComplex())
+	if ((psigBase)->IsComplex())
 	{
 		out.SetComplex();
 		for (unsigned int i = 0; i < isig.nSamples; i++)
-			out.cbuf[i] = (level.psigBase)->cbuf[(int)isig.buf[i] - 1];
+			out.cbuf[i] = (psigBase)->cbuf[(int)isig.buf[i] - 1];
 	}
-	else if ((level.psigBase)->IsLogical())
+	else if ((psigBase)->IsLogical())
 	{
 		out.MakeLogical();
 		for (unsigned int i = 0; i < isig.nSamples; i++)
-			out.logbuf[i] = (level.psigBase)->logbuf[(int)isig.buf[i] - 1];
+			out.logbuf[i] = (psigBase)->logbuf[(int)isig.buf[i] - 1];
 	}
-	else if ((level.psigBase)->IsString())
+	else if ((psigBase)->IsString())
 	{
 		out.UpdateBuffer(isig.nSamples + 1); // make room for null 
 		for (unsigned int i = 0; i < isig.nSamples; i++)
-			out.strbuf[i] = (level.psigBase)->strbuf[(int)isig.buf[i] - 1];
+			out.strbuf[i] = (psigBase)->strbuf[(int)isig.buf[i] - 1];
 		out.strbuf[out.nSamples - 1] = 0;
 	}
 	else
 	{
-		if ((level.psigBase)->IsGO())
+		if ((psigBase)->IsGO())
 		{
-			if (isig._max().front() > (level.psigBase)->nSamples)
+			if (isig._max().front() > (psigBase)->nSamples)
 			{
 				outstream << "Index out of range: " << (int)isig._max().front();
 				throw pbase->ExceptionMsg(pnode, outstream.str().c_str());
@@ -407,9 +513,10 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 			if (isig.nSamples == 1)
 			{
 				size_t did = (size_t)isig.value() - 1;
-				CVar *tp = (CVar*)(INT_PTR)(level.psigBase)->buf[did];
-				pbase->pgo = level.psigBase = tp;
-				return pbase->Sig = *level.psigBase;
+				CVar *tp = (CVar*)(INT_PTR)(psigBase)->buf[did];
+				pbase->pgo = psigBase = tp;
+				pbase->Sig = *psigBase;
+				return psigBase;
 			}
 			else
 			{
@@ -417,11 +524,12 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 				for (unsigned int k = 0; k < isig.nSamples; k++)
 				{
 					size_t did = (size_t)isig.buf[k] - 1;
-					CVar *tp = (CVar*)(INT_PTR)(level.psigBase)->buf[did];
+					CVar *tp = (CVar*)(INT_PTR)(psigBase)->buf[did];
 					gos.push_back((INT_PTR)tp);
 				}
-				level.psigBase = pbase->MakeGOContainer(gos);
-				return pbase->Sig = level.psigBase;
+				psigBase = pbase->MakeGOContainer(gos);
+				pbase->Sig = *psigBase;
+				return psigBase;
 			}
 		}
 		out.SetReal();
@@ -429,7 +537,7 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 		{
 			int id(0);
 			for (unsigned int k = 0; k < isig.nSamples; k++)
-				out.buf[id++] = (level.psigBase)->buf[(int)isig.buf[k] - 1];
+				out.buf[id++] = (psigBase)->buf[(int)isig.buf[k] - 1];
 		}
 		else if (pbase->Sig.GetType() == CSIG_AUDIO)
 		{
@@ -451,7 +559,8 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 				size2reserve.push_back((int)_pisig->buf[_pisig->nSamples - 1]);
 				auto it = size2reserve.begin();
 				p->UpdateBuffer(*(it + 1) - *it + 1);
-				p->tmark = _pisig->tmark;
+				id = (int)_pisig->buf[0] - 1;
+				p->tmark = (double)id / pbase->Sig.GetFs() * 1000.;
 				it++; it++;
 				lastid = (int)_pisig->buf[0] - 1;
 				for (unsigned int i = 0; i < _pisig->nSamples; i++)
@@ -467,7 +576,7 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 						p = pchain;
 						it++; it++;
 					}
-					p->buf[cum++] = (level.psigBase)->buf[id];
+					p->buf[cum++] = psigBase->buf[id];
 					lastid = id;
 				}
 				_pisig = _pisig->chain;
@@ -480,19 +589,20 @@ CVar &CDeepProc::extract(const AstNode *pnode, CTimeSeries &isig)
 		}
 	}
 	out.nGroups = isig.nGroups;
-	return (pbase->Sig = out);
+	pbase->Sig = out;
+	return &pbase->Sig;
 }
 
 
 
-CVar &CDeepProc::eval_indexing(const AstNode *pInd, CVar &isig)
+CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 {
-	// input: pInd, level.psigBase
+	// input: pInd, psigBase
 	// output: isig -- sig holding all indices
 
 	// process the first index
 	unsigned int len;
-	pbase->prepare_endpoint(pInd, level.psigBase);
+	pbase->prepare_endpoint(pInd, psigBase);
 	try {
 		CAstSig tp(pbase);
 		if (pInd->type == T_FULLRANGE)
@@ -506,27 +616,27 @@ CVar &CDeepProc::eval_indexing(const AstNode *pInd, CVar &isig)
 		// process the second index, if it exists
 		if (pInd->next)
 		{
-			if (level.psigBase->nGroups > 1 && isig.nSamples > 1)
+			if (psigBase->nGroups > 1 && isig.nSamples > 1)
 				isig.nGroups = isig.nSamples;
 			AstNode *p = pInd->next;
 			CVar isig2;
 			if (p->type == T_FULLRANGE)
 			{// x(ids,:)
-				len = level.psigBase->Len();
+				len = psigBase->Len();
 				isig2.UpdateBuffer(len);
 				for (unsigned int k = 0; k < len; k++)	isig2.buf[k] = k + 1;
 			}
 			else // x(ids1,ids2)
 			{
 				//endpoint for the second arg in 2D is determined here.
-				tp.endpoint = (double)level.psigBase->Len();
+				tp.endpoint = (double)psigBase->Len();
 				isig2 = tp.Compute(p);
 			}
 			char buf[128];
 			if (isig2.IsLogical()) pbase->index_array_satisfying_condition(isig2);
-			else if (isig2._max().front() > (double)level.psigBase->Len())
+			else if (isig2._max().front() > (double)psigBase->Len())
 				throw pbase->ExceptionMsg(pInd, "Out of range: 2nd index ", itoa((int)isig2._max().front(), buf, 10));
-			pbase->interweave_indices(isig, isig2, level.psigBase->Len());
+			pbase->interweave_indices(isig, isig2, psigBase->Len());
 		}
 	}
 	catch (const CAstException &e) {
@@ -535,22 +645,21 @@ CVar &CDeepProc::eval_indexing(const AstNode *pInd, CVar &isig)
 	return isig;
 }
 
-CVar * CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
 {
 	unsigned int id = 0;
 	CVar isig;
-	pbase->replica = pbase->Sig;
 	eval_indexing(pLHS, isig);
-	CVar rhs = pbase->Compute(pRHS);
-	if (rhs.IsScalar())
+	CVar * prhs = pbase->Compute(pRHS);
+	if (prhs->IsScalar())
 	{
 		//go through chains 6/24/2019
-		CTimeSeries *p = level.psigBase;
+		CTimeSeries *p = psigBase;
 		CTimeSeries *pisig = &isig;
 		while (p)
 		{
 			for (unsigned k = 0; k < pisig->nSamples; k++)
-				p->buf[(int)pisig->buf[k] - 1] = rhs.value();
+				p->buf[(int)pisig->buf[k] - 1] = prhs->value();
 			p = p->chain;
 			pisig = pisig->chain;
 		}
@@ -558,14 +667,14 @@ CVar * CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pR
 	else if (pbase->searchtree(pRHS, T_REPLICA))
 	{
 		//go through chains 6/24/2019
-		CTimeSeries *p = level.psigBase;
+		CTimeSeries *p = psigBase;
 		CTimeSeries *pisig = &isig;
 		while (p)
 		{
 			if (p->IsTimeSignal()) // Check this part 9/4/2018
 			{
 				// consolidate chained rhs with lhs
-				for (CTimeSeries *cts = &rhs; cts; cts = cts->chain)
+				for (CTimeSeries *cts = prhs; cts; cts = cts->chain)
 				{
 					// id translated from tmark for each chain
 					id = (unsigned int)(cts->tmark / 1000. * cts->GetFs());
@@ -575,34 +684,38 @@ CVar * CDeepProc::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pR
 			else
 			{
 				for (unsigned k = 0; k < pisig->nSamples; k++)
-					p->buf[(int)pisig->buf[k] - 1] = rhs.buf[k];
+					p->buf[(int)pisig->buf[k] - 1] = prhs->buf[k];
 			}
 			p = p->chain;
-			pisig = pisig->chain;
+			if (pisig) pisig = pisig->chain;
+			else break;
 		}
 	}
-	else if (rhs.IsEmpty())
+	else if (prhs->IsEmpty())
 	{
 		//do we need to go through chains??? 6/24/2019
-		pbase->insertreplace(pLHS, level.psigBase, rhs, isig);
+		insertreplace(pLHS, *prhs, isig);
 		pbase->Sig.Reset();
 	}
 	else
 		throw pbase->ExceptionMsg(pRHS, "Invalid RHS; For LHS with conditional indexing, RHS should be either a scalar, empty, or .. (self).");
-	pbase->SetVar(pnode->str, level.psigBase);
+	pbase->SetVar(pnode->str, psigBase);
+	if (isig.nSamples > 0)
+	{
+		varname = pbase->Script;
+	}
 	return &pbase->Sig;
 }
 
-CVar * CDeepProc::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
 { // Computes pRHS, if available, and assign it to LHS.
 	// 2 cases where psig is not Sig: first, a(2), second, a.sqrt
-	CVar tsig;
 	if (pbase->IsCondition(pLHS))
 		return TID_condition(pnode, pLHS, pRHS, psig);
 	switch (pLHS->type)
 	{
 	case N_ARGS:
-		tsig = TID_indexing(pLHS, pRHS, psig);
+		TID_indexing(pLHS, pRHS, psig);
 		if (pbase->pgo)
 		{ // need to get the member name right before N_ARGS
 			AstNode *pp = pbase->findParentNode((AstNode*)pnode, pLHS, true);
@@ -612,15 +725,17 @@ CVar * CDeepProc::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS
 	case T_ID: // T-Y-2
 	case N_STRUCT:
 	case N_CALL:
-		tsig = TID_tag(pnode, pLHS, pRHS, psig);
+	case N_MATRIX:
+	case N_VECTOR:
+		TID_tag(pnode, pLHS, pRHS, psig);
 		break;
 	case N_TIME_EXTRACT: // T-Y-4 
-		tsig = TID_time_extract(pnode, pLHS, pRHS);
+		TID_time_extract(pnode, pLHS, pRHS);
 		break;
 	case N_HOOK:
 		if (pbase->pEnv->pseudo_vars.find(pnode->str) == pbase->pEnv->pseudo_vars.end())
 		{
-			tsig = TID_tag(pnode, pLHS, pRHS, psig);
+			TID_tag(pnode, pLHS, pRHS, psig);
 		}
 		else
 			throw pbase->ExceptionMsg(pLHS, "Pseudo variable cannot be modified.");
@@ -629,4 +744,112 @@ CVar * CDeepProc::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS
 		return pbase->Compute(pRHS); // check... this may not happen.. if so, inspect.
 	}
 	return &pbase->Sig;
+}
+
+/* These two replace() member functions could be part of body in csignals.cpp for the point of logic,
+but better to keep here because of exception handling (i.e., need pnode)
+*/
+CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index)
+{
+	//	this is to be used when items are replaced without changing the size.
+	// except when sec is empty... in which case the "index"'ed items are deleted.
+	// in that case index is assumed to be sorted ascending
+	if (index.nSamples == 0) return *pobj;
+	if (sec.bufBlockSize != pobj->bufBlockSize)
+	{
+		if (pobj->bufBlockSize == 1 && sec.bufBlockSize != 1) sec.MakeLogical();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 1) sec.SetReal();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 16) pobj->SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 1) sec.SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 8) sec.SetComplex();
+	}
+	for (unsigned int k = 0; k < index.nSamples; k++)
+	{
+		if (index.buf[k] < 1.)
+			throw pbase->ExceptionMsg(pnode, "index must be greater than 0");
+		unsigned int id = (int)index.buf[k];
+		if (id - index.buf[k] > .25 || index.buf[k] - id > .25)
+			throw pbase->ExceptionMsg(pnode, "index must be integer");
+		if (id > pobj->nSamples)
+			throw pbase->ExceptionMsg(pnode, "replace index exceeds the range.");
+	}
+	if (sec.nSamples == 0)
+	{
+		int trace = (int)(index.buf[0] - 1);
+		for (unsigned int k = 0; k < index.nSamples; k++)
+		{
+			unsigned int diff = (unsigned int)(k < index.nSamples - 1 ? index.buf[k + 1] - index.buf[k] : pobj->nSamples + 1 - index.buf[k]);
+			diff--;
+			memcpy(pobj->logbuf + trace * pobj->bufBlockSize, pobj->logbuf + (int)index.buf[k] * pobj->bufBlockSize, diff*pobj->bufBlockSize);
+			trace += diff;
+		}
+		pobj->nSamples -= index.nSamples;
+	}
+	else
+		for (unsigned int k = 0; k < index.nSamples; k++)
+		{
+			if (index.buf[k] < 1.)
+				throw pbase->ExceptionMsg(pnode, "index must be greater than 0");
+			unsigned int id = (unsigned int)(index.buf[k]);
+			if (id - index.buf[k] > .05 || index.buf[k] - id > .05)
+				throw pbase->ExceptionMsg(pnode, "index must be integer");
+			if (id > pobj->nSamples)
+				throw pbase->ExceptionMsg(pnode, "replace index exceeds the range.");
+			id--; // zero-based
+			if (sec.nSamples == 1) // items from id1 to id2 are to be replaced with sec.value()
+				memcpy(pobj->logbuf + id * pobj->bufBlockSize, sec.logbuf, pobj->bufBlockSize);
+			else
+				memcpy(pobj->logbuf + id * pobj->bufBlockSize, sec.logbuf + k * pobj->bufBlockSize, pobj->bufBlockSize);
+		}
+	return *pobj;
+}
+
+CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
+{ // this replaces the data body between id1 and id2 (including edges) with sec
+	if (id1 < 0 || id2 < 0) throw pbase->ExceptionMsg(pnode, "replace index cannot be negative.");
+	if (sec.bufBlockSize != pobj->bufBlockSize)
+	{
+		if (pobj->bufBlockSize == 1 && sec.bufBlockSize != 1) sec.MakeLogical();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 1) sec.SetReal();
+		else if (pobj->bufBlockSize == 8 && sec.bufBlockSize == 16) pobj->SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 1) sec.SetComplex();
+		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 8) sec.SetComplex();
+	}
+	//id1 and id2 are zero-based here.
+	if (id1 > (int)pobj->nSamples - 1) throw pbase->ExceptionMsg(pnode, "replace index1 exceeds the range.");
+	if (id2 > (int)pobj->nSamples - 1) throw pbase->ExceptionMsg(pnode, "replace index2 exceeds the range.");
+	unsigned int secnsamples = sec.nSamples;
+	bool ch = ((CSignal *)&sec)->bufBlockSize == 1;
+	if (ch) secnsamples--;
+	if (secnsamples == 1) // no change in length--items from id1 to id2 are to be replaced with sec.value()
+	{
+		if (ch)
+			for (int k = id1; k <= id2; k++) pobj->strbuf[k] = sec.strbuf[0];
+		else if (((CSignal *)&sec)->bufBlockSize == 16)
+			for (int k = id1; k <= id2; k++) pobj->cbuf[k] = sec.cvalue();
+		else
+			for (int k = id1; k <= id2; k++) pobj->buf[k] = sec.value();
+	}
+	else
+	{
+		unsigned int nAdd = secnsamples;
+		unsigned int nSubtr = id2 - id1 + 1;
+		unsigned int newLen = pobj->nSamples + nAdd - nSubtr;
+		unsigned int nToMove = pobj->nSamples - id2 - 1;
+		if (nAdd > nSubtr) pobj->UpdateBuffer(newLen);
+		bool *temp;
+		if (nAdd != nSubtr)
+		{
+			temp = new bool[nToMove*pobj->bufBlockSize];
+			memcpy(temp, pobj->logbuf + (id2 + 1)*pobj->bufBlockSize, nToMove*pobj->bufBlockSize);
+		}
+		memcpy(pobj->logbuf + id1 * pobj->bufBlockSize, sec.buf, secnsamples*pobj->bufBlockSize);
+		if (nAdd != nSubtr)
+		{
+			memcpy(pobj->logbuf + (id1 + secnsamples)*pobj->bufBlockSize, temp, nToMove*pobj->bufBlockSize);
+			delete[] temp;
+		}
+		pobj->nSamples = newLen;
+	}
+	return *pobj;
 }

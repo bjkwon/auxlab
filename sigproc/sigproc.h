@@ -92,7 +92,7 @@ typedef int INT_PTR;
 using namespace std;
 
 class CAstSig;
-class CDeepProc;
+class CNodeProbe;
 
 #include "aux_classes.h"
 
@@ -195,19 +195,6 @@ public:
 	CFuncPointers& operator=(const CFuncPointers& rhs);
 };
 
-class NODEDIGGER
-{
-public:
-	NODEDIGGER() { side = ' '; pgo = psigBase = NULL; };
-	virtual ~NODEDIGGER() {};
-	AstNode *root;
-	char side;
-	CVar *psigBase;
-	CVar Sig;
-	CVar *pgo;
-	string varname; // tracks the "full" name of variable including the index, the dot or { }, etc.
-};
-
 class CUDF
 {
 public:
@@ -233,7 +220,7 @@ public:
 
 class CAstSig
 {
-	friend class CDeepProc;
+	friend class CNodeProbe;
 public:
 #ifndef GRAFFY
 	static void cleanup_nodes(CAstSig *beginhere = NULL);
@@ -291,7 +278,6 @@ private:
 	bool HandlePseudoVar(const AstNode *pnode);
 	int HandleMathFunc(bool compl, string &fname, double(**)(double), double(**)(double), double(**)(double, double), double(**)(complex<double>), complex<double>(**)(complex<double>), complex<double>(**)(complex<double>, complex<double>));
 	bool IsValidBuiltin(string funcname);
-	CAstSig &insertreplace(const AstNode *pnode, CTimeSeries *inout, CVar &sec, CVar &indsig);
 	void checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned int id, string errstr);
 	bool isContiguous(body &id, unsigned int &begin,unsigned int &end);
 	AstNode *searchtree(const AstNode *pTarget, AstNode *pStart);
@@ -299,25 +285,27 @@ private:
 	bool checkcond(const AstNode *p);
 	void hold_at_break_point(const AstNode *pnode);
 	void prepare_endpoint(const AstNode *p, CVar *pvar);
-	bool builtin_func_call(CDeepProc &diggy, AstNode *p);
+	bool builtin_func_call(CNodeProbe &diggy, AstNode *p);
 	void Concatenate(const AstNode *pnode, AstNode *p);
-	AstNode *read_node(CDeepProc &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
-	AstNode *read_nodes(CDeepProc &diggy);
-	AstNode *read_node_4_clearvar(NODEDIGGER &ndog, AstNode **pn);
+	AstNode *read_node(CNodeProbe &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
+	AstNode *read_nodes(CNodeProbe &diggy, bool bRHS = false);
 	void interweave_indices(CVar &isig, CVar &isig2, unsigned int len);
 	void index_array_satisfying_condition(CVar &isig);
 	void replica_prep(CVar *psig);
-	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2);
-	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
-	void outputbinding(size_t nArgout);
+	void outputbinding(const AstNode *pCalling, size_t nArgout);
 	CVar *eval_RHS(AstNode *pnode);
+	inline void throw_LHS_lvalue(const AstNode *pn, bool udf);
+	CVar * NodeVector(const AstNode *pnode);
+	CVar * NodeMatrix(const AstNode *pnode);
+	CVar * Dot(AstNode *p);
+	void bind_psig(AstNode *pn, CVar *tsig);
 
 public:
 	string ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *> &pOutVars);
 	string adjustfs(int newfs);
 	CVar * ConditionalOperation(const AstNode *pnode, AstNode *p);
-	int updateGO(CVar &ref);
 	void ClearVar(AstNode *pnode, CVar *psig);
+	int updateGO(CVar &ref);
 	CVar * pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout = NULL);
 	CVar * TSeq(const AstNode *pnode, AstNode *p);
 	bool isThisAllowedPropGO(CVar *psig, const char *type, const CVar &tsig);
@@ -361,9 +349,7 @@ public:
 	CVar * Compute(const AstNode *pnode);
 	CVar * InitCell(const AstNode *pnode, AstNode *p);
 	CVar * SetLevel(const AstNode *pnode, AstNode *p);
-	CVar * NodeVector(const AstNode *pnode, AstNode *p);
-	CVar * NodeMatrix(const AstNode *pnode, AstNode *p);
-	void define_new_variable(const AstNode *pnode, AstNode *pRHS);
+	void define_new_variable(const AstNode *pnode, AstNode *pRHS, const char *fullvarname);
 	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
 	CVar *GetVariable(const char *varname, CVar *pvar = NULL);
 	CVar * TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
@@ -371,6 +357,7 @@ public:
 	void Transpose(const AstNode *pnode, AstNode *p);
 	CAstSig &Reset(const int fs = 0, const char* path=NULL);
 	CAstSig &SetVar(const char *name, CVar *psig, CVar *pBase = NULL);
+	CAstSig * SetVarwithIndex(const CSignal& indices, CVar *psig, CVar *pBase);
 	CAstSig &SetGloVar(const char *name, CVar *psig, CVar *pBase = NULL);
 	const char *GetPath() {return pEnv->AuxPath.c_str();}
 	int GetFs(void) {return pEnv->Fs;}
@@ -396,25 +383,32 @@ public:
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int *args);
 };
 
-class CDeepProc
+class CNodeProbe
 {
 	friend class CAstSig;
 public:
-	CDeepProc(CAstSig *past, AstNode *pnode, CVar *psig);
-	virtual ~CDeepProc() {};
+	CNodeProbe(CAstSig *past, AstNode *pnode, CVar *psig);
+	virtual ~CNodeProbe() {};
 	CAstSig *pbase;
-	NODEDIGGER level;
+	AstNode *root;
+	CVar *psigBase;
+	string varname; // tracks the "full" name of variable including the index, the dot or { }, etc.
 	char status[8]; // limit to 7 characters
 
 	CVar * TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig);
 	CVar * TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &ExtractByIndex(const AstNode *pnode, AstNode *p);
 	CVar &eval_indexing(const AstNode *pInd, CVar &indSig);
-	CVar &TID_indexing(AstNode *p, AstNode *pRHS, CVar *psig);
-	CVar &TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
-	CVar &extract(const AstNode *pnode, CTimeSeries &isig);
+	CVar * TID_indexing(AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar * TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar * extract(const AstNode *pnode, CTimeSeries &isig);
 	CVar * TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
 	CVar * TimeExtract(const AstNode *pnode, AstNode *p);
+	void insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig);
+	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2);
+	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
+	CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
+	CAstException ExceptionMsg(const AstNode *pnode, const char *msg);
 };
 
 
