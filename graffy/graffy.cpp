@@ -895,7 +895,6 @@ GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B)
 {
 	CGobj* a = (CGobj*)A;
 	CGobj* b = (CGobj*)B;
-	if (!b->ptarray.empty()) return false;
 	return Is_A_Ancestor_of_B(a->geneal, b->geneal);
 }
 

@@ -47,7 +47,7 @@ typedef struct
 	double duration; // in duration to record, in milliseconds; -1 if indefinite
 	char *buffer;
 	AstNode * cbnode;
-} callback_trasnfer_record;
+} callback_transfer_record;
 
 
 #define WM__AUDIOEVENT1				WM_APP + WOM_OPEN
@@ -66,7 +66,6 @@ void TerminatePlay(int quick=1);
 bool StopPlay(INT_PTR pWavePlay, bool quick);
 bool PauseResumePlay(INT_PTR pWavePlay, bool fOnOff);
 bool StopRecord(int recID, char *errstr);
-bool PauseResumeRecord(int recID, bool fOnOff, char *errstr);
 void SetHWND_WAVPLAY(HWND hAppl);
 HWND GetHWND_WAVPLAY();
 int WinMMGetVolume(INT_PTR pWavePlay, DWORD &vol, char *errstr);

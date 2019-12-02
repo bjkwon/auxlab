@@ -112,7 +112,7 @@ extern HWND hLog;
 #include "wavplay.h"
 
 typedef struct {
-	callback_trasnfer_record cbp;
+	callback_transfer_record cbp;
 	DWORD elapsed;
 	HINSTANCE hInst;
 	HWND hParent;

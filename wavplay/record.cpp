@@ -186,7 +186,7 @@ void ThreadCapture(const record_param &p)
 	PostThreadMessage(pWP->callingThreadID, DISPATCH_RECORD_INITIATION, (WPARAM)0, (LPARAM)"");
 
 	WAVEHDR *pwh;
-	callback_trasnfer_record send2OnSoundEven;
+	callback_transfer_record send2OnSoundEven;
 	DWORD callbackThread = 0;
 	double tico = 0.;
 	int res;

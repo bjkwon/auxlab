@@ -479,48 +479,41 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 	return *this;
 }
 
-string CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<CVar *> &pOutVars)
+string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar*>> &inVars, vector<unique_ptr<CVar*>> &outVars, bool customcallback)
 {
 	u.currentLine = pCalling->line; // ? 10/18/2018
 	AstNode *p;
 	CAstSigEnv tempEnv(*pEnv);
 	//input parameter binding
 	// required nArgin
-	size_t nargin_expected = -1;
+	size_t nargin_expected = 0;
 	for (AstNode *p = (AstNode *)pCalling->child; p; p = p->next, nargin_expected++)
 	{
 		if (p->type == N_IDLIST)
 			p = p->child;
 	}
-	if (pInVar->cell.size() > nargin_expected)
+	if (inVars.size() > nargin_expected)
 		throw ExceptionMsg(pCalling, " too many input args.");
-	if (pInVar->cell.size() < nargin_expected)
+	if (inVars.size() < nargin_expected)
 		throw ExceptionMsg(pCalling, " insufficient input args.");
 	son = new CAstSig(&tempEnv);
 	son->u = u;
 	son->u.title = pCalling->str;
 	son->u.debug.status = null;
-	auto itInVar = pInVar->cell.begin();
+	auto itInVar = inVars.begin();
 	for (AstNode *p = (AstNode *)pCalling->child; p; p = p->next)
 	{
 		if (p->type == N_IDLIST)
 			p = p->child;
-		else
-		{
-			son->SetVar(p->str, &*itInVar);
-			itInVar++;
-		}
+		son->SetVar(p->str, **itInVar);
+		itInVar++;
 	}
-	son->SetVar("in", pInVar); //static--lingering from the previous callback
-	son->Vars["in"].cell.clear();
 	if (pCalling->alt->type == N_VECTOR)
 	{
 		p = ((AstNode *)pCalling->alt->str)->alt;
-		for (auto it : pOutVars)
-		{
-			son->SetVar(p->str, it);
-			p = p->next;
-		}
+		auto itOutVar = outVars.begin();
+		for (; p; p = p->next, itOutVar++)
+			son->SetVar(p->str, **itOutVar);
 	}
 	son->lhs = lhs;
 	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
@@ -575,16 +568,21 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<C
 	//No need for input param binding/
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
 	xscope.push_back(son);
-	sprintf(son->callbackIdentifer, "%s::%u", pCalling->str, son->Tick1);
-	string out = son->callbackIdentifer;
+	if (customcallback)
+		sprintf(callbackIdentifer, "%s::%u", pCalling->str, son->Tick1);
+	string out = callbackIdentifer;
 	size_t nArgout = son->CallUDF(pCalling, NULL);
 	// output parameter binding (internal)
 	p = ((AstNode*)pCalling->alt->str)->alt;
-	auto itpvar = pOutVars.begin();
+	auto itpvar = outVars.begin();
 	for (auto it : son->u.argout)
 	{
-		if (son->Vars.find(it)!=son->Vars.end())
-			*(*itpvar) = son->Vars[it];
+		if (son->Vars.find(it) != son->Vars.end())
+		{
+			CVar *newtemp = new CVar;
+			*newtemp = son->Vars[it];
+			**itpvar = newtemp;
+		}
 		else
 		{
 			if (son->GOvars.find(it) == son->GOvars.end())
@@ -592,14 +590,14 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<C
 			else
 			{
 				if (son->GOvars[it].size() > 1) // need to make an CSIG_HDLARRAY object
-					*(*itpvar) = MakeGOContainer(son->GOvars[it]);
+					**itpvar = MakeGOContainer(son->GOvars[it]);
 				else
-					(*itpvar) = son->GOvars[it].front();
+					**itpvar = son->GOvars[it].front();
 			}
 		}
 		p = p->next;
 		itpvar++;
-		if (itpvar == pOutVars.end()) break;
+		if (itpvar == outVars.end()) break;
 	}
 	// output parameter binding
 	const char *varstr = lhs ? (lhs->type==N_VECTOR ? ((AstNode*)lhs->str)->alt->str : lhs->str) : "ans";
@@ -610,7 +608,20 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<C
 		else // should be lhs->type == N_VECTOR
 			varstr = ((AstNode *)lhs->str)->alt->str;
 	}
-	SetVar(varstr, &son->Vars[son->u.argout.front()]);
+	if (customcallback)
+	{
+		for (auto sonvarname : son->u.argout)
+		{
+			CVar *psigfromson;
+			if (son->GOvars.find(sonvarname) == son->GOvars.end())
+				psigfromson = &son->Vars[sonvarname];
+			else
+				psigfromson = son->GOvars[sonvarname].front();
+			SetVar(sonvarname.c_str(), psigfromson, &Vars.find(varstr)->second);
+		}
+	}
+	else  // for default callback, instead of SetVar, directly apply CSignals::operator= (to keep strut etc)
+		(*Vars.find(varstr)).second.CSignals::operator=(son->Vars[son->u.argout.front()]);
 	double nargin = son->Vars["nargin"].value();
 	double nargout = son->Vars["nargout"].value();
 	if (lhs && lhs->type == N_VECTOR && ((AstNode *)lhs->str)->alt->next)
@@ -640,6 +651,29 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, CVar *pInVar, vector<C
 	//	if (need2repaintnow(pCalling)) // or maybe pBase??
 	xscope.pop_back(); // move here????? to make purgatory work...
 	return out;
+}
+
+void CAstSig::outputbinding(const AstNode *plhs)
+{
+	assert(plhs->type == N_VECTOR);
+	if (Sigs.empty())
+	{
+		AstNode *p = ((AstNode *)plhs->str)->alt;
+		if (p->next)
+			throw ExceptionMsg(p, "Too many output arguments requested.");
+		bind_psig(p, &Sig);
+	}
+	else
+	{
+		vector<unique_ptr<CVar*>>::iterator it = Sigs.begin();
+		for (AstNode *p = ((AstNode *)plhs->str)->alt; p; p = p->next)
+		{
+			bind_psig(p, *it->release());
+			it++;
+			if (it==Sigs.end() && p->next)
+				throw ExceptionMsg(p, "Too many output arguments requested.");
+		}
+	}
 }
 
 void CAstSig::outputbinding(const AstNode *pnode, size_t nArgout)
@@ -674,6 +708,7 @@ void CAstSig::outputbinding(const AstNode *pnode, size_t nArgout)
 		if (--nArgout == 0) break;
 		pp = pp->next;
 	}
+	lhs = nullptr;
 }
 bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pStaticVars)
 {
@@ -2152,10 +2187,6 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 						if (pn->child) setgo.type = pn->str;
 					}
 				}
-
-
-
-
 				/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
 				// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
 //				else if (pgo && !np.root->child && !setgo.frozen)
@@ -2239,27 +2270,28 @@ AstNode *CAstSig::read_nodes(CNodeProbe &np, bool bRHS)
 
 /* CAstSig::bind_psig and CNodeProbe::TID_RHS2LHS perform a similar task.
 The difference:
-	bind_psig binds *tsig (already computed) to an existing variable (no new creation of a variable)
+	bind_psig binds *psig (already computed) to an existing variable (no new creation of a variable)
 	TID_RHS2LHS computes RHS and binds it to a variable, existing or new.
 	11/6/2019
 */
 
-void CAstSig::bind_psig(AstNode *pn, CVar *tsig)
+void CAstSig::bind_psig(AstNode *pn, CVar *psig)
 { // update psig with newsig
 	// if pn is T_ID without alt-->SetVar 
 	// if pn is N_AGRS or N_STRUCT --> update psig with newsig according to the indices or dot 
 	assert(pn->type==T_ID);
 	if (!pn->alt)
 	{
-		SetVar(pn->str, tsig);
+		SetVar(pn->str, psig);
 	}
 	else 
 	{
-		CNodeProbe np(this, pn, NULL);
-		AstNode *lhs_now = read_nodes(np, true); //make RHS seen during probing (so that b.val can be updated when .val was not defined)
 		if (pn->alt->type == N_ARGS)
 		{
-			np.TID_indexing(pn->alt, NULL, tsig);
+			CNodeProbe ndprob(this, pn, NULL);
+			// ndprob.psigBase should be prepared to do indexing
+			AstNode *lhs_now = read_nodes(ndprob, true); 
+			ndprob.TID_indexing(pn->alt, NULL, psig);
 		}
 		else if (pn->alt->type == N_TIME_EXTRACT)
 		{
@@ -2267,8 +2299,8 @@ void CAstSig::bind_psig(AstNode *pn, CVar *tsig)
 		else
 		{
 			assert(pn->alt->type == N_STRUCT);
-			CVar *psig = GetVariable(pn->str);
-			SetVar(pn->alt->str, tsig, psig);
+			CVar *pbasesig = GetVariable(pn->str);
+			SetVar(pn->alt->str, psig, pbasesig);
 		}
 	}
 
@@ -2304,8 +2336,9 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		   example2) var.prop1.prop2(id) = RHS
 		   pLast is the node corresponding to var.prop1.prop2;  np.psigBase points to the object var.prop1.prop2
 		*/
+		AstNode *lhsCopy = nullptr;
 		if (pRHS)
-			lhs = pLast;
+			lhsCopy = lhs = pLast;
 		else
 		{
 			if (np.psigBase && np.psigBase->IsGO())
@@ -2319,6 +2352,7 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 			Script += np.varname;
 		}
 		pres = np.TID_RHS2LHS(pnode, pLast, pRHS, np.psigBase);
+		lhs = lhsCopy;
 		if (np.psigBase)
 			Script = np.varname;
 		// At this point, Sig should be it

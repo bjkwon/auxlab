@@ -282,15 +282,17 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 			// illegal if p-str is a built-in function name
 			if (p->str[0] == '#' || pbase->IsValidBuiltin(p->str))
 				throw pbase->ExceptionMsg(p, "LHS must be l-value; cannot be a built-in function");
-//			CVar *pgo_org = pbase->pgo;
 			CVar *psigRHS = pbase->Compute(pRHS);
-//			pgo = pgo_org; // if this is uncommented, a = var_go; won't assign the var_go to a if a is already a go. I forgot when/why I had to add this line. 11/29/2018. 
-			//I'm trying this to see if it solves the problem. THis may not be bullet-proof. 11/29/2018
-//			if (!psigRHS->IsGO()) pbase->pgo = pgo_org;
 			//This is where an existing variable is changed, upated or replaced by indices.
 			if (p->type == N_VECTOR) 
 			{
-				// Just skip without calling SetVar, because outputbinding is done at PrepareAndCallUDF
+				// if lhs is null, that means outputbinding was done at PrepareAndCallUDF
+				if (pbase->lhs)
+				{
+					pbase->outputbinding(pbase->lhs);
+					pbase->Sigs.clear();
+					pbase->lhs = nullptr;
+				}
 			}
 			else if (p == pnode)
 			{	//top-level: SetVar

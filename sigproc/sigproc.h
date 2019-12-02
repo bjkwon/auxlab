@@ -251,10 +251,9 @@ public:
 	CAstSigEnv *pEnv;
 	CUDF u;
 	CVar *GetGOVariable(const char *varname, CVar *pvar = NULL);
-	CVar *GetGloGOVariable(const char *varname, CVar *pvar = NULL);
 	CVar *MakeGOContainer(vector<CVar *> GOs);
 	CVar *MakeGOContainer(vector<INT_PTR> GOs);
-	vector<CSignals> outarg;
+	vector<unique_ptr<CVar*>> Sigs; // used to store results of Compute for additional outputs.
 	AstNode *lhs;
 	CAstSig *son;
 	CAstSig *dad;
@@ -298,10 +297,9 @@ private:
 	CVar * NodeVector(const AstNode *pnode);
 	CVar * NodeMatrix(const AstNode *pnode);
 	CVar * Dot(AstNode *p);
-	void bind_psig(AstNode *pn, CVar *tsig);
 
 public:
-	string ExcecuteCallback(const AstNode *pCalling, CVar *pStaticVars, vector<CVar *> &pOutVars);
+	string ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar*>> &inVars, vector<unique_ptr<CVar*>> &outVars, bool defaultcallback);
 	string adjustfs(int newfs);
 	CVar * ConditionalOperation(const AstNode *pnode, AstNode *p);
 	void ClearVar(AstNode *pnode, CVar *psig);
@@ -328,6 +326,8 @@ public:
 	bool isthisUDFscope(const AstNode *pnode, AstNode *p=NULL);
 	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase, CVar *pStaticVars=NULL);
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase);
+	void outputbinding(const AstNode *plhs);
+	void bind_psig(AstNode *pn, CVar *tsig);
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);
 #endif

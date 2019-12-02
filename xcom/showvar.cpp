@@ -1791,7 +1791,7 @@ void CShowvarDlg::UpdateProp(string varname, CVar *pvar, string propname)
 }
 
 //static vector<int> recordingEvent;
-//map<int, callback_trasnfer_record *> recorders;
+//map<int, callback_transfer_record *> recorders;
 
 static inline void uc2d_array(unsigned char *src, int count, double *dest1, double *dest2, double normfact)
 {
@@ -1884,21 +1884,49 @@ static inline void fillDoubleBuffer(int len, void *inBuffer, double *outBuffer, 
 }
 
 typedef struct {
-	callback_trasnfer_record cbp;
+	callback_transfer_record cbp;
 	CAstSig *pcast;
 	CShowvarDlg *parent;
 	DWORD callingThread;
 } carrier;
 
-void cleanup_recording(CVar **pvar_callbackinput, CVar **pvar_callbackoutput)
+void cleanup_recording()
 { 
 	SetEvent(hEventRecordingCallBack);
-	if (*pvar_callbackinput) delete *pvar_callbackinput;
-	if (*pvar_callbackoutput) delete *pvar_callbackoutput;
-	*pvar_callbackinput = NULL;
-	*pvar_callbackoutput = NULL;
 	CloseHandle(hEventRecordingCallBack);
 	hEventRecordingCallBack = NULL;
+}
+
+void UpdateAudioRecordingHandle(CAstSig *past, const callback_transfer_record & proplist, int index)
+{
+	for (auto it = past->Vars.begin(); it != past->Vars.end(); it++)
+	{
+		if ((*it).second.IsStruct() && (*it).second.strut.find("h") != (*it).second.strut.end())
+		{
+			auto jt = &(*it).second.strut["h"];
+			if (*jt == proplist.recordID)
+			{
+				if (index == 0)
+				{
+					jt->strut["fs"].SetValue((double)proplist.fs);
+					mShowDlg.UpdateProp((*it).first, jt, "fs");
+					if (proplist.duration < 0)	jt->strut["durLeft"].SetValue(0.);
+				}
+				else
+				{
+					jt->strut["durRec"].buf[0] = (double) index * proplist.len_buffer / proplist.fs;
+					mShowDlg.UpdateProp((*it).first, jt, "durRec");
+					SetFocus(GetConsoleWindow());
+					if (proplist.duration > 0)
+					{
+						jt->strut["durLeft"].buf[0] = proplist.duration / 1000. - jt->strut["durRec"].buf[0]; // in seconds
+						mShowDlg.UpdateProp((*it).first, jt, "durLeft");
+					}
+				}
+			}
+		}
+	}
+
 }
 
 void AudioCapture(unique_ptr<carrier> pmsg)
@@ -1913,19 +1941,21 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	hEventRecordingCallBack = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_callback");
 	PostThreadMessage(pmsg->cbp.recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
 	double duration = pmsg->cbp.duration / 1000.; // in seconds
-	CVar *pvar_callbackinput = new CVar(1);
-	vector<CVar *> pvar_callbackoutputVector;
-	CVar *pvar_callbackoutput = new CVar(1);
+	vector<unique_ptr<CVar*>> callback_in;// (1, make_unique<CVar*>(new CVar));
+	vector<unique_ptr<CVar*>> callback_out;// (1, make_unique<CVar*>(new CVar));
+	callback_in.push_back(move(make_unique<CVar*>(new CVar)));
+	CVar* temp4CapturedinCallback = new CVar;
 	if (pmsg->cbp.nChans > 1)
-		pvar_callbackoutput->SetNextChan(new CVar);
+		temp4CapturedinCallback->SetNextChan(new CVar);
+	callback_out.push_back(move(make_unique<CVar*>(temp4CapturedinCallback)));
 	int fs = pmsg->cbp.fs;
 	int ind=0;
 	bool loop=true, finiteDur;
 	DWORD tcount0Last = 0, tcount0, tcount1, tcount2;
 	DWORD lastCallbackTimeTaken;
-	callback_trasnfer_record * precorder = NULL;
 	try {
 		char callbackname[256];
+		int countCallbacked = 0;
 		vector<CVar> callbackparam;
 		if (!pmsg->cbp.cbnode)
 			strcpy(callbackname, "?default_callback_audio_recording");
@@ -1939,7 +1969,9 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				for (AstNode *p = pmsg->cbp.cbnode->alt->child; p; p = p->next)
 				{
 					tp.Compute(p); // --> is exception handled properly?
-					pvar_callbackinput->appendcell(tp.Sig);
+					CVar *pvar = new CVar;
+					*pvar = tp.Sig;
+					callback_in.push_back(move(make_unique<CVar*>(pvar)));
 				}
 				yydeleteAstNode(pmsg->cbp.cbnode->alt, 0);
 				if (pmsg->cbp.cbnode->tail == pmsg->cbp.cbnode->alt)
@@ -1950,17 +1982,17 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		if (pCallbackUDF = pmsg->parent->pcast->ReadUDF(emsg, callbackname))
 		{
 			//Reserve the output variable vector
-			pvar_callbackoutputVector.push_back(new CVar);
 			if (pCallbackUDF->alt->type == N_VECTOR)
 			{
-				for (AstNode *p = ((AstNode *)pCallbackUDF->alt->str)->next; p; p = p->next)
-					pvar_callbackoutputVector.push_back(new CVar);
+				AstNode *p = ((AstNode *)pCallbackUDF->alt->str)->alt;
+				for (p = p->next; p; p = p->next)
+					callback_out.push_back(move(make_unique<CVar*>(new CVar)));
 			}
-			pvar_callbackinput->strut["?index"].SetValue(0.);
+			(*callback_in.front())->strut["?index"].SetValue((double)countCallbacked);
 			finiteDur = pmsg->cbp.duration > 0;
 			tcount0Last = GetTickCount();
 			sendtoEventLogger("going into callback 0\n");
-			pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+			pmsg->pcast->ExcecuteCallback(pCallbackUDF, callback_in, callback_out, pmsg->cbp.cbnode!=NULL);
 			if (mCaptureStatus.hDlg) 
 			{
 				tcount0 = GetTickCount();
@@ -1976,16 +2008,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			}
 			sendtoEventLogger("out of callback 0\n");
 			SetEvent(hEventRecordingReady);
-			for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
-			{
-				if ((*it).second == pmsg->cbp.recordID)
-				{
-					(*it).second.strut["fs"].SetValue((double)pmsg->cbp.fs);
-					pmsg->parent->UpdateProp((*it).first, &(*it).second, "fs");
-					if (!finiteDur)	(*it).second.strut["durLeft"].SetValue(0.);
-					loop = false;
-				}
-			}
+			UpdateAudioRecordingHandle(pmsg->parent->pcast, pmsg->cbp, countCallbacked);
 			RepaintGO(pmsg->pcast);
 		}
 		else
@@ -2001,12 +2024,13 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		DWORD blockDuration = (DWORD)(1000. *pmsg->cbp.len_buffer / pmsg->cbp.fs);
 		CVar captured, captured2;
 		MSG msg;
+		callback_transfer_record * precorder = NULL;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
 			DWORD elapsed;
 			int eventID = 0;
 			bool toggle = false;
-			callback_trasnfer_record copy_incoming;
+			callback_transfer_record copy_incoming;
 			audiocapture_status_carry msng;
 			HANDLE cfg;
 			switch (msg.message)
@@ -2020,7 +2044,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 					msng.ind = ind++;
 					msng.elapsed = tcount0 - tcount0Last;
 					msng.lastCallbackTimeTaken = lastCallbackTimeTaken;
-					msng.cbp = *(callback_trasnfer_record*)msg.wParam;
+					msng.cbp = *(callback_transfer_record*)msg.wParam;
 					msng.hInst = mShowDlg.hInst;
 					msng.hParent = mShowDlg.hDlg;
 					msgq.push(&msng);
@@ -2031,11 +2055,12 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				// This is where record callback function is invoked.
 				// Create a CVar variable with the captured data.
 				// First, transfer captured wave buffer to buf of the CVar variable.
-				precorder = (callback_trasnfer_record*)msg.wParam;
+				precorder = (callback_transfer_record*)msg.wParam;
 				finiteDur = precorder->duration > 0;
 				captured.SetFs((int)fs);
 				captured.UpdateBuffer(precorder->len_buffer);
-				if (pvar_callbackoutput->next) {
+				if (pmsg->cbp.nChans > 1)
+				{
 					captured2.SetFs(fs);
 					captured.SetNextChan(&captured2);
 					captured.next->UpdateBuffer(precorder->len_buffer);
@@ -2043,56 +2068,39 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				}
 				else
 					fillDoubleBuffer(precorder->len_buffer, precorder->buffer, captured.buf, NULL);
-				pvar_callbackinput->strut["?data"] = captured;
-				pvar_callbackinput->strut["?index"].buf[0]++;
+				(*callback_in.front())->strut["?data"] = captured;
+				(*callback_in.front())->strut["?index"].buf[0] = (double)++countCallbacked;
 				copy_incoming.bufferID = precorder->bufferID;
 				copy_incoming.recordID = precorder->recordID;
 				copy_incoming.len_buffer = precorder->len_buffer;
 				copy_incoming.fs = precorder->fs;
-				sprintf(buffer, "going into callback %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
+				sprintf(buffer, "going into callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
 				sendtoEventLogger(buffer);
 				tcount1 = GetTickCount();
-				callbackID = pmsg->pcast->ExcecuteCallback(pCallbackUDF, pvar_callbackinput, pvar_callbackoutputVector);
+				callbackID = pmsg->pcast->ExcecuteCallback(pCallbackUDF, callback_in, callback_out, pmsg->cbp.cbnode != NULL);
 				tcount2 = GetTickCount();
-				lastCallbackTimeTaken = tcount2- tcount1;
-				sprintf(buffer, "out of callback %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
+				lastCallbackTimeTaken = tcount2 - tcount1;
+				sprintf(buffer, "out of callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
 				sendtoEventLogger(buffer);
 				//Here or somewhere around here, call SetInProg(???, false) to begin displaying figure window
 				//(we need to do it exactly when callback is finished (no more incoming data stream)
 				//maybe it's here. Then we need the figure handle of interest. What is it?
 				cfg = FindWithCallbackID(callbackID.c_str());
-				if (cfg)
-					SetInProg((CVar*)cfg, false);
-
+				if (cfg) SetInProg((CVar*)cfg, false);
 				eventID = copy_incoming.bufferID ? 0 : 1;
-				loop = true;
-				for (map<string, CVar>::iterator it = pmsg->parent->pcast->Vars.begin(); it != pmsg->parent->pcast->Vars.end() && loop; it++)
-				{
-					if ((*it).second == copy_incoming.recordID)
-					{
-						(*it).second.strut["durRec"].buf[0] = pvar_callbackinput->strut["?index"].value() * copy_incoming.len_buffer / copy_incoming.fs;
-						pmsg->parent->UpdateProp((*it).first, &(*it).second, "durRec");
-						SetFocus(GetConsoleWindow());
-						if (finiteDur)
-						{
-							(*it).second.strut["durLeft"].buf[0] = duration - (*it).second.strut["durRec"].buf[0];
-							pmsg->parent->UpdateProp((*it).first, &(*it).second, "durLeft");
-						}
-						loop = false;
-					}
-				}
+				UpdateAudioRecordingHandle(pmsg->parent->pcast, pmsg->cbp, countCallbacked);
 				if (stop_requested)
 				{
-					sprintf(buffer, "stop_requested %d\n", (int)pvar_callbackinput->strut["?index"].buf[0]);
+					sprintf(buffer, "stop_requested %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
 					sendtoEventLogger(buffer);
-					cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
+					//cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 					return;
 				}
 				RepaintGO(pmsg->pcast);
 				break;
 			case WIM_CLOSE:
 				sendtoEventLogger("WIM_CLOSE poted.\n");
-				cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
+				//cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 				break;
 			case WM__RECORDING_ERR:
 				pmsg->parent->MessageBox((char*)msg.wParam, "Audio device error (recording)", 0);
@@ -2102,7 +2110,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	}
 	catch (const char *estr)
 	{
-		cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
+		cleanup_recording();
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 		char buffer[512];
@@ -2117,7 +2125,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 		return;
 	}
 	catch (const CAstException &e) {
-		cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
+		cleanup_recording();
 		const char *_errmsg = e.outstr.c_str();
 		EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 		pmsg->cbp.closing = true;
@@ -2134,7 +2142,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	{
 		if (ast->u.debug.status == aborting)
 		{
-			cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
+			cleanup_recording();
 			EnableDlgItem(pmsg->parent->hDlg, IDC_STOP2, 0);
 			pmsg->cbp.closing = true;
 			PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
@@ -2168,7 +2176,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 { // Currently, this doesn't support concurrent recording with multiple devices because of the static variables below.
   // Think about a better way to do it without using statics... 7/29/2019
 	string emsg;
-	callback_trasnfer_record * precorder = NULL;
+	callback_transfer_record * precorder = NULL;
 	switch (code)
 	{
 	case WM__AUDIOCAPTURE_BEGIN:
@@ -2178,7 +2186,7 @@ void CShowvarDlg::OnSoundEvent2(CVar *pvar, int code)
 	{
 		sendtoEventLogger("WIM_OPEN to OnSoundEvent2.\n");
 		unique_ptr<carrier> car(new carrier);
-		memcpy(&car->cbp, pvar, sizeof(callback_trasnfer_record));
+		memcpy(&car->cbp, pvar, sizeof(callback_transfer_record));
 		car->pcast = pcast;
 		car->parent = this;
 		car->callingThread = GetCurrentThreadId();

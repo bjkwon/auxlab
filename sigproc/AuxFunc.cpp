@@ -81,6 +81,16 @@ void EnumAudioVariables(CAstSig *past, vector<string> &var)
 		if (what->second.GetType()==CSIG_AUDIO) var.push_back(what->first);
 }
 
+int countVectorItems(const AstNode *pnode)
+{
+	if (pnode->type != N_VECTOR) return 0;
+	AstNode *p = ((AstNode*)pnode->str)->alt;
+	int res = 0;
+	for (; p; p = p->next)
+		res++;
+	return res;
+}
+
 /*
 7/24/2018
 
@@ -98,6 +108,12 @@ pf_basic3: fft ifft size
 
 Additional parameter is passed through parg, which is a void pointer, mostly used as a pointer to double, but it could be anything else.
 
+*/
+
+/* 11/28/2019
+output binding for built-in function:
+	Sig has the first (primary) output.
+	
 */
 
 bool CAstSig::IsValidBuiltin(string funcname)
@@ -772,20 +788,32 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 extern HWND hShowDlg;
 void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
+	int nArgs = 0, devID = 0, nChans = 1;
+	if (pnode->type != N_STRUCT)
+	{ // If not class calling
+		if (pnode->alt && pnode->alt->type == N_ARGS)
+			p = pnode->alt->child;
+	}
 	double block = CAstSig::record_block_ms;
 	double duration = -1;
-	int nArgs = 0, devID = 0, nChans = 1;
 	AstNode *cbnode = nullptr;
-	if (pnode->alt->alt)
-	{
+	if (pnode->type==T_ID && pnode->alt->alt)
+	{ // record(....).cbname
 		cbnode = pnode->alt->alt;
 //		yydeleteAstNode(pnode->alt->alt, 0);
 		if (pnode->tail == pnode->alt->alt)
 			(AstNode *)pnode->tail = nullptr;
 		pnode->alt->alt = nullptr;
 	}
+	else if (pnode->type == N_STRUCT && pnode->alt)
+	{ // v.record.cbname
+		cbnode = pnode->alt;
+		if (pnode->tail == pnode->alt)
+			(AstNode *)pnode->tail = nullptr;
+		(AstNode *)pnode->alt = nullptr; // check
+	}
 	for (const AstNode *cp = p; cp; cp = cp->next)
-		++nArgs;
+		++nArgs; 
 	switch (nArgs)
 	{
 	case 4:
@@ -807,34 +835,69 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		duration = past->Sig.value();
 	case 1:
 		past->Compute(p);
-		if (!past->Sig.IsScalar())
-			throw past->ExceptionMsg(pnode, fnsigs, "The first argument must be a constant (integer) representing the device ID.");
-		devID = (int)past->Sig.value();
+		if (past->Sig.IsScalar())
+		{
+			devID = (int)past->Sig.value();
+			past->Sig.Reset();
+		}
+		else if (past->Sig.IsStruct() && past->Sig.strut.find("type") != past->Sig.strut.end())
+		{
+			CVar *pobj = &past->Sig;
+			string objname = "devID";
+			if (pobj->strut.find(objname) == pobj->strut.end())
+				pobj->strut[objname] = CVar((double)devID);
+			else
+				devID = (int)pobj->strut[objname].value();
+			if (pobj->strut.find(objname = "dur") == pobj->strut.end())
+				pobj->strut[objname] = CVar((double)duration);
+			else
+				duration = (int)pobj->strut[objname].value();
+			if (pobj->strut.find(objname = "channels") == pobj->strut.end())
+				pobj->strut[objname] = CVar(1.);
+			else
+				nChans = (int)pobj->strut[objname].value();
+			if (pobj->strut.find(objname = "block") == pobj->strut.end())
+				pobj->strut[objname] = CVar(block);
+			else
+				block = (int)pobj->strut[objname].value();
+		}
+		else
+			throw past->ExceptionMsg(pnode, fnsigs, "The first argument must be an audio_recorder object or a constant (integer) representing the device ID.");
 		break;
 	case 0:
 		break;
 	}
 	srand((unsigned)time(0));
-	past->Sig.SetValue((double)rand());
-	past->Sig.strut["dev"] = CVar((double)devID);
-	past->Sig.strut["type"] = CVar(string("audio_record"));
-	past->Sig.strut["id"] = CVar(past->Sig.value());
-	past->Sig.strut["callback"] = "";
-	past->Sig.strut["channels"] = CVar((double)nChans);
-	past->Sig.strut["durLeft"] = CVar(duration/1000.);
-	past->Sig.strut["durRec"] = CVar(0.);
-	past->Sig.strut["block"] = CVar(block);
-	past->Sig.strut["active"] = CVar((double)(1==0));
+	CVar handle((double)rand());
+	handle.strut["dev"] = CVar((double)devID);
+	handle.strut["type"] = CVar(string("audio_record"));
+	handle.strut["id"] = CVar(handle.value());
+	handle.strut["callback"] = "";
+	handle.strut["channels"] = CVar((double)nChans);
+	handle.strut["durLeft"] = CVar(duration / 1000.);
+	handle.strut["durRec"] = CVar(0.);
+	handle.strut["block"] = CVar(block);
+	handle.strut["active"] = CVar((double)(1 == 0));
 
 	char errstr[256] = {};
-	int newfs, recordID = (int)past->Sig.value();
+	int newfs, recordID = (int)handle.value();
 	if ((newfs = Capture(devID, WM__AUDIOEVENT2, hShowDlg, past->pEnv->Fs, nChans, CAstSig::record_bytes, cbnode, duration, block, recordID, errstr)) < 0)
 		throw past->ExceptionMsg(pnode, fnsigs, errstr);
-	past->Sig.strut["active"] = CVar((double)(1 == 1));
-	if (past->lhs && past->lhs->type == N_VECTOR && ((AstNode*)past->lhs->str)->alt->next)
-	{ // [y, h] = record (.....), do output binding here.
-		past->SetVar(((AstNode*)past->lhs->str)->alt->next->str, &past->Sig);
+	handle.strut["active"] = CVar((double)(1 == 1));
+	past->Sig.strut["h"] = handle;
+	//output binding 
+	if (past->lhs)
+	{
+		if (past->lhs->type == N_VECTOR)
+			past->outputbinding(past->lhs);
+		else
+			past->bind_psig(past->lhs, &past->Sig);
 	}
+	else
+	{ // ans variable
+		past->SetVar("ans", &past->Sig);
+	}
+
 	// for a statement, y=h.start, y is not from the RHS directly, but is updated laster after the callback
 	// so we need to block the RHS from affecting the LHS.. Let's use -1 for suppress (to be used in CDeepProc::TID_tag in AstSig2.cpp)
 	past->pAst->suppress = -1;
@@ -843,8 +906,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		past->pEnv->Fs = newfs;
 		sformat(past->statusMsg, "(NOTE)Sample Rate of AUXLAB Environment is adjusted to %d Hz.", past->pEnv->Fs);
 	}
-	past->Sig.strut["fs"] = CVar((double)newfs);
-	past->Sig.Reset(); // to shield the first LHS variable (callback output) from Sig
+	past->Sig.Reset(); // to shield the first LHS variable (callback output) from Sig // ??? 11/29/2019
 }
 void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -1757,26 +1819,17 @@ void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	if (past->Sig.IsEmpty()) return; //for empty input, empty output
 	string fname = pnode->str;
 	CVar sig = past->Sig;
-	CVar additionalArg(sig.GetFs());
-	CVar *pt(NULL);
-	AstNode *pp(NULL);
-	if (past->pAst->type == N_VECTOR)
-		pp = ((AstNode *)past->pAst->str)->alt;
-	else if (past->lhs && past->lhs->type == N_VECTOR)
-		pp = ((AstNode *)past->lhs->str)->alt;
-	if (pp)		pt = &additionalArg;
-	if (fname == "max") past->Sig = sig.runFct2getvals(&CSignal::_max, pt);
-	else if (fname == "min") past->Sig = sig.runFct2getvals(&CSignal::_min, pt);
+	CVar *newpointer = new CVar(sig.GetFs());
+	int nOutVars = countVectorItems(past->pAst);
+	if (fname == "max") past->Sig = sig.runFct2getvals(&CSignal::_max, newpointer);
+	else if (fname == "min") past->Sig = sig.runFct2getvals(&CSignal::_min, newpointer);
 	if (past->Sig.IsComplex()) past->Sig.SetValue(-1); // do it again 6/2/2018
-
-	//Improve outputbinding!!!!!! 11/5/2019
-	//this works only if single variables are present inside [ ] 
-	//for exmple, [a(5), b]=max(something) ... doesn't work
-
-	if (pp)
+	if (nOutVars > 1)
 	{
-		if (pp->next)
-			past->SetVar(pp->next->str, &additionalArg);
+		past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
+		unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
+		past->Sigs.push_back(move(pt));
+//		past->outputbinding(past->lhs);
 	}
 }
 
@@ -2665,9 +2718,8 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	name = "play";
 	ft.func =  &_play;
 	builtin[name] = ft;
-	ft.funcsignature = "(devID [=0], callbackfunction_text [=""], recording_duration [=-1;indefinite], mono1_or_stereo2 [=1], callback_duration_ms [=setting in ini])";
-	ft.alwaysstatic = true;
-	ft.narg1 = 0;	ft.narg2 = 5;
+	ft.funcsignature = "(deviceID, recording_duration [=-1;indefinite], mono1_or_stereo2 [=1], callback_duration_ms [=setting in ini])";
+	ft.narg1 = 1;	ft.narg2 = 4;
 	name = "record";
 	ft.func = &_record;
 #endif
@@ -3035,7 +3087,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 			if (structCall)
 			{
 				if ((*ft).second.alwaysstatic)
-					throw ExceptionMsg(p, fname, "Cannot be a member function.");
+					throw ExceptionMsg(pnode, fname, "Cannot be a member function. ");
 				firstparamtrim(fnsigs);
 				nArgs = checkNumArgs(pnode, p, fnsigs, (*ft).second.narg1 - 1, (*ft).second.narg2 - 1);
 				(*ft).second.func(this, pnode, p, fnsigs);

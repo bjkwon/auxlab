@@ -137,7 +137,6 @@ body& body::operator=(const vector<double> & rhs)
 	nGroups = 1;
 	ghost = false;
 	buf = new double[nSamples];
-	memcpy(buf, rhs.data(), sizeof(double)*nSamples);
 	return *this;
 }
 
@@ -162,6 +161,7 @@ body& body::operator=(const body & rhs)
 			memcpy(buf, rhs.buf, nSamples*bufBlockSize);
 		else
 			buf = rhs.buf;// shallow (ghost) copy
+//		resOutput = move(rhs.resOutput); // Cannot move because it is const... Then how? 11/29/2019
 	}
 	return *this;
 }
@@ -191,7 +191,6 @@ CSignal& CSignal::operator<=(CSignal * rhs)
 	fs = rhs->fs;
 	return *this;
 }
-
 
 CSignal& CSignal::operator=(const CSignal& rhs)
 {   // Make a deep copy only for buf, but not for sc, because sc is not necessarily dynamically allocated.
@@ -863,6 +862,7 @@ body& body::operator<=(const body& rhs)
 	nGroups = rhs.nGroups;
 	bufBlockSize = rhs.bufBlockSize;
 	parg = rhs.parg;
+//	resOutput = move(rhs.resOutput); // Cannot move because it is const... Then how? 11/29/2019
 	return *this;
 }
 
