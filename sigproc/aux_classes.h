@@ -248,7 +248,7 @@ protected:
 	bool operate(const CSignal& sec, char op);
 
 private:
-	CSignal& _filter(vector<double> num, vector<double> den, unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& _filter(vector<double> num, vector<double> den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
 	int operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset);
 
 	friend class CSignalExt;

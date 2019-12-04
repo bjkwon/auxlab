@@ -3048,7 +3048,7 @@ int CSignal::DecFir(const CSignal& coeff, int offset, int nChan)
 	return 1;
 }
 
-CSignal& CSignal::_filter(vector<double> num, vector<double> den, unsigned int id0, unsigned int len)
+CSignal& CSignal::_filter(vector<double> num, vector<double> den, vector<double> &initialfinal, unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	if (IsComplex())
@@ -3108,11 +3108,13 @@ CSignal& CSignal::conv(unsigned int id0, unsigned int len)
 CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	vector<double> num, den;
+	vector<double> num, den, initfin;
 	vector<vector<double>> coeffs = *(vector<vector<double>>*)parg;
 	num = coeffs.front();
-	den = coeffs.back();
-	_filter(num, den, id0, len);
+	den = *(coeffs.begin()+1);
+	if (coeffs.size() > 2) // initial condition provided
+		initfin = coeffs.back();
+	_filter(num, den, initfin, id0, len);
 	return *this;
 }
 

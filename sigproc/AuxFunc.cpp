@@ -1519,9 +1519,13 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	past->checkAudioSig(pnode, past->Sig);
 	CVar sig = past->Sig;
 	string fname = pnode->str;
-	CVar third, second = past->Compute(p);
-	if (p->next) {	// 3 args
-		third = past->Compute(p->next);
+	CVar fourth, third, second = past->Compute(p);
+	if (p->next) {
+		if (p->next->next) 
+			fourth = past->Compute(p->next->next); // 4 args
+		third = past->Compute(p->next); // 3 args
+		if (fourth.nSamples >= third.nSamples)
+			throw past->ExceptionMsg(pnode, fnsigs, "The length of the initial condition vector must be less than the length of denominator coefficients.");
 	} else {				// 2 args
 		if (second.nSamples <= 1)
 			throw past->ExceptionMsg(pnode, fnsigs, "2nd argument must be a vector(the numerator array for filtering).");
@@ -1533,13 +1537,19 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	else if (third.IsScalar())
 		third.UpdateBuffer(len);
 
+	vector<double> initial;
+	vector<double> num(second.buf, second.buf + second.nSamples);
+	vector<double> den(third.buf, third.buf + third.nSamples);
+	vector<vector<double>> coeffs;
 	if (!second.chain && !third.chain && second.tmark==0 && third.tmark==0)
 	{
-		vector<double> num(second.buf, second.buf + second.nSamples);
-		vector<double> den(third.buf, third.buf + third.nSamples);
-		vector<vector<double>> coeffs;
 		coeffs.push_back(num);
 		coeffs.push_back(den);
+		if (fourth.nSamples > 0)
+		{
+			for (unsigned int k = 0; k < fourth.nSamples; k++) initial.push_back(fourth.buf[k]);
+			coeffs.push_back(initial);
+		}
 		if (fname == "filt")
 			sig.runFct2modify(&CSignal::filter, &coeffs);
 		else if (fname == "filtfilt")
@@ -1550,6 +1560,16 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		throw past->ExceptionMsg(pnode, fnsigs, "Internal error--leftover from Dynamic filtering");
 	}
 	past->Sig = sig;
+	if (countVectorItems(past->pAst) > 1)
+	{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
+		past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
+		auto xx = coeffs.front();
+		CVar *newpointer = new CVar(sig.GetFs());
+		CSignals finalcondition(coeffs.front().data(), coeffs.front().size());
+		*newpointer = finalcondition;
+		unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
+		past->Sigs.push_back(move(pt));
+	}
 }
 
 #ifndef NO_IIR
@@ -1829,8 +1849,9 @@ void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
 		unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
 		past->Sigs.push_back(move(pt));
-//		past->outputbinding(past->lhs);
 	}
+	else
+		delete newpointer;
 }
 
 AstNode *searchstr(AstNode *p, int findthis)
@@ -2649,7 +2670,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 		builtin[name] = ft;
 	}
 
-	ft.narg1 = 2;	ft.narg2 = 3;
+	ft.narg1 = 2;	ft.narg2 = 4;
 	ft.funcsignature = "(signal, Numerator_array [, Denominator_array=1 for FIR])";
 	const char *f8[] = { "filt", "filtfilt", 0 };
 	for (int k = 0; f8[k]; k++)
