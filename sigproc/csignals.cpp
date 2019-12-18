@@ -3068,18 +3068,41 @@ CSignal& CSignal::_filter(vector<double> num, vector<double> den, vector<double>
 	}
 	else
 	{
+		vector<double> initial = initialfinal;
+		vector<double> finalcondition(max(num.size(), den.size()) - 1, 0.);
 		double xx, *out = new double[len];
 		for (unsigned int m = id0; m < id0 + len; m++)
 		{
 			xx = num[0] * buf[m];
-			for (unsigned int n = 1; n < num.size() && m >= n; n++)
-				xx += num[n] * buf[m - n];
+			for (unsigned int n = 1; n < num.size(); n++)
+			{
+				if (m>=n)
+					xx += num[n] * buf[m - n];
+				else
+				{
+					xx += initial[m];
+					break;
+				}
+			}
 			for (unsigned int n = 1; n < den.size() && m >= n; n++)
 				xx -= den[n] * out[m - n];
 			out[m] = xx;
 		}
+		//final condition
+		for (size_t m = 0; m < finalcondition.size(); m++)
+		{
+			for (size_t k = m + 1; k < num.size() && len + m >= k; k++)
+			{
+				finalcondition[m] += num[k] * buf[len - k + m];
+			}
+
+			for (size_t k = 1; k < den.size() && len + m >= k; k++)
+				//if (k <= m && m <= k + len - 1)	
+					finalcondition[m] -= den[k] * out[len - k + m];
+		}
 		delete[] buf;
 		buf = out;
+		initialfinal = finalcondition;
 	}
 	return *this;
 }
@@ -3115,6 +3138,8 @@ CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 	if (coeffs.size() > 2) // initial condition provided
 		initfin = coeffs.back();
 	_filter(num, den, initfin, id0, len);
+	auto vv = (vector<vector<double>>*)parg;
+	*&vv->at(2) = initfin; // updating the content of the pointer stored at second item of the vector, parg 
 	return *this;
 }
 

@@ -1563,9 +1563,8 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	if (countVectorItems(past->pAst) > 1)
 	{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 		past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
-		auto xx = coeffs.front();
 		CVar *newpointer = new CVar(sig.GetFs());
-		CSignals finalcondition(coeffs.front().data(), coeffs.front().size());
+		CSignals finalcondition(coeffs.back().data(), coeffs.back().size()); // final condnition is stored at the last position
 		*newpointer = finalcondition;
 		unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
 		past->Sigs.push_back(move(pt));
