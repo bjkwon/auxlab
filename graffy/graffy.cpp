@@ -159,7 +159,7 @@ void invalidateRedrawCue()
 	{
 		GetWindowText(it->first, buf2, sizeof(buf2));
 		sprintf(buf, "(invalidateRedrawCue) %s\n", buf2);
-		sendtoEventLogger(buf);
+//		sendtoEventLogger(buf);
 		if (!memcmp(&zeros, &(it->second), sizeof(RECT)))
 			InvalidateRect(it->first, NULL, TRUE);
 		else
@@ -553,7 +553,7 @@ void thread4Plot(PVOID var)
 		in->cfig->SetString(buf);
 	char sendbuffer[512];
 	sprintf(sendbuffer, "from %d, open %s\n", in->threadCaller, buf);
-	sendtoEventLogger(sendbuffer);
+	//sendtoEventLogger(sendbuffer);
 	PostThreadMessage(in->threadCaller, WM_PLOT_DONE, 0, 0);
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -1051,7 +1051,7 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 					strcpy(buf2, "... made visible");
 					strcat(buf, buf2);
 					strcat(buf, "\n");
-					sendtoEventLogger(buf);
+//					sendtoEventLogger(buf);
 				}
 			}
 		}
@@ -1060,9 +1060,9 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	{
 		unique_lock<mutex> locker(mtx_OnPaint);
 		sprintf(buf, "(RepaintGO) mtx_OnPaint locked? %d\n", locker.owns_lock());
-		sendtoEventLogger(buf);
+//		sendtoEventLogger(buf);
 		invalidateRedrawCue();
-		sendtoEventLogger("(RepaintGO) mtx_OnPaint unlocked.\n");
+//		sendtoEventLogger("(RepaintGO) mtx_OnPaint unlocked.\n");
 	}
 }
 

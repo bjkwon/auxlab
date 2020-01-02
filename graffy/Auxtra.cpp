@@ -780,7 +780,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 			_figure(past, pnode, NULL, fnsigs);
 			cfig = (CFigure *)past->pgo;
 			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			sendtoEventLogger("(_plot_line) AddAxes called.\n");
+//			sendtoEventLogger("(_plot_line) AddAxes called.\n");
 			past->Sig = temp;
 			past->pgo = NULL;
 			RegisterAx((CVar*)cfig, cax, true);
@@ -792,8 +792,8 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		if (!cfig) cfig = (CFigure*)((CVar*)cax)->struts["parent"].front();
 		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, true);
 		unique_lock<mutex> locker(mtx_OnPaint);
-		sprintf(buf, "(_plot_line) mtx_OnPaint locked = %d\n", locker.owns_lock());
-		sendtoEventLogger(buf);
+//		sprintf(buf, "(_plot_line) mtx_OnPaint locked = %d\n", locker.owns_lock());
+//		sendtoEventLogger(buf);
 		if (isPlot)
 		{
 			//if there's existing line in the specified axes
@@ -817,7 +817,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 					{
 						deleteObj(*ch);
 						ch = ((CVar*)cax)->struts["children"].erase(ch);
-						sendtoEventLogger("deleteObj called\n");
+	//					sendtoEventLogger("deleteObj called\n");
 					}
 					else
 						ch++;
@@ -829,7 +829,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
 		if (!newFig)
 			cfig = (CFigure*)cax->struts["parent"].front();
-		sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked\n");
+//		sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked\n");
 	}
 	catch (const CAstException &e) { 
 		throw CAstException(pnode, past, fnsigs, e.getErrMsg()); }

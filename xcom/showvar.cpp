@@ -1953,6 +1953,8 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 	bool loop=true, finiteDur;
 	DWORD tcount0Last = 0, tcount0, tcount1, tcount2;
 	DWORD lastCallbackTimeTaken;
+	FILETIME ft1, ft2;
+	ULARGE_INTEGER udiff, u1, u2;
 	try {
 		char callbackname[256];
 		int countCallbacked = 0;
@@ -1991,9 +1993,17 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			(*callback_in.front())->strut["?index"].SetValue((double)countCallbacked);
 			finiteDur = pmsg->cbp.duration > 0;
 			tcount0Last = GetTickCount();
-			sendtoEventLogger("going into callback 0\n");
+			sendtoEventLogger("Into callback 0\n", &ft1);
 			pmsg->pcast->ExcecuteCallback(pCallbackUDF, callback_in, callback_out, pmsg->cbp.cbnode!=NULL);
-			if (mCaptureStatus.hDlg) 
+			sendtoEventLogger("Out of callback 0\n", &ft2);
+			u1.HighPart = ft1.dwHighDateTime;
+			u2.HighPart = ft2.dwHighDateTime;
+			u1.LowPart = ft1.dwLowDateTime;
+			u2.LowPart = ft2.dwLowDateTime;
+			udiff.QuadPart = u2.QuadPart - u1.QuadPart;
+			sprintf(buffer, "Callback 0 duration %d\n", udiff.u.LowPart/1000);
+			sendtoEventLogger(buffer);
+			if (mCaptureStatus.hDlg)
 			{
 				tcount0 = GetTickCount();
 				unique_ptr<audiocapture_status_carry> msng(new audiocapture_status_carry);
@@ -2006,7 +2016,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				captureStatusThread.detach();
 				tcount0Last = tcount0;
 			}
-			sendtoEventLogger("out of callback 0\n");
 			SetEvent(hEventRecordingReady);
 			UpdateAudioRecordingHandle(pmsg->parent->pcast, pmsg->cbp, countCallbacked);
 			RepaintGO(pmsg->pcast);
@@ -2074,13 +2083,20 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				copy_incoming.recordID = precorder->recordID;
 				copy_incoming.len_buffer = precorder->len_buffer;
 				copy_incoming.fs = precorder->fs;
-				sprintf(buffer, "going into callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
-				sendtoEventLogger(buffer);
+				sprintf(buffer, "Into callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
+				sendtoEventLogger(buffer, &ft1);
 				tcount1 = GetTickCount();
 				callbackID = pmsg->pcast->ExcecuteCallback(pCallbackUDF, callback_in, callback_out, pmsg->cbp.cbnode != NULL);
 				tcount2 = GetTickCount();
 				lastCallbackTimeTaken = tcount2 - tcount1;
-				sprintf(buffer, "out of callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
+				sprintf(buffer, "Out of callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
+				sendtoEventLogger(buffer, &ft2);
+				u1.HighPart = ft1.dwHighDateTime;
+				u2.HighPart = ft2.dwHighDateTime;
+				u1.LowPart = ft1.dwLowDateTime;
+				u2.LowPart = ft2.dwLowDateTime;
+				udiff.QuadPart = u2.QuadPart - u1.QuadPart;
+				sprintf(buffer, "Callback %d duration %d\n", (int)(*callback_in.front())->strut["?index"].buf[0], udiff.u.LowPart/1000);
 				sendtoEventLogger(buffer);
 				//Here or somewhere around here, call SetInProg(???, false) to begin displaying figure window
 				//(we need to do it exactly when callback is finished (no more incoming data stream)

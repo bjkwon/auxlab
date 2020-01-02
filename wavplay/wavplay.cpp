@@ -412,6 +412,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 			{
 				//WM_APP+WOM_OPEN sent to showvarDlg to notify the beginning and ending of playback
 			case WOM_OPEN:
+				sendtoEventLogger("WOM_OPEN in\n");
 				if (!already_double_buffered)
 				{
 					SendMessage(pWP->hWnd_calling, pWP->msgID, 0, WOM_OPEN); // send the opening status to the main application 
@@ -438,23 +439,25 @@ unsigned int WINAPI Thread4MM(PVOID p)
 					//	pWP->buffer2Clean.push_back(param->dataBuffer); // this will lead to an incorrect pointer and proper buffer is not stored and something else might be stored twice, which will crash the application. 7/11/2016 bjk
 					already_double_buffered = true;
 				}
-				sendtoEventLogger("WOM_OPEN\n");
+				sendtoEventLogger("WOM_OPEN out\n");
 				break;
 			case WOM_CLOSE: //This is no longer processed because waveOutClose is not called while this message playcount is running (i.e., it is called either before or after the message playcount)
 				break;
 			case WOM_DONE:
-				pWP->playedCount++;
-				relativeTime = (double)pWP->playedCount / pWP->nTotalBlocks;
 				{
 					WAVEHDR *pwh = (WAVEHDR *)msg.lParam;
-					int lastPlayedBufLen = pwh->dwBufferLength * 8 / pWP->wfx.wBitsPerSample;
-					sprintf(errmsg, "Block %d, rel. timepoint %.3f, block length = %d\n", pWP->playedCount, relativeTime, lastPlayedBufLen);
+					sprintf(errmsg, "WOM_DONE in %d\n", pWP->playedCount);
 					sendtoEventLogger(errmsg);
+					pWP->playedCount++;
+					relativeTime = (double)pWP->playedCount / pWP->nTotalBlocks;
+					int lastPlayedBufLen = pwh->dwBufferLength * 8 / pWP->wfx.wBitsPerSample;
+					sprintf(errmsg, "WOM_DONE %d, rel. tp %.3f, block length = %d\n", pWP->playedCount, relativeTime, lastPlayedBufLen);
+					pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - relativeTime));
+					pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 
+					sendtoEventLogger(errmsg);
+					break;
 				}
-				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - relativeTime));
-				pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 
-				break;
-			} 
+			}
 		}
 		pWP->hPlayStruct.sig.strut["durLeft"].SetValue(0.);
 		double totalDur = pWP->hPlayStruct.sig.strut["durPlayed"].value();

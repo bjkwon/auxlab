@@ -908,6 +908,15 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	}
 	past->Sig.Reset(); // to shield the first LHS variable (callback output) from Sig // ??? 11/29/2019
 }
+
+void _init_directplay(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+
+}
+void _captureplay(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+
+}
 void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	CVar sig = past->Sig;
@@ -2734,10 +2743,19 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.func = &_stop;
 	builtin[name] = ft;
 
+	
 	ft.funcsignature = "(audio_signal [, repeat=1]) or (audio_handle, audio_signal [, repeat=1])";
 	ft.narg1 = 1;	ft.narg2 = 3;
 	name = "play";
 	ft.func =  &_play;
+	builtin[name] = ft;
+	ft.funcsignature = "(audio_handle, audio_signal)";
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "captureplay";
+	ft.funcsignature = "(fs, DevID)";
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "init_directplay";
+	ft.func = &_init_directplay;
 	builtin[name] = ft;
 	ft.funcsignature = "(deviceID, recording_duration [=-1;indefinite], mono1_or_stereo2 [=1], callback_duration_ms [=setting in ini])";
 	ft.narg1 = 1;	ft.narg2 = 4;

@@ -565,13 +565,13 @@ void CPlotDlg::OnPaint()
 	int temp = 0;
 	for (unique_lock<mutex> locker(mtx_OnPaint); k< gcf.ax.size(); temp++)
 	{
-		if (temp < 1)
-		{
-			sprintf(buf, "(OnPaint) mtx_OnPaint locked: %d\n", locker.owns_lock());
-			sendtoEventLogger(buf);
-		}
-		sprintf(buf, "(OnPaint) 0x%d ax %d\n", (INT_PTR)gcf.ax[k], k);
-		sendtoEventLogger(buf);
+		//if (temp < 1)
+		//{
+		//	sprintf(buf, "(OnPaint) mtx_OnPaint locked: %d\n", locker.owns_lock());
+		//	sendtoEventLogger(buf);
+		//}
+		//sprintf(buf, "(OnPaint) 0x%d ax %d\n", (INT_PTR)gcf.ax[k], k);
+		//sendtoEventLogger(buf);
 		// drawing lines
 		if (!paxready)
 			pax = gcf.ax[k];
@@ -608,9 +608,9 @@ void CPlotDlg::OnPaint()
 		{
 			if (hDlg == hwnd_AudioCapture)
 			{
-				sendtoEventLogger("(OnPaint) mtx4PlotDlg locking\n");
+//				sendtoEventLogger("(OnPaint) mtx4PlotDlg locking\n");
 				unique_lock<mutex> locker(mtx4PlotDlg);
-				sendtoEventLogger("(OnPaint) mtx4PlotDlg locked\n");
+//				sendtoEventLogger("(OnPaint) mtx4PlotDlg locked\n");
 			}
 			for (auto lyne : pax->m_ln)
 			{
@@ -770,8 +770,8 @@ void CPlotDlg::OnPaint()
 				}
 			}
 		}
-		if (hDlg == hwnd_AudioCapture)
-			sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked\n");
+//		if (hDlg == hwnd_AudioCapture)
+//			sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked\n");
 		// add ticks and ticklabels
 		dc.SetBkColor(gcf.color);
 		// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
@@ -846,10 +846,10 @@ void CPlotDlg::OnPaint()
 			sbinfo.xBegin = pax0->xlim[0];
 			sbinfo.xEnd = pax0->xlim[1];
 		}
-		if (temp<1)
-		{
-			sendtoEventLogger("(OnPaint) mtx_OnPaint unlocked.\n");
-		}
+		//if (temp<1)
+		//{
+		//	sendtoEventLogger("(OnPaint) mtx_OnPaint unlocked.\n");
+		//}
 	} // end of Drawing axes
 
 	  //Drawing texts
@@ -1148,8 +1148,8 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 	{
 		ClickOn = GetMousePos(point);
 		char buf[256];
-		sprintf(buf, "(OnLButtonDown) ax=0x%x: xpt.x=%d, rect.y=%d\n", (INT_PTR)cax, point.x, point.y);
-		sendtoEventLogger(buf);
+		//sprintf(buf, "(OnLButtonDown) ax=0x%x: xpt.x=%d, rect.y=%d\n", (INT_PTR)cax, point.x, point.y);
+		//sendtoEventLogger(buf);
 		CSignals temp;
 		if (axis_expanding) {ClickOn=0; return;}
 		clickedPt = point;
@@ -1315,8 +1315,8 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 			// if the first point clicked is outside the axes, skip
 			cax = _ax;
 			char buffer[256];
-			sprintf(buffer, "OnMouseMove cur(%d,%d), bdp.x=%d ClickOn=%d\n", point.x, point.y, lbuttondownpoint.x, ClickOn);
-			sendtoEventLogger(buffer);
+			//sprintf(buffer, "OnMouseMove cur(%d,%d), bdp.x=%d ClickOn=%d\n", point.x, point.y, lbuttondownpoint.x, ClickOn);
+			//sendtoEventLogger(buffer);
 			if (lbuttondownpoint.x == -1 && !cax->rct.PtInRect(point))
 				continue;
 			if (ClickOn & (unsigned short)128)
