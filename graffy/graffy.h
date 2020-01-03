@@ -238,6 +238,7 @@ public:
 	void setRangeFromLines(char xy);
 	int GetDivCount(char xy, int dimens);
 	POINT double2pixelpt(double x, double y, double *newxlim);
+	vector<POINT> CSignal2pixelPOINT(CSignal* px, const CSignal& y, unsigned int idBegin, unsigned int nSamples2Display);
 	int double2pixel(double a, char xy);
 	double GetRangePixel(int x);
 	double pix2timepoint(int pix);

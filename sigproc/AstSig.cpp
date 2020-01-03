@@ -2424,7 +2424,7 @@ CVar * CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 		break;
 	case T_LOGIC_AND:
 		rsig = ConditionalOperation(p, p->child);
-		if (!rsig.logbuf[0])
+		if (rsig.nSamples==1 && !rsig.logbuf[0])
 		{
 			Sig.bufBlockSize = 1;
 			Sig.logbuf[0] = false;
@@ -2435,7 +2435,7 @@ CVar * CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 		break;
 	case T_LOGIC_OR:
 		rsig = ConditionalOperation(p, p->child);
-		if (rsig.logbuf[0])
+		if (rsig.nSamples == 1 && rsig.logbuf[0])
 		{
 			Sig.bufBlockSize = 1;
 			Sig.logbuf[0] = true;

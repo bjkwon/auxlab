@@ -466,6 +466,9 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 	}
 	else
 	{
+		CSignal *px = NULL;
+		if (lyne->xdata.nSamples)
+			px = &lyne->xdata;
 		if (lyne->xdata.nSamples) // for xy plot, just make the draw vector here and return. Disregard xlim and ylim
 		{
 			for (unsigned int k = 0; k < p->nSamples; k++)
@@ -478,16 +481,20 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 		}
 		else
 		{
-			for (int k = idBegin; k < idBegin + nSamples2Display; k++)
-			{
-				if (tseries)
-					pt = pax->double2pixelpt(p->tmark / 1000. + (double)k / fs, p->buf[k], NULL);
-				else if (lyne->xdata.nSamples > 0)
-					pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
-				else
-					pt = pax->double2pixelpt((double)k + 1, p->buf[k], NULL);
-				out[count++] = pt;
-			}
+			vector<POINT> tp = pax->CSignal2pixelPOINT(px, *p, idBegin, nSamples2Display);
+			for (size_t k = 0; k < tp.size(); k++)
+				out[k] = tp[k];
+			count = tp.size();
+			//for (int k = idBegin; k < idBegin + nSamples2Display; k++)
+			//{
+			//	if (tseries)
+			//		pt = pax->double2pixelpt(p->tmark / 1000. + (double)k / fs, p->buf[k], NULL);
+			//	else if (lyne->xdata.nSamples > 0)
+			//		pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
+			//	else
+			//		pt = pax->double2pixelpt((double)k + 1, p->buf[k], NULL);
+			//	out[count++] = pt;
+			//}
 		}
 	}
 	return count;

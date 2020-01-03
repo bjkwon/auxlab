@@ -274,7 +274,7 @@ void setHWNDEventLogger(HWND hEL)
 	hEventLogger = hEL;
 }
 
-void sendtoEventLogger(char *str)
+void sendtoEventLogger(char *str, FILETIME * pout)
 {
 	if (!hEventLogger) return;
 	char sendbuffer[4096];
@@ -287,6 +287,8 @@ void sendtoEventLogger(char *str)
 	cd.dwData = (ULONG_PTR)&cd;
 	cd.cbData = (DWORD)strlen((char*)sendbuffer) + 1;
 	SendMessage(hEventLogger, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cd);
+	if (pout)
+		SystemTimeToFileTime(&lt, pout);
 }
 
 void GetLocalTimeStr(string &strOut)

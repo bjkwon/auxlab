@@ -67,7 +67,7 @@ int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char
 int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr);
 int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr);
 void setHWNDEventLogger(HWND hEL);
-void sendtoEventLogger(char *str);
+void sendtoEventLogger(char *str, FILETIME * pout=NULL);
 bool IsEventLoggerReady();
 
 #ifdef __cplusplus

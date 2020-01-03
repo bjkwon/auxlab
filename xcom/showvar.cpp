@@ -2567,13 +2567,17 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	{
 		CSignals rmsig;
 		rmsig <= pvar;
-		rmsig.RMS();
-		if (pvar->IsLogical()) strcpy(buf, "logical");
-		else if (!pvar->next)		RMSDB(buf, "-Inf", "%5.1f", rmsig.value())
-		else {
-			RMSDB(buf1, "-Inf", "%5.1f", rmsig.value())
-				RMSDB(buf2, "-Inf", "%5.1f", rmsig.next->value())
-				sprintf(buf, "%s,%s", buf1, buf2);
+		if (pvar->IsLogical())
+			strcpy(buf, "logical");
+		else
+		{
+			rmsig.RMS();
+			if (!pvar->next)		RMSDB(buf, "-Inf", "%5.1f", rmsig.value())
+			else {
+				RMSDB(buf1, "-Inf", "%5.1f", rmsig.value())
+					RMSDB(buf2, "-Inf", "%5.1f", rmsig.next->value())
+					sprintf(buf, "%s,%s", buf1, buf2);
+			}
 		}
 	}
 	else

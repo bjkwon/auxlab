@@ -243,6 +243,26 @@ int CAxes::double2pixel(double a, char xy)
 	}
 }
 
+vector<POINT> CAxes::CSignal2pixelPOINT(CSignal* px, const CSignal& y, unsigned int idBegin, unsigned int nSamples2Display)
+{ 
+	vector<POINT> out;
+	double yval;
+	for (unsigned int k = idBegin; k < nSamples2Display; k++)
+	{
+		if (y.IsLogical())
+			yval = y.logbuf[k] ? 1.0 : 0;
+		else
+			yval = y.buf[k];
+		if (((CTimeSeries)y).IsTimeSignal())
+			out.push_back(double2pixelpt(y.tmark / 1000. + (double)k / y.GetFs(), yval, NULL));
+		else if (px)
+			out.push_back(double2pixelpt(px->buf[k], yval, NULL));
+		else
+			out.push_back(double2pixelpt((double)k + 1, yval, NULL));
+	}
+	return out;
+}
+
 POINT CAxes::double2pixelpt(double x, double y, double *newxlim)
 {
 	// Returns pixel POINT from (x, y) coordinate in double. 

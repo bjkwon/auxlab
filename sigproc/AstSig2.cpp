@@ -216,14 +216,21 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 
 CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
 {
-	CVar isig;
+	CVar isig, isigGhost;
 	CVar *tsig = NULL;
 	eval_indexing(pLHS->child, isig);
 	if (pRHS)
 	{
 		tsig = pbase->Compute(pRHS);
 		//This is where elements of an existing array are changed, upated or replaced by indices.
-		insertreplace(pLHS, *tsig, isig);
+		//if tsig is chainged, call insertreplace for each chain with a moving ghost of isig
+		isigGhost <= isig;
+		for (CVar *p = tsig; p; p = (CVar*)p->chain)
+		{
+			int lastIndex = isigGhost.nSamples = p->nSamples;
+			insertreplace(pLHS, *p, isigGhost);
+			isigGhost.buf += lastIndex;
+		}
 	}
 	else
 		insertreplace(pLHS, *psig, isig);
