@@ -528,17 +528,13 @@ void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 	string buffer;
 	buffer = past->Sig.string();
 	bool openclosehere(1);
-	FILE *file;
+	FILE *file = nullptr;
 	//is first argument string?
 	past->Compute(p);
 	if (past->Sig.IsString())
 	{
 		string filename = past->MakeFilename(past->ComputeString(p), "txt");
-		if (!(file = fopen(filename.c_str(), "a")))
-		{
-			past->Sig.SetValue(-1.);
-			return;
-		}
+		file = fopen(filename.c_str(), "a");
 	}
 	else
 	{
@@ -554,6 +550,10 @@ void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 		}
 		file = file_ids[past->Sig.value()];
 		openclosehere = false;
+	}
+	if (!file)
+	{
+		throw past->ExceptionMsg(pnode, fnsigs, "First arg must be either a file identifider, filename or 0 (for console)");
 	}
 	if (fprintf(file, buffer.c_str())<0)
 		past->Sig.SetValue(-3.);
@@ -1053,6 +1053,23 @@ void aux_input(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 	string user_input;
 	cin >> user_input;
 	past->Sig.SetString(user_input.c_str());
+}
+
+void udf_error(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	past->checkString(pnode, past->Sig);
+	throw past->ExceptionMsg(pnode, past->Sig.string().c_str());
+}
+
+void udf_warning(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	past->checkString(pnode, past->Sig);
+	printf("WARNING: %s\n", past->Sig.string().c_str());
+}
+void udf_rethrow(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	past->checkString(pnode, past->Sig);
+//
 }
 
 #ifdef _WINDOWS
@@ -1789,13 +1806,15 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		{
 			if (!past->Sig.cell.empty())
 				past->Sig.SetValue((double)past->Sig.cell.size());
+			else if (!past->Sig.chain)
+				past->Sig = past->Sig.runFct2getvals(&CSignal::length);
 			else if (past->Sig.IsTimeSignal())
 			{
 				past->Sig.SetValue((double)(past->Sig.CountChains()));
 			}
 			else
 			{
-				past->Sig = past->Sig.runFct2getvals(&CSignal::length);
+				throw past->ExceptionMsg(pnode, "Internal flaw found--if chained, IsTimeSignal() should return true.");
 			}
 			past->Sig.SetFs(1);
 		}
@@ -2608,7 +2627,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	builtin[name] = ft;
 
 	ft.alwaysstatic = true;
-	ft.narg1 = 1;	ft.narg2 = 0;
+	ft.narg1 = 2;	ft.narg2 = 0;
 	ft.funcsignature = "(format_string, ...)";
 	name = "sprintf";
 	ft.func =  &_sprintf;
@@ -2902,6 +2921,20 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.funcsignature = "(prompt_message)";
 	ft.func = &aux_input;
 	builtin[name] = ft;
+
+	name = "error";
+	ft.alwaysstatic = false;
+	ft.narg1 = ft.narg2 = 1;
+	ft.funcsignature = "(message)";
+	ft.func = &udf_error;
+	builtin[name] = ft;
+	name = "warning";
+	ft.func = &udf_warning;
+	builtin[name] = ft;
+	name = "rethrow";
+	ft.func = &udf_rethrow;
+	builtin[name] = ft;
+
 
 	name = "i";
 	ft.alwaysstatic = false;

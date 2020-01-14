@@ -50,14 +50,14 @@
 
 enum DEBUG_STATUS
 {
-    null=-1,
-    entering,
-    progress,
+	null = -1,
+	entering,
+	progress,
 	stepping,
 	stepping_in,
 	continuing,
-    exiting,
-    cleanup,
+	exiting,
+	cleanup,
 	aborting,
 	purgatory,
 	refresh,
@@ -99,16 +99,21 @@ class CNodeProbe;
 class CAstException {
 public:
 	const AstNode *pnode;
-	CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
+	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
 	string str1, str2, outstr;
+	CAstException() { pnode = nullptr; pCtx = nullptr; };
 	CAstException(const AstNode *p, CAstSig *pAst, const string s1);
 	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const string s2);
 	CAstException(CAstSig *pContext, const string s1, const string s2);
 	CAstException(const AstNode *p0, CAstSig *past, const char* msg);
-	string getErrMsg() const {return outstr;};
-private:
+	string getErrMsg() const { return outstr; };
+	string basemsg, tidstr;
+	int arrayindex, cellindex;
+	const AstNode *pTarget;
+protected:
 	void makeOutStr();
-};
+	void addLineCol();
+}; 
 
 class UDF
 {
@@ -265,7 +270,7 @@ public:
 	CFuncPointers fpmsg; // function pointer "messenger"
 	void init();
 	static const int DefaultFs = 22050;
-
+	int inTryCatch;
 	CVar replica;
 	double endpoint;
 	bool fExit, fContinue;
@@ -392,6 +397,8 @@ public:
 	CAstSig *pbase;
 	AstNode *root;
 	CVar *psigBase;
+	double *lhsref; // actual double buffer location that the lhs is supposed to modify
+	bool lhsref_single; // true if lhs indicates a scalar--this guarantees a valid lhsref.
 	string varname; // tracks the "full" name of variable including the index, the dot or { }, etc.
 	char status[8]; // limit to 7 characters
 

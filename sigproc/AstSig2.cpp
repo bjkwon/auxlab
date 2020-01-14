@@ -222,6 +222,13 @@ CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
 	if (pRHS)
 	{
 		tsig = pbase->Compute(pRHS);
+		if (lhsref_single)
+		{
+			if (tsig->nSamples > 1)
+				throw pbase->ExceptionMsg(pLHS, "LHS indicates a scalar; RHS is not.");
+			*lhsref = tsig->value();
+			return psigBase;
+		}
 		//This is where elements of an existing array are changed, upated or replaced by indices.
 		//if tsig is chainged, call insertreplace for each chain with a moving ghost of isig
 		isigGhost <= isig;
@@ -268,12 +275,6 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 				pbase->setgo.type = pp->str;
 			}
 		}
-		//else if (p->alt->type == N_STRUCT)
-		//{
-		//	pbase->define_new_variable(pnode, pRHS, varname.c_str());
-		//	varname += '.';
-		//	varname += p->alt->str;
-		//}
 		else 
 			throw pbase->ExceptionMsg(p, "Unknown error.");
 	}
@@ -454,6 +455,8 @@ CNodeProbe::CNodeProbe(CAstSig *past, AstNode *pnode, CVar *psig)
 	pbase = past;
 	root = pnode;
 	psigBase = psig; // NULL except for T_REPLICA
+	lhsref_single = false;
+	lhsref = NULL;
 }
 
 CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)

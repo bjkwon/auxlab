@@ -34,6 +34,8 @@ Chaging return type of CAstSig::TID from CVar & to CVar *
 #include "cipsycon.tab.h"
 #endif
 
+#include "sigproc_internal.h"
+
 //Application-wide global variables
 vector<CAstSig*> xscope;
 extern HWND hShowDlg;
@@ -271,6 +273,7 @@ void CAstSig::init()
 	FsFixed = false;
 	pgo = NULL;
 	Tick0 = 1;
+	inTryCatch = 0;
 }
 
 CAstSig::~CAstSig()
@@ -770,9 +773,9 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	{
 		ostringstream oss;
 		AstNode *p = lhs->type == N_VECTOR ? ((AstNode *)lhs->str)->alt : lhs;
-		for (son->u.nargout = 0; p && p->line == lhs->line; p = p->next, son->u.nargout++) {}
+		if (lhs->type == N_VECTOR) for (son->u.nargout = 0; p && p->line == lhs->line; p = p->next, son->u.nargout++) {}
 		if (son->u.nargout > (int)son->u.argout.size()) {
-			oss << "Maximum number of return arguments for function '" << u.pUDF->str << "' is " << son->u.argout.size() << ".";
+			oss << "Maximum number of return arguments for function '" << son->u.pUDF->str << "' is " << son->u.argout.size() << ".";
 			throw ExceptionMsg(u.pUDF, oss.str().c_str());
 		}
 	}
@@ -857,109 +860,123 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 
 size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 {	
-	// pUDF: the T_FUNCTION node pointer for the current UDF call, created after ReadUDF ("formal" context--i.e., how the udf file was read with variables used in the file)
-	// pOutParam: AstNode for formal output variable (or LHS), just used inside of this function.
-	// Output parameter dispatching (sending the output back to the calling worksapce) is done with pOutParam and lhs at the bottom.
+	try {
 
-	// u.debug.status is set when debug key is pressed (F5, F10, F11), prior to this call.
-	// For an initial entry UDF, u.debug.status should be null
-	SetVar("nargin", &CVar((double)u.nargin));
-	SetVar("nargout", &CVar((double)u.nargout)); // probably not correct
-	// If the udf has multiple statements, p->type is N_BLOCK), then go deeper
-	// If it has a single statement, take it from there.
-	AstNode *pFirst = u.pUDF->child->next;
-	if (pFirst->type == N_BLOCK)	pFirst = pFirst->next;
-	//Get the range of lines for the current udf
-	u.currentLine = pFirst->line;
-	AstNode *p;
-	int line2;
-	for (p = pFirst; p; p = p->next)
-	{
-		line2 = p->line;
-		if (!p->next) // if the node is T_FOR, T_WHILE or T_IF, p-next is NULL is it should continue through p->child
+		// pUDF: the T_FUNCTION node pointer for the current UDF call, created after ReadUDF ("formal" context--i.e., how the udf file was read with variables used in the file)
+		// pOutParam: AstNode for formal output variable (or LHS), just used inside of this function.
+		// Output parameter dispatching (sending the output back to the calling worksapce) is done with pOutParam and lhs at the bottom.
+
+		// u.debug.status is set when debug key is pressed (F5, F10, F11), prior to this call.
+		// For an initial entry UDF, u.debug.status should be null
+		SetVar("nargin", &CVar((double)u.nargin));
+		SetVar("nargout", &CVar((double)u.nargout)); // probably not correct
+		// If the udf has multiple statements, p->type is N_BLOCK), then go deeper
+		// If it has a single statement, take it from there.
+		AstNode *pFirst = u.pUDF->child->next;
+		if (pFirst->type == N_BLOCK)	pFirst = pFirst->next;
+		//Get the range of lines for the current udf
+		u.currentLine = pFirst->line;
+		AstNode *p;
+		int line2;
+		for (p = pFirst; p; p = p->next)
 		{
-			if (p->type == T_FOR || p->type == T_WHILE)
-				p = p->alt;
-			else if (p->type == T_IF)
+			line2 = p->line;
+			if (!p->next) // if the node is T_FOR, T_WHILE or T_IF, p-next is NULL is it should continue through p->child
 			{
-				if (p->alt)
+				if (p->type == T_FOR || p->type == T_WHILE)
 					p = p->alt;
-				else
-					p = p->child;
+				else if (p->type == T_IF)
+				{
+					if (p->alt)
+						p = p->alt;
+					else
+						p = p->child;
+				}
 			}
 		}
-	}
-
-	/* When this is called by auxcon, the memory for xscope is different from when called by xcom, so as a temporary measure,
-	fpmsg.ShowVariables now includes xscope.push_back(son) and a duplicate xscope is managed on the xcom side.
-	-- temporary solution xcom 1.31 12/9/2017 */
-	if (strcmp(u.application, "xcom"))
-		fpmsg.ShowVariables(this);
-	//probably needed to enter a new, external udf (if not, may skip)
-	if (pEnv->udf[u.base].newrecruit)
-		fpmsg.UpdateDebuggerGUI(this, refresh, -1); // shouldn't this be entering instead of refresh? It seems that way at least to F11 an not-yet-opened udf 10/16/2018. But.. it crashes. It must not have been worked on thoroughly...
-														//if this is auxconscript front astsig, enter call fpmsg.UpdateDebuggerGUI()
-	if (Script == "auxconscript01927362()")
-		/*u.debug.GUI_running = true, */ fpmsg.UpdateDebuggerGUI(this, entering, -1); // the rest of if's will be skipped
-																						 //check if this is subject to debugging.
-	if (u.debug.status == stepping)
-		/*u.debug.GUI_running = true, */ fpmsg.UpdateDebuggerGUI(this, entering, -1);
-	else
-	{ // probably entrance udf... First, check if current udfname (i.e., Script) is found in DebugBreaks
-	  // if so, mark u.debug.status as progress and set next breakpoint
-	  // and call debug_GUI 
-		vector<int> breakpoint = pEnv->udf[u.base].DebugBreaks;
-		for (vector<int>::iterator it = breakpoint.begin(); it != breakpoint.end(); it++)
-		{
-			if (*it < u.currentLine) continue;
-			if (*it <= line2) {
-				u.debug.status = progress; u.nextBreakPoint = *it;
-				u.debug.GUI_running = true, fpmsg.UpdateDebuggerGUI(this, entering, -1);
-				break;
+		/* When this is called by auxcon, the memory for xscope is different from when called by xcom, so as a temporary measure,
+		fpmsg.ShowVariables now includes xscope.push_back(son) and a duplicate xscope is managed on the xcom side.
+		-- temporary solution xcom 1.31 12/9/2017 */
+		if (strcmp(u.application, "xcom"))
+			fpmsg.ShowVariables(this);
+		//probably needed to enter a new, external udf (if not, may skip)
+		if (pEnv->udf[u.base].newrecruit)
+			fpmsg.UpdateDebuggerGUI(this, refresh, -1); // shouldn't this be entering instead of refresh? It seems that way at least to F11 an not-yet-opened udf 10/16/2018. But.. it crashes. It must not have been worked on thoroughly...
+															//if this is auxconscript front astsig, enter call fpmsg.UpdateDebuggerGUI()
+		if (Script == "auxconscript01927362()")
+			/*u.debug.GUI_running = true, */ fpmsg.UpdateDebuggerGUI(this, entering, -1); // the rest of if's will be skipped
+																							 //check if this is subject to debugging.
+		if (u.debug.status == stepping)
+			/*u.debug.GUI_running = true, */ fpmsg.UpdateDebuggerGUI(this, entering, -1);
+		else
+		{ // probably entrance udf... First, check if current udfname (i.e., Script) is found in DebugBreaks
+		  // if so, mark u.debug.status as progress and set next breakpoint
+		  // and call debug_GUI 
+			vector<int> breakpoint = pEnv->udf[u.base].DebugBreaks;
+			for (vector<int>::iterator it = breakpoint.begin(); it != breakpoint.end(); it++)
+			{
+				if (*it < u.currentLine) continue;
+				if (*it <= line2) {
+					u.debug.status = progress; u.nextBreakPoint = *it;
+					u.debug.GUI_running = true, fpmsg.UpdateDebuggerGUI(this, entering, -1);
+					break;
+				}
 			}
 		}
-	}
 
 #if defined(_WINDOWS) && defined(_DEBUG)
-//	Beep(1000, 50);
+		//	Beep(1000, 50);
 #endif
 
-	p = pFirst;
-	while (p)
-	{
-		pLast=p;
-		// T_IF, T_WHILE, T_FOR are checked here to break right at the beginning of the loop
-		if (p->type==T_ID || p->type == T_FOR || p->type == T_IF || p->type == T_WHILE || p->type == N_IDLIST || p->type == N_VECTOR)
-			hold_at_break_point(p);
-		Compute(p);
-//		pgo = NULL; // without this, go lingers on the next line
-//		Sig.Reset(1); // without this, fs=3 lingers on the next line
-		if (fExit) break;
-		p=p->next;
-	}
-	if (!strcmp(u.application, "auxcon") && Script == "auxconscript01927362()")
-		fpmsg.Back2BaseScope(0);
-	if (u.debug.status!=null)
-	{
-//		currentLine = -1; // to be used in CDebugDlg::ProcessCustomDraw() (re-drawing with default background color)... not necessary for u.debug.status==stepping (because currentLine has been updated stepping) but won't hurt
-		if (u.debug.GUI_running == true)
+		p = pFirst;
+		while (p)
 		{
-			// send to purgatory and standby for another debugging key action, if dad is the base scope
-			if (dad == xscope.front() && u.debug.status == stepping) 
+			pLast = p;
+			// T_IF, T_WHILE, T_FOR are checked here to break right at the beginning of the loop
+			if (p->type == T_ID || p->type == T_FOR || p->type == T_IF || p->type == T_WHILE || p->type == N_IDLIST || p->type == N_VECTOR)
+				hold_at_break_point(p);
+			Compute(p);
+			//		pgo = NULL; // without this, go lingers on the next line
+			//		Sig.Reset(1); // without this, fs=3 lingers on the next line
+			if (fExit) break;
+			p = p->next;
+		}
+		if (!strcmp(u.application, "auxcon") && Script == "auxconscript01927362()")
+			fpmsg.Back2BaseScope(0);
+		if (u.debug.status != null)
+		{
+			//		currentLine = -1; // to be used in CDebugDlg::ProcessCustomDraw() (re-drawing with default background color)... not necessary for u.debug.status==stepping (because currentLine has been updated stepping) but won't hurt
+			if (u.debug.GUI_running == true)
 			{
-				fpmsg.UpdateDebuggerGUI(this, purgatory, -1);
-				fpmsg.HoldAtBreakPoint(this, pLast);
+				// send to purgatory and standby for another debugging key action, if dad is the base scope
+				if (dad == xscope.front() && u.debug.status == stepping)
+				{
+					fpmsg.UpdateDebuggerGUI(this, purgatory, -1);
+					fpmsg.HoldAtBreakPoint(this, pLast);
+				}
+				u.currentLine = -1;
+				u.debug.inPurgatory = false; // necessary to reset the color of debug window listview.
+				//when exiting from a inside udf (whether local or not) to a calling udf with F10 or F11, the calling udf now should have stepping.
+				fpmsg.UpdateDebuggerGUI(this, exiting, -1);
 			}
-			u.currentLine = -1;
-			u.debug.inPurgatory = false; // necessary to reset the color of debug window listview.
-			//when exiting from a inside udf (whether local or not) to a calling udf with F10 or F11, the calling udf now should have stepping.
-			fpmsg.UpdateDebuggerGUI(this, exiting, -1);
+			if (xscope.size() > 2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
+			{//why is this necessary? 10/19/2018----yes this is...2/16/2019
+				if (u.debug.status == stepping && fpmsg.IsCurrentUDFOnDebuggerDeck && !fpmsg.IsCurrentUDFOnDebuggerDeck(Script.c_str()))
+					fpmsg.UpdateDebuggerGUI(this, entering, -1);
+			}
 		}
-		if (xscope.size()>2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
-		{//why is this necessary? 10/19/2018----yes this is...2/16/2019
-			if (u.debug.status==stepping && fpmsg.IsCurrentUDFOnDebuggerDeck && !fpmsg.IsCurrentUDFOnDebuggerDeck(Script.c_str()))
-				fpmsg.UpdateDebuggerGUI(this, entering, -1);
+	}
+	catch (const CAstException &e) {
+		char errmsg[2048];
+		strncpy(errmsg, e.getErrMsg().c_str(), sizeof(errmsg) / sizeof(*errmsg));
+		errmsg[sizeof(errmsg) / sizeof(*errmsg) - 1] = '\0';
+		Vars["errmsgcaught"] = e.basemsg;
+		if (inTryCatch)
+		{
+			Compute(e.pTarget);
 		}
+		else
+			throw errmsg;
 	}
 	return u.nargout;
 }
@@ -1799,6 +1816,7 @@ vector<CVar *> CAstSig::Compute(void)
 	Sig.outarg2.clear();
 	Sig.SetNextChan(NULL);
 	Sig.functionEvalRes = false;
+	inTryCatch = 0;
 //	pgo = NULL;
 	lhs = NULL;
 	try {
@@ -2071,7 +2089,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 	{ //No further actions
 		return get_next_parsible_node(pn);
 	}
-	string emsg;
+	string emsg, extrastr="";
 	AstNode *p = pn;
 	int ind(0);
 	CVar *pres;
@@ -2176,10 +2194,10 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 					np.varname += pn->str;
 					if (!(pres = GetVariable(pn->str, np.psigBase)))
 					{
-						out << "Variable or function not available: ";
-						if (pn->type == N_STRUCT)		out << '.';
-						out << pn->str;
-						throw ExceptionMsg(pn, out.str().c_str());
+						emsg = "Variable or function not available: ";
+						if (pn->type == N_STRUCT) extrastr = '.';
+						extrastr += pn->str;
+						throw CAstExceptionUnknownTID(*this, emsg.c_str(), extrastr.c_str());
 					}
 					if (pres->IsGO())
 					{ // the variable pn->str is a GO
@@ -2231,11 +2249,40 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 					}
 					else
 					{
+						//??????????????--check later 1/5/2020
 						//text(f,.5,.5,"hello") comes here to process f
 						//axes([.1 .1 .6 .6]).color=[1 1 1] comes here, too. (not any more because ofRHSpresent 11/2/2019)
 						// np.psigBase should not have &Sig of axes (the ghost pointer) that was just created. 
 						// It should have pgo. Otherwise, it will crash because &Sig goes out of scope soon.
 						// That is properly done in builtin_func_call in AstSig2.cpp 4/7/2019
+						//end of ??????????????
+
+						//check if pn->alt is N_ARGS and the index is scalar
+						//if so, resolve here
+						if (p && p->type == N_ARGS)
+						{
+							CVar *pindexResolved = Compute(p->child);
+							if (pindexResolved->IsScalar())
+							{
+								np.lhsref_single = true;
+								if (RHSpresent)
+								{ // this is LHS
+								  // Need to leave the address of the data to be modified
+									np.lhsref = pres->buf + (int)pindexResolved->value() - 1; // zero-based index
+									np.psigBase = pres;
+									return p->alt;
+								}
+								else
+								{
+									// if on RHS
+									Sig.buf[0] = pres->buf[(int)pindexResolved->value()-1]; // zero-based index
+									return p->alt;
+								}
+							}
+							else
+								np.lhsref_single = false;
+						}
+
 					}
 					Sig = *(np.psigBase = pres);
 				}
@@ -2308,6 +2355,9 @@ void CAstSig::bind_psig(AstNode *pn, CVar *psig)
 
 CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 {
+	//CVar *tmp;
+	//if (tmp = dfast(pnode, 0)) return tmp;
+
 	CNodeProbe np(this, pnode, psig); // psig is NULL except for T_REPLICA
 	if (pnode)
 	{
@@ -2324,7 +2374,7 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 			var = (any expression) : from RHS to LHS
 			var(id) = (any expression) : error
 			var.prop = (any expression) : var is generated as a class variable with prop
-			(expression) : pnode and pLast are the same --> VERIFY 10/10/2019
+			(expression) : pnode and pLast are the same
 		*/
 		/* if pnode is a terminal T_ID (i.e., no alt), np.psigBase is NULL; pLast is the same as pnode,
 		   whether the variable exists or not, and the RHS will be computed and bound to the LHS.
@@ -2490,6 +2540,16 @@ try {
 	switch (pnode->type) {
 	case T_ID:
 		return TID((AstNode*)pnode, p);
+	case T_TRY:
+		inTryCatch++; //
+		Compute(p);
+		break;
+	case T_CATCH:
+		inTryCatch--; //
+		// p is T_ID for ME (exception message caught)
+		// continue here............1/12/2020
+		Compute(pnode->next);
+		break;
 	case N_HOOK:
 		return TID((AstNode*)pnode, p);
 	case N_TSEQ:
@@ -2660,7 +2720,12 @@ try {
 		for (unsigned int i=0; i<isig.nSamples && !fExit && !fBreak; i++) 
 		{
 			SetVar(p->str, &CVar(isig.buf[i]));
-			Compute(pnode->alt);
+			//	assuming that (pnode->alt->type == N_BLOCK) 
+			// Now, not going through N_BLOCK 1/4/2020
+			// 1) When running in a debugger, it must go through N_BLOCK 
+			// 2) check if looping through pa->next is bullet-proof 
+			for (AstNode *pa = pnode->alt->next; pa; pa = pa->next)
+				Compute(pa);
 		}
 		fBreak = false;
 		break;

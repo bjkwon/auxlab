@@ -188,23 +188,20 @@ CAstException::CAstException(const AstNode *p0, CAstSig *pContext, const char* m
 	outstr += '\n';
 }
 
-void CAstException::makeOutStr()
+void CAstException::addLineCol()
 {
 	ostringstream oss;
-	oss << str1 + ' ';
-	if (!str2.empty())
-		oss << " \"" << str2 << "\" ";
-	if (pCtx)
+	if (!pCtx && pnode)
+		oss << "\nIn line " << pnode->line << ", col " << pnode->col; // is this necessary? 1/12/2020
+	else
 	{
-		if (!pCtx->dad) 
-			return;
+		if (!pCtx->dad) return;
 		vector<int> lines;
 		vector<string> strs;
-		CAstSig *tp = pCtx;
+		const CAstSig *tp = pCtx;
 		char *pstr=NULL;
 		while (tp)
 		{
-#ifdef _WINDOWS
 			if (!tp->u.base.empty())
 			{
 				if (tp->u.base == tp->u.title) // base udf (or "other" udf)
@@ -212,11 +209,8 @@ void CAstException::makeOutStr()
 				else
 					strs.push_back(string ("function \"") + tp->u.title + "\"");
 				if (tp->pLast)
-				{
 					lines.push_back(tp->pLast->line);
-				}
 			}
-#endif
 			tp=tp->dad;
 		}
 		if (!strs.empty())
@@ -232,12 +226,17 @@ void CAstException::makeOutStr()
 			}
 		}
 	}
-	else
-		oss << "\nIn line " << pnode->line << ", col " << pnode->col;
-	outstr = oss.str();
+	outstr += oss.str();
+}
+
+void CAstException::makeOutStr()
+{
+	ostringstream oss;
+	oss << str1 + ' ';
+	addLineCol();
 	// if the exception is thrown from auxcon, it will skip
-	if (pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017
+	if (pCtx && pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017
 		if (pCtx->pAst && pCtx->pAst->type == N_BLOCK) // pCtx->pCtx is checked to avoid crash during wavwrite(undefined_var,"filename")
-			CAstSig::cleanup_nodes(pCtx);
+			CAstSig::cleanup_nodes((CAstSig *)pCtx);
 }
 

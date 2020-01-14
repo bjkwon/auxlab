@@ -241,6 +241,7 @@
     <ClInclude Include="$(SrcPath)samplerate.h" />
     <ClInclude Include="$(SrcPath)sigplus_internal.h" />
     <ClInclude Include="$(SrcPath)sigproc.h" />
+    <ClInclude Include="$(SrcPath)sigproc_internal.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

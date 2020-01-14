@@ -77,5 +77,8 @@
     <ClInclude Include="$(SrcPath)sigproc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="$(SrcPath)sigproc_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

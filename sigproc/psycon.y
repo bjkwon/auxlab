@@ -54,7 +54,8 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 %token T_STATIC		"static"
 %token T_RETURN		"return"
 %token T_SIGMA		"sigma"
-%token T_EOF	0	"end of text"
+%token T_TRY		"try"
+%token T_CATCH		"catch"
 %token T_OP_SHIFT	">>"
 %token T_OP_CONCAT	"++"
 %token T_LOGIC_EQ	"=="
@@ -85,6 +86,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 %right '^' /* exponentiation */
 %left T_LOGIC_NOT T_POSITIVE T_NEGATIVE /* unary plus/minus */
 %token T_TRANSPOSE  
+%token T_EOF	0	"end of text"
 
 %parse-param {AstNode **pproot}
 %parse-param {char **errmsg}
@@ -316,6 +318,15 @@ stmt: expcondition
 		$$->child = $2;
 		$$->line = @$.first_line;
 		$$->col = @$.first_column;
+	}
+	| T_TRY block T_CATCH T_ID block T_END
+	{
+		$$ = newAstNode(T_TRY, @$);
+		$$->child = $2;
+		$$->alt = newAstNode(T_CATCH, @4);
+		$$->alt->child = newAstNode(T_ID, @4);
+		$$->alt->child->str = $4;
+		$$->alt->next = $5;
 	}
 	| T_WHILE conditional block T_END
 	{
