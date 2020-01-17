@@ -263,7 +263,7 @@ void _tictoc(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	}
 	else
 	{
-		past->Sig.SetValue((double)past->toc()); // milliseconds since tic was called.
+		past->Sig.SetValue((double)past->toc(pnode)); // milliseconds since tic was called.
 	}
 }
 

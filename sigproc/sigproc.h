@@ -101,17 +101,21 @@ public:
 	const AstNode *pnode;
 	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
 	string str1, str2, outstr;
-	CAstException() { pnode = nullptr; pCtx = nullptr; };
+	CAstException() { 
+		pTarget = nullptr;	pnode = nullptr; pCtx = nullptr;
+	};
 	CAstException(const AstNode *p, CAstSig *pAst, const string s1);
 	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const string s2);
 	CAstException(CAstSig *pContext, const string s1, const string s2);
 	CAstException(const AstNode *p0, CAstSig *past, const char* msg);
+	~CAstException() {};
+	void findTryLine(const CAstSig & scope);
 	string getErrMsg() const { return outstr; };
 	string basemsg, tidstr;
 	int arrayindex, cellindex;
 	const AstNode *pTarget;
 protected:
-	void makeOutStr();
+	void clean();
 	void addLineCol();
 }; 
 
@@ -372,7 +376,7 @@ public:
 	bool isInterrupted(void);
 	vector<double> gettimepoints(const AstNode *pnode, AstNode *p);
 	unsigned long tic();
-	unsigned long toc();
+	unsigned long toc(const AstNode *p);
 
 	int isthislocaludf(void);
 

@@ -15,57 +15,106 @@ enum AUX_PARSING_ERR
 	
 };
 
-class CAstExceptionUnknownTID : public CAstException
+class CAstExceptionInvalidUsage : public CAstException
 {
 public:
-	CAstExceptionUnknownTID(const CAstSig & scope, const char * _basemsg, const char * tidname, const char *extra = "")
+	CAstExceptionInvalidUsage(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * tidname="", const char *extra = "")
 	{
-		pTarget = nullptr;
 		pCtx = &scope;
-		pnode = scope.pAst;
+		pnode = p0;
 		str1 = basemsg = _basemsg;
-		str1 += (tidstr = tidname);
+		str1 += string(" ") + (tidstr = tidname);
+		if (strlen(extra)>0)
+			str1 += string(" ") + extra;
 		arrayindex = cellindex = -1;
 		str1.insert(0, "[GOTO_BASE]");
 		outstr += str1;
-		makeOutStr();
+		addLineCol();
 		if (scope.inTryCatch)
-		{
-			//go upstream from pLast until T_TRY is found
-			//then update pLast with the catch node
-			//begin with scope.pAst which is pnode
-			for (const AstNode* p = pnode; p; p = p->next)
-			{
-				if (p->type == T_TRY) pTarget = p->alt;
-				if (p == scope.pLast)
-				{
-					break;
-				}
-			}
-		}
+			findTryLine(scope);
 	};
-	virtual ~CAstExceptionUnknownTID() {};
+	
+	virtual ~CAstExceptionInvalidUsage() 
+	{
+		clean();
+	};
 }; 
 
 class CAstExceptionRange : public CAstException
 {
 public:
-	CAstExceptionRange(const char * basemsg, const char * varname, int range);
-	virtual ~CAstExceptionRange() {};
+	CAstExceptionRange(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell=-1)
+	{
+		pCtx = &scope;
+		pnode = p0;
+		str1 = basemsg = _basemsg;
+		if (strlen(varname)>0)
+			str1 += (tidstr = varname);
+		arrayindex = indexSpecified;
+		cellindex = indexSpecifiedCell;
+		str1.insert(0, "[GOTO_BASE]");
+		ostringstream oss;
+		if (cellindex>=0) // if cell index is invalid, it doesn't check indexSpecified
+			oss << str1 << " cell index " << cellindex << " out of range.";
+		else
+			oss << str1 << " index " << indexSpecified << " out of range.";
+		outstr += oss.str().c_str();
+		addLineCol();
+		if (scope.inTryCatch)
+			findTryLine(scope);
+	};
+	virtual ~CAstExceptionRange()
+	{
+		clean();
+	};
 };
 
-class CAstExceptionArg : public CAstException
+class CAstExceptionInvalidArg : public CAstException
 {
 public:
-	CAstExceptionArg(const char * basemsg, int order);
-	virtual ~CAstExceptionArg() {};
+	CAstExceptionInvalidArg(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * funcname, int argIndex)
+	{
+		ostringstream oss;
+		oss << "" << funcname << " : " << "argument " << argIndex << ' ' << _basemsg;
+		pCtx = &scope;
+		pnode = p0;
+		str1 = oss.str().c_str();
+		arrayindex = argIndex;
+		cellindex = -1;
+		str1.insert(0, "[GOTO_BASE]");
+		outstr += str1;
+		addLineCol();
+		if (scope.inTryCatch)
+			findTryLine(scope);
+	};
+	virtual ~CAstExceptionInvalidArg()
+	{
+		clean();
+	};
 };
 
 class CAstExceptionInternal : public CAstException
 {
 public:
-	CAstExceptionInternal(const char * basemsg, int type);
-	virtual ~CAstExceptionInternal() {};
+	CAstExceptionInternal(const CAstSig & scope, const AstNode *p0, const char * _basemsg, int type=-1)
+	{
+		pCtx = &scope;
+		pnode = p0;
+		str1 = basemsg = _basemsg;
+		char buf[256];
+		sprintf(buf, " node type=%d", type);
+		str1 += buf;
+		arrayindex = cellindex = -1;
+		str1.insert(0, "[GOTO_BASE]");
+		outstr += str1;
+		addLineCol();
+		if (scope.inTryCatch)
+			findTryLine(scope);
+	};
+	virtual ~CAstExceptionInternal()
+	{
+		clean();
+	};
 };
 
 class CAstExceptionSyntax : public CAstException

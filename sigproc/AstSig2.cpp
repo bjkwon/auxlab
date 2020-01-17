@@ -27,6 +27,7 @@
 #else
 #include "cipsycon.tab.h"
 #endif
+#include "sigproc_internal.h"
 
 
 void CAstSig::replica_prep(CVar *psig)
@@ -466,10 +467,7 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	if (!p->child)	throw pbase->ExceptionMsg(pnode, "A variable index should be provided.");
 	eval_indexing(p->child, isig);
 	if (isig._max().front() > pbase->Sig.nSamples)
-	{
-		ostream << "Index " << (int)isig._max().front() << " exceeds the length of " << varname;
-		throw pbase->ExceptionMsg(pnode, ostream.str().c_str());
-	}
+		throw CAstExceptionRange(pbase, pnode, "", varname.c_str(), (int)isig._max().front());
 	pbase->Sig = extract(pnode, isig);
 	return pbase->Sig;
 }

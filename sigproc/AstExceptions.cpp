@@ -134,7 +134,7 @@ CAstException::CAstException(CAstSig *pContext, const string s1, const string s2
 #endif
 	str1.insert(0, "[GOTO_BASE]");
 	if (!pnode) pnode = pCtx->pAst;
-	makeOutStr();
+//	makeOutStr();
 	outstr += '\n';
 }
 
@@ -161,7 +161,7 @@ CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s
 #endif
 	str1.insert(0, "[GOTO_BASE]");
 	if (!p) pnode = pCtx->pAst;
-	makeOutStr();
+//	makeOutStr();
 	outstr += '\n';
 }
 
@@ -184,8 +184,24 @@ CAstException::CAstException(const AstNode *p0, CAstSig *pContext, const char* m
 #endif
 	str1.insert(0, "[GOTO_BASE]");
 	if (!pnode) pnode = pCtx->pAst;
-	makeOutStr();
+//	makeOutStr();
 	outstr += '\n';
+}
+
+void CAstException::findTryLine(const CAstSig & scope)
+{
+	//go upstream from pLast until T_TRY is found
+	//then update pLast with the catch node
+	//begin with scope.pAst which is pnode
+	for (const AstNode* p = scope.pAst; p; p = p->next)
+	{
+		if (p->type == T_TRY) pTarget = p->alt;
+		if (p == scope.pLast)
+		{
+			return;
+		}
+	}
+	return;
 }
 
 void CAstException::addLineCol()
@@ -229,11 +245,8 @@ void CAstException::addLineCol()
 	outstr += oss.str();
 }
 
-void CAstException::makeOutStr()
+void CAstException::clean()
 {
-	ostringstream oss;
-	oss << str1 + ' ';
-	addLineCol();
 	// if the exception is thrown from auxcon, it will skip
 	if (pCtx && pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017
 		if (pCtx->pAst && pCtx->pAst->type == N_BLOCK) // pCtx->pCtx is checked to avoid crash during wavwrite(undefined_var,"filename")
