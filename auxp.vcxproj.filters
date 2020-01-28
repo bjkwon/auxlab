@@ -29,6 +29,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="auxp\f2_channel_stereo_mono.aux" />
-    <None Include="auxp\default__callback.aux" />
+    <None Include="auxp\default_callback_audio_recording.aux" />
   </ItemGroup>
 </Project>

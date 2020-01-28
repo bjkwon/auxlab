@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -60,31 +60,32 @@
     <ProjectGuid>{3929F163-CEC0-40EB-B0F9-BFB302611DDC}</ProjectGuid>
     <RootNamespace>xcom</RootNamespace>
     <ProjectName>auxlab</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
@@ -138,14 +139,14 @@
       <PreprocessorDefinitions>GRAFFY_STATIC;LINK_STATIC_SIGPROC;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
+      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command> 
+      <Command>
 	  call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
 		call copy_header.bat audstr bjcommon\
 		call copy_header.bat lame_bj lame\</Command>
@@ -159,12 +160,12 @@
       <PreprocessorDefinitions>GRAFFY_STATIC;LINK_STATIC_SIGPROC;WIN64;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>sigproc.lib;libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sigproc.lib;libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libcmtd;libcmt</IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
+      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
@@ -184,11 +185,11 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
+      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
@@ -211,12 +212,12 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.26_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <IgnoreSpecificDefaultLibraries>libcmtd;libcmt</IgnoreSpecificDefaultLibraries>
+      <AdditionalDependencies>libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.4_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;sigproc.lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>libcmt.lib</IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.26_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
+      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.4_$(PlatformArchitecture)st.lib </Command>
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy

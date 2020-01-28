@@ -449,13 +449,13 @@ w->r *= 0.5;
 w->i *= 0.5;
 }
 
-
-double hypot( x, y )
-double x, y;
-{
-cmplx z;
-
-z.r = x;
-z.i = y;
-return( cabs(&z) );
-}
+// Obsolte; must be removed to avoid conflict in Visual Studio 2019
+//double hypot( x, y )
+//double x, y;
+//{
+//cmplx z;
+//
+//z.r = x;
+//z.i = y;
+//return( cabs(&z) );
+//}
