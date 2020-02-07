@@ -11,25 +11,23 @@ enum AUX_PARSING_ERR
 	CELL_INDEX_OOR,
 	TREATING_CELL_WITH_PARENTH,
 	RESERVED_AS_BUILT_IN,
-	
-	
 };
 
 class CAstExceptionInvalidUsage : public CAstException
 {
 public:
-	CAstExceptionInvalidUsage(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * tidname="", const char *extra = "")
+	CAstExceptionInvalidUsage(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * tidname="", string extra = "")
 	{
 		pCtx = &scope;
 		pnode = p0;
-		str1 = basemsg = _basemsg;
-		str1 += string(" ") + (tidstr = tidname);
-		if (strlen(extra)>0)
-			str1 += string(" ") + extra;
+		msgonly = basemsg = _basemsg;
+		msgonly += string(" ") + (tidstr = tidname);
+		if (!extra.empty())
+			msgonly += string("\n") + extra;
 		arrayindex = cellindex = -1;
-		str1.insert(0, "[GOTO_BASE]");
-		outstr += str1;
+		if (msgonly.find("[GOTO_BASE]")==string::npos)		msgonly.insert(0, "[GOTO_BASE]");
 		addLineCol();
+		outstr = msgonly + sourceloc;
 		if (scope.inTryCatch)
 			findTryLine(scope);
 	};
@@ -40,6 +38,30 @@ public:
 	};
 }; 
 
+class CAstInvalidFuncSyntax : public CAstException
+{
+public:
+	CAstInvalidFuncSyntax(const CAstSig & scope, const AstNode *p0, string fnsig, const char * _basemsg)
+	{
+		pCtx = &scope;
+		pnode = p0;
+		msgonly = basemsg = _basemsg;
+		if (!fnsig.empty())
+			msgonly += string("\n  Usage: ") + fnsig;
+		arrayindex = cellindex = -1;
+		if (msgonly.find("[GOTO_BASE]") == string::npos)		msgonly.insert(0, "[GOTO_BASE]");
+		addLineCol();
+		outstr = msgonly + sourceloc;
+		if (scope.inTryCatch)
+			findTryLine(scope);
+	};
+
+	virtual ~CAstInvalidFuncSyntax()
+	{
+		clean();
+	};
+};
+
 class CAstExceptionRange : public CAstException
 {
 public:
@@ -47,19 +69,20 @@ public:
 	{
 		pCtx = &scope;
 		pnode = p0;
-		str1 = basemsg = _basemsg;
+		msgonly = basemsg = _basemsg;
 		if (strlen(varname)>0)
-			str1 += (tidstr = varname);
+			msgonly += (tidstr = varname);
 		arrayindex = indexSpecified;
 		cellindex = indexSpecifiedCell;
-		str1.insert(0, "[GOTO_BASE]");
+		if (msgonly.find("[GOTO_BASE]") == string::npos)		msgonly.insert(0, "[GOTO_BASE]");
 		ostringstream oss;
 		if (cellindex>=0) // if cell index is invalid, it doesn't check indexSpecified
-			oss << str1 << " cell index " << cellindex << " out of range.";
+			oss << msgonly << " cell index " << cellindex << " out of range.";
 		else
-			oss << str1 << " index " << indexSpecified << " out of range.";
-		outstr += oss.str().c_str();
+			oss << msgonly << " index " << indexSpecified << " out of range.";
+		msgonly = oss.str().c_str();
 		addLineCol();
+		outstr = msgonly + sourceloc;
 		if (scope.inTryCatch)
 			findTryLine(scope);
 	};
@@ -74,16 +97,17 @@ class CAstExceptionInvalidArg : public CAstException
 public:
 	CAstExceptionInvalidArg(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * funcname, int argIndex)
 	{
+		basemsg = _basemsg;
 		ostringstream oss;
 		oss << "" << funcname << " : " << "argument " << argIndex << ' ' << _basemsg;
 		pCtx = &scope;
 		pnode = p0;
-		str1 = oss.str().c_str();
+		msgonly = oss.str().c_str();
 		arrayindex = argIndex;
 		cellindex = -1;
-		str1.insert(0, "[GOTO_BASE]");
-		outstr += str1;
+		if (msgonly.find("[GOTO_BASE]") == string::npos)		msgonly.insert(0, "[GOTO_BASE]");
 		addLineCol();
+		outstr = msgonly + sourceloc;
 		if (scope.inTryCatch)
 			findTryLine(scope);
 	};
@@ -100,14 +124,15 @@ public:
 	{
 		pCtx = &scope;
 		pnode = p0;
-		str1 = basemsg = _basemsg;
+		msgonly = basemsg = _basemsg;
 		char buf[256];
 		sprintf(buf, " node type=%d", type);
-		str1 += buf;
+		msgonly += buf;
 		arrayindex = cellindex = -1;
-		str1.insert(0, "[GOTO_BASE]");
-		outstr += str1;
+		if (msgonly.find("[GOTO_BASE]") == string::npos)		msgonly.insert(0, "[GOTO_BASE]");
 		addLineCol();
+		outstr = msgonly + sourceloc;
+		outstr += str1;
 		if (scope.inTryCatch)
 			findTryLine(scope);
 	};

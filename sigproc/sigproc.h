@@ -100,7 +100,7 @@ class CAstException {
 public:
 	const AstNode *pnode;
 	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
-	string str1, str2, outstr;
+	string str1, str2;
 	CAstException() { 
 		pTarget = nullptr;	pnode = nullptr; pCtx = nullptr;
 	};
@@ -112,6 +112,9 @@ public:
 	void findTryLine(const CAstSig & scope);
 	string getErrMsg() const { return outstr; };
 	string basemsg, tidstr;
+	string msgonly; // including basemsg, tidstr, and extra
+	string sourceloc; // source location; where the error occurred (line, col and file)
+	string outstr; // msgonly \n sourceloc
 	int arrayindex, cellindex;
 	const AstNode *pTarget;
 protected:

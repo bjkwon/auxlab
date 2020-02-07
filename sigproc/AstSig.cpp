@@ -193,6 +193,7 @@ CAstSig::CAstSig(const CAstSig *src)
 	pgo = src->pgo;
 	Script = src->Script;
 	pLast = src->pLast;
+	inTryCatch = src->inTryCatch;
 }
 // Used in auxfunc.cpp and psyntegDlgNIC.cpp
 CAstSig::CAstSig(const char *str, const CAstSig *src) 
@@ -205,6 +206,7 @@ CAstSig::CAstSig(const char *str, const CAstSig *src)
 		u = src->u;
 		fpmsg = src->fpmsg;
 		endpoint = src->endpoint;
+		inTryCatch = src->inTryCatch;
 	}
 	else
 	{
@@ -212,7 +214,6 @@ CAstSig::CAstSig(const char *str, const CAstSig *src)
 	}
 	string emsg;
 	SetNewScript(emsg, str);
-
 	if (src)
 	{
 		pgo = src->pgo;
@@ -239,6 +240,7 @@ CAstSig::CAstSig(AstNode *pnode, const CAstSig *src)
 	pAst = pnode;
 	if (src) {
 		pEnv = src->pEnv;
+		inTryCatch = src->inTryCatch;
 	}
 	else
 		pEnv = new CAstSigEnv(DefaultFs);
@@ -953,18 +955,27 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		}
 	}
 	catch (const CAstException &e) {
-		char errmsg[2048];
-		strncpy(errmsg, e.getErrMsg().c_str(), sizeof(errmsg) / sizeof(*errmsg));
-		errmsg[sizeof(errmsg) / sizeof(*errmsg) - 1] = '\0';
 		if (inTryCatch)
-		{
-			Vars["errmsgcaught"] = e.basemsg;
+		{ // Make a new struct variable from child of e.pTarget (which is T_CATCH)
+			CVar temp;
+			SetVar(e.pTarget->child->str, &temp); // new variable; OK this way, temp is deep-copied
+			string emsg = e.outstr;
+			size_t id = emsg.find("[GOTO_BASE]");
+			if (id != string::npos) emsg = emsg.substr(id + string("[GOTO_BASE]").size());
+			CVar msg(emsg);
+			SetVar("full", &msg, &Vars[e.pTarget->child->str]);
+			msg = e.basemsg;
+			SetVar("base", &msg, &Vars[e.pTarget->child->str]);
+			emsg = e.msgonly;
+			if (id != string::npos) emsg = emsg.substr(id + string("[GOTO_BASE]").size());
+			msg = emsg;
+			SetVar("body", &msg, &Vars[e.pTarget->child->str]);
+			msg = e.sourceloc;
+			SetVar("source", &msg, &Vars[e.pTarget->child->str]);
 			Compute(e.pTarget);
 		}
 		else
-		{
 			throw e;
-		}
 	}
 	return u.nargout;
 }
@@ -2224,7 +2235,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 							if (p->str[0] != '#' && !IsValidBuiltin(p->str))
 								if (!ReadUDF(emsg, p->str))
 									if (!emsg.empty())
-										throw ExceptionMsg(pn, emsg.c_str()); // check the message
+										throw CAstExceptionInvalidUsage(*this, pn, emsg.c_str()); // check the message
 									else
 									{
 										out << "Unknown variable, function, or keyword identifier : " << p->str;
@@ -3321,7 +3332,7 @@ int CAstSig::checkNumArgs(const AstNode *pnode, const AstNode *p, string &FuncSi
 		else
 			return nArgs;
 	}
-	throw ExceptionMsg(pnode, FuncSigs, msg.str());
+	throw CAstInvalidFuncSyntax(*this, pnode, FuncSigs, msg.str().c_str());
 }
 
 CVar *CAstSig::GetSig(const char *var)

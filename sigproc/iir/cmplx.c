@@ -449,13 +449,15 @@ w->r *= 0.5;
 w->i *= 0.5;
 }
 
-
-double hypot( x, y )
-double x, y;
-{
-cmplx z;
-
-z.r = x;
-z.i = y;
-return( cabs(&z) );
-}
+//Not used in the iir project. Probably obsolte and the author forget to remove
+//Commented out because it conflicts with hypot when using Visual Studio 2019
+// 1/27/2020 bjkwon
+//double hypot( x, y )
+//double x, y;
+//{
+//cmplx z;
+//
+//z.r = x;
+//z.i = y;
+//return( cabs(&z) );
+//}

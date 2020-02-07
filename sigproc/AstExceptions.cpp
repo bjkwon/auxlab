@@ -242,7 +242,7 @@ void CAstException::addLineCol()
 			}
 		}
 	}
-	outstr += oss.str();
+	sourceloc = oss.str();
 }
 
 void CAstException::clean()

@@ -137,7 +137,7 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 						if (sec.nSamples != id2 - id1 + 1)
 						{
 							if (!sec.IsScalar())
-								throw pbase->ExceptionMsg(pnode, "to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
+								throw CAstExceptionInvalidUsage(*pbase, pnode, "to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
 						}
 						if (sec.IsComplex() && !psigBase->IsComplex()) psigBase->SetComplex();
 						replace(pnode, psigBase, sec, id1 - 1, id2 - 1);
@@ -146,7 +146,8 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 			}
 			else if (!pnode->next && !pnode->str) // if s(conditional) is on the LHS, the RHS must be either a scalar, or the replica, i.e., s(conditional)
 			{
-				if (!repl_RHS && !indsig.IsLogical()) throw pbase->ExceptionMsg(pnode, "Internal logic error (insertreplace:0)--s(conditional?).");
+				if (!repl_RHS && !indsig.IsLogical()) 
+					throw CAstExceptionInternal(*pbase, pnode, "[INTERNAL] insertreplace()--s(conditional?)");
 				if (sec.IsScalar())
 				{
 					double val = sec.value();
@@ -183,15 +184,15 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 				psigBase->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
 			}
 			else
-				throw pbase->ExceptionMsg(pnode, "Internal logic error (insertreplace:1) --unexpected node type.");
+				throw CAstExceptionInternal(*pbase, pnode, "[INTERNAL] insertreplace()--unexpected node type.", pnode->type);
 		}
 		else
 		{
 			// v(1:5) or v([contiguous]) = (any array) to replace
 			// v(1:2:5) or v([non-contiguous]) = RHS; //LHS and RHS must match length.
 			bool contig = pbase->isContiguous(indsig, id1, id2);
-			if (!sec.IsEmpty() && !contig && sec.nSamples != 1 && sec.nSamples != indsig.nSamples) throw pbase->ExceptionMsg(pnode, "the number of replaced items must be the same as that of replacing items.");
-
+			if (!sec.IsEmpty() && !contig && sec.nSamples != 1 && sec.nSamples != indsig.nSamples) 
+				throw CAstExceptionInvalidUsage(*pbase, pnode, "the number of replaced items must be the same as that of replacing items.");
 			if (repl_RHS) //direct update of buf
 			{
 				if (contig)
@@ -226,7 +227,7 @@ CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
 		if (lhsref_single)
 		{
 			if (tsig->nSamples > 1)
-				throw pbase->ExceptionMsg(pLHS, "LHS indicates a scalar; RHS is not.");
+				throw CAstExceptionInvalidUsage(*pbase, pLHS, "LHS indicates a scalar; RHS is not.");
 			*lhsref = tsig->value();
 			return psigBase;
 		}
@@ -277,7 +278,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 			}
 		}
 		else 
-			throw pbase->ExceptionMsg(p, "Unknown error.");
+			throw CAstExceptionInternal(*pbase, p, "[INTERNAL] TID_tag()", p->alt->type);
 	}
 	else// if (!p->alt) // T-Y-2-2
 	{ // no indexing--assign RHS to LHS (if RHS is available) or retrieve LHS
@@ -286,11 +287,11 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 			if (psigBase && psigBase->IsGO())
 			{ //reject an attempt to modify unchangeable struts
 				if (!strcmp(p->str,"children") || !strcmp(p->str, "parent") || !strcmp(p->str, "gcf") || !strcmp(p->str, "gca"))
-					throw pbase->ExceptionMsg(p, "LHS is unmodifiable.");
+					throw CAstExceptionInvalidUsage(*pbase, p, "LHS is unmodifiable.");
 			}
 			// illegal if p-str is a built-in function name
 			if (p->str[0] == '#' || pbase->IsValidBuiltin(p->str))
-				throw pbase->ExceptionMsg(p, "LHS must be l-value; cannot be a built-in function");
+				throw CAstExceptionInvalidUsage(*pbase, p, "LHS must be l-value; cannot be a built-in function");
 			CVar *psigRHS = pbase->Compute(pRHS);
 			//This is where an existing variable is changed, upated or replaced by indices.
 			if (p->type == N_VECTOR) 
@@ -337,7 +338,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 
 
 					if (psigRHS->IsGO()) // If the base sig already has corresponding struts, it is a matter of replacing the content, but if the existing member is strut, it is complicated... 9/6/2018
-						throw pbase->ExceptionMsg(p, "You are trying to update a GO member variable. This cannot be done due to a known bug. Clear the member variable and try again. Will be fixed someday. bj kwon 9/6/2018.");
+						throw CAstExceptionInvalidUsage(*pbase, p, "You are trying to update a GO member variable. This cannot be done due to a known bug. Clear the member variable and try again. Will be fixed someday. bj kwon 9/6/2018.");
 					else
 						//if psigBase is not strut yet, make it now
 					{
@@ -352,8 +353,9 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 		else
 		{
 			// if trying to retrieve a.var_not_existing Sig is NULL whereas psig is not
+			// is this possible? 1/17/2020
 			if (pbase->Sig.nSamples)
-				throw pbase->ExceptionMsg(p, "not available member variable or function.");
+				throw CAstExceptionInvalidUsage(*pbase, p, "not available member variable or function.");
 			if (p->type == N_CALL) 
 				return &pbase->Sig;
 			if (psig)
@@ -374,7 +376,7 @@ CVar * CNodeProbe::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *p
 			pbase->replica = TimeExtract(pnode, p->child);
 		CVar tsig = pbase->Compute(pRHS); // rhs
 		if (tsig.GetType() != CSIG_AUDIO && !tsig.IsEmpty())
-			throw pbase->ExceptionMsg(p, "Referencing timepoint(s) in an audio variable requires another audio signal on the RHS.");
+			throw CAstExceptionInvalidUsage(*pbase, p, "Referencing timepoint(s) in an audio variable requires another audio signal on the RHS.");
 		CVar isig(1);
 		isig.UpdateBuffer(2);
 		isig.buf[0] = tpoints[0];
@@ -391,12 +393,8 @@ CVar * CNodeProbe::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *p
 
 CVar * CNodeProbe::TimeExtract(const AstNode *pnode, AstNode *p)
 {
-	char estr[256];
 	if (!psigBase)
-	{
-		strcat(estr, " for time extraction ~");
-		throw pbase->ExceptionMsg(pnode, estr);
-	}
+		throw CAstExceptionInternal(*pbase, pnode, "[INTERNAL] TimeExtract(): null psigBase");
 	pbase->checkAudioSig(pnode, *psigBase);
 
 	CTimeSeries *pts = psigBase;
@@ -427,7 +425,7 @@ bool CAstSig::builtin_func_call(CNodeProbe &diggy, AstNode *p)
 			// The exception is if LHS has alt node, because it will go down through the next node and it may end up a non-function call.
 			if (diggy.root->child) 
 				if (!diggy.root->alt)
-					throw ExceptionMsg(diggy.root, "LHS must be an l-value. Isn't it a built-in function?");
+					throw CAstExceptionInvalidUsage(*this, diggy.root, "LHS must be an l-value. Isn't it a built-in function?");
 			HandleAuxFunctions(p, diggy.root);
 			// while pgo is active, psigBase should point to pgo, not &Sig
 			// this causes a crash on the line Sig = *diggy.psigBase in read_node() in AstSig.cpp   4/7/2019
@@ -464,7 +462,7 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 { // pnode->type should be N_ARGS
 	ostringstream ostream;
 	CVar tsig, isig, isig2;
-	if (!p->child)	throw pbase->ExceptionMsg(pnode, "A variable index should be provided.");
+	if (!p->child)	throw CAstExceptionInvalidUsage(*pbase, pnode, "A variable index should be provided.");
 	eval_indexing(p->child, isig);
 	if (isig._max().front() > pbase->Sig.nSamples)
 		throw CAstExceptionRange(pbase, pnode, "", varname.c_str(), (int)isig._max().front());
@@ -490,7 +488,7 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 	if (isig._min().front() <= 0.)
 	{
 		outstream << "Invalid index " << "for " << varname << " : " << (int)isig._min().front() << " (must be positive)";
-		throw pbase->ExceptionMsg(pnode, outstream.str().c_str());
+		throw CAstExceptionInvalidUsage(*pbase, pnode, outstream.str().c_str());
 	}
 	if ((psigBase)->IsComplex())
 	{
@@ -516,10 +514,7 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 		if ((psigBase)->IsGO())
 		{
 			if (isig._max().front() > (psigBase)->nSamples)
-			{
-				outstream << "Index out of range: " << (int)isig._max().front();
-				throw pbase->ExceptionMsg(pnode, outstream.str().c_str());
-			}
+				throw CAstExceptionRange(pbase, pnode, "", "", (int)isig._max().front());
 			if (isig.nSamples == 1)
 			{
 				size_t did = (size_t)isig.value() - 1;
@@ -603,8 +598,6 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 	return &pbase->Sig;
 }
 
-
-
 CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 {
 	// input: pInd, psigBase
@@ -642,15 +635,14 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 				tp.endpoint = (double)psigBase->Len();
 				isig2 = tp.Compute(p);
 			}
-			char buf[128];
 			if (isig2.IsLogical()) pbase->index_array_satisfying_condition(isig2);
 			else if (isig2._max().front() > (double)psigBase->Len())
-				throw pbase->ExceptionMsg(pInd, "Out of range: 2nd index ", itoa((int)isig2._max().front(), buf, 10));
+				throw CAstExceptionRange(pbase, pInd, "2nd index ", "", (int)isig2._max().front());
 			pbase->interweave_indices(isig, isig2, psigBase->Len());
 		}
 	}
 	catch (const CAstException &e) {
-		throw pbase->ExceptionMsg(pInd, e.getErrMsg().c_str());
+		throw CAstExceptionInvalidUsage(*pbase, pInd, e.getErrMsg().c_str());
 	}
 	return isig;
 }
@@ -708,7 +700,7 @@ CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *p
 		pbase->Sig.Reset();
 	}
 	else
-		throw pbase->ExceptionMsg(pRHS, "Invalid RHS; For LHS with conditional indexing, RHS should be either a scalar, empty, or .. (self).");
+		throw CAstExceptionInvalidUsage(*pbase, pRHS, "Invalid RHS; For LHS with conditional indexing, RHS should be either a scalar, empty, or .. (self).");
 	pbase->SetVar(pnode->str, psigBase);
 	if (isig.nSamples > 0)
 	{
@@ -748,7 +740,7 @@ CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 			TID_tag(pnode, pLHS, pRHS, psig);
 		}
 		else
-			throw pbase->ExceptionMsg(pLHS, "Pseudo variable cannot be modified.");
+			throw CAstExceptionInvalidUsage(*pbase, pLHS, "Pseudo variable cannot be modified.");
 		break;
 	default:  // T-Y-5
 		return pbase->Compute(pRHS); // check... this may not happen.. if so, inspect.
@@ -776,12 +768,12 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 	for (unsigned int k = 0; k < index.nSamples; k++)
 	{
 		if (index.buf[k] < 1.)
-			throw pbase->ExceptionMsg(pnode, "index must be greater than 0");
+			throw CAstExceptionRange(*pbase, pnode, "must be equal or greater than 1", "", (int)index.buf[k]);
 		unsigned int id = (int)index.buf[k];
 		if (id - index.buf[k] > .25 || index.buf[k] - id > .25)
-			throw pbase->ExceptionMsg(pnode, "index must be integer");
+			throw CAstExceptionRange(*pbase, pnode, "must be integer", "", id);
 		if (id > pobj->nSamples)
-			throw pbase->ExceptionMsg(pnode, "replace index exceeds the range.");
+			throw CAstExceptionRange(*pbase, pnode, "", "", id);
 	}
 	if (sec.nSamples == 0)
 	{
@@ -799,12 +791,12 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 		for (unsigned int k = 0; k < index.nSamples; k++)
 		{
 			if (index.buf[k] < 1.)
-				throw pbase->ExceptionMsg(pnode, "index must be greater than 0");
+				throw CAstExceptionRange(*pbase, pnode, "must be equal or greater than 1", "", (int)index.buf[k]);
 			unsigned int id = (unsigned int)(index.buf[k]);
 			if (id - index.buf[k] > .05 || index.buf[k] - id > .05)
-				throw pbase->ExceptionMsg(pnode, "index must be integer");
+				throw CAstExceptionRange(*pbase, pnode, "must be integer", "", id);
 			if (id > pobj->nSamples)
-				throw pbase->ExceptionMsg(pnode, "replace index exceeds the range.");
+				throw CAstExceptionRange(*pbase, pnode, "", "", id);
 			id--; // zero-based
 			if (sec.nSamples == 1) // items from id1 to id2 are to be replaced with sec.value()
 				memcpy(pobj->logbuf + id * pobj->bufBlockSize, sec.logbuf, pobj->bufBlockSize);
@@ -816,7 +808,8 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 
 CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
 { // this replaces the data body between id1 and id2 (including edges) with sec
-	if (id1 < 0 || id2 < 0) throw pbase->ExceptionMsg(pnode, "replace index cannot be negative.");
+	if (id1 < 0) throw CAstExceptionRange(*pbase, pnode, "replace index cannot be negative.", "", id1);
+	if (id2 < 0) throw CAstExceptionRange(*pbase, pnode, "replace index cannot be negative.", "", id2);
 	if (sec.bufBlockSize != pobj->bufBlockSize)
 	{
 		if (pobj->bufBlockSize == 1 && sec.bufBlockSize != 1) sec.MakeLogical();
@@ -826,8 +819,8 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 8) sec.SetComplex();
 	}
 	//id1 and id2 are zero-based here.
-	if (id1 > (int)pobj->nSamples - 1) throw pbase->ExceptionMsg(pnode, "replace index1 exceeds the range.");
-	if (id2 > (int)pobj->nSamples - 1) throw pbase->ExceptionMsg(pnode, "replace index2 exceeds the range.");
+	if (id1 > (int)pobj->nSamples - 1) throw CAstExceptionRange(*pbase, pnode, "replace index1 ", "", id1);
+	if (id2 > (int)pobj->nSamples - 1) throw CAstExceptionRange(*pbase, pnode, "replace index2 ", "", id1);
 	unsigned int secnsamples = sec.nSamples;
 	bool ch = ((CSignal *)&sec)->bufBlockSize == 1;
 	if (ch) secnsamples--;
