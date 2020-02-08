@@ -449,9 +449,7 @@ w->r *= 0.5;
 w->i *= 0.5;
 }
 
-//Not used in the iir project. Probably obsolte and the author forget to remove
-//Commented out because it conflicts with hypot when using Visual Studio 2019
-// 1/27/2020 bjkwon
+// Obsolte; must be removed to avoid conflict in Visual Studio 2019
 //double hypot( x, y )
 //double x, y;
 //{
