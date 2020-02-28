@@ -47,12 +47,14 @@
     <ClInclude Include="$(SrcPath)lametime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="$(SrcPath)lame_export.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="$(SrcPath)parse.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="$(SrcPath)timestatus.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="$(SrcPath)lame_exporth" />
   </ItemGroup>
 </Project>
