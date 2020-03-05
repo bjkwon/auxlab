@@ -35,9 +35,6 @@
     <ClCompile Include="$(SrcPath)Win32InputBox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcPath)filecomp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="$(SrcPath)WM_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
