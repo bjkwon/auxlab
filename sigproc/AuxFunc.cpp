@@ -639,13 +639,6 @@ void _fdelete(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 		past->Sig.SetValue(0);
 }
 
-
-void aux_error(CAstSig *past, const AstNode *pnode, const AstNode *p, int nArgs, string &fnsigs)
-{
-	string errmsg = past->ComputeString(p);
-	throw CAstExceptionInvalidUsage(*past, pnode, ("User raised error - " + errmsg).c_str());
-}
-
 #ifndef NO_SF
 // It is better to have setfs as a hook command, because it involves UI and expressions such as setfs(16000)+1 don't make sense.
 // Keep this just in case. But this will not update existing variables according to the new sample rate, so its functionality is pretty limited.
@@ -2934,7 +2927,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	name = "warning";
 	ft.func = &udf_warning;
 	builtin[name] = ft;
-	name = "rethrow";
+	name = "throw";
 	ft.func = &udf_rethrow;
 	builtin[name] = ft;
 

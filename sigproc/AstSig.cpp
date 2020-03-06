@@ -955,24 +955,29 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		}
 	}
 	catch (const CAstException &e) {
+		// Fix
+		// try catch seems to work for usual cases
+		// but if eval() leads to exception thrown, line col info are messed up.
+		// 3/5/2020 
 		if (inTryCatch)
 		{ // Make a new struct variable from child of e.pTarget (which is T_CATCH)
 			CVar temp;
-			SetVar(e.pTarget->child->str, &temp); // new variable; OK this way, temp is deep-copied
+			const char *name = pAst->alt->child->str;
+			SetVar(name, &temp); // new variable; OK this way, temp is deep-copied
 			string emsg = e.outstr;
 			size_t id = emsg.find("[GOTO_BASE]");
 			if (id != string::npos) emsg = emsg.substr(id + string("[GOTO_BASE]").size());
 			CVar msg(emsg);
-			SetVar("full", &msg, &Vars[e.pTarget->child->str]);
+			SetVar("full", &msg, &Vars[name]);
 			msg = e.basemsg;
-			SetVar("base", &msg, &Vars[e.pTarget->child->str]);
+			SetVar("base", &msg, &Vars[name]);
 			emsg = e.msgonly;
 			if (id != string::npos) emsg = emsg.substr(id + string("[GOTO_BASE]").size());
 			msg = emsg;
-			SetVar("body", &msg, &Vars[e.pTarget->child->str]);
+			SetVar("body", &msg, &Vars[name]);
 			msg = e.sourceloc;
-			SetVar("source", &msg, &Vars[e.pTarget->child->str]);
-			Compute(e.pTarget);
+			SetVar("source", &msg, &Vars[name]);
+			Compute(pAst->alt->next);
 		}
 		else
 			throw e;

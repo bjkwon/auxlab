@@ -96,6 +96,7 @@ void adjust_AstNode(const AstNode *p)
 // and necessary clean up is taken care of, upon exception thrown (error)
 // Take care of CAstException constructors not using CAstSig *past... 
 
+/**/
 // The only reason pnode is left is for auxcon stuff, but otherwise they can go 3/15/2019
 CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const string s2)
 {
