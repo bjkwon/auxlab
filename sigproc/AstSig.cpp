@@ -977,6 +977,10 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 			SetVar("body", &msg, &Vars[name]);
 			msg = e.sourceloc;
 			SetVar("source", &msg, &Vars[name]);
+			msg.SetValue(e.line);
+			SetVar("errline", &msg, &Vars[name]);
+			msg.SetValue(e.col);
+			SetVar("errcol", &msg, &Vars[name]);
 			Compute(pAst->alt->next);
 		}
 		else
@@ -2546,7 +2550,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		Compute(p);
 		break;
 	case T_CATCH:
-		inTryCatch--; //
+		inTryCatch--; //???? Maybe no longer needed?? 3/7/2020
 		// p is T_ID for ME (exception message caught)
 		// continue here............1/12/2020
 		Compute(pnode->next);
@@ -2610,6 +2614,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		blockCell(pnode, Sig);
 		Compute(p);
 		blockCell(pnode, Sig);
+		blockEmpty(pnode, Sig);
 		Sig += tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case '*':
@@ -2629,6 +2634,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 			return TID((AstNode*)pnode, NULL, &Sig);
 		}
 		blockString(pnode,  Sig);
+		blockEmpty(pnode, Sig);
 		Sig *= tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case '%':
@@ -2691,6 +2697,8 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		break;
 	case T_IF:
 		if (!p) break;
+		pLast = p;
+		hold_at_break_point(p);
 		if (checkcond(p))
 			Compute(p->next);
 		else if (pnode->alt) 
@@ -2726,7 +2734,11 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 			// 1) When running in a debugger, it must go through N_BLOCK 
 			// 2) check if looping through pa->next is bullet-proof 
 			for (AstNode *pa = pnode->alt->next; pa; pa = pa->next)
+			{
+				pLast = pa;
+				hold_at_break_point(pa);
 				Compute(pa);
+			}
 		}
 		fBreak = false;
 		break;

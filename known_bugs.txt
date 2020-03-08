@@ -1,0 +1,12 @@
+11:30 PM 3/7/2020====================================================
+x="a"
+y="new string"
+x+=y
+
+x may display OK, but internally CAstSig::Sig may be corrupted;
+and a subsequent call (whatever that is) may crash.
+
+A possible solution:
+- Maybe don't allow the addition for string variables.
+- Or allow it, but contain the result of the operation within a boundary.
+===================================================================

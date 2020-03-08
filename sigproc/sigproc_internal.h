@@ -30,6 +30,8 @@ public:
 		outstr = msgonly + sourceloc;
 		if (scope.inTryCatch)
 			findTryLine(scope);
+		line = p0->line;
+		col = p0->col;
 	};
 	
 	virtual ~CAstExceptionInvalidUsage() 
@@ -43,6 +45,8 @@ class CAstInvalidFuncSyntax : public CAstException
 public:
 	CAstInvalidFuncSyntax(const CAstSig & scope, const AstNode *p0, string fnsig, const char * _basemsg)
 	{
+		line = p0->line;
+		col = p0->col;
 		pCtx = &scope;
 		pnode = p0;
 		msgonly = basemsg = _basemsg;
@@ -67,6 +71,8 @@ class CAstExceptionRange : public CAstException
 public:
 	CAstExceptionRange(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell=-1)
 	{
+		line = p0->line;
+		col = p0->col;
 		pCtx = &scope;
 		pnode = p0;
 		msgonly = basemsg = _basemsg;
@@ -97,6 +103,8 @@ class CAstExceptionInvalidArg : public CAstException
 public:
 	CAstExceptionInvalidArg(const CAstSig & scope, const AstNode *p0, const char * _basemsg, const char * funcname, int argIndex)
 	{
+		line = p0->line;
+		col = p0->col;
 		basemsg = _basemsg;
 		ostringstream oss;
 		oss << "" << funcname << " : " << "argument " << argIndex << ' ' << _basemsg;
@@ -122,6 +130,8 @@ class CAstExceptionInternal : public CAstException
 public:
 	CAstExceptionInternal(const CAstSig & scope, const AstNode *p0, const char * _basemsg, int type=-1)
 	{
+		line = p0->line;
+		col = p0->col;
 		pCtx = &scope;
 		pnode = p0;
 		msgonly = basemsg = _basemsg;

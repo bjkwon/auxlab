@@ -1,0 +1,25 @@
+In VS2017, Windows SDK Version needs to be specifically defined, such as
+
+<WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+
+in either *.vcxproj file or *.props globally.
+
+In my PC (running VS2017), Windows SDK version shows 4 choices:
+10.0.16299.0
+10.0.15063.0
+10.0.17763.0
+8.0
+
+If it was set generically as 10.0, it gives the following error: 
+
+error MSB8036: The Windows SDK version 10.0 was not found. Install the required version of Windows SDK or change the SDK version in the project property pages or by right-clicking the solution and selecting "Retarget solution".
+
+In another machin running VS2019, Windows SDK version shows 4 choices:
+10.0 (latest installed version)
+10.0.18362.0
+8.1
+
+Here, selecting 10.0 (latest installed version) works just fine. It appears as follows in *.vcxproj
+
+<WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+

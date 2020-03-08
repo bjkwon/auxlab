@@ -100,6 +100,7 @@ class CAstException {
 public:
 	const AstNode *pnode;
 	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
+	int line, col;
 	string str1, str2;
 	CAstException() { 
 		pTarget = nullptr;	pnode = nullptr; pCtx = nullptr;
@@ -329,6 +330,7 @@ public:
 	void checkScalar(const AstNode *pnode, CVar &checkthis, string addmsg = "");
 	void checkString(const AstNode *pnode, CVar &checkthis, string addmsg="");
 	void blockCell(const AstNode *pnode, CVar &checkthis);
+	void blockEmpty(const AstNode *pnode, CVar &checkthis);
 	void blockScalar(const AstNode *pnode, CVar &checkthis);
 	void blockString(const AstNode *pnode, CVar &checkthis);
 	void blockComplex(const AstNode *pnode, CVar &checkthis);

@@ -117,6 +117,21 @@ output binding for built-in function:
 	
 */
 
+static inline bool isnumeric(const char *buf)
+{
+	for (size_t k = 0; k < strlen(buf); k++)
+	{
+		if (buf[k] <= 0 && buf[k] >= 9)
+			continue;
+		else
+		{
+			if (buf[k] != '\0' && buf[k] != '\t')
+				return false;
+		}
+	}
+	return true;
+}
+
 bool CAstSig::IsValidBuiltin(string funcname)
 {
 	if (pEnv->pseudo_vars.find(funcname) != pEnv->pseudo_vars.end())
@@ -189,6 +204,14 @@ void CAstSig::blockCell(const AstNode *pnode, CVar &checkthis)
 			throw CAstExceptionInvalidUsage(*this, pnode, msg.c_str());
 	if (checkthis.GetType() == CSIG_STRUCT)
 			throw CAstExceptionInvalidUsage(*this, pnode, msg.c_str());
+}
+
+void CAstSig::blockEmpty(const AstNode *pnode, CVar &checkthis)
+{
+	if (!checkthis.IsString() && !checkthis.IsEmpty()) return;
+	if (checkthis.IsString() && checkthis.nSamples>1) return;
+	string msg("Not valid with an empty variable ");
+	throw CAstExceptionInvalidUsage(*this, pnode, msg.c_str());
 }
 
 void CAstSig::blockScalar(const AstNode *pnode, CVar &checkthis)
@@ -1154,9 +1177,10 @@ void _eval(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		for (map<string, CVar>::iterator it = tast.Vars.begin(); it != tast.Vars.end(); it++)
 			past->SetVar(it->first.c_str(), &it->second);
 	} catch (CAstException e) {
-		e.arrayindex = 9090;
+		e.line = pnode->line;
+		e.col = pnode->col;
+		e.pCtx = past;
 		throw e;
-//		throw CAstExceptionInvalidUsage(*past, pnode, ("While evaluating\n"+str+"\n"+errmsg).c_str());
 	}
 }
 
@@ -2170,22 +2194,30 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			int dataSize(16), nItems;
 			for (size_t k = 0; k < nLines; k++)
 			{
-				nItems = countDeliminators(line[k].c_str(), " \t");
-				double *data = new double[nItems];
-				res = str2array(data, nItems, line[k].c_str(), " \t");
-				if (res < nItems)
+				//if there's at least one non-numeric character except for space and tab, treat the whole line as a string.
+				if (!isnumeric(line[k].c_str()))
 				{
-					//This was added to catch invalid characters in the file, but it doesn't work for now. Do something else if this is important. 12/18/2017
-					sprintf(buf, "Invalid format while file() on Line %d (ignore Line 1 below)", k + 1);
-					delete[] data;
-					throw buf;
+					past->Sig.appendcell((CVar)line[k]);
 				}
-				CSignals tp(data, nItems);
-				if (nLines == 1)
-					past->Sig = tp;
 				else
-					past->Sig.appendcell((CVar)tp);
-				delete[] data;
+				{
+					nItems = countDeliminators(line[k].c_str(), " \t");
+					double *data = new double[nItems];
+					res = str2array(data, nItems, line[k].c_str(), " \t");
+					if (res < nItems)
+					{
+						//This was added to catch invalid characters in the file, but it doesn't work for now. Do something else if this is important. 12/18/2017
+						sprintf(buf, "Invalid format while file() on Line %d (ignore Line 1 below)", k + 1);
+						delete[] data;
+						throw buf;
+					}
+					CSignals tp(data, nItems);
+					if (nLines == 1)
+						past->Sig = tp;
+					else
+						past->Sig.appendcell((CVar)tp);
+					delete[] data;
+				}
 			}
 		}
 	}

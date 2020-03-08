@@ -157,10 +157,6 @@ block_func: line_func	/* block_func can be NULL */
 				$$ = newAstNode(N_BLOCK, @$);
 				$$->next = $1;
 				$1->next = $$->tail = $2;
-#ifdef _DEBUG				
-				$$->str = (char*)malloc(32);
-				strcpy_s ($$->str, 32, "block_begins,yyn=5");
-#endif
 			}
 		} else
 			$$ = $1;
@@ -189,10 +185,6 @@ block:	line	/* complicated to prevent NULL (make empty block instead) or single 
 				$$ = newAstNode(N_BLOCK, @$);
 				$$->next = $1;
 				$1->next = $$->tail = $2;
-#ifdef _DEBUG				
-				$$->str = (char*)malloc(32);
-				strcpy_s ($$->str, 32, "block_begins,yyn=7");
-#endif				
 			}
 		}
 		else // only "block" is given
@@ -208,15 +200,15 @@ line:	T_NEWLINE
 		yyerrok;
 	} 
 	| stmt eol
-	{ $$ = $1;} //yyn=10
 	| stmt eol2
-	{ $$ = $1; $$->suppress=1;} //yyn=11
+	{ //yyn=11
+		$$ = $1; 
+		$$->suppress=1;
+	} 
 ;
 
 line_func: line
-	{ $$ = $1;} //yyn=12
 	| funcdef
-	{ $$ = $1;} //yyn=13
 ;
 
 eol: ',' | T_NEWLINE | T_EOF
@@ -234,6 +226,7 @@ conditional: condition	| condition eol	| exp	| exp eol
 elseif_list: /*empty*/
 	{
 		$$ = newAstNode(T_IF, @$);
+		$$->col = 3923;
 	}
 	| T_ELSEIF conditional block elseif_list 
 	{
@@ -247,32 +240,33 @@ elseif_list: /*empty*/
 		}
 		$2->next = p;
 		$$->alt = $4;
+		$$->col = 4000;
 	}
 	| elseif_list T_ELSE block
 	{ //yyn=26; 
-		if ($1->child==NULL) // in this case $1 is T_IF created as /*empty*/ 
+		AstNode *p = $3;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @3);				
+			p->next = $3;
+		}
+		if ($1->child==NULL) // if there's no elseif; i.e., elseif_list is empty
 		{  
 			yydeleteAstNode($1, 1);
-			$$ = $3;
+			$$ = p;
 		}
 		else
 		{
 			$$ = $1;
-			AstNode *p = $3;
-			if (p->type!=N_BLOCK)
-			{
-				p = newAstNode(N_BLOCK, @3);
-				p->next = $3;
-			}
 			$1->alt = p;
 		}
 	}
 ;
-//yyn=28
+//yyn=27
 expcondition: csig
 	| condition
 ;
-//yyn=30
+//yyn=29
 stmt: expcondition
 	| assign 
 	| initcell
@@ -380,7 +374,7 @@ stmt: expcondition
 
 
 
-condition: exp '<' exp // yyn=49
+condition: exp '<' exp
 	{ $$ = makeBinaryOpNode('<', $1, $3, @$);}
 	| exp '>' exp
 	{ $$ = makeBinaryOpNode('>', $1, $3, @$);}
@@ -434,7 +428,7 @@ arg: ':'
 ;
 
 arg_list: arg
-	{ //yyn=57
+	{ //yyn=58
 		$$ = newAstNode(N_ARGS, @$);
 		$$->tail = $$->child = $1;
 	}
@@ -461,7 +455,7 @@ matrix: /* empty */
 		$$->str = (char*)p;
 	}
 	| vector
-	{ //yyn=61
+	{ //yyn=62
 		$$ = newAstNode(N_MATRIX, @$);
 		AstNode * p = newAstNode(N_VECTOR, @$);
 		p->alt = p->tail = $1;
@@ -472,13 +466,12 @@ matrix: /* empty */
 		$$ = $1;
 		AstNode * p = (AstNode *)$1->str;
 		p->tail = p->tail->next = (AstNode *)$3; 
-//		$1->tail = $1->tail->next = p->alt;		
 	}
 	| matrix ';'
 ;
 
 vector: exp_range
-	{ //yyn=64
+	{ //yyn=65
 	// N_VECTOR consists of "outer" N_VECTOR--alt for dot notation 
 	// and "inner" N_VECTOR--alt for all successive items thru next
 	// Because N_VECTOR doesn't use str, the inner N_VECTOR is created there and cast for further uses.
@@ -508,7 +501,7 @@ range: exp ':' exp
 		$$ = makeFunctionCall(":", $1, $3, @$);
 	}
 	| exp ':' exp ':' exp
-	{//68
+	{//69
 		$$ = makeFunctionCall(":", $1, $5, @$);
 		$5->next = $3;
 	}
@@ -566,7 +559,7 @@ compop: "+="
 ;
 
 assign2this: '=' exp_range
-	{ //84
+	{ //85
 		$$ = $2;
 	}
 	| '=' condition
@@ -596,12 +589,12 @@ assign2this: '=' exp_range
 ;
 
 varblock:	 T_ID
-	{ //87
+	{ //88
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 	}
 	|	tid '.' T_ID
-	{//88
+	{//89
 		$$ = $1;
 		AstNode *p = newAstNode(N_STRUCT, @$);
 		p->str = $3;
@@ -632,7 +625,7 @@ varblock:	 T_ID
 		$$->tail = p;
 	}
 	| varblock '{' exp '}'
-	{//90
+	{//91
 		$$ = $1;
 		$$->tail = $$->alt->alt = newAstNode(N_CELL, @$);
 		$$->tail->child = $3;
@@ -645,7 +638,7 @@ varblock:	 T_ID
 		$$->tail->child->next = $5;
 	}
 	| '[' vector ']'
-	{//tid-vector 92
+	{//tid-vector 93
 		$$ = $2;
 	}
 	| '$' varblock
@@ -695,7 +688,7 @@ tid: varblock
 			$$->tail = $$->alt = $3;
 	}
 	| varblock '(' ')'
-	{ // 100
+	{ // 101
 		if ($$->alt != NULL  && $$->alt->type==N_STRUCT)
 		{ // dot notation with a blank parentheses, e.g., a.sqrt() or (1:2:5).sqrt()
 			$$ = $1;
@@ -737,7 +730,7 @@ tid: varblock
 		$3->next = $5;
 	}
 	| tid '\''
-	{ 	//106
+	{ 	//107
 		$$ = newAstNode(T_TRANSPOSE, @$);
  		$$->child = $1;
 	}
@@ -788,7 +781,7 @@ tid: varblock
 
 /* Here, both rules of tid and varblock should be included... tid assign2this alone is not enough 8/18/2018*/
 assign: tid assign2this
-	{ //114
+	{ //115
 		$$ = $1;
 		$$->child = $2;
 	}
@@ -834,22 +827,16 @@ assign: tid assign2this
 		$$->line = @$.first_line;
 		$$->col = @$.first_column;
 	}
-//	| '[' vector ']' '=' exp_range
-//	{ // Only to be used when RHS is a UDF. 5/18/2017 bjkwon
-//		$$ = newAstNode('=', @$);
-//		$$->child = $5;
-//		$$->alt = $2;
-//	}
 ;
 
 
 exp: T_NUMBER
-	{ // 119
+	{ // 120
 		$$ = newAstNode(T_NUMBER, @$);
 		$$->dval = $1;
 	}
 	| T_STRING
-	{ // 120
+	{ // 121
 		$$ = newAstNode(T_STRING, @$);
 		$$->str = $1;
 	}
@@ -859,7 +846,7 @@ exp: T_NUMBER
 	}
 	| initcell
 	| tid
-	{//123
+	{//124
 		$$ = $1;
 	}
 	| tid '(' exp '~' exp ')'
@@ -1016,7 +1003,7 @@ case_list: /* empty */
 		$$ = $1;
 	}
 ;
-//152
+//153
 csig: exp_range
 ;
 
