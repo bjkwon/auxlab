@@ -252,6 +252,67 @@ CVar & CVar::operator/=(const CVar & sec)
 	return operator/(sec);
 }
 
+bool CVar::operator==(const CVar & rhs)
+{
+	if (!cell.empty() || !strut.empty() || !struts.empty())
+		throw "For now no cell, strut or GO objects.";
+	return CSignals::operator==(rhs);
+}
+
+bool CSignals::operator==(const CSignals & rhs)
+{
+	if (CTimeSeries::operator==((CTimeSeries)rhs))
+	{
+		if (next)	return CTimeSeries::operator==(*(rhs.next));
+		return true;
+	}
+	else
+		return false;
+}
+bool CTimeSeries::operator==(const CTimeSeries & rhs)
+{
+	CTimeSeries *p = this, *q = (CTimeSeries *)&rhs;
+	bool res;
+	for (; p && q ; p = p->chain, q = q->chain)
+	{
+		CSignal *pp = p, *qq = q;
+		res = *pp == *qq;
+		if (!res) return false;
+	}
+	// if this and rhs have different chain structure, return false
+	if (p || q) return false;
+	return true;
+}
+bool CSignal::operator==(const CSignal & rhs)
+{
+	if (fs != rhs.fs) return false;
+	if (tmark != rhs.tmark) return false;
+	return body::operator==((body)rhs);
+
+}
+bool body::operator==(const body & rhs)
+{
+	if (nSamples != rhs.nSamples) return false;
+	if (nGroups != rhs.nGroups) return false;
+	if (bufBlockSize != rhs.bufBlockSize) return false;
+	if (bufBlockSize == 1)
+		for (unsigned int k = 0; k < nSamples; k++)
+		{
+			if (logbuf[k] != rhs.logbuf[k]) return false;
+		}
+	else if (bufBlockSize == 8)
+		for (unsigned int k = 0; k < nSamples; k++)
+		{
+			if (buf[k] != rhs.buf[k]) return false;
+		}
+	else //if (bufBlockSize == 16)
+		for (unsigned int k = 0; k < nSamples; k++)
+		{
+			if (cbuf[k] != rhs.cbuf[k]) return false;
+		}
+	return true;
+}
+
 CTimeSeries& CTimeSeries::operator-(CTimeSeries* sec)
 {
 	throw "You shouldn't come here---";

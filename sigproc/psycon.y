@@ -297,9 +297,9 @@ stmt: expcondition
 		$$->col = @$.first_column;
 	}
 	| T_SWITCH exp case_list T_END
-	{
+	{ // case is cascaded through alt
 		$$ = $3;
-		$2->next = $3->child;
+		$$->alt = $3->alt;
 		$$->child = $2;
 		$$->line = @$.first_line;
 		$$->col = @$.first_column;
@@ -307,9 +307,15 @@ stmt: expcondition
 	| T_SWITCH exp case_list T_OTHERWISE block T_END
 	{
 		$$ = $3;
-		$2->next = $3->child;
-		$3->tail->next = $5;
+		$$->alt = $3->alt;
 		$$->child = $2;
+		AstNode *p = $5;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @5);
+			p->next = $5;
+		}
+		$$->tail = $3->tail->alt = p;
 		$$->line = @$.first_line;
 		$$->col = @$.first_column;
 	}
@@ -984,12 +990,17 @@ case_list: /* empty */
 	{ $$ = newAstNode(T_SWITCH, @$);}
 	| case_list T_CASE exp T_NEWLINE block
 	{
-		if ($1->child)
-			$1->tail->next = $3;
+		if ($1->alt)
+			$1->tail->alt = $3;
 		else
-			$1->child = $3;
-		$3->next = $5;
-		$1->tail = $5;
+			$1->alt = $3;
+		AstNode *p = $5;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @5);
+			p->next = $5;
+		}
+		$1->tail = $3->next = p;
 		$$ = $1;
 	}
 	| case_list T_CASE '{' arg_list '}' block

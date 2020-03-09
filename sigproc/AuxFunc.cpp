@@ -1176,6 +1176,7 @@ void _eval(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		//transporting variables 
 		for (map<string, CVar>::iterator it = tast.Vars.begin(); it != tast.Vars.end(); it++)
 			past->SetVar(it->first.c_str(), &it->second);
+		past->Sig = tast.Sig; // temp hack; just to port out the last result during the eval call
 	} catch (CAstException e) {
 		e.line = pnode->line;
 		e.col = pnode->col;

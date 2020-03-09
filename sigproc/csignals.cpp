@@ -234,13 +234,13 @@ CVar & CVar::operator=(CVar * rhs)
 	return *this = *rhs;
 }
 
-bool CSignals::operator==(const CSignals &rhs)
+bool CVar::operator==(std::string rhstr)
 {
-	if (!CTimeSeries::operator==(rhs)) return false;
-	if (next)
-		if (rhs.next) return (*next == *rhs.next);
-		else return false;
-	return true;
+	return *this == CSignals(rhstr);
+}
+bool CVar::operator==(double val)
+{
+	return *this == CSignals(val);
 }
 
 bool CSignals::operator==(double rhs)
@@ -260,29 +260,6 @@ CTimeSeries& CTimeSeries::operator=(const CSignal& rhs)
 	else
 		CSignal::operator=(rhs);
 	return *this;
-}
-
-bool CSignal::operator==(const CSignal &rhs)
-{
-	if (rhs.bufBlockSize != bufBlockSize) return false;
-	if (rhs.fs != fs) return false;
-	if (rhs.nSamples != nSamples) return false;
-	if (bufBlockSize == 1)
-		for (unsigned int k = 0; k < nSamples; k++)
-		{
-			if (logbuf[k] != rhs.logbuf[k]) return false;
-		}
-	else if (bufBlockSize == 8)
-		for (unsigned int k = 0; k < nSamples; k++)
-		{
-			if (buf[k] != rhs.buf[k]) return false;
-		}
-	else //if (bufBlockSize == 16)
-		for (unsigned int k = 0; k < nSamples; k++)
-		{
-			if (cbuf[k] != rhs.cbuf[k]) return false;
-		}
-	return true;
 }
 
 bool CSignal::operator==(double rhs)

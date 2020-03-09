@@ -2705,17 +2705,17 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 			Compute(pnode->alt);
 		break;
 	case T_SWITCH:
-		//tsig = Compute(p);
-		//for (p=p->next; p && p->next; p=p->next->next)	// p is a case exp, pcase->next is the code block.
-		//	if (p->type == N_ARGS) {
-		//		for (AstNode *pa=p->child; pa; pa=pa->next)
-		//			if (tsig == Compute(pa))
-		//				return Compute(p->next);	// no further processing of this 'switch' statement.
-		//	} else if (tsig == Compute(p))
-		//		return Compute(p->next);	// no further processing of this 'switch' statement.
-		//// now p is at the end of 'case' list, without executing any conditional code.
-		//if (p)	// if not null, it's the 'otherwise' code block
-		//	Compute(p);
+		tsig = Compute(p);
+		for (p = pnode->alt; p && p->next; p = p->next->alt)	// p is a case exp, pcase->next is the code block.
+			if (p->type == N_ARGS) {
+				for (AstNode *pa=p->child; pa; pa=pa->next)
+					if (tsig == Compute(pa))
+						return Compute(p->next);	// no further processing of this 'switch' statement.
+			} else if (tsig == Compute(p))
+				return Compute(p->next);	// no further processing of this 'switch' statement.
+		// now p is at the end of 'case' list, without executing any conditional code.
+		if (p)	// if not null, it's the 'otherwise' code block
+			Compute(p);
 		break;
 	case T_WHILE:
 		fExit=fBreak=false;

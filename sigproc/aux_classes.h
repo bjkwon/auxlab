@@ -66,6 +66,7 @@ public:
 	body& operator+=(const double con);
 	body& operator*=(const double con);
 	body& operator/=(const double con);
+	bool operator==(const body & rhs);
 
 	body& UpdateBuffer(unsigned int length, unsigned int offset = 0);
 	void Reset();
@@ -169,7 +170,7 @@ public:
 	CSignal& operator=(const body& rhs);
 	CSignal& operator=(const CSignal& rhs);
 	CSignal& operator<=(const CSignal& rhs);
-	bool operator == (const CSignal &rhs);
+	bool operator== (const CSignal &rhs);
 	bool operator == (double rhs);
 	bool operator == (string rhstr);
 	CSignal& operator+=(CSignal *yy); // Concatenation
@@ -304,6 +305,8 @@ public:
 	CTimeSeries & operator|(double v);
 	CTimeSeries & operator|(CTimeSeries * RMS2adjust);
 
+	bool operator==(const CTimeSeries& rhs);
+
 	bool IsAudioOnAt(double timept);
 	int GetType() const;
 	void SwapContents1node(CTimeSeries &sec);
@@ -382,7 +385,7 @@ public:
 	CSignals(std::string str); // make a string CSignals
 	CSignals(bool *b, unsigned int len);
 	~CSignals();
-	bool operator == (const CSignals& rhs);
+	bool operator== (const CSignals& rhs);
 	bool operator == (double rhs);
 	bool operator == (std::string rhstr);
 	CSignals& operator=(const CTimeSeries& rhs);
@@ -394,6 +397,8 @@ public:
 	CSignals & operator%(double v);
 	CSignals & operator|(double v);
 	CSignals & operator|(const CSignals & RMS2adjust);
+
+
 	int IsTimeSignal() const;
 	int IsStereo() { return 0 + (next!=NULL); }
 
@@ -533,6 +538,11 @@ public:
 	CVar & operator=(const CSignals& rhs);
 	CVar & operator=(const CVar& rhs);
 	CVar & operator=(CVar * rhs);
+
+	bool operator==(const CVar& rhs);
+	bool operator==(std::string rhstr);
+	bool operator==(double val);
+
 	CVar& initcell(CVar &sec);
 	CVar& appendcell(CVar &sec);
 	CVar& setcell(unsigned int id, CVar &sec);
