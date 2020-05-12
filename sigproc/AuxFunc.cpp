@@ -41,6 +41,12 @@
 
 #include "lame_bj.h"
 
+void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+
 string CAstSigEnv::AppPath = "";
 map<string, Cfunction> dummy_pseudo_vars;
 map<string, Cfunction> CAstSigEnv::pseudo_vars = dummy_pseudo_vars;
@@ -51,7 +57,6 @@ map<string, Cfunction> CAstSigEnv::pseudo_vars = dummy_pseudo_vars;
 //CAstSig::record_bytes = 0;
 //#endif
 
-map<double, FILE *> file_ids;
 
 void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
@@ -510,90 +515,6 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 	past->Sig.bufBlockSize = 1;
 }
 
-void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	string filename = past->MakeFilename(past->ComputeString(p),"");
-	char mode[8];
-	strcpy(mode, past->ComputeString(p->next).c_str());
-
-	FILE *fl;
-	if (!(fl = fopen(filename.c_str(), mode)))
-	{
-		past->Sig.SetValue(-1.);
-	}
-	else
-	{
-		past->Sig.SetValue((double)(INT_PTR)fl);
-		file_ids[(double)(INT_PTR)fl] = fl;
-	}
-}
-
-void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	past->Compute(p);
-	if (!past->Sig.IsScalar())
-		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "First arg must be a file identifider");
-	double fl = past->Sig.value();
-	FILE *file = file_ids[fl];
-	if (!file || fclose(file)==EOF)
-	{
-		past->Sig.SetValue(-1.);
-	}
-	else
-	{
-		past->Sig.SetValue(0);
-		file_ids.erase(fl);
-	}
-}
-
-void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	_sprintf(past, pnode, p->next, fnsigs);
-	string buffer;
-	buffer = past->Sig.string();
-	bool openclosehere(1);
-	FILE *file = nullptr;
-	//is first argument string?
-	past->Compute(p);
-	if (past->Sig.IsString())
-	{
-		string filename = past->MakeFilename(past->ComputeString(p), "txt");
-		file = fopen(filename.c_str(), "a");
-	}
-	else
-	{
-		if (!past->Sig.IsScalar())
-		{
-			past->Sig.SetValue(-2.);
-			return;
-		}
-		if (past->Sig.value() == 0.)
-		{
-			printf(buffer.c_str());
-			return;
-		}
-		file = file_ids[past->Sig.value()];
-		openclosehere = false;
-	}
-	if (!file)
-	{
-		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "First arg must be either a file identifider, filename or 0 (for console)");
-	}
-	if (fprintf(file, buffer.c_str())<0)
-		past->Sig.SetValue(-3.);
-	else
-	{
-		if (openclosehere)
-		{
-			if (fclose(file)==EOF)
-			{
-				past->Sig.SetValue(-4.);
-				return;
-			}
-		}
-		past->Sig.SetValue((double)buffer.length());
-	}
-}
 
 void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -2663,6 +2584,15 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	builtin[name] = ft;
 	name = "fprintf";
 	ft.func =  &_fprintf;
+	builtin[name] = ft;
+
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "fread";
+	ft.func = &_fread;
+	builtin[name] = ft;
+	ft.narg1 = 3;	ft.narg2 = 3;
+	name = "fwrite";
+	ft.func = &_fwrite;
 	builtin[name] = ft;
 
 	ft.narg1 = 1;	ft.narg2 = 1;

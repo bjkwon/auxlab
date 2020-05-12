@@ -356,12 +356,12 @@ public:
 	void SetComplex();
 	void SetReal();
 
+	bool operate(const CTimeSeries& sec, char op);
 protected:
 	CTimeSeries& operator<=(CTimeSeries * prhs);
 	CTimeSeries & operator%(CTimeSeries * v);
 	CTimeSeries & operator+(CTimeSeries * sec);
 	CTimeSeries & operator-(CTimeSeries * sec);
-	bool operate(const CTimeSeries& sec, char op);
 
 private:
 	void sort_by_tmark();

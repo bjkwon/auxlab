@@ -189,7 +189,7 @@ bool CTimeSeries::operate(const CTimeSeries& sec, char op)
 }
 bool CSignals::operate(const CSignals& sec, char op)
 {
-	CTimeSeries::operate(sec, op);
+	CTimeSeries::operate(sec, op); // here sec is used as CTimeSeries
 	if (next)
 	{
 		if (sec.next)
@@ -197,6 +197,14 @@ bool CSignals::operate(const CSignals& sec, char op)
 		else
 			((CSignals*)next)->CTimeSeries::operate(sec, op);
 	}
+	else if (sec.next)
+	{
+		next = new CTimeSeries(fs);
+		next->UpdateBuffer(1);
+		next->buf[0] = 1.;
+		next->operate(*sec.next, op);
+	}
+
 	return true;
 }
 

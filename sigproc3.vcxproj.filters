@@ -21,6 +21,9 @@
     <ClCompile Include="$(SrcPath)AuxFunc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)AuxFunc_file.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="$(SrcPath)csignals.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
