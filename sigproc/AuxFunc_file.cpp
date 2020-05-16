@@ -1,6 +1,7 @@
 #include <string.h> // aux_file
 #include "sigproc.h"
 #include "sigproc_internal.h"
+#include <algorithm>
 
 map<double, FILE *> file_ids;
 
@@ -42,7 +43,6 @@ void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	}
 }
 
-
 FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, int &bytes, string &prec)
 {
 	//first arg is always file identifier
@@ -83,6 +83,28 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 	return file;
 }
 
+template<typename T>
+void fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uint64_t factor)
+{
+	if (sig.IsAudio())
+		sig.MakeChainless();
+	else
+		factor = 1;
+	int k = 0;
+	T * pvar = &var;
+	if (sig.next)
+	{
+		double *buf2 = sig.next->buf;
+		for_each(sig.buf, sig.buf + sig.nSamples,
+			[buf2, pvar, factor, bytes, file, &k](double v) {
+				*pvar = (T)(factor * v); fwrite(pvar, bytes, 1, file);
+				*pvar = (T)(factor * buf2[k++]); fwrite(pvar, bytes, 1, file); });
+	}
+	else
+		for_each(sig.buf, sig.buf + sig.nSamples,
+			[pvar, bytes, file](double v) { *pvar = (T)v; fwrite(pvar, bytes, 1, file); });
+}
+
 void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	int bytes;
@@ -94,90 +116,58 @@ void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		if (past->Sig.IsString())
 			fwrite(past->Sig.strbuf, 1, past->Sig.nSamples, file);
 		else
-			for (unsigned k = 0; k < past->Sig.nSamples; k++)
-			{
-				char temp = (char)past->Sig.buf[k];
-				fwrite(&temp, 1, 1, file);
-			}
+		{
+			char temp = 0;
+			fwrite_general(temp, past->Sig, prec, file, bytes, 256);
+		}
 	}
 	else if (prec == "int8")
 	{
-		int8_t temp;
-		for (unsigned k = 0; k < past->Sig.nSamples; k++)
-		{
-			temp = (int8_t)past->Sig.buf[k];
-			fwrite(&temp, bytes, 1, file);
-		}
+		int8_t temp = 0;
+		fwrite_general(temp, past->Sig, prec, file, bytes, 128);
 	}
 	else if (prec == "uint8")
 	{
-		uint8_t temp;
-		for (unsigned k = 0; k < past->Sig.nSamples; k++)
-		{
-			temp = (uint8_t)past->Sig.buf[k];
-			fwrite(&temp, bytes, 1, file);
-		}
+		uint8_t temp = 0;
+		fwrite_general(temp, past->Sig, prec, file, bytes, 256);
 	}
 	else if (prec == "int16")
 	{
-		int16_t temp;
-		if (past->Sig.next)
-		{
-			for (unsigned k = 0; k < past->Sig.nSamples; k++)
-			{
-				temp = (int16_t)past->Sig.buf[k];
-				fwrite(&temp, bytes, 1, file);
-				temp = (int16_t)past->Sig.next->buf[k];
-				fwrite(&temp, bytes, 1, file);
-			}
-		}
-		else
-			for (unsigned k = 0; k < past->Sig.nSamples; k++)
-			{
-				temp = (int16_t)past->Sig.buf[k];
-				fwrite(&temp, bytes, 1, file);
-			}
+		int16_t temp = 0;
+		fwrite_general(temp, past->Sig, prec, file, bytes, 32768);
 	}
 	else if (prec == "uint16")
 	{
-		uint16_t temp;
-		for (unsigned k = 0; k < past->Sig.nSamples; k++)
-		{
-			temp = (uint16_t)past->Sig.buf[k];
-			fwrite(&temp, bytes, 1, file);
-		}
+		uint16_t temp = 0;
+		fwrite_general(temp, past->Sig, prec, file, bytes, 65536);
 	}
 	else if (prec == "int32")
 	{
-		int32_t temp;
-		for (unsigned k = 0; k < past->Sig.nSamples; k++)
-		{
-			temp = (int32_t)past->Sig.buf[k];
-			fwrite(&temp, bytes, 1, file);
-		}
+		int32_t temp = 0;
+		fwrite_general(temp, past->Sig, prec, file, bytes, 8388608);
 	}
 	else if (prec == "uint32")
 	{
-		uint32_t temp;
-		for (unsigned k = 0; k < past->Sig.nSamples; k++)
-		{
-			temp = (uint32_t)past->Sig.buf[k];
-			fwrite(&temp, bytes, 1, file);
-		}
+		uint32_t temp = 0;
+		fwrite_general(temp, past->Sig, prec, file, bytes, 16777216);
 	}
 	else if (prec == "float")
-	{
-		float temp;
-		for (unsigned k = 0; k < past->Sig.nSamples; k++)
-		{
-			temp = (float)past->Sig.buf[k];
-			fwrite(&temp, bytes, 1, file);
-		}
+	{ // No automatic scaling
+		float temp = 0;
+		fwrite_general(temp, past->Sig, prec, file, bytes, 1);
 	}
 	else if (prec == "double")
-	{
+	{ // No automatic scaling
 		fwrite(past->Sig.buf, bytes, past->Sig.nSamples, file);
 	}
+}
+
+template<typename T>
+void fread_general(T var, CVar &sig, string prec, FILE * file, int bytes)
+{
+	T *pvar = &var;
+	for_each(sig.buf, sig.buf + sig.nSamples,
+		[pvar, bytes, file](double &v) { fread(pvar, bytes, 1, file); v = *pvar; });
 }
 
 void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -191,59 +181,39 @@ void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	fseek(file, 0L, SEEK_SET);
 
 	size_t nItems = sz / bytes;
-	past->Sig.Reset(1); // make it non-audio
-	past->Sig.UpdateBuffer(nItems);
-	size_t cum = 0, res = 1;
 	if (prec == "char")
-	{
+	{ // Treat it separately just to make the code neat.
 		past->Sig.SetString('\0');
-		while (res)
-			res = fread(past->Sig.strbuf + cum++, 1, 1, file);
+		past->Sig.UpdateBuffer(nItems);
+		fread(past->Sig.strbuf, bytes, nItems, file);
+		return;
 	}
-	else if (prec == "int8" || prec == "uint8")
+	past->Sig.Reset(1); // always make it non-audio
+	past->Sig.UpdateBuffer(nItems);
+	if (prec == "int8" || prec == "uint8")
 	{
-		int8_t temp;
-		while (res)
-		{
-			res = fread(&temp, bytes, 1, file);
-			past->Sig.buf[cum++] = (double)temp;
-		}
+		int8_t temp = 0;
+		fread_general(temp, past->Sig, prec, file, bytes);
 	}
 	else if (prec == "int16" || prec == "uint16")
 	{
-		int16_t temp;
-		while (cum < nItems)
-		{
-			res = fread(&temp, bytes, 1, file);
-			past->Sig.buf[cum++] = (double)temp;
-		}
+		int16_t temp = 0;
+		fread_general(temp, past->Sig, prec, file, bytes);
 	}
 	else if (prec == "int32" || prec == "uint32")
 	{
-		int32_t temp;
-		while (res)
-		{
-			res = fread(&temp, bytes, 1, file);
-			past->Sig.buf[cum++] = (double)temp;
-		}
+		int32_t temp = 0;
+		fread_general(temp, past->Sig, prec, file, bytes);
 	}
 	else if (prec == "float")
 	{
-		float temp;
-		while (res)
-		{
-			res = fread(&temp, bytes, 1, file);
-			past->Sig.buf[cum++] = (double)temp;
-		}
+		float temp = 0.;
+		fread_general(temp, past->Sig, prec, file, bytes);
 	}
 	else if (prec == "double")
 	{
-		double temp;
-		while (res)
-		{
-			res = fread(&temp, bytes, 1, file);
-			past->Sig.buf[cum++] = (double)temp;
-		}
+		double temp = 0.;
+		fread_general(temp, past->Sig, prec, file, bytes);
 	}
 }
 
