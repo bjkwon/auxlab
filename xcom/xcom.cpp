@@ -1002,7 +1002,8 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 					{
 						lhsvar += string(".") + p->str;
 						pVarShow = pctx->GetVariable(p->str, pvar);
-						pvar = pVarShow;
+						if (pVarShow)
+							pvar = pVarShow;
 					}
 					echo(lhsvar.c_str(), pvar);
 				}
@@ -1016,7 +1017,11 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 					echo(pnode->str, pvar);
 			}
 			else // +-*/%^...
-				echo(pctx->Script.c_str(), pvar);
+			{
+				pctx->SetVar("ans", pvar);
+				echo("ans", pvar);
+//				echo(pctx->Script.c_str(), pvar);
+			}
 		}
 	}
 }
