@@ -15,7 +15,7 @@ end
 
 ax=fig.children
 if ax.length==1
-	ax.pos(4) /=2
+	ax.pos(4) *= .53
 	// as of now, this is not automatically registered to gcf. 
 	// Needs to send via output arg for On_F2 in showvar.cpp 9/15/2019
 	ax2 = fig.axes(ax.pos) 
@@ -61,7 +61,7 @@ if ax.length==1
 	axnew = ax2
 	end
 elseif ax.length==2
-	ax(1).pos(4) *=2
+	ax(1).pos(4) /= .53
 	ax(1).pos(2)=.18
 	xtic=[]
 	if nargin==1 && !arg.isclass

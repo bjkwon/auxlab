@@ -318,6 +318,7 @@ HANDLE CGraffyEnv::findGObj(CSignals *xGO, CGobj *hGOParent)
 			CGobj *htp = &(*it)->gcf;
 			if (htp)
 			{
+				if (xGO == htp) return htp;
 				res = findGObj(xGO, htp);
 				if (res) return res;
 				for (vector<CGobj*>::iterator jt = htp->child.begin(); jt != htp->child.end(); jt++)
@@ -1075,10 +1076,10 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		throw CAstException(pctx, "Invalid parameter for the property", proptype);
 	string type = pctx->pgo->strut["type"].string();
 	CRect rt(0, 0, 0, 0);
-	h = FindGObj(pctx->pgo);
+//	h = FindGObj(pctx->pgo);
 	if (type == "figure")
 	{
-		cfig = static_cast<CFigure *>(h);
+		cfig = static_cast<CFigure *>(pctx->pgo);
 		cfig->m_dlg->GetWindowRect(rt);
 		if (!strcmp(proptype, "pos"))
 		{
@@ -1100,7 +1101,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	}
 	else if (type == "axes")
 	{
-		CAxes *cax = static_cast<CAxes *>(h);
+		CAxes *cax = static_cast<CAxes *>(pctx->pgo);
 		cfig = (CFigure *)cax->hPar;
 		rt = cax->rct;
 		if (!strcmp(proptype, "pos"))
@@ -1135,7 +1136,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	{
 		bool b = false;
 		CSignals onoff(&b, 1);
-		h = FindGObj(pctx->pgo->struts["parent"].front());
+		h = pctx->pgo->struts["parent"].front();
 		CAxes *cax = static_cast<CAxes *>(h);
 		cfig = (CFigure *)cax->hPar;
 		rt = cax->rct;
@@ -1175,7 +1176,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	}
 	else if (type == "line")
 	{
-		CLine *cline = static_cast<CLine *>(h);
+		CLine *cline = static_cast<CLine *>(pctx->pgo);
 		CAxes *cax = (CAxes *)cline->hPar;
 		cfig = (CFigure *)cax->hPar;
 		if (!strcmp(proptype, "marker"))
@@ -1219,7 +1220,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	}
 	else if (type == "text")
 	{
-		CText *ctxt = static_cast<CText *>(h);
+		CText *ctxt = static_cast<CText *>(pctx->pgo);
 		cfig = (CFigure *)ctxt->hPar;
 		if (!strcmp(proptype, "fontname"))
 			ctxt->ChangeFont(RHS.string().c_str(), (int)ctxt->strut["fontsize"].value());

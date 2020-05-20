@@ -273,8 +273,13 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 			TID_indexing(p->alt, pRHS, psig);
 			if (pbase->pgo)
 			{ // need to get the member name right before N_ARGS
-				AstNode *pp = pbase->findParentNode((AstNode*)pnode, p, true);
-				pbase->setgo.type = pp->str;
+				if (p->alt->type==N_ARGS)
+					pbase->setgo.type = p->str;
+				else
+				{ // from previous, untracktable
+					AstNode *pp = pbase->findParentNode((AstNode*)pnode, p, true);
+					pbase->setgo.type = pp->str;
+				}
 			}
 		}
 		else 

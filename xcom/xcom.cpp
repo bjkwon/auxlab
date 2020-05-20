@@ -1861,7 +1861,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		while (1)
 		{
 			// this is outside of try... an exception will not be handled. Make sure it won't fail. 8/16/2019
-		//	res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
+			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
 			if (res.empty())
 				break;
 		}

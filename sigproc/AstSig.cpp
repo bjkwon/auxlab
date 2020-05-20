@@ -2206,9 +2206,12 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 						throw CAstExceptionInvalidUsage(*this, pn, "Variable or function not available: ", varname.c_str());
 					}
 					if (pres->IsGO())
-					{ // the variable pn->str is a GO
+//					{ // the variable pn->str is a GO
 						Sig = *(np.psigBase = pgo = pres);
-						if (pn->child) setgo.type = pn->str;
+					if (pgo && RHSpresent && pn->alt)
+					{
+						if (pn->alt->type == N_STRUCT) setgo.type = pn->alt->str;
+						else if (pn->alt->type == N_ARGS) setgo.type = pn->str;
 					}
 				}
 				/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
@@ -2276,13 +2279,30 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 								  // Need to leave the address of the data to be modified
 									np.lhsref = pres->buf + (int)pindexResolved->value() - 1; // zero-based index
 									np.psigBase = pres;
-									return p->alt;
+									CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
+									if (pex && pex->IsGO())
+									{
+										replica_prep(np.psigBase = pgo = pres = pex);
+									}
+									else
+									{
+										CVar temp_single(*np.lhsref);
+										if (searchtree(np.root->child, T_REPLICA))
+											replica_prep(&temp_single);
+									}
+			//						return p->alt;
 								}
 								else
 								{
-									// if on RHS
-									Sig.buf[0] = pres->buf[(int)pindexResolved->value()-1]; // zero-based index
-									return p->alt;
+									if (pres->GetFs() == 3) // multi GO
+									{
+										np.psigBase = pgo = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
+									}
+									else
+									{
+										Sig.buf[0] = pres->buf[(int)pindexResolved->value() - 1]; // zero-based index
+				//						return p->alt;
+									}
 								}
 							}
 							else

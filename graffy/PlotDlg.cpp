@@ -577,15 +577,13 @@ void CPlotDlg::OnPaint()
 			sprintf(buf, "(OnPaint) mtx_OnPaint locked: %d\n", locker.owns_lock());
 			sendtoEventLogger(buf);
 		}
-		sprintf(buf, "(OnPaint) 0x%d ax %d\n", (INT_PTR)gcf.ax[k], k);
+		sprintf(buf, "(OnPaint) 0x%x ax %d\n", (INT_PTR)gcf.ax[k], k);
 		sendtoEventLogger(buf);
 		// drawing lines
 		if (!paxready)
 			pax = gcf.ax[k];
 		else
 			paxready=false;
-		//if (find(sbinfo.vax.begin(), sbinfo.vax.end(), pax) == sbinfo.vax.end())
-		//	sbinfo.vax.push_back(gcf.ax[k]);
 		if (!pax->m_ln.empty()) 
 			pax->xTimeScale = pax->m_ln.front()->sig.IsTimeSignal();
 		if (!pax->visible) continue;
@@ -604,7 +602,7 @@ void CPlotDlg::OnPaint()
 		}
 		size_t nLines = pax->m_ln.size(); // just FYI
 		CPen * ppen = NULL;
-		POINT *draw= new POINT [1];
+		POINT *draw = NULL; // new POINT[1];
 		int nDraws = 0, estCount = 1;
 		if (pax->m_ln.empty())
 		{ // to bypass axes without line object
@@ -841,12 +839,6 @@ void CPlotDlg::OnPaint()
 		}
 		else
 			k++;
-		//if (LRrange(&pax->rct, playLoc, 'x') == 0)
-		//{
-		//	dc.CreatePen(PS_SOLID, 1, RGB(204, 77, 0));
-		//	dc.MoveTo(playLoc, pax->rct.bottom);
-		//	dc.LineTo(playLoc, pax->rct.top);
-		//}
 		CAxes *pax0 = gcf.ax.front();
 		if (pax0->m_ln.size()>0 || (gcf.ax.size()>1 && gcf.ax[1]->m_ln.size()>0) )
 		{

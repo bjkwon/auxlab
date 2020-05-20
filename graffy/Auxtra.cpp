@@ -751,7 +751,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 					RegisterAx((CVar*)cfig, cax, true);
 				}
 				else // use existing axes 
-					cax = (CAxes *)FindGObj(cfig->struts["gca"].front());
+					cax = (CAxes *)cfig->struts["gca"].front();
 			}
 			else
 				newFig = true;
@@ -771,11 +771,11 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 						RegisterAx((CVar*)FindFigure(pgo), cax, true);
 					}
 					else
-						cax = (CAxes *)FindGObj(pgo->struts["gca"].front());
+						cax = (CAxes *)pgo->struts["gca"].front();
 				}
 			}
 			else if (pgo->strut["type"].string() == "axes")
-				cax = (CAxes *)FindGObj(pgo);
+				cax = (CAxes *)pgo;
 			else
 				throw CAstInvalidFuncSyntax(*past, p, fnsigs, "A non-graphic object nor a data array is given as the first argument.");
 		}

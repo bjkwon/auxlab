@@ -458,12 +458,12 @@ void CVectorsheetDlg::FillUp()
 			LvItem.pszText = buf;
 			for (unsigned int q = id1; q <= id2; q++)
 			{
-				if (aud && !psig->body::IsComplex())
-					sprintf(buf, xcom::outstream_value(psig->buf[(k + jd1) * len + q], 0).str().c_str());
+				if (logical)
+					sprintf(buf, "%d", psig->logbuf[(k + jd1) * len + q]);
 				else if (aud && psig->body::IsComplex())
 					sprintf(buf, outstream_complex(psig->cbuf[(k + jd1) * len + q]).str().c_str());
-				else if (logical)
-					sprintf(buf, "%d", psig->logbuf[(k + jd1) * len + q]);
+				else if (aud && !psig->body::IsComplex())
+					sprintf(buf, xcom::outstream_value(psig->buf[(k + jd1) * len + q], 0).str().c_str());
 				else if (stringdata)
 					sprintf(buf, "%c(%u)", psig->logbuf[(k + jd1) * len + q], (unsigned char)psig->logbuf[(k + jd1) * len + q]);
 				else if (compl)
