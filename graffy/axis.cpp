@@ -648,6 +648,10 @@ vector<double> CAxes::gengrids(char xy, int *pnDv, int *pdigh)
 		}
 		out = makeseq(lim, grids.front(), step0);
 	}
+	if (xy == 'x')
+	{
+		sendtoEventLogger("out count=%d, xlim=[%.3f,%.3f]", out.size(), xlim[0], xlim[1]);
+	}
 	return out;
 }
 

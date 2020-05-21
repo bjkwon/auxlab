@@ -448,8 +448,7 @@ unsigned int WINAPI Thread4MM(PVOID p)
 				{
 					WAVEHDR *pwh = (WAVEHDR *)msg.lParam;
 					int lastPlayedBufLen = pwh->dwBufferLength * 8 / pWP->wfx.wBitsPerSample;
-					sprintf(errmsg, "Block %d, rel. timepoint %.3f, block length = %d\n", pWP->playedCount, relativeTime, lastPlayedBufLen);
-					sendtoEventLogger(errmsg);
+					sendtoEventLogger("Block %d, rel. timepoint %.3f, block length = %d\n", pWP->playedCount, relativeTime, lastPlayedBufLen);
 				}
 				pWP->hPlayStruct.remainingDuration = (INT_PTR)(pWP->hPlayStruct.blockDuration * (pWP->playcount - relativeTime));
 				pWP->OnBlockDone((WAVEHDR *)msg.lParam); // Here, the status (block done playing) is sent to the main application 

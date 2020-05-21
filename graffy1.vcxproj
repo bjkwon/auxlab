@@ -220,6 +220,7 @@
     <ClCompile Include="$(SrcPath)Text.cpp" />
     <ClCompile Include="$(SrcPath)Tick.cpp" />
     <ClCompile Include="$(SrcPath)gengrids.cpp" />
+    <ClCompile Include="$(SrcPath)OnPaint_subs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)graffy.h" />

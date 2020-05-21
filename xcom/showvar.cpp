@@ -1931,12 +1931,10 @@ void UpdateAudioRecordingHandle(CAstSig *past, const callback_transfer_record & 
 
 void AudioCapture(unique_ptr<carrier> pmsg)
 {
-	char buffer[256];
 	stop_requested = false;
 	string emsg;
 	AstNode *pCallbackUDF;
-	sprintf(buffer, "Thread created by %d...AudioCapture begins\n", pmsg->callingThread);
-	sendtoEventLogger(buffer);
+	sendtoEventLogger("Thread created by %d...AudioCapture begins\n", pmsg->callingThread);
 	DWORD thr = GetCurrentThreadId();
 	hEventRecordingCallBack = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "recording_callback");
 	PostThreadMessage(pmsg->cbp.recordingThread, WM__RECORDING_THREADID, (WPARAM)GetCurrentThreadId(), 0);
@@ -2074,14 +2072,12 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				copy_incoming.recordID = precorder->recordID;
 				copy_incoming.len_buffer = precorder->len_buffer;
 				copy_incoming.fs = precorder->fs;
-				sprintf(buffer, "going into callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
-				sendtoEventLogger(buffer);
+				sendtoEventLogger("going into callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
 				tcount1 = GetTickCount();
 				callbackID = pmsg->pcast->ExcecuteCallback(pCallbackUDF, callback_in, callback_out, pmsg->cbp.cbnode != NULL);
 				tcount2 = GetTickCount();
 				lastCallbackTimeTaken = tcount2 - tcount1;
-				sprintf(buffer, "out of callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
-				sendtoEventLogger(buffer);
+				sendtoEventLogger("out of callback %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
 				//Here or somewhere around here, call SetInProg(???, false) to begin displaying figure window
 				//(we need to do it exactly when callback is finished (no more incoming data stream)
 				//maybe it's here. Then we need the figure handle of interest. What is it?
@@ -2091,8 +2087,7 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 				UpdateAudioRecordingHandle(pmsg->parent->pcast, pmsg->cbp, countCallbacked);
 				if (stop_requested)
 				{
-					sprintf(buffer, "stop_requested %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
-					sendtoEventLogger(buffer);
+					sendtoEventLogger("stop_requested %d\n", (int)(*callback_in.front())->strut["?index"].buf[0]);
 					//cleanup_recording(&pvar_callbackinput, &pvar_callbackoutput);
 					return;
 				}

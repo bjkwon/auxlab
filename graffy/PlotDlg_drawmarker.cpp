@@ -13,7 +13,6 @@
 #include <math.h>
 #include "PlotDlg.h"
 
-#define ROUND(dub) (int)(dub+.5)
 #define PI 3.141592
 #define C30DIV2 .433 // COS 30 degree div 2
 #define C30DIV22 .866 // COS 30 degree 

@@ -153,13 +153,12 @@ vector<CVar*> FindFigurebyvalue(const CVar &vals)
 
 void invalidateRedrawCue()
 {
-	char buf[512], buf2[256];
+	char buf[512];
 	CRect zeros(0, 0, 0, 0);
 	for (map<HWND, RECT>::iterator it = theApp.redraw.begin(); it != theApp.redraw.end(); it++)
 	{
-		GetWindowText(it->first, buf2, sizeof(buf2));
-		sprintf(buf, "(invalidateRedrawCue) %s\n", buf2);
-		sendtoEventLogger(buf);
+		GetWindowText(it->first, buf, sizeof(buf));
+		sendtoEventLogger("(invalidateRedrawCue) %s\n", buf);
 		if (!memcmp(&zeros, &(it->second), sizeof(RECT)))
 			InvalidateRect(it->first, NULL, TRUE);
 		else
@@ -552,9 +551,7 @@ void thread4Plot(PVOID var)
 	}
 	else
 		in->cfig->SetString(buf);
-	char sendbuffer[512];
-	sprintf(sendbuffer, "from %d, open %s\n", in->threadCaller, buf);
-	sendtoEventLogger(sendbuffer);
+	sendtoEventLogger("from %d, open %s\n", in->threadCaller, buf);
 	PostThreadMessage(in->threadCaller, WM_PLOT_DONE, 0, 0);
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -1051,7 +1048,6 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 				{
 					strcpy(buf2, "... made visible");
 					strcat(buf, buf2);
-					strcat(buf, "\n");
 					sendtoEventLogger(buf);
 				}
 			}
@@ -1060,10 +1056,9 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	if (!h.empty())
 	{
 		unique_lock<mutex> locker(mtx_OnPaint);
-		sprintf(buf, "(RepaintGO) mtx_OnPaint locked? %d\n", locker.owns_lock());
-		sendtoEventLogger(buf);
+		sendtoEventLogger("(RepaintGO) mtx_OnPaint locked? %d", locker.owns_lock());
 		invalidateRedrawCue();
-		sendtoEventLogger("(RepaintGO) mtx_OnPaint unlocked.\n");
+		sendtoEventLogger("(RepaintGO) mtx_OnPaint unlocked.");
 	}
 }
 

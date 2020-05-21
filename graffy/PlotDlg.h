@@ -39,6 +39,18 @@
 #define  GRAF_REG2		2 // right (or top) of region
 #define  GRAF_REG3		3 // region
 
+#define IDM_SPECTRUM_INTERNAL	2222
+#define IDC_LEVEL			7000
+#define IDC_STATIC_LEVEL	7001
+#define MOVE_SPECAX			8560
+#define ID_STATUSBAR  1030
+#define NO_SELECTION  RANGE_PX(-1,-1)
+
+#define PBPROG_ADVANCE_PIXELS	2
+
+#define MAKE_dB(x) (20*log10((x)) + 3.0103)
+#define ROUND(x) (int)((x)+.5)
+#define FIX(x) (int)((x))
 
 #define  XTIC		0x0001
 #define  YTIC		0x0002
@@ -178,6 +190,11 @@ private:
 	CBrush hQuickSolidBrush;
 	RANGE_PX curRange;
 	vector<string> ttstat;
+	void OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc);
+	int OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT *pps, CLine* pline, CTimeSeries* block);
+	CPen * OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen);
+	void OnPaint_make_tics(CDC& dc, CAxes * pax, POINT * draw, int nDraws);
+	void OnPaint_fill_sbinfo(CAxes* pax);
 public:
 	CPlotDlg(HINSTANCE hInstance, CGobj *hPar = NULL);   // standard constructor
 	~CPlotDlg();

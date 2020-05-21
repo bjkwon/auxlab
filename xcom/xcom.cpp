@@ -321,7 +321,6 @@ void closeXcom(const char *AppPath)
 unsigned int WINAPI histThread (PVOID var) 
 {
 	sendtoEventLogger("histThread created.\n");
-	char buffer[256];
 	WNDCLASS wc;
 	int res2 = GetClassInfo(GetModuleHandle(NULL), "#32770", &wc);
 	wc.lpszClassName = "SECOND";
@@ -359,8 +358,7 @@ unsigned int WINAPI histThread (PVOID var)
 	SetFocus(GetConsoleWindow()); //This seems to work.
 	SetForegroundWindow (GetConsoleWindow());
 
-	sprintf(buffer, "mHistDlg.hDlg created. Message Loop begining.\n");
-	sendtoEventLogger(buffer);
+	sendtoEventLogger("mHistDlg.hDlg created. Message Loop begining.\n");
 
 	MSG         msg ;
 	while (GetMessage (&msg, NULL, 0, 0))
@@ -441,8 +439,7 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 
 	SetFocus(GetConsoleWindow()); //This seems to work.
 	SetForegroundWindow (GetConsoleWindow());
-	sprintf(errStr, "showvarThread created.\n");
-	sendtoEventLogger(errStr);
+	sendtoEventLogger("showvarThread created.\n");
 
 	MSG msg ;
 	HACCEL hAcc = LoadAccelerators (hModule, MAKEINTRESOURCE(IDR_XCOM_ACCEL));
@@ -1654,8 +1651,7 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 			add = pcast->pAst->str;
 		if (pcast->pAst->child && pcast->pAst->child->str) 
 			add = pcast->pAst->child->str;
-		sprintf(buffer, "%s %s\n", buffer, add.c_str());
-		sendtoEventLogger(buffer);
+		sendtoEventLogger("%s %s\n", buffer, add.c_str());
 	}
 }
 
@@ -1806,8 +1802,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	hEventLogger = FindWindow("EventLogger", "");
 	setHWNDEventLogger(hEventLogger);
-	sprintf(buf, "AUXLAB begins.\n");
-	sendtoEventLogger(buf);
+	sendtoEventLogger("AUXLAB begins.");
 
 	AllocConsole();
 	AttachConsole(ATTACH_PARENT_PROCESS);

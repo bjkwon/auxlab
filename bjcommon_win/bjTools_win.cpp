@@ -274,21 +274,23 @@ void setHWNDEventLogger(HWND hEL)
 	hEventLogger = hEL;
 }
 
-void sendtoEventLogger(char *str, FILETIME * pout)
+void sendtoEventLogger(const char* formattedStr, ...)
 {
 	if (!hEventLogger) return;
-	char sendbuffer[4096];
 	SYSTEMTIME lt;
+	char buf[256], buf2[512];
+	va_list args;
+	va_start(args, formattedStr);
+	vsnprintf(buf, sizeof(buf), formattedStr, args);
+	va_end(args);
+	if (buf[strlen(buf)-1]!='\n') strcat_s(buf, sizeof(buf), "\n");
 	GetLocalTime(&lt);
-	sprintf(sendbuffer, "%d[%02d:%02d:%02d:%02d] ", GetCurrentThreadId(), lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
-	strcat(sendbuffer, str);
+	snprintf(buf2, sizeof(buf2), "%d[%02d:%02d:%02d:%02d] %s", GetCurrentThreadId(), lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, buf);
 	COPYDATASTRUCT cd;
-	cd.lpData = sendbuffer;
+	cd.lpData = buf2;
 	cd.dwData = (ULONG_PTR)&cd;
-	cd.cbData = (DWORD)strlen((char*)sendbuffer) + 1;
+	cd.cbData = (DWORD)strlen(buf2) + 1;
 	SendMessage(hEventLogger, WM_COPYDATA, (WPARAM)NULL, (LPARAM)&cd);
-	if (pout)
-		SystemTimeToFileTime(&lt, pout);
 }
 
 void GetLocalTimeStr(string &strOut)

@@ -207,7 +207,6 @@ DEBUG_KEY xcom::getinput(char* readbuffer)
 	bool controlkeydown(false);
 	WORD vcode;
 	DEBUG_KEY retval;
-	char zbuf[256];
 
 try {
 	while (loop)
@@ -300,9 +299,7 @@ try {
 					if (showscreen)
 					{
 						WriteConsole(hStdout, buf1, (DWORD)strlen(buf1) + 1, &dw2, NULL);
-						sprintf(buffer, "(VK_DELETE:buf)WriteConsole wrote %d bytes", dw2);
-						sprintf(zbuf, "%s\n", buffer);
-						sendtoEventLogger(zbuf);
+						sendtoEventLogger("(VK_DELETE:buf)WriteConsole wrote %d bytes", dw2);
 						SendMessage(hLog, WM__LOG, -1, (LPARAM)buffer);
 					}
 					SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
@@ -509,8 +506,7 @@ try {
 	if (strlen(readbuffer) > 0)
 	{
 		size_t count = str2vect(tar, readbuffer, "\r\n");
-		sprintf(buf, "Enter pressed.Trying to logging %s\n", tar.front().c_str());
-		sendtoEventLogger(buf);
+		sendtoEventLogger("Enter pressed.Trying to logging %s\n", tar.front().c_str());
 		LogHistory(tar);
 		mHistDlg.AppendHist(tar);
 //		if (tar.size()>2)

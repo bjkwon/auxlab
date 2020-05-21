@@ -31,18 +31,7 @@ if tics1 is not empty, OnPaint will not set tics1.
 
 #include "wavplay.h"
 
-#define IDM_SPECTRUM_INTERNAL	2222
-#define IDC_LEVEL			7000
-#define IDC_STATIC_LEVEL	7001
-#define MOVE_SPECAX			8560
-#define ID_STATUSBAR  1030
-#define NO_SELECTION  RANGE_PX(-1,-1)
 
-#define PBPROG_ADVANCE_PIXELS	2
-
-#define MAKE_dB(x) (20*log10((x)) + 3.0103)
-#define ROUND(x) (int)((x)+.5)
-#define FIX(x) (int)((x))
 
 extern HWND hPlotDlgCurrent;
 extern HWND hwnd_AudioCapture;
@@ -484,7 +473,7 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 			vector<POINT> tp = pax->CSignal2pixelPOINT(px, *p, idBegin, nSamples2Display);
 			for (size_t k = 0; k < tp.size(); k++)
 				out[k] = tp[k];
-			count = tp.size();
+			count = (int)tp.size();
 			//for (int k = idBegin; k < idBegin + nSamples2Display; k++)
 			//{
 			//	if (tseries)
@@ -498,40 +487,6 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 		}
 	}
 	return count;
-}
-
-CPen * OnPaint_createpen_with_linestyle(CLine *pln, CDC& dc, CPen **pOldPen)
-{
-	LOGBRUSH lb;
-	lb.lbStyle = BS_SOLID;
-	lb.lbColor = pln->color;
-	lb.lbHatch = HS_VERTICAL;
-	DWORD style = lb.lbStyle;
-	int penStyle;
-	switch (pln->lineStyle)
-	{
-	case LineStyle_solid:
-		penStyle = PS_SOLID;
-		break;
-	case LineStyle_dash:
-		penStyle = PS_DASH;
-		break;
-	case LineStyle_dot:
-		penStyle = PS_DOT;
-		break;
-	case LineStyle_dashdot:
-		penStyle = PS_DASHDOT;
-		break;
-	case LineStyle_dashdotdot:
-		penStyle = PS_DASHDOTDOT;
-		break;
-	default:
-		penStyle = PS_NULL;
-		break;
-	}
-	CPen *newPen = new CPen(penStyle | PS_GEOMETRIC, pln->lineWidth, &lb, 0, NULL);
-	*pOldPen = (CPen*)dc.SelectObject(*newPen);
-	return newPen;
 }
 
 void CPlotDlg::OnPaint() 
@@ -551,8 +506,7 @@ void CPlotDlg::OnPaint()
 	SetLayeredWindowAttributes(hDlg, 0, opacity, LWA_ALPHA);
 	GetClientRect(hDlg, &clientRt);
 	if (clientRt.Height()<15) { EndPaint(hDlg, &ps); return; }
-	//sprintf(buf, "OnPaint (%d,%d)-(%d,%d), playCursor = %d, playLock %d\n", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom, playCursor, playLoc);
-	//sendtoEventLogger(buf);
+	//sendtoEventLogger(buf, "OnPaint (%d,%d)-(%d,%d), playCursor = %d, playLock %d", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom, playCursor, playLoc);
 	dc.SolidFill(gcf.color, clientRt);
 	CRect rt;
 	GetClientRect(hDlg, &rt);
@@ -573,37 +527,20 @@ void CPlotDlg::OnPaint()
 	for (unique_lock<mutex> locker(mtx_OnPaint); k< gcf.ax.size(); temp++)
 	{
 		if (temp < 1)
-		{
-			sprintf(buf, "(OnPaint) mtx_OnPaint locked: %d\n", locker.owns_lock());
-			sendtoEventLogger(buf);
-		}
-		sprintf(buf, "(OnPaint) 0x%x ax %d\n", (INT_PTR)gcf.ax[k], k);
-		sendtoEventLogger(buf);
+			sendtoEventLogger("(OnPaint) mtx_OnPaint locked: %d", locker.owns_lock());
+		sendtoEventLogger("(OnPaint) 0x%x ax %d", (INT_PTR)gcf.ax[k], k);
 		// drawing lines
 		if (!paxready)
 			pax = gcf.ax[k];
 		else
 			paxready=false;
-		if (!pax->m_ln.empty()) 
-			pax->xTimeScale = pax->m_ln.front()->sig.IsTimeSignal();
 		if (!pax->visible) continue;
 		if (axis_expanding)
 			pax->pos.Set(clientRt, pax->rct); // do this again; what's this? 10/9/2019
 		pax->rct=DrawAxis(&dc, &ps, pax);
-		//when mouse is moving while clicked
-		if (curRange != NO_SELECTION && pax->hPar->type==GRAFFY_figure ) // this applies only to waveform axis (not FFT axis)
-		{
-			rt = pax->rct;
-			rt.left = curRange.px1+1; 
-			rt.right = curRange.px2-1; 
-			rt.top--;
-			rt.bottom++;
-			dc.SolidFill(selColor, rt);
-		}
-		size_t nLines = pax->m_ln.size(); // just FYI
-		CPen * ppen = NULL;
+		OnPaintMouseMovingWhileClicked(pax, &dc);
 		POINT *draw = NULL; // new POINT[1];
-		int nDraws = 0, estCount = 1;
+		int nDraws = 0;
 		if (pax->m_ln.empty())
 		{ // to bypass axes without line object
 			k++;
@@ -613,223 +550,24 @@ void CPlotDlg::OnPaint()
 		{
 			if (hDlg == hwnd_AudioCapture)
 			{
-				sendtoEventLogger("(OnPaint) mtx4PlotDlg locking\n");
+				sendtoEventLogger("(OnPaint) mtx4PlotDlg locking");
 				unique_lock<mutex> locker(mtx4PlotDlg);
-				sendtoEventLogger("(OnPaint) mtx4PlotDlg locked\n");
+				sendtoEventLogger("(OnPaint) mtx4PlotDlg locked");
 			}
 			for (auto lyne : pax->m_ln)
 			{
-				CPen *pPenOld = NULL;
-				if (!lyne->visible) continue;
-				if (lyne->sig.IsScalar() && lyne->sig.chain)
-				{
-					BYTE clcode;
-					vector<DWORD> kolor;
-					clcode = HIBYTE(HIWORD(lyne->color));
-					if (clcode == 'L' || clcode == 'R')
-						kolor = Colormap(clcode, clcode, 'r', 1);
-					if (clcode == 'l' || clcode == 'r')
-						kolor = Colormap(clcode, clcode + 'R' - 'r', 'c', 1);
-					else if (clcode == 'M')
-					{
-						CVar cmap = lyne->strut["color"];
-						for (unsigned int k = 0; k < cmap.nSamples; k += 3)
-						{
-							DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
-							kolor.push_back(dw);
-						}
-					}
-					else
-						kolor.push_back(lyne->color);
-					auto colorIt = kolor.begin();
-					unsigned int pos = 0, nDraws = lyne->sig.CountChains();
-					draw = new POINT[nDraws + 1];
+				if (lyne->visible)
 					for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
-						makeDrawVector(draw + pos++, p, pax, lyne, (CRect)ps.rcPaint);
-					lyne->color = *colorIt;
-					if (lyne->symbol != 0)
-					{
-						LineStyle org = lyne->lineStyle;
-						lyne->lineStyle = LineStyle_solid;
-						if (lyne->lineWidth == 0)
-							lyne->lineWidth = 1;
-						OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-						DrawMarker(dc, lyne, draw, nDraws);
-						lyne->lineStyle = org;
-					}
-					ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-					if (lyne->lineWidth > 0)
-					{
-						if (lyne->lineStyle != LineStyle_noline)
-						{
-							int nOutOfAx = 0;
-							for (int k = nDraws - 1; k > 0; k--)
-							{
-								if (draw[k].x > pax->rct.right) nOutOfAx++;
-								else break;
-							}
-							dc.Polyline(draw, nDraws - nOutOfAx);
-						}
-						if (kolor.size() > 1)
-						{
-							colorIt++;
-							if (colorIt == kolor.end())		colorIt = kolor.begin();
-						}
-						if (ppen)
-						{
-							dc.SelectObject(pPenOld);
-							delete ppen;
-						}
-					}
-				}
-				else
-				{
-					for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
-					{
-						auto anSamples = p->nSamples;
-						auto atuck = p->nGroups;
-						auto atmark = p->tmark;
-						BYTE clcode;
-						vector<DWORD> kolor;
-						clcode = HIBYTE(HIWORD(lyne->color));
-						if (clcode == 'L' || clcode == 'R')
-							kolor = Colormap(clcode, clcode, 'r', atuck);
-						if (clcode == 'l' || clcode == 'r')
-							kolor = Colormap(clcode, clcode + 'R' - 'r', 'c', atuck);
-						else if (clcode == 'M')
-						{
-							CVar cmap = lyne->strut["color"];
-							for (unsigned int k = 0; k < cmap.nSamples; k += 3)
-							{
-								DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
-								kolor.push_back(dw);
-							}
-						}
-						else
-							kolor.push_back(lyne->color);
-						auto colorIt = kolor.begin();
-						for (unsigned int m = 0; m < atuck; m++)
-						{
-							lyne->color = *colorIt;
-							p->nSamples = p->Len();
-							p->nGroups = 1;
-							memcpy(p->buf, p->buf + m * p->nSamples, p->bufBlockSize*p->nSamples);
-							if (p->IsTimeSignal())
-								p->tmark += 1000.* m*p->nSamples / p->GetFs();
-							if (lyne->lineWidth > 0 || lyne->symbol != 0)
-							{
-								int tp = estimateDrawCounts(p, pax, lyne, ps.rcPaint);
-								if (tp > estCount)
-								{
-									estCount = tp;
-									delete[] draw;
-									draw = new POINT[estCount + 1];
-								}
-								nDraws = makeDrawVector(draw, p, pax, lyne, (CRect)ps.rcPaint);
-								if (lyne->sig.nSamples == 1)
-									lyne->initial = lyne->final = draw[0];
-							}
-							if (lyne->symbol != 0)
-							{
-								LineStyle org = lyne->lineStyle;
-								lyne->lineStyle = LineStyle_solid;
-								if (lyne->lineWidth == 0)
-									lyne->lineWidth = 1;
-								OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-								DrawMarker(dc, lyne, draw, nDraws);
-								lyne->lineStyle = org;
-							}
-							ppen = OnPaint_createpen_with_linestyle(lyne, dc, &pPenOld);
-							if (lyne->lineWidth > 0)
-							{
-								if (p->IsTimeSignal()) {
-									if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
-									if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
-								}
-								if (nDraws > 0 && lyne->lineStyle != LineStyle_noline)
-								{
-									int nOutOfAx = 0;
-									for (int k = nDraws - 1; k > 0; k--)
-									{
-										if (draw[k].x > pax->rct.right) nOutOfAx++;
-										else break;
-									}
-									dc.Polyline(draw, nDraws - nOutOfAx);
-								}
-								if (kolor.size() > 1)
-								{
-									colorIt++;
-									if (colorIt == kolor.end())		colorIt = kolor.begin();
-								}
-								p->nGroups = atuck;
-								p->tmark = atmark;
-								p->nSamples = anSamples;
-								if (ppen)
-								{
-									dc.SelectObject(pPenOld);
-									delete ppen;
-								}
-							}
-						}
-					}
-				}
+						nDraws = OnPaint_drawblock(pax, dc, &ps, lyne, p);
 			}
 		}
 		if (hDlg == hwnd_AudioCapture)
-			sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked\n");
+			sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked");
 		// add ticks and ticklabels
 		dc.SetBkColor(gcf.color);
 		// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
 		// also when InvalidateRect(NULL) is called, always remake ticks
-		if (pax->m_ln.size() > 0)
-		{
-			//When there's nothing in axes.. bypass this part.. Otherwise,  gengrids will crash!! 10/5/2019
-			if (pax->xtick.tics1.empty() && pax->xtick.automatic)
-			{
-				if (pax->m_ln.front()->sig.IsTimeSignal())
-					pax->xtick.tics1 = pax->gengrids('x', -3);
-				else
-				{
-					if (nDraws>2)
-						pax->setxticks();
-					else
-					{
-						for (int k = 0; k < nDraws; k++) 
-						{
-							double x1, y1;
-							pax->GetCoordinate(&draw[k], x1, y1);
-							pax->xtick.tics1.push_back((int)(x1+.1));
-						}
-					}
-				}
-			}
-			if (pax->ytick.tics1.empty() && pax->ytick.automatic)
-			{
-				if (pax->m_ln.front()->sig.bufBlockSize==1)
-				{
-					vector<double> tics;
-					tics.push_back(0); tics.push_back(1);
-					pax->ytick.tics1 = tics;
-				}
-				else
-					pax->ytick.tics1 = pax->gengrids('y');
-			}
-			pax->struts["x"].front()->strut["tick"] = (CSignals)CSignal(pax->xtick.tics1);
-			DrawTicks(&dc, pax, 0);
-
-			//x & y labels
-			dc.SetTextAlign(TA_RIGHT|TA_BOTTOM);
-			if (!gcf.ax.empty() && !gcf.ax.front()->m_ln.empty())
-			{
-				if (IsSpectrumAxis(pax))
-				{
-					dc.TextOut(pax->rct.right-3, pax->rct.bottom, "Hz");
-					dc.TextOut(pax->rct.left-3, pax->rct.top+1, "dB");
-				}
-				else if (pax->m_ln.front()->sig.IsTimeSignal())
-					dc.SetBkMode(TRANSPARENT), dc.TextOut(pax->rct.right-3, pax->rct.bottom, "sec");
-			}
-		}
+		OnPaint_make_tics(dc, pax, draw, nDraws);
 		delete[] draw;
 		if (pax->hChild)
 		{
@@ -839,16 +577,9 @@ void CPlotDlg::OnPaint()
 		}
 		else
 			k++;
-		CAxes *pax0 = gcf.ax.front();
-		if (pax0->m_ln.size()>0 || (gcf.ax.size()>1 && gcf.ax[1]->m_ln.size()>0) )
-		{
-			sbinfo.xBegin = pax0->xlim[0];
-			sbinfo.xEnd = pax0->xlim[1];
-		}
+		OnPaint_fill_sbinfo(gcf.ax.front());
 		if (temp<1)
-		{
-			sendtoEventLogger("(OnPaint) mtx_OnPaint unlocked.\n");
-		}
+			sendtoEventLogger("(OnPaint) mtx_OnPaint unlocked.");
 	} // end of Drawing axes
 
 	  //Drawing texts
@@ -1146,9 +877,7 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 	if (cax)
 	{
 		ClickOn = GetMousePos(point);
-		char buf[256];
-		sprintf(buf, "(OnLButtonDown) ax=0x%x: xpt.x=%d, rect.y=%d\n", (INT_PTR)cax, point.x, point.y);
-		sendtoEventLogger(buf);
+		sendtoEventLogger("(OnLButtonDown) ax=0x%x: xpt.x=%d, rect.y=%d", (INT_PTR)cax, point.x, point.y);
 		CSignals temp;
 		if (axis_expanding) {ClickOn=0; return;}
 		clickedPt = point;
@@ -1173,8 +902,7 @@ void CPlotDlg::OnLButtonDown(UINT nFlags, CPoint point)
 void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 {
 	//	char buf[256];
-		//sprintf(buf, "OnLButtonUp pt.x=%d, rect.y=%d\n", point.x, point.y);
-		//sendtoEventLogger(buf);
+		//sendtoEventLogger(buf, "OnLButtonUp pt.x=%d, rect.y=%d\n", point.x, point.y);
 	CRect rt;
 	mst.clickedOn = false;
 	mst.curPt = point;
@@ -1313,9 +1041,7 @@ void CPlotDlg::OnMouseMove(UINT nFlags, CPoint point)
 		{
 			// if the first point clicked is outside the axes, skip
 			cax = _ax;
-			char buffer[256];
-			sprintf(buffer, "OnMouseMove cur(%d,%d), bdp.x=%d ClickOn=%d\n", point.x, point.y, lbuttondownpoint.x, ClickOn);
-			sendtoEventLogger(buffer);
+			sendtoEventLogger("OnMouseMove cur(%d,%d), bdp.x=%d ClickOn=%d\n", point.x, point.y, lbuttondownpoint.x, ClickOn);
 			if (lbuttondownpoint.x == -1 && !cax->rct.PtInRect(point))
 				continue;
 			if (ClickOn & (unsigned short)128)
@@ -1576,8 +1302,7 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 				playLoc = _ax->timepoint2pix(selRange.tp1 + block * playingIndex / 1000);
 				// if playLoc goes out of range, invalidateRect only to erase playLoc0, i.e., don't update the screen with the newly advanced but out-of-range bar
 //				char buf[256];
-				//sprintf(buf, "index=%d, playCursor=%d, playLoc=%d\n", playingIndex, playCursor, playLoc);
-				//sendtoEventLogger(buf);
+				//sendtoEventLogger(buf, "index=%d, playCursor=%d, playLoc=%d\n", playingIndex, playCursor, playLoc);
 				if (playLoc > curRange.px2)
 				{
 					InvalidateRect(CRect(playLoc0 - 1, _ax->rct.top+5, playLoc0 + 1, _ax->rct.bottom+5), 0);
@@ -1593,8 +1318,7 @@ void CPlotDlg::OnSoundEvent(CVar *pvar, int code)
 		setpbprogln();
 		playLoc0 = playLoc;
 		//char buf[256];
-		//sprintf(buf, "index=%d\n", playingIndex);
-		//sendtoEventLogger(buf);
+		//sendtoEventLogger(buf, "index=%d\n", playingIndex);
 	}
 }
 
@@ -2349,3 +2073,4 @@ void CPlotDlg::dBRMS(SHOWSTATUS st)
 {
 	sbar->dBRMS(st);
 }
+

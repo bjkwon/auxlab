@@ -42,6 +42,9 @@
     <ClCompile Include="$(SrcPath)gengrids.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)OnPaint_subs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)msgCrack.h">
