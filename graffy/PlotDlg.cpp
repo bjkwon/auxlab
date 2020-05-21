@@ -334,22 +334,23 @@ int CPlotDlg::estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *lyne, RECT
 	return paintAreaWidth *2;
 }
 
-int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
+vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
 {
+	vector<POINT> out;
 	//need these two lines because after selection play is done, InvalidateRect might have been called for this part
-	if (rcPaint.left > pax->rct.right) return 0;
-	if (rcPaint.right < pax->rct.left) return 0;
+	if (rcPaint.left > pax->rct.right) return out;
+	if (rcPaint.right < pax->rct.left) return out;
 	if (rcPaint.right > pax->rct.right) rcPaint.right = pax->rct.right;
 	if (rcPaint.left < pax->rct.left) rcPaint.left = pax->rct.left;
 	POINT pt = { -91128,-911282 };
 	if (p->nSamples == 1)
 	{
 		pt = pax->double2pixelpt(p->tmark / 1000., p->buf[0], NULL);
-		*out = pt;
-		return 1;
+		out.push_back(pt);
+		return out;
 	}
 	POINT pp = GetIndDisplayed(pax);//The indices of xlim[0] and xlim[1], if p were to be a single chain.
-	if (pp.x == pp.y) return -2;
+	if (pp.x == pp.y) return out;
 	const int fs = lyne->sig.GetFs();
 	CRect rcPal = rcPaint; // the area to draw
 	rcPal.IntersectRect(rcPal, pax->rct);
@@ -371,9 +372,9 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 		nSamplesPerPixel = xPerPixel * fs;
 		double tmarkms = p->tmark / 1000.;
 		//index corresponding to x1
-		if (x2 < tmarkms) return 0;
+		if (x2 < tmarkms) return out;
 		double dur = p->durc().front() / 1000.;
-		if (x1 > p->tmark / 1000. + dur) return 0;
+		if (x1 > p->tmark / 1000. + dur) return out;
 		rightEdge = min(rightEdge, pax->double2pixel(p->tmark / 1000.+dur, 'x'));
 		//if part selected, it begins greater of begin_of_sel and tmark
 		//...... it ends less of end_of_sel and tmark+dur
@@ -428,7 +429,7 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 			{
 				dtp = pax->rct.bottom - pax->rct.Height() * (p->buf[chunkID0] - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
 				pt.y = min(max((int)(dtp + .5), pax->rct.top), pax->rct.bottom);
-				out[count++] = pt;
+				out.push_back(pt);
 			}
 			else
 			{
@@ -437,13 +438,13 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 				if (*pr.first < pax->ylim[0]) *pr.first = pax->ylim[0];
 				dtp = pax->rct.bottom - pax->rct.Height() * (*pr.first - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
 				pt.y = min(max((int)(dtp + .5), pax->rct.top), pax->rct.bottom);
-				out[count++] = pt;
+				out.push_back(pt);
 				lastpty = pt.y;
 				if (*pr.second < pax->ylim[0]) *pr.second = pax->ylim[0];
 				dtp = pax->rct.bottom - pax->rct.Height() * (*pr.second - pax->ylim[0]) / (pax->ylim[1] - pax->ylim[0]);
 				pt.y = max((int)(dtp + .5), pax->rct.top);
 				if (pt.y != lastpty)
-					out[count++] = pt;
+					out.push_back(pt);
 			}
 			adder += remnant;
 			chunkID0 = chunkID1;
@@ -465,28 +466,16 @@ int CPlotDlg::makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *ly
 				CPoint pt0 = pt;
 				pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
 				if (pt0 != pt)
-					out[count++] = pt;
+					out.push_back(pt);
 			}
 		}
 		else
 		{
 			vector<POINT> tp = pax->CSignal2pixelPOINT(px, *p, idBegin, nSamples2Display);
-			for (size_t k = 0; k < tp.size(); k++)
-				out[k] = tp[k];
-			count = (int)tp.size();
-			//for (int k = idBegin; k < idBegin + nSamples2Display; k++)
-			//{
-			//	if (tseries)
-			//		pt = pax->double2pixelpt(p->tmark / 1000. + (double)k / fs, p->buf[k], NULL);
-			//	else if (lyne->xdata.nSamples > 0)
-			//		pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
-			//	else
-			//		pt = pax->double2pixelpt((double)k + 1, p->buf[k], NULL);
-			//	out[count++] = pt;
-			//}
+			return tp;
 		}
 	}
-	return count;
+	return out;
 }
 
 void CPlotDlg::OnPaint() 
@@ -524,63 +513,70 @@ void CPlotDlg::OnPaint()
 
 	size_t k = 0;
 	int temp = 0;
-	for (unique_lock<mutex> locker(mtx_OnPaint); k< gcf.ax.size(); temp++)
 	{
-		if (temp < 1)
-			sendtoEventLogger("(OnPaint) mtx_OnPaint locked: %d", locker.owns_lock());
-		sendtoEventLogger("(OnPaint) 0x%x ax %d", (INT_PTR)gcf.ax[k], k);
-		// drawing lines
-		if (!paxready)
-			pax = gcf.ax[k];
-		else
-			paxready=false;
-		if (!pax->visible) continue;
-		if (axis_expanding)
-			pax->pos.Set(clientRt, pax->rct); // do this again; what's this? 10/9/2019
-		pax->rct=DrawAxis(&dc, &ps, pax);
-		OnPaintMouseMovingWhileClicked(pax, &dc);
-		POINT *draw = NULL; // new POINT[1];
-		int nDraws = 0;
-		if (pax->m_ln.empty())
-		{ // to bypass axes without line object
-			k++;
-			continue;
-		}
-		else
+//		unique_lock<mutex> locker(mtx_OnPaint);
+//		sendtoEventLogger("(OnPaint) mtx_OnPaint locked: %d", locker.owns_lock());
+
+		for (; k < gcf.ax.size(); temp++)
 		{
+			sendtoEventLogger("(OnPaint) 0x%x ax %d", (INT_PTR)gcf.ax[k], k);
+			// drawing lines
+			if (!paxready)
+				pax = gcf.ax[k];
+			else
+				paxready = false;
+			if (!pax->visible) continue;
+			if (axis_expanding)
+				pax->pos.Set(clientRt, pax->rct); // do this again; what's this? 10/9/2019
+			pax->rct = DrawAxis(&dc, &ps, pax);
+			OnPaintMouseMovingWhileClicked(pax, &dc);
+			vector<POINT> drawvector;
+			POINT *draw = NULL; // new POINT[1];
+			int nDraws = 0;
+			if (pax->m_ln.empty())
+			{ // to bypass axes without line object
+				k++;
+				continue;
+			}
+			else
+			{
+				if (hDlg == hwnd_AudioCapture)
+				{
+					sendtoEventLogger("(OnPaint) mtx4PlotDlg locking");
+					unique_lock<mutex> locker(mtx4PlotDlg);
+					sendtoEventLogger("(OnPaint) mtx4PlotDlg locked");
+				}
+				for (auto lyne : pax->m_ln)
+				{
+					if (lyne->visible)
+						for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
+							drawvector = OnPaint_drawblock(pax, dc, &ps, lyne, p);
+				}
+			}
 			if (hDlg == hwnd_AudioCapture)
+				sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked");
+
+			if (curRange == NO_SELECTION || pax->hPar->type != GRAFFY_figure)
 			{
-				sendtoEventLogger("(OnPaint) mtx4PlotDlg locking");
-				unique_lock<mutex> locker(mtx4PlotDlg);
-				sendtoEventLogger("(OnPaint) mtx4PlotDlg locked");
+				// add ticks and ticklabels
+				dc.SetBkColor(gcf.color);
+				// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
+				// also when InvalidateRect(NULL) is called, always remake ticks
+				OnPaint_make_tics(dc, pax, drawvector);
 			}
-			for (auto lyne : pax->m_ln)
+			delete[] draw;
+			if (pax->hChild)
 			{
-				if (lyne->visible)
-					for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
-						nDraws = OnPaint_drawblock(pax, dc, &ps, lyne, p);
+				paxready = true;
+				pax = (CAxes*)pax->hChild;
+				rctHist.clear();
 			}
-		}
-		if (hDlg == hwnd_AudioCapture)
-			sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked");
-		// add ticks and ticklabels
-		dc.SetBkColor(gcf.color);
-		// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
-		// also when InvalidateRect(NULL) is called, always remake ticks
-		OnPaint_make_tics(dc, pax, draw, nDraws);
-		delete[] draw;
-		if (pax->hChild)
-		{
-			paxready = true;
-			pax = (CAxes*)pax->hChild;
-			rctHist.clear();
-		}
-		else
-			k++;
-		OnPaint_fill_sbinfo(gcf.ax.front());
-		if (temp<1)
-			sendtoEventLogger("(OnPaint) mtx_OnPaint unlocked.");
-	} // end of Drawing axes
+			else
+				k++;
+			OnPaint_fill_sbinfo(gcf.ax.front());
+		} // end of Drawing axes
+	}
+//	sendtoEventLogger("(OnPaint) mtx_OnPaint unlocked.");
 
 	  //Drawing texts
 	HFONT fontOriginal = (HFONT)dc.SelectObject(GetStockObject(SYSTEM_FONT));
@@ -631,6 +627,7 @@ void CPlotDlg::OnPaint()
 		str2vect(tp, title, ':');
 		dc.TextOut(pax->rct.left, pax->rct.top, tp[1].c_str());
 	}
+	sendtoEventLogger("(OnPaint) after mtx_OnPaint unlocked.");
 	EndPaint(hDlg, &ps);
 	// vector gcf.ax is pushed in AddAxis() called in showvar.cpp 
 	// find out why sometimes gcf.ax[k] is pointing something already deleted and causing a crash here. 8/216/2017 bjk
@@ -1514,19 +1511,24 @@ void CPlotDlg::OnMenu(UINT nID)
 		return;
 
 	case IDM_ZOOM_IN:
-		if (cax->xlim[1] - cax->xlim[0]<0.009) 
-			return; // no zoom for 5ms of less
+		// no zoom for 5ms of less for audio, _____ for non-audio
+		for (auto pax : gcf.ax)
+			if (pax->m_ln.front()->sig.GetType() == CSIG_VECTOR)
+			{
+				double percentShown = 1. - ((pax->xlim[0] - pax->xlimFull[0]) + (pax->xlimFull[1] - pax->xlim[1])) / (pax->xlimFull[1] - pax->xlimFull[0]);
+				if ((len = (int)(percentShown * pax->m_ln.front()->sig.nSamples + .5)) <= 3)
+					return; 
+			}
+			else
+			{
+				if (cax->xlim[1] - cax->xlim[0] < 0.009)
+					return; 
+			}
 	case IDM_ZOOM_OUT:
 		for (auto pax : gcf.ax)
 		{
 			if (nID == IDM_ZOOM_OUT && fabs(pax->xlim[1]-pax->xlimFull[1])<1.e-5 && fabs(pax->xlim[0]-pax->xlimFull[0])<1.e-5)
 				return; // no unzoom if full length
-			if (nID == IDM_ZOOM_IN && pax->m_ln.front()->sig.GetType()==CSIG_VECTOR)
-			{
-				double percentShown = 1. - ( (pax->xlim[0]-pax->xlimFull[0]) + (pax->xlimFull[1]-pax->xlim[1]) ) / (pax->xlimFull[1]-pax->xlimFull[0]);
-				if ((len = (int)(percentShown * pax->m_ln.front()->sig.nSamples+.5))<=3)
-					return; // no unzoom if full length
-			}
 			deltaxlim = pax->xlim[1]-pax->xlim[0];
 			if (nID == IDM_ZOOM_IN)
 				pax->xlim[0] += deltaxlim/4, 	pax->xlim[1] -= deltaxlim/4;

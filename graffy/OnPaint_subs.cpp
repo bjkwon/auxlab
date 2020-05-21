@@ -19,16 +19,16 @@ void CPlotDlg::OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc)
 	}
 }
 
-int CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pline, CTimeSeries* block)
+vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pline, CTimeSeries* block)
 {
 	// For tseq, if you want to streamline, you can bypass estimateDrawCounts assuming that individual nSample for the block is 1
 	// but it may require re-writing code blocks more than you desire... something to think about 5/20/2020
 
+	vector<POINT> drawvector;
 	CPoint pt;
 	CPen* pPenOld = NULL;
 	int nDraws = 0, estCount = 1;
 	CPen* ppen = NULL;
-	POINT* draw = NULL; // new POINT[1];
 	auto anSamples = block->nSamples;
 	auto atuck = block->nGroups;
 	auto atmark = block->tmark;
@@ -62,15 +62,9 @@ int CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pl
 		if (pline->lineWidth > 0 || pline->symbol != 0)
 		{
 			int tp = estimateDrawCounts(block, pax, pline, pps->rcPaint);
-			if (tp > estCount)
-			{
-				estCount = tp;
-				delete[] draw;
-				draw = new POINT[estCount + 1];
-			}
-			nDraws = makeDrawVector(draw, block, pax, pline, (CRect)pps->rcPaint);
-			if (pline->sig.nSamples == 1)
-				pline->initial = pline->final = draw[0];
+			drawvector = makeDrawVector(block, pax, pline, (CRect)pps->rcPaint);
+//			if (pline->sig.nSamples == 1) // //////////////////////// CHECK-----------------
+//				pline->initial = pline->final = draw[0];
 		}
 		if (pline->symbol != 0)
 		{
@@ -79,7 +73,7 @@ int CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pl
 			if (pline->lineWidth == 0)
 				pline->lineWidth = 1;
 			OnPaint_createpen_with_linestyle(pline, dc, &pPenOld);
-			DrawMarker(dc, pline, draw, nDraws);
+			DrawMarker(dc, pline, drawvector);
 			pline->lineStyle = org;
 		}
 		ppen = OnPaint_createpen_with_linestyle(pline, dc, &pPenOld);
@@ -89,16 +83,17 @@ int CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pl
 				if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
 				if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
 			}
-			if (nDraws > 0 && pline->lineStyle != LineStyle_noline)
-			{
-				int nOutOfAx = 0;
-				for (int k = nDraws - 1; k > 0; k--)
-				{
-					if (draw[k].x > pax->rct.right) nOutOfAx++;
-					else break;
-				}
-				dc.Polyline(draw, nDraws - nOutOfAx);
-			}
+			if (pline->lineStyle != LineStyle_noline)
+				dc.Polyline(drawvector.data(), drawvector.size());
+			//{
+			//	int nOutOfAx = 0;
+			//	for (int k = nDraws - 1; k > 0; k--)
+			//	{
+			//		if (draw[k].x > pax->rct.right) nOutOfAx++;
+			//		else break;
+			//	}
+			//	dc.Polyline(draw, nDraws - nOutOfAx);
+			//}
 			if (kolor.size() > 1)
 			{
 				colorIt++;
@@ -114,7 +109,7 @@ int CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pl
 			}
 		}
 	}
-	return nDraws;
+	return drawvector;
 }
 
 CPen * CPlotDlg::OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen)
@@ -151,7 +146,7 @@ CPen * CPlotDlg::OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pO
 	return newPen;
 }
 
-void CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, POINT * draw, int nDraws)
+void CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & draw)
 {
 	if (pax->m_ln.size() > 0)
 	{
@@ -164,14 +159,14 @@ void CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, POINT * draw, int nDraws)
 			}
 			else
 			{
-				if (nDraws > 2)
+				if (draw.size() > 2)
 					pax->setxticks();
 				else
 				{
-					for (int k = 0; k < nDraws; k++)
+					for (auto v : draw)
 					{
 						double x1, y1;
-						pax->GetCoordinate(&draw[k], x1, y1);
+						pax->GetCoordinate(&v, x1, y1);
 						pax->xtick.tics1.push_back((int)(x1 + .1));
 					}
 				}

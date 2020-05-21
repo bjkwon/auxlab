@@ -17,7 +17,7 @@
 #define C30DIV2 .433 // COS 30 degree div 2
 #define C30DIV22 .866 // COS 30 degree 
 
-void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
+void CPlotDlg::DrawMarker(CDC dc, CLine* mline, const vector<POINT> & draw)
 {
 	if (!mline) return;
 	int radius(mline->markersize);
@@ -33,6 +33,8 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 	if (mline->markerColor==-1) mline->markerColor = mline->color;
 	pen4marker->CreatePen(PS_SOLID, 1, mline->markerColor);
 	dc.SelectObject(pen4marker);
+	mline->rti = CRect(CPoint(draw.front().x - radius, draw.front().y - radius), CPoint(draw.front().x + radius, draw.front().y + radius));
+	mline->rtf = CRect(CPoint(draw.back().x - radius, draw.back().y - radius), CPoint(draw.back().x + radius, draw.back().y + radius));
 	switch (mline->symbol)
 	{
 	case 'o':
@@ -44,14 +46,10 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k = 0; k < nDraws; k++)
+		for (auto v : draw)
 		{
-			circleRt.SetRect(CPoint(draw[k]) + CPoint(-radius, -radius), CPoint(draw[k]) + CPoint(radius, radius));
+			circleRt.SetRect(CPoint(v) + CPoint(-radius, -radius), CPoint(v) + CPoint(radius, radius));
 			dc.Ellipse(circleRt);
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;
@@ -65,95 +63,75 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k=0; k<nDraws; k++)
+		for (auto v : draw)
 		{
-			mark[q++] = CPoint(draw[k].x - radius, draw[k].y - radius);
-			mark[q++] = CPoint(draw[k].x + radius, draw[k].y - radius);
-			mark[q++] = CPoint(draw[k].x + radius, draw[k].y + radius);
-			mark[q++] = CPoint(draw[k].x - radius, draw[k].y + radius);
-			mark[q++] = CPoint(draw[k].x - radius, draw[k].y - radius);
+			mark[q++] = CPoint(v.x - radius, v.y - radius);
+			mark[q++] = CPoint(v.x + radius, v.y - radius);
+			mark[q++] = CPoint(v.x + radius, v.y + radius);
+			mark[q++] = CPoint(v.x - radius, v.y + radius);
+			mark[q++] = CPoint(v.x - radius, v.y - radius);
 			res = dc.Polygon(mark, q);
 			q = 0;
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			else if (k == nDraws-1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;
 	case '.':
 		radius = 1;
-		for (auto k=0; k<nDraws; k++) 
+		for (auto v : draw) 
 		{
-			circleRt.SetRect(CPoint(draw[k])+CPoint(-1,-radius), CPoint(draw[k])+CPoint(radius,radius));
+			circleRt.SetRect(CPoint(v)+CPoint(-1,-radius), CPoint(v)+CPoint(radius,radius));
 			dc.Ellipse(circleRt);
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
 		}
 		break;	
 	case 'x':
-		for (auto k=0; k<nDraws; k++) 
+		for (auto v : draw) 
 		{
-			dc.MoveTo(CPoint(draw[k].x - radius, draw[k].y - radius));
-			dc.LineTo(CPoint(draw[k].x + radius, draw[k].y + radius));
-			dc.MoveTo(CPoint(draw[k].x - radius, draw[k].y + radius));
-			dc.LineTo(CPoint(draw[k].x + radius, draw[k].y - radius));
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
+			dc.MoveTo(CPoint(v.x - radius, v.y - radius));
+			dc.LineTo(CPoint(v.x + radius, v.y + radius));
+			dc.MoveTo(CPoint(v.x - radius, v.y + radius));
+			dc.LineTo(CPoint(v.x + radius, v.y - radius));
 		}
 		break;	
 	case '+':
-		for (auto k=0; k<nDraws; k++) 
+		for (auto v : draw) 
 		{
-			pt.x = draw[k].x - radius;
-			pt.y = draw[k].y;
+			pt.x = v.x - radius;
+			pt.y = v.y;
 			dc.MoveTo(pt);
 			pt.x += radius*2;
 			dc.LineTo(pt);
-			pt.x = draw[k].x; 
-			pt.y = draw[k].y - radius;
+			pt.x = v.x; 
+			pt.y = v.y - radius;
 			dc.MoveTo(pt);
 			pt.y += radius*2;
 			dc.LineTo(pt);
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
 		}
 		break;	
 	case '*':
-		for (auto k=0; k<nDraws; k++) 
+		for (auto v : draw) 
 		{
-			pt.x = draw[k].x - radius;
-			pt.y = draw[k].y;
+			pt.x = v.x - radius;
+			pt.y = v.y;
 			dc.MoveTo(pt);
 			pt.x += radius*2;
 			dc.LineTo(pt);
-			pt.x = draw[k].x; 
-			pt.y = draw[k].y - radius;
+			pt.x = v.x; 
+			pt.y = v.y - radius;
 			dc.MoveTo(pt);
 			pt.y += radius*2;
 			dc.LineTo(pt);
-			pt.x = draw[k].x - radius;
-			pt.y = draw[k].y - radius;
+			pt.x = v.x - radius;
+			pt.y = v.y - radius;
 			dc.MoveTo(pt);
-			pt.x = draw[k].x + radius;
-			pt.y = draw[k].y + radius;
+			pt.x = v.x + radius;
+			pt.y = v.y + radius;
 			dc.LineTo(pt);
-			pt.x = draw[k].x - radius;
-			pt.y = draw[k].y + radius;
+			pt.x = v.x - radius;
+			pt.y = v.y + radius;
 			dc.MoveTo(pt);
-			pt.x = draw[k].x + radius;
-			pt.y = draw[k].y - radius;
+			pt.x = v.x + radius;
+			pt.y = v.y - radius;
 			dc.LineTo(pt);
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
 		}
 		break;	
 	case 'd':
@@ -165,19 +143,15 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k=0; k<nDraws; k++)
+		for (auto v : draw)
 		{
-			mark[q++] = CPoint(draw[k].x, draw[k].y + radius);
-			mark[q++] = CPoint(draw[k].x + radius, draw[k].y);
-			mark[q++] = CPoint(draw[k].x, draw[k].y - radius);
-			mark[q++] = CPoint(draw[k].x - radius, draw[k].y);
-			mark[q++] = CPoint(draw[k].x, draw[k].y + radius);
+			mark[q++] = CPoint(v.x, v.y + radius);
+			mark[q++] = CPoint(v.x + radius, v.y);
+			mark[q++] = CPoint(v.x, v.y - radius);
+			mark[q++] = CPoint(v.x - radius, v.y);
+			mark[q++] = CPoint(v.x, v.y + radius);
 			res = dc.Polygon(mark, q);
 			q = 0;
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;
@@ -190,17 +164,13 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k=0; k<nDraws; k++)
+		for (auto v : draw)
 		{
-			mark[q++] = CPoint(draw[k].x, draw[k].y - (int)(C30DIV22*radius+.5));
-			mark[q++] = CPoint(draw[k].x - radius, draw[k].y + (int)(C30DIV2 * radius + .5));
-			mark[q++] = CPoint(draw[k].x + radius, draw[k].y + (int)(C30DIV2 * radius + .5));
+			mark[q++] = CPoint(v.x, v.y - (int)(C30DIV22*radius+.5));
+			mark[q++] = CPoint(v.x - radius, v.y + (int)(C30DIV2 * radius + .5));
+			mark[q++] = CPoint(v.x + radius, v.y + (int)(C30DIV2 * radius + .5));
 			res = dc.Polygon(mark, q);
 			q = 0;
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - (int)(C30DIV22*radius + .5)), CPoint(draw[k].x + radius, draw[k].y + (int)(C30DIV2 * radius + .5)));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - (int)(C30DIV22*radius + .5)), CPoint(draw[k].x + radius, draw[k].y + (int)(C30DIV2 * radius + .5)));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;
@@ -213,17 +183,13 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k = 0; k < nDraws; k++)
+		for (auto v : draw)
 		{
-			mark[q++] = CPoint(draw[k].x, draw[k].y + (int)(C30DIV22*radius + .5));
-			mark[q++] = CPoint(draw[k].x - radius, draw[k].y - (int)(C30DIV2 * radius + .5));
-			mark[q++] = CPoint(draw[k].x + radius, draw[k].y - (int)(C30DIV2 * radius + .5));
+			mark[q++] = CPoint(v.x, v.y + (int)(C30DIV22*radius + .5));
+			mark[q++] = CPoint(v.x - radius, v.y - (int)(C30DIV2 * radius + .5));
+			mark[q++] = CPoint(v.x + radius, v.y - (int)(C30DIV2 * radius + .5));
 			res = dc.Polygon(mark, q);
 			q = 0;
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - (int)(C30DIV22*radius + .5)), CPoint(draw[k].x + radius, draw[k].y + (int)(C30DIV2 * radius + .5)));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - (int)(C30DIV22*radius + .5)), CPoint(draw[k].x + radius, draw[k].y + (int)(C30DIV2 * radius + .5)));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;
@@ -236,17 +202,13 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k = 0; k < nDraws; k++)
+		for (auto v : draw)
 		{
-			mark[q++] = CPoint(draw[k].x + (int)(C30DIV22*radius + .5), draw[k].y);
-			mark[q++] = CPoint(draw[k].x - (int)(C30DIV2 * radius + .5), draw[k].y - radius);
-			mark[q++] = CPoint(draw[k].x - (int)(C30DIV2 * radius + .5), draw[k].y + radius);
+			mark[q++] = CPoint(v.x + (int)(C30DIV22*radius + .5), v.y);
+			mark[q++] = CPoint(v.x - (int)(C30DIV2 * radius + .5), v.y - radius);
+			mark[q++] = CPoint(v.x - (int)(C30DIV2 * radius + .5), v.y + radius);
 			res = dc.Polygon(mark, q);
 			q = 0;
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - (int)(C30DIV22*radius + .5), draw[k].y - radius), CPoint(draw[k].x + (int)(C30DIV22*radius + .5), draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - (int)(C30DIV22*radius + .5), draw[k].y - radius), CPoint(draw[k].x + (int)(C30DIV22*radius + .5), draw[k].y + radius));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;
@@ -259,17 +221,13 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k = 0; k < nDraws; k++)
+		for (auto v : draw)
 		{
-			mark[q++] = CPoint(draw[k].x - (int)(C30DIV22*radius + .5), draw[k].y);
-			mark[q++] = CPoint(draw[k].x + (int)(C30DIV2 * radius + .5), draw[k].y - radius);
-			mark[q++] = CPoint(draw[k].x + (int)(C30DIV2 * radius + .5), draw[k].y + radius);
+			mark[q++] = CPoint(v.x - (int)(C30DIV22*radius + .5), v.y);
+			mark[q++] = CPoint(v.x + (int)(C30DIV2 * radius + .5), v.y - radius);
+			mark[q++] = CPoint(v.x + (int)(C30DIV2 * radius + .5), v.y + radius);
 			res = dc.Polygon(mark, q);
 			q = 0;
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - (int)(C30DIV22*radius + .5), draw[k].y - radius), CPoint(draw[k].x + (int)(C30DIV22*radius + .5), draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - (int)(C30DIV22*radius + .5), draw[k].y - radius), CPoint(draw[k].x + (int)(C30DIV22*radius + .5), draw[k].y + radius));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;
@@ -285,20 +243,16 @@ void CPlotDlg::DrawMarker(CDC dc, CLine* mline, POINT * draw, int nDraws)
 		else
 			hBr = (HBRUSH)::GetStockObject(NULL_BRUSH);
 		hOrigBrush = ::SelectObject(dc.GetHDC(), hBr);
-		for (auto k=0; k<nDraws; k++) 
+		for (auto v : draw)
 		{
 			int m = 0;
 			for (; m<=5; m++)
 			{
-				pt.x = draw[k].x + ROUND(radius*sin(2*PI*angle*m/360));
-				pt.y = draw[k].y - ROUND(radius*cos(2*PI*angle*m/360));
+				pt.x = v.x + ROUND(radius*sin(2*PI*angle*m/360));
+				pt.y = v.y - ROUND(radius*cos(2*PI*angle*m/360));
 				mark[m] = pt;
 			}
 			res = dc.Polygon(mark, m);
-			if (k == 0)
-				mline->rti = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
-			if (k == nDraws - 1)
-				mline->rtf = CRect(CPoint(draw[k].x - radius, draw[k].y - radius), CPoint(draw[k].x + radius, draw[k].y + radius));
 		}
 		if (hOrigBrush) ::SelectObject(dc.GetHDC(), hOrigBrush);
 		break;

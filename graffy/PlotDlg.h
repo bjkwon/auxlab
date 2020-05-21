@@ -191,9 +191,9 @@ private:
 	RANGE_PX curRange;
 	vector<string> ttstat;
 	void OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc);
-	int OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT *pps, CLine* pline, CTimeSeries* block);
+	vector<POINT> OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT *pps, CLine* pline, CTimeSeries* block);
 	CPen * OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen);
-	void OnPaint_make_tics(CDC& dc, CAxes * pax, POINT * draw, int nDraws);
+	void OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv);
 	void OnPaint_fill_sbinfo(CAxes* pax);
 public:
 	CPlotDlg(HINSTANCE hInstance, CGobj *hPar = NULL);   // standard constructor
@@ -226,9 +226,9 @@ public:
 	BOOL OnNCActivate(UINT state);
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
-	int makeDrawVector(POINT *out, const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint);
+	vector<POINT> makeDrawVector(const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint);
 	int estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
-	void DrawMarker(CDC dc, CLine* mline, POINT *draw, int nDraws);
+	void DrawMarker(CDC dc, CLine* mline, const vector<POINT> & dv);
 	POINT GetIndDisplayed(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);
 	void dBRMS(SHOWSTATUS st = FULL); // currently not used. just leave it

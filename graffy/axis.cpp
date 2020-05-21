@@ -247,7 +247,7 @@ vector<POINT> CAxes::CSignal2pixelPOINT(CSignal* px, const CSignal& y, unsigned 
 { 
 	vector<POINT> out;
 	double yval;
-	for (unsigned int k = idBegin; k < nSamples2Display; k++)
+	for (unsigned int k = idBegin; k < idBegin + nSamples2Display; k++)
 	{
 		if (y.IsLogical())
 			yval = y.logbuf[k] ? 1.0 : 0;
@@ -647,10 +647,6 @@ vector<double> CAxes::gengrids(char xy, int *pnDv, int *pdigh)
 			if (step0Copy == step0) break;
 		}
 		out = makeseq(lim, grids.front(), step0);
-	}
-	if (xy == 'x')
-	{
-		sendtoEventLogger("out count=%d, xlim=[%.3f,%.3f]", out.size(), xlim[0], xlim[1]);
 	}
 	return out;
 }

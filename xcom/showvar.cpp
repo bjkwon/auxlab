@@ -477,7 +477,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 					xscope.at(res)->SetVar("?foc", pgcfNew);
 					if (!IsNamedPlot(pmsg->hwnd))
 						xscope.at(res)->SetVar("gcf", pgcfNew);
-					mShowDlg.Fillup();
+	//				mShowDlg.Fillup();
 				}
 			}
 		} 
@@ -507,10 +507,12 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 						On_F2(pmsg->hwnd, xscope.front());
 						// if ans is GO, during f2_channel_stereo_mono, ans may be altered and it crash during Fillup.
 						// Let's clear ans if it is GO here. 8/17/2019
-						CVar *pp = xscope.at(res)->GetVariable("ans");
-						if (pp && pp->IsGO())
-							xscope.at(res)->SetVar("ans", new CVar);
-						mShowDlg.Fillup();
+						//CVar *pp = xscope.at(res)->GetVariable("ans");
+						//if (pp && pp->IsGO())
+						//{
+						//	xscope.at(res)->SetVar("ans", new CVar);
+						//	mShowDlg.Fillup();
+						//}
 					}
 				}
 			}
@@ -626,8 +628,8 @@ BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	case WM_RBUTTONDOWN:
 	case WM_ACTIVATE:
 		SetForegroundWindow (hDlg);
-		if (cvDlg->changed) 
-			cvDlg->Fillup();
+		//if (cvDlg->changed) 
+		//	cvDlg->Fillup();
 		break;
 	chHANDLE_DLGMSG (hDlg, WM_INITDIALOG, cvDlg->OnInitDialog);
 	chHANDLE_DLGMSG (hDlg, WM_SIZE, cvDlg->OnSize);
@@ -891,8 +893,8 @@ void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 	//that way, environment context can be set properly (e.g., main or inside CallSub)
 	//4/24/2017 bjkwon
 	//2/1/2019 don't understand the comment
-	if (strncmp(varname, "Figure ", 7))
-		Fillup();
+//	if (strncmp(varname, "Figure ", 7))
+//		Fillup();
 	HHOOK hh = SetWindowsHookEx (WH_GETMESSAGE, HookProc, NULL, pin->threadPlot);
 	HHOOK hh2 = SetWindowsHookEx (WH_KEYBOARD, HookProc2, NULL, pin->threadPlot);
 //	plotDlgThread.insert(pair<string, DWORD>(varname, pin->threadPlot));
@@ -1495,8 +1497,8 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	CWndDlg * arrayview;
 	CVar sigVarname;
 	CVar *psig(NULL);
-	if (changed) 
-		Fillup(); 
+//	if (changed) 
+//		Fillup(); 
 	int type(0);
 	HWND hWndPlot = NULL;
 	bool multiGO(false);
@@ -1657,7 +1659,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 			if (pVars->find(pvarname) == pVars->end() && strcmp(varname,"gcf"))
 			{
 				ClearVar(pvarname);
-				Fillup(); // why is this needed? 11/23/2018. probably it is 8/15/2019
+//				Fillup(); // why is this needed? 11/23/2018. probably it is 8/15/2019
 				break;
 			}
 			if (strcmp(varname, "gcf"))
@@ -1740,7 +1742,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 						title += pcast->u.title.c_str();
 					plotvar(psig, title, varname);
 				}
-				Fillup();
+//				Fillup();
 				break;
 			}
 		}
@@ -2613,6 +2615,7 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 
 void CShowvarDlg::Fillup(map<string, CVar> *Vars, CSignals *psig)
 {
+	sendtoEventLogger("Fillup 0");
 	SendDlgItemMessage(IDC_LIST1,LVM_DELETEALLITEMS,0,0);
 	SendDlgItemMessage(IDC_LIST2,LVM_DELETEALLITEMS,0,0);
 	changed=false;
@@ -2623,6 +2626,7 @@ void CShowvarDlg::Fillup(map<string, CVar> *Vars, CSignals *psig)
 		for (auto it = pGOvars->begin(); it != pGOvars->end(); it++)
 			fillrowvar(it->second, it->first); // 
 	AdjustWidths(1); // redraw if this is not the base
+	sendtoEventLogger("Fillup 1");
 }
 
 void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)

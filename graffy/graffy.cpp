@@ -1022,28 +1022,28 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	{
 		for (auto fig = h.begin(); fig != h.end(); fig++)
 		{
-			CFigure * tp = (CFigure *)*fig;
-			CVar *pp = (CVar*)tp;
+			CVar *pvar = (CVar*)*fig;
 			if (IsEventLoggerReady())
 			{
-				if (pp->GetFs() == 2)
-					sprintf(buf, "(RepaintGO) %s ", pp->string().c_str());
-				else if (pp->nSamples > 0)
-					sprintf(buf, "(RepaintGO) Figure %d ", (int)pp->value());
+				if (pvar->GetFs() == 2)
+					sprintf(buf, "(RepaintGO) %s ", pvar->string().c_str());
+				else if (pvar->nSamples > 0)
+					sprintf(buf, "(RepaintGO) Figure %d ", (int)pvar->value());
 				else
 					sprintf(buf, "(RepaintGO) Figure (empty)");
 			}
-			if ( tp->visible == -1 && tp->m_dlg->hDlg)
+			CFigure * pfig = (CFigure *)*fig;
+			if (pfig->visible == -1 && pfig->m_dlg->hDlg)
 			{
-				tp->visible = 1;
-				tp->strut["visible"].SetValue(1.);
+				pfig->visible = 1;
+				pfig->strut["visible"].SetValue(1.);
 				// Don't just assume that tp->m_dlg->hDlg is available. 
 				// It is possible  tp->m_dlg was initiated but tp->m_dlg->hDlg is not ready yet.
 				// that's why tp->m_dlg->hDlg is checked in the if statement above
 				// 8/22/2019
-				tp->m_dlg->ShowWindow(SW_SHOW);
+				pfig->m_dlg->ShowWindow(SW_SHOW);
 				// ShowWindow(SW_SHOW) evokes WM_PAINT, so invalidateRedrawCue() shouldn't include this hDlg
-				eraseRedrawCue(tp->m_dlg->hDlg);
+				eraseRedrawCue(pfig->m_dlg->hDlg);
 				if (IsEventLoggerReady())
 				{
 					strcpy(buf2, "... made visible");
