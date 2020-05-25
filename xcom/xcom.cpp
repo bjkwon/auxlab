@@ -1,14 +1,14 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: auxlab
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.499
-// Date: 3/11/2019
+// Version: 1.7
+// Date: 5/24/2020
 // 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <windows.h>
@@ -65,7 +65,6 @@ void* soundplayPt;
 double block;
 int playbytes; // Audio playback wave format 1, 2 or 3 for 8, 16, or 24 bits
 int recordbytes; // Audio record wave format 1, 2 or 3 for 8, 16, or 24 bits
-
 
 vector<string> aux_reserves;
 void init_aux_reserves()
@@ -209,7 +208,6 @@ static int readINIs(const char *fname, char *estr_dummy, int &fs, char *path)
 	return 1;
 }
 
-
 static int writeINIs(const char *fname, char *estr, int fs, const char *path)
 {
 	char errStr[256];
@@ -327,9 +325,8 @@ unsigned int WINAPI histThread (PVOID var)
 	wc.cbWndExtra = DLGWINDOWEXTRA;
 	ATOM res6 = RegisterClass(&wc);
 
-	HWND hhh = GetConsoleWindow();
 	mHistDlg.hDlg = CreateDialog (NULL, MAKEINTRESOURCE(IDD_HISTORY), GetConsoleWindow(), (DLGPROC)historyDlgProc);
-//	if (mHistDlg.hDlg==NULL) {MessageBox(NULL, "History Dlgbox creation failed.","AUXLAB",0); return 0;}
+	if (mHistDlg.hDlg==NULL) {MessageBox(NULL, "History Dlgbox creation failed.","AUXLAB",0); return 0;}
 
 	ShowWindow(mHistDlg.hDlg, SW_SHOW);
 	char buf[256];
@@ -445,11 +442,6 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	HACCEL hAcc = LoadAccelerators (hModule, MAKEINTRESOURCE(IDR_XCOM_ACCEL));
 	while (GetMessage (&msg, NULL, 0, 0))
 	{
-		//if (msg.message == WM_LBUTTONDOWN)
-		//{
-		//	if (mShowDlg.MouseClick2StopRecording(msg.hwnd))
-		//		continue;
-		//}
 		if (msg.message==WM__ENDTHREAD) 
 			_endthreadex(33);
 		if (!TranslateAccelerator(mShowDlg.hDlg, hAcc, &msg))
@@ -659,7 +651,6 @@ void xcom::checkdebugkey(INPUT_RECORD *in, int len)
 	}
 }
 
-
 void xcom::console()
 {
 	char buf[4096] = {};
@@ -706,8 +697,6 @@ void printf_vector(CVar *pvar, unsigned int id0, int offset, const char *postscr
 	cout << postscript << endl;
 }
 
-//void printf_single(CVar *pvar, bool hex = false);
-
 void printf_single(CVar *pvar)
 {
 	if (pvar->IsComplex())
@@ -716,13 +705,7 @@ void printf_single(CVar *pvar)
 		cout << pvar->logbuf[0];
 	else
 	{
-		//if (hex)
-		//{
-		//	int ival = (int)pvar->value();
-		//	cout << ival;
-		//}
-		//else
-			cout << pvar->valuestr();
+		cout << pvar->valuestr();
 	}
 }
 
@@ -1337,14 +1320,12 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	}
 	else if (HookName=="clear")
 	{
-		string savesuccess("");
-		nItems = str2vect(tar, argstr, " ");
-		int success(0);
-		if (nItems>0) savesuccess = "Variable(s) cleared: ";
-		for (; k<nItems; k++)
-			if (ast->ClearVar(tar[k].c_str()))
-				success++, sprintf(buf, "%s ", tar[k].c_str()), savesuccess+= buf;
-		if (success) printf("%s\n", savesuccess.c_str()), mShowDlg.Fillup(&ast->Vars);
+		vector<string> res = ast->ClearVar(argstr);
+		string savesuccess("Variable(s) cleared: ");
+		for (auto str : res)
+			savesuccess += str + " ";
+		printf("%s\n", savesuccess.c_str());
+		mShowDlg.Fillup(&ast->Vars);
 	}
 	else
 	{
@@ -1594,7 +1575,6 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 				}
 			}
 		}
-		//		mShowDlg.pcast = pcast;
 		mShowDlg.pVars = &pcast->Vars;
 		mShowDlg.pGOvars = &pcast->GOvars;
 		mShowDlg.Fillup();

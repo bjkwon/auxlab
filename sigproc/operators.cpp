@@ -1,3 +1,15 @@
+// AUXLAB 
+//
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
+// Licensed under the Academic Free License version 3.0
+//
+// Project: sigproc
+// Signal Generation and Processing Library
+// Platform-independent (hopefully) 
+// 
+// Version: 1.7
+// Date: 5/24/2020
+
 #include "sigplus_internal.h"
 #include <algorithm>
 
@@ -199,7 +211,7 @@ bool CSignals::operate(const CSignals& sec, char op)
 	}
 	else if (sec.next)
 	{
-		next = new CTimeSeries(fs);
+		next = new CSignals(fs);
 		next->UpdateBuffer(1);
 		next->buf[0] = 1.;
 		next->operate(*sec.next, op);

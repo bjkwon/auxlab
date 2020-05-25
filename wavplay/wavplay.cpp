@@ -1,14 +1,14 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: wavplay
 // Library to play audio signals 
 // For Windows only
 // 
-// Version: 1.499
-// Date: 12/23/2018
+// Version: 1.7
+// Date: 5/24/2020
 // 
 
 #include "wavplay.h"

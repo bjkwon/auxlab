@@ -1,15 +1,15 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.503
-// Date: 6/4/2019
-// 
+// Version: 1.7
+// Date: 5/24/2020
+
 #pragma once
 
 #ifndef SIGPROC
@@ -385,7 +385,7 @@ public:
 
 	int isthislocaludf(void);
 
-	int ClearVar(const char *var, CVar *psigBase=NULL);
+	vector<string> ClearVar(const char *var, CVar *psigBase=NULL);
 	void EnumVar(vector<string> &var);
 	CVar *GetSig(const char *var);
 

@@ -1,15 +1,13 @@
-// AUXLAB 
+/// AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
 // 
-// 
-// Version: 1.4951
-// Date: 12/14/2018
-// Change from 1.495: WndDlg0.h dropped 
+// Version: 1.7
+// Date: 5/24/2020
 
 #include "graffy.h"	
 #include "resource.h"	
@@ -193,8 +191,9 @@ private:
 	void OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc);
 	vector<POINT> OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT *pps, CLine* pline, CTimeSeries* block);
 	CPen * OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen);
-	void OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv);
+	vector<double> OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv);
 	void OnPaint_fill_sbinfo(CAxes* pax);
+	double xlim[2];
 public:
 	CPlotDlg(HINSTANCE hInstance, CGobj *hPar = NULL);   // standard constructor
 	~CPlotDlg();

@@ -1,15 +1,15 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: auxlab
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.699
-// Date: 10/12/2019
-
+// Version: 1.7
+// Date: 5/24/2020
+// 
 
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <process.h>
@@ -395,7 +395,7 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	// otherwise
 
 	CTimeSeries *pChan = psig;
-	CTimeSeries *pChan2 = psig->next;
+	CSignals *pChan2 = psig->next;
 	if (pChan2) psig->next = NULL;
 	double  lowestTmark = 1.e100;
 	vector<CTimeSeries *> input;
@@ -2219,7 +2219,7 @@ void CShowvarDlg::OnSoundEvent1(CVar *pvar, int code)
 		if (!nPlaybackCount)	EnableDlgItem(hDlg, IDC_STOP, 0);
 		for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 		{
-			if ((*it).second == pvar->value())
+			if (pvar->nSamples > 0 && (*it).second.IsAudioObj() && (*it).second.value() == pvar->value())
 			{
 				(*it).second.strut["type"].SetString((pvar->strut["type"].string() + " (inactive)").c_str());
 				UpdateProp((*it).first, &(*it).second, "type");
@@ -2238,7 +2238,7 @@ void CShowvarDlg::OnSoundEvent1(CVar *pvar, int code)
 		if (pvar) // for ctseries, pvar is not done yet
 			for (map<string, CVar>::iterator it = pVars->begin(); it != pVars->end(); it++)
 			{
-				if (pvar->nSamples > 0 && (*it).second == pvar->value())
+				if (pvar->nSamples > 0 && (*it).second.IsAudioObj() && (*it).second.value() == pvar->value())
 				{
 					(*it).second.strut["durLeft"].buf[0] = pvar->strut["durLeft"].value();
 					(*it).second.strut["durPlayed"].buf[0] = pvar->strut["durPlayed"].value();

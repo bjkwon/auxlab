@@ -1,15 +1,14 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2019Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.504
-// Date: 7/5/2019
-// 
+// Version: 1.7
+// Date: 5/24/2020
 
 /* Note on multiple axes situation,
 Check everything with gcf.ax.front() and verify that's what I meant.
@@ -30,8 +29,6 @@ if tics1 is not empty, OnPaint will not set tics1.
 #include <thread>
 
 #include "wavplay.h"
-
-
 
 extern HWND hPlotDlgCurrent;
 extern HWND hwnd_AudioCapture;
@@ -109,6 +106,8 @@ CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
 	ttstat.push_back("dBRMS");
 	sbinfo.initialshow = false;
 	sbinfo.xSelBegin = sbinfo.xSelEnd = 0.;
+	xlim[0] = std::numeric_limits<double>::infinity();
+	xlim[1] = -std::numeric_limits<double>::infinity();
 }
 
 CPlotDlg::~CPlotDlg()
@@ -500,6 +499,7 @@ void CPlotDlg::OnPaint()
 	CRect rt;
 	GetClientRect(hDlg, &rt);
 	bool paxready(false);
+	bool firstdrawing = false;
 	//Drawing axes
 //	for (vector<CAxes*>::iterator itax = gcf.ax.begin(); itax != gcf.ax.end(); )
 // Why shouldn't an iterator be used in the for loop?
@@ -509,8 +509,9 @@ void CPlotDlg::OnPaint()
 	// Is dB RMS displayed?
 	::SendMessage(sbar->hStatusbar, SB_GETTEXT, 0, (LPARAM)buf);
 	if (strlen(buf) == 0)
-		SetTimer(FIRST_DISPLAY_STATUSBAR, 200);
+		firstdrawing = true, SetTimer(FIRST_DISPLAY_STATUSBAR, 200);
 
+	// if strlen(buf) is zero, it means the first time drawing; set up xlim with Full range of all lynes
 	size_t k = 0;
 	int temp = 0;
 	{
@@ -562,7 +563,12 @@ void CPlotDlg::OnPaint()
 				dc.SetBkColor(gcf.color);
 				// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
 				// also when InvalidateRect(NULL) is called, always remake ticks
-				OnPaint_make_tics(dc, pax, drawvector);
+				vector<double> _xlim = OnPaint_make_tics(dc, pax, drawvector);
+				if (firstdrawing)
+				{
+					xlim[0] = min(xlim[0], _xlim.front());
+					xlim[1] = max(xlim[1], _xlim.back());
+				}
 			}
 			delete[] draw;
 			if (pax->hChild)
@@ -1217,7 +1223,7 @@ void CSBAR::dBRMS(SHOWSTATUS st)
 		strcat(buf, buf0);
 		if (res.next)
 		{
-			sprintf(buf0, "| %.1f ", res.next->value());
+			sprintf(buf0, " %.1f ", res.next->value());
 			strcat(buf, buf0);
 		}
 	}
@@ -1380,7 +1386,7 @@ int CPlotDlg::IsSpectrumAxis(CAxes* pax)
 { // return true when xtick.tics1 is empty or its full x axis right edge.px1 is half the sample rate of the front signal
 	if (pax == gcf.ax.front())	return 0;
 	int fs = gcf.ax.front()->m_ln.front()->sig.GetFs();
-	if ( abs((int)(pax->xlimFull[1] - fs/2)) <= 2 ) return 1;
+	if ( abs((int)(xlim[1] - fs/2)) <= 2 ) return 1;
 	else return 0;
 }
 
@@ -1458,7 +1464,6 @@ void CPlotDlg::OnMenu(UINT nID)
 	int k(0), deltapixel;
 	vector<CLine*> swappy;
 	double shift, newlimit1,  newlimit2, deltaxlim, dval, _block;
-	double xlim[2];
 	INT_PTR res;
 
 	errstr[0]=0;
@@ -1486,16 +1491,9 @@ void CPlotDlg::OnMenu(UINT nID)
 
 	case IDM_FULLVIEW:
 		zoom=0;
-		xlim[0] = 1.e100; xlim[1] = -1.e100;
-		for (auto pax : gcf.ax)
-		{
-			xlim[0] = min(xlim[0], pax->xlimFull[0]);
-			xlim[1] = max(xlim[1], pax->xlimFull[1]);
-		}
 		for (auto pax : gcf.ax)
 		{
 			memcpy(pax->xlim, xlim, sizeof(double) * 2);
-			memcpy(pax->xlimFull, xlim, sizeof(double)*2);
 			pax->xtick.tics1.clear(); pax->xtick.automatic = true;
 			pax->ytick.tics1.clear(); pax->ytick.automatic = true;
 			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
@@ -1515,7 +1513,7 @@ void CPlotDlg::OnMenu(UINT nID)
 		for (auto pax : gcf.ax)
 			if (pax->m_ln.front()->sig.GetType() == CSIG_VECTOR)
 			{
-				double percentShown = 1. - ((pax->xlim[0] - pax->xlimFull[0]) + (pax->xlimFull[1] - pax->xlim[1])) / (pax->xlimFull[1] - pax->xlimFull[0]);
+				double percentShown = 1. - ((pax->xlim[0] - xlim[0]) + (xlim[1] - pax->xlim[1])) / (xlim[1] - xlim[0]);
 				if ((len = (int)(percentShown * pax->m_ln.front()->sig.nSamples + .5)) <= 3)
 					return; 
 			}
@@ -1527,7 +1525,7 @@ void CPlotDlg::OnMenu(UINT nID)
 	case IDM_ZOOM_OUT:
 		for (auto pax : gcf.ax)
 		{
-			if (nID == IDM_ZOOM_OUT && fabs(pax->xlim[1]-pax->xlimFull[1])<1.e-5 && fabs(pax->xlim[0]-pax->xlimFull[0])<1.e-5)
+			if (nID == IDM_ZOOM_OUT && fabs(pax->xlim[1]-xlim[1])<1.e-5 && fabs(pax->xlim[0]-xlim[0])<1.e-5)
 				return; // no unzoom if full length
 			deltaxlim = pax->xlim[1]-pax->xlim[0];
 			if (nID == IDM_ZOOM_IN)
@@ -1535,9 +1533,9 @@ void CPlotDlg::OnMenu(UINT nID)
 			else
 			{
 				pax->xlim[0] -= deltaxlim/2;
-				pax->xlim[0] = MAX(pax->xlimFull[0], pax->xlim[0]);
+				pax->xlim[0] = MAX(xlim[0], pax->xlim[0]);
 				pax->xlim[1] += deltaxlim/2;
-				pax->xlim[1] = MIN(pax->xlim[1], pax->xlimFull[1]);
+				pax->xlim[1] = MIN(xlim[1], pax->xlim[1]);
 			}
 			if (!pax->m_ln.size()) break;
 			pax->xtick.tics1.clear(); pax->xtick.automatic = true;
@@ -1560,11 +1558,11 @@ void CPlotDlg::OnMenu(UINT nID)
 		{
 			shift = (pax->xlim[1]-pax->xlim[0]) / 4;
 			newlimit1 = pax->xlim[0] + shift*iMul; // only effective for IDM_LEFT_STEP
-			if (newlimit1<pax->xlimFull[0]) 
-				shift = pax->xlim[0] - pax->xlimFull[0];
+			if (newlimit1<xlim[0]) 
+				shift = pax->xlim[0] - xlim[0];
 			newlimit2 = pax->xlim[1] + shift*iMul; // only effective for IDM_RIGHT_STEP
-			if (newlimit2>pax->xlimFull[1]) 
-				shift = fabs(pax->xlim[1] - pax->xlimFull[1]);
+			if (newlimit2>xlim[1]) 
+				shift = fabs(pax->xlim[1] - xlim[1]);
 			if (shift<0.001) return;
 			if (pax->xtick.tics1.size() == 1)
 			{ // if there's only one tick, make sure it has at least two, so that step valid in line+25
@@ -1586,8 +1584,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			pax->xlim[0] += shift*iMul;
 			pax->xlim[1] += shift*iMul;
 			// further adjusting lim[0] to xlimFull[0] (i.e., 0 for audio signals) is necessary to avoid in gengrids when re-generating xticks
-			if ((pax->xlim[0]-pax->xlimFull[0])<1.e-6) 	pax->xlim[0] = pax->xlimFull[0];
-			if ((pax->xlimFull[1]-pax->xlim[1])<1.e-6) 	pax->xlim[1] = pax->xlimFull[1]; // this one may not be necessary.
+			if ((pax->xlim[0]-xlim[0])<1.e-6) 	pax->xlim[0] = xlim[0];
+			if ((xlim[1]-pax->xlim[1])<1.e-6) 	pax->xlim[1] = xlim[1]; // this one may not be necessary.
 			//Assuming that the range is determined by the first line
 			vector<double>::iterator it = pax->xtick.tics1.begin();
 			double p, step = *(it + 1) - *it;
@@ -1761,31 +1759,29 @@ void CPlotDlg::OnMenu(UINT nID)
 
 void CPlotDlg::GetGhost(CSignals &out, CAxes* pax)
 { 
-	// If there's one registered axes, take the first two for stere (one for mono)
+	// If there's one registered axes, take the first two for stereo (one for mono)
 	// If there are two or more registered axes, take one lyne from each of the first two axes 
 	//     (if there's no lyne in an axes, make an empty (or null) signal for that channel)
 	// Therefore, two (or more) axes --> stereo output
 	//            one axes --> mono (if there's one lyne); stereo (if there are multiple lyne's)
 	// 9/17/2019
-	vector<CAxes*> aa;
+	vector<CAxes*> axes;
 	if (!pax)
-		aa = sbar->ax;
+		axes = sbar->ax;
 	else
-		aa.push_back(sbar->ax.front());
-	int count = min((int)aa.size(), 2);
-	if (count == 1)
-	{
-		for (auto lyne : aa.front()->m_ln)
-		{
-			CTimeSeries *p = &lyne->sig;
+		axes.push_back(sbar->ax.front());
+	int count = 0; // min((int)axes.size(), 2);
+	for (auto _ax : axes)
+		for (auto lyne : _ax->m_ln)
 			if (lyne->sig.GetType() == CSIG_AUDIO)
 				count++;
-		}
-	}
+	count = min(2, count);
 	double t1, t2; // t1, t2 is x limit, either screen limit or selection range
 	int _count = 0;
 	CSignals *q = &out;
-	for (auto _ax : aa)
+	if (count > 1 && !out.next)
+		out.SetNextChan(new CSignals); 
+	for (auto _ax : axes)
 	{
 		if (curRange == NO_SELECTION)
 		{
@@ -1800,12 +1796,13 @@ void CPlotDlg::GetGhost(CSignals &out, CAxes* pax)
 		for (auto lyne : _ax->m_ln)
 		{
 			CTimeSeries *p = &lyne->sig;
-			if (count > 1 && _count == 1)
-			{
-				q->next = new CTimeSeries;
-				q = (CSignals*) q->next;
-				q->next = NULL;
-			}
+			if (p->GetType() != CSIG_AUDIO) continue;
+			//if (count > 1 && _count == 1)
+			//{
+			//	q->next = new CTimeSeries;
+			//	q = (CSignals*) q->next;
+			//	q->next = NULL;
+			//}
 			//don't use the <= operator here, because p is not CSignals *
 			*q = ((CTimeSeries*)q)->GhostCopy(p);
 			if (lyne == _ax->m_ln.front())
@@ -1815,13 +1812,16 @@ void CPlotDlg::GetGhost(CSignals &out, CAxes* pax)
 				_count++;
 				continue;
 			}
-			if (lyne->sig.GetType() != CSIG_AUDIO) continue;
 			for (CTimeSeries *pp = p; pp; pp = pp->chain)
 				pp->ghost = true;
-			q->Crop(t1, t2);
+			((CTimeSeries*)q)->Crop(t1, t2);
 			for (CTimeSeries *pp = p; pp; pp = pp->chain)
 				pp->ghost = false;
-			if (++_count == 2) return;
+			if (++_count == count) return;
+			// By this line, the first channel has been taken care of. 
+			q = (CSignals*)q->next;
+			// q->next is CTimeSeries, not CSignals; therefore, q->next is currently junk. Make it NULL
+		//	q->next = NULL;
 		}
 	}
 }
@@ -1925,7 +1925,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 			freq[k] = dfs / len2 * k;
 		plan = fftw_plan_r2r_1d(len2, _sig.next->buf, fft, FFTW_R2HC, FFTW_ESTIMATE);
 		fftw_execute(plan);
-		mag.next = new CTimeSeries; // this will be deleted during the cleanup of mag... really?
+		mag.next = new CSignals; // this will be deleted during the cleanup of mag... really?
 		getFFTdata(mag.next, fft, len2);
 	}
 	PlotCSignals(pax, freq, &mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style

@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.6
-// Date: 7/6/2019
+// Version: 1.7
+// Date: 5/17/2020
 // 
 #include <math.h>
 #include <stdlib.h>
@@ -1123,7 +1123,7 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 					if (pt) *pt = 0;
 					tp.strut["path"] = string(fullname);
 				}
-				tp.strut["bytes"] = CVar((double)((unsigned __int64)(ls.nFileSizeHigh * (MAXDWORD + 1)) + ls.nFileSizeLow));
+				tp.strut["bytes"] = CVar((double)(ls.nFileSizeHigh * ((uint64_t)MAXDWORD + 1) + ls.nFileSizeLow));
 				FILETIME ft = ls.ftLastWriteTime;
 				SYSTEMTIME lt;
 				FileTimeToSystemTime(&ft, &lt);
@@ -1392,7 +1392,7 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 		past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
 		CVar *newpointer = new CVar(sig.GetFs());
-		CSignals finalcondition(coeffs.back().data(), coeffs.back().size()); // final condnition is stored at the last position
+		CSignals finalcondition(coeffs.back().data(), (int)coeffs.back().size()); // final condnition is stored at the last position
 		*newpointer = finalcondition;
 		unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
 		past->Sigs.push_back(move(pt));

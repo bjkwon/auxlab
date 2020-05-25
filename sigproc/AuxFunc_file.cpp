@@ -1,3 +1,15 @@
+// AUXLAB 
+//
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
+// Licensed under the Academic Free License version 3.0
+//
+// Project: sigproc
+// Signal Generation and Processing Library
+// Platform-independent (hopefully) 
+// 
+// Version: 1.7
+// Date: 5/24/2020
+
 #include <string.h> // aux_file
 #include "sigproc.h"
 #include "sigproc_internal.h"
@@ -473,11 +485,18 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			int len, ffs, nChans;
 			read_mp3_header(fullpath.c_str(), &len, &nChans, &ffs, errStr);
 			past->Sig.SetFs(ffs);
+			if (len < 0) len = 0xffffffff;
 			past->Sig.UpdateBuffer(len);
 			if (nChans > 1)
-				past->Sig.SetNextChan((CTimeSeries *)&past->Sig);
-			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
+			{
+				past->Sig.SetNextChan(new CSignals(ffs));
+				past->Sig.next->UpdateBuffer(len);
+			}
+			int res = read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr);
+			if (!res)
 				throw CAstInvalidFuncSyntax(*past, p, fnsigs, errStr);
+			past->Sig.nSamples = res;
+			if (nChans > 1) past->Sig.next->nSamples = res;
 		}
 		else if (string(_strlwr(ext)) == ".aiff")
 		{
@@ -486,7 +505,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			past->Sig.SetFs(ffs);
 			past->Sig.UpdateBuffer(len);
 			if (nChans > 1)
-				past->Sig.SetNextChan((CTimeSeries *)&past->Sig);
+				past->Sig.SetNextChan(&past->Sig);
 			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
 				throw CAstInvalidFuncSyntax(*past, p, fnsigs, errStr);
 		}

@@ -1,8 +1,3 @@
-/*
-Chaging return type of CAstSig::TID from CVar & to CVar *
-
-*/
-
 // AUXLAB 
 //
 // Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
@@ -12,8 +7,8 @@ Chaging return type of CAstSig::TID from CVar & to CVar *
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.5
-// Date: 3/30/2019
+// Version: 1.7
+// Date: 5/24/2020
 // 
 #include <sstream>
 #include <list>
@@ -1377,7 +1372,7 @@ CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 		throw CAstExceptionInvalidUsage(*this, pnode, "Target_RMS_dB after @ must be a real value.");
 	if (dB.nSamples > 1 && !dB.next)
 	{
-		dB.SetNextChan(new CTimeSeries(dB.buf[1]));
+		dB.SetNextChan(new CSignals(dB.buf[1]));
 		refRMS = refRMS + dB.operator-();
 	}
 	else
@@ -1516,16 +1511,20 @@ string CAstSig::adjustfs(int newfs)
 		CSignals ratio(1);
 		if (it.second.GetType() == CSIG_AUDIO)
 		{
-			CSignals level = it.second.RMS();
-			ratio.SetValue(it.second.GetFs() / (double)newfs);
+			CSignals gcopy, level1, level2;
+			gcopy <= it.second;
+			level1 = gcopy.RMS();
+			ratio.SetValue( (double) pEnv->Fs / newfs);
 			it.second.runFct2modify(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
 			{
-				sformat(out, "Error while resampling the variable %s\n[from libsamplerate]%s", it.first.c_str());
+				sformat(out, "Error while resampling the variable %s\n[from libsamplerate]%s", it.first.c_str(), ratio.string().c_str());
 				return out;
 			}
 			it.second.SetFs(newfs);
-			it.second *= CSignals(it.second.RMS().value() / level.value());
+			gcopy <= it.second;
+			level2 = gcopy.RMS();
+			it.second *= CSignals(level2.value() / level1.value());
 		}
 	}
 	pEnv->Fs = newfs; //Sample rate adjusted
@@ -1590,7 +1589,7 @@ CVar * CAstSig::NodeMatrix(const AstNode *pnode)
 	{
 		if (!p->next) // must be audio > 0
 		{
-			CTimeSeries *nullnext = new CTimeSeries(tsig.GetFs());
+			CSignals *nullnext = new CSignals(tsig.GetFs());
 			tsig.SetNextChan(nullnext);
 		}
 		else
@@ -3284,52 +3283,78 @@ CAstSigEnv::~CAstSigEnv()
 		}
 }
 
-int CAstSig::ClearVar(const char *var, CVar *psigBase)
+vector<string> CAstSig::ClearVar(const char *var, CVar *psigBase)
 {
+	vector<string> out;
+	vector<string> vars;
+	str2vect(vars, var, " ");
 	if (!psigBase)
 	{
 		if (var[0] == 0) // clear all
 		{
+			for (auto it = Vars.begin(); it != Vars.end(); it++)
+				out.push_back((*it).first);
 			Vars.erase(Vars.begin(), Vars.end());
+			for (auto it = GOvars.begin(); it != GOvars.end(); it++)
+				out.push_back((*it).first);
 			GOvars.erase(GOvars.begin(), GOvars.end());
-			return 1;
 		}
 		else
 		{
-			vector<string> vars;
-			size_t res = str2vect(vars, var, " ");
-			for (size_t k = 0; k < res; k++)
+			for (auto v : vars)
 			{
-				map<string, CVar>::iterator it1 = Vars.find(vars[(int)k]);
-				if (it1 != Vars.end())
-					Vars.erase(it1);
+				auto it = Vars.find(v);
+				if (it != Vars.end())
+				{
+					out.push_back((*it).first);
+					Vars.erase(it);
+				}
 				else
 				{
-					map<string, vector<CVar *>>::iterator it2 = GOvars.find(vars[(int)k]);
-					if (it2 != GOvars.end())
-						GOvars.erase(it2);
+					auto it = GOvars.find(v);
+					if (it != GOvars.end()) 
+					{
+						out.push_back((*it).first);
+						GOvars.erase(it);
+					}
 				}
 			}
-			return 0;
 		}
 	}
 	else
 	{
 		if (var[0] == 0) // clear all
 		{
+			for (auto it = psigBase->strut.begin(); it != psigBase->strut.end(); it++)
+				out.push_back((*it).first);
 			psigBase->strut.erase(psigBase->strut.begin(), psigBase->strut.end());
+			for (auto it = psigBase->struts.begin(); it != psigBase->struts.end(); it++)
+				out.push_back((*it).first);
 			psigBase->struts.erase(psigBase->struts.begin(), psigBase->struts.end());
-			return 1;
 		}
 		else
-		{ // let's not think about the case of multiple member variables
-			map<string, CVar>::iterator it = psigBase->strut.find(var);
-			map<string, vector<CVar *>>::iterator jt = psigBase->struts.find(var);
-			if (it!= psigBase->strut.end()) psigBase->strut.erase(it);
-			if (jt != psigBase->struts.end()) psigBase->struts.erase(jt);
-			return 0;
+		{
+			for (auto v : vars)
+			{
+				auto it = psigBase->strut.find(v);
+				if (it != psigBase->strut.end())
+				{
+					out.push_back((*it).first);
+					psigBase->strut.erase(it);
+				}
+				else
+				{
+					auto it = psigBase->struts.find(v);
+					if (it != psigBase->struts.end())
+					{
+						out.push_back((*it).first);
+						psigBase->struts.erase(it);
+					}
+				}
+			}
 		}
 	}
+	return out;
 }
 
 void CAstSig::EnumVar(vector<string> &var)

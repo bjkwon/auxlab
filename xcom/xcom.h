@@ -1,14 +1,14 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: auxlab
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.7
+// Date: 5/24/2020
 // 
 
 #ifndef XCOM
@@ -74,7 +74,6 @@ public:
 	int cleanup_debug();
 	void echo(const char *var, CVar *pvar, int offset = 1, const char *postscript = "");
 	void echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar=NULL);
-	int ClearVar(const char *var);
 	int load_axl(FILE *fp, char *errstr);
 
 	size_t ctrlshiftright(const char *buf, DWORD offset);

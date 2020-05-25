@@ -1,15 +1,14 @@
-// AUXLAB 
+/// AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
 // 
-// 
-// Version: 1.4951
-// Date: 12/14/2018
-// Change from 1.495: FileDlg.h dropped 
+// Version: 1.7
+// Date: 5/21/2020
+
 #include <math.h>
 #include "PlotDlg.h"
 

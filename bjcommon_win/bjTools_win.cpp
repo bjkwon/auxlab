@@ -1,15 +1,15 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: audfret
 // Miscellaneous Support Library
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
-// 
+// Version: 1.7
+// Date: 5/21/2020
+
 #include <math.h>
 #include "bjcommon.h"
 #include "bjcommon_win.h"

@@ -7,9 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.6
-// Date: 7/5/2019
-// 
+// Version: 1.7
+// Date: 5/24/2020 
 
 #ifdef _WINDOWS
 #ifndef _MFC_VER // If MFC is used.
@@ -1192,7 +1191,7 @@ CSignal::~CSignal()
 CTimeSeries::~CTimeSeries()
 {
 	if (chain) {
-		if (!ghost) 
+//		if (!ghost) 
 			delete chain;
 		chain = NULL;
 	}
@@ -2023,10 +2022,11 @@ vector<double> CSignal::RMS(unsigned int id0, unsigned int len) const
 		vector<double> out(1, std::numeric_limits<double>::infinity());
 		return out;
 	}
-	double cum(0);
-	for (unsigned int k = id0; k < id0 + len; k++)
-		cum += buf[k] * buf[k];
-	vector<double> out(1, _getdB(sqrt(cum / len)));
+	double val(0);
+	for_each(buf + id0, buf + id0 + len, [&val](double &v) {val += v * v; });
+	//for (unsigned int k = id0; k < id0 + len; k++)
+	//	val += buf[k] * buf[k];
+	vector<double> out(1, _getdB(sqrt(val / len)));
 	return out;
 }
 
@@ -3579,8 +3579,9 @@ CSignals::CSignals(std::string str)
 	SetString(str.c_str());
 }
 
-void CSignals::SetNextChan(CTimeSeries *second, bool need2makeghost)
+void CSignals::SetNextChan(CSignals *second, bool need2makeghost)
 {
+	if (next == second) return;
 	if (second && fs != second->GetFs() && second->nSamples > 0 && nSamples > 0)
 	{
 		char errstr[256];
@@ -3588,11 +3589,12 @@ void CSignals::SetNextChan(CTimeSeries *second, bool need2makeghost)
 		throw errstr;
 	}
 	if (next) {
-		if (!next->ghost) delete next;
+//		if (!next->ghost) 
+			delete next;
 		next = NULL;
 	}
 	if (second) {
-		next = new CTimeSeries;
+		next = new CSignals;
 		if (need2makeghost)
 			*next <= *second;
 		else
@@ -3673,6 +3675,7 @@ CSignals & CSignals::RMS()
 { // calculating the RMS of the entire CSignals as if all chain's were concatenated.
 	// CAUTION--This function will replace the existing data with computed RMS.
 	CSignals rmsComputed = runFct2getvals(&CSignal::RMS);
+	// at this point rmsComputed is chain'ed with next (also possibly chain'ed) and nSamples = 1 for each of them 
 	CSignals out(1);
 	CSignals * q = &rmsComputed;
 	CTimeSeries *pout = &out, *psig = this;
@@ -3686,11 +3689,13 @@ CSignals & CSignals::RMS()
 			cum += P * psig->nSamples;
 			len += psig->nSamples;
 		}
-		double newval = 10. * log10(cum / len) + 3.0103;
-		pout->SetValue(newval);
+		if (len > 0)
+			pout->SetValue(10. * log10(cum / len) + 3.0103);
+		else
+			pout->SetValue(rmsComputed.value());
 		if (k == 0 && (q = (CSignals *)q->next)!=nullptr)
 		{
-				out.SetNextChan(new CTimeSeries(1));
+				out.SetNextChan(new CSignals(1));
 				pout = ((CSignals *)pout)->next;
 				psig = next;
 		}
@@ -4020,7 +4025,7 @@ int CSignals::Wavread(const char *wavname, char *errstr)
 		double *buffer = new double[(unsigned int)sfinfo.channels*(int)sfinfo.frames];
 		count = sf_read_double(wavefileID, buffer, sfinfo.channels*sfinfo.frames);  // common.h
 		double(*buf3)[2];
-		next = new CTimeSeries(sfinfo.samplerate);
+		next = new CSignals(sfinfo.samplerate);
 		int m(0);
 		buf3 = (double(*)[2])&buffer[m++];
 		UpdateBuffer((int)sfinfo.frames);
@@ -4476,15 +4481,16 @@ int CSignals::getBufferLength(double & lasttp, double & lasttp_with_silence, dou
 void CSignals::nextCSignals(double lasttp, double lasttp_with_silence, CSignals &ghcopy)
 {
 	CSignals * p = &ghcopy;
-	CTimeSeries *q, *q1 = NULL, *q2 = NULL;
-	for (int k = 0; p && k < 2; k++, p = (CSignals*)p->next)
+	CTimeSeries *q, *q1 = NULL;
+	CSignals *q2 = NULL;
+	for (int k = 0; p && k < 2; k++, p = p->next)
 	{
 		for (q = p; q; q = q->chain)
 		{
 			if (q->tmark >= lasttp)
 			{
 				q->tmark -= lasttp_with_silence;
-				CTimeSeries *tempNext = p->next;
+				CSignals *tempNext = p->next;
 				if (k == 0)
 				{
 					p->next = tempNext;
@@ -4493,7 +4499,7 @@ void CSignals::nextCSignals(double lasttp, double lasttp_with_silence, CSignals 
 				else
 				{
 					p->next = nullptr;
-					q2 = q;
+					q2 = (CSignals*)q;
 				}
 				break;
 			}
@@ -4501,7 +4507,7 @@ void CSignals::nextCSignals(double lasttp, double lasttp_with_silence, CSignals 
 	}
 	if (q1)
 		ghcopy = *q1;
-	if (q2)
+	if (q2) // what's the point of this? q2, if available, should be the same as next at this point. 5/24/2020
 		ghcopy.SetNextChan(q2, true);
 	if (!q1 && !q2)
 		ghcopy.Reset();

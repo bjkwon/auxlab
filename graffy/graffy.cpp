@@ -1,15 +1,13 @@
-// AUXLAB 
+/// AUXLAB 
 //
-// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
 // 
-// 
-// Version: 1.5
-// Date: 3/30/2019
-// 
+// Version: 1.7
+// Date: 5/24/2020
 
 #include "PlotDlg.h"
 #include "msgCrack.h"
@@ -819,7 +817,7 @@ GRAPHY_EXPORT void ShowStatusBar(HANDLE _fig)
 GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CTimeSeries *pdata, COLORREF col, char cymbol, LineStyle ls)
 {
 	//ptdata is treated as non-stereo
-	CTimeSeries *tp = ((CVar*)pdata)->next;
+	CSignals *tp = ((CVar*)pdata)->next;
 	((CVar*)pdata)->next = NULL;
 	vector<HANDLE> out = PlotCSignals(_ax, x, (CSignals*)pdata, col, cymbol, ls);
 	((CVar*)pdata)->next = tp;

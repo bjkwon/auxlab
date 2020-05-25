@@ -233,7 +233,7 @@ public:
 	GRAPHY_EXPORT void DeleteLine(int index);
 //	GRAPHY_EXPORT void DeletePatch(int index);
 	GRAPHY_EXPORT CRect GetWholeRect(); // Retrieve the whole area including xtick, ytick
-	void setxticks();
+	void setxticks(double * const fullrange);
 	POINT GetRef();
 	void setRangeFromLines(char xy);
 	int GetDivCount(char xy, int dimens);

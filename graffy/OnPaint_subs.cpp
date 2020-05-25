@@ -1,3 +1,14 @@
+// AUXLAB 
+//
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
+// Licensed under the Academic Free License version 3.0
+//
+// Project: graffy
+// Graphic Library (Windows only)
+// 
+// Version: 1.7
+// Date: 5/24/2020
+
 #include "PlotDlg.h"
 #include <limits>
 #include <mutex>
@@ -84,7 +95,7 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 				if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
 			}
 			if (pline->lineStyle != LineStyle_noline)
-				dc.Polyline(drawvector.data(), drawvector.size());
+				dc.Polyline(drawvector.data(), (int)drawvector.size());
 			//{
 			//	int nOutOfAx = 0;
 			//	for (int k = nDraws - 1; k > 0; k--)
@@ -146,7 +157,7 @@ CPen * CPlotDlg::OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pO
 	return newPen;
 }
 
-void CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & draw)
+vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & draw)
 {
 	if (pax->m_ln.size() > 0)
 	{
@@ -160,7 +171,7 @@ void CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dra
 			else
 			{
 				if (draw.size() > 2)
-					pax->setxticks();
+					pax->setxticks(xlim);
 				else
 				{
 					for (auto v : draw)
@@ -199,6 +210,10 @@ void CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dra
 				dc.SetBkMode(TRANSPARENT), dc.TextOut(pax->rct.right - 3, pax->rct.bottom, "sec");
 		}
 	}
+	vector<double> out;
+	out.push_back(pax->xlim[0]);
+	out.push_back(pax->xlim[1]);
+	return out;
 }
 
 void CPlotDlg::OnPaint_fill_sbinfo(CAxes* pax)

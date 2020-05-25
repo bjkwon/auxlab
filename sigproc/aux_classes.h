@@ -1,15 +1,15 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.6
-// Date: 7/6/2019
-// 
+// Version: 1.7
+// Date: 5/24/2020
+
 #pragma once
 
 using namespace std;
@@ -370,7 +370,7 @@ private:
 class CSignals : public CTimeSeries
 {
 public:
-	CTimeSeries *next;
+	CSignals *next;
 
 	CSignals runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL) ;
 	CSignals & runFct2modify(CSignal& (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
@@ -379,7 +379,7 @@ public:
 	CSignals();
 	CSignals(int sampleRate);
 	CSignals(double value);
-	CSignals(double *y, int  len);
+	CSignals(double *y, int len);
 	CSignals(const CTimeSeries& src);
 	CSignals(const CSignals& src);
 	CSignals(std::string str); // make a string CSignals
@@ -426,7 +426,7 @@ public:
 
 	CSignals& RMS(); //to calculate the overall RMS; different from CSignal::RMS()
 
-	void SetNextChan(CTimeSeries *second, bool need2makeghost = false);
+	void SetNextChan(CSignals *second, bool need2makeghost = false);
 	CTimeSeries *DetachNextChan() {CTimeSeries *p=next;next=NULL;return p;}
 	CSignals& Reset(int fs2set=0);
 	CSignals& reciprocal(void);

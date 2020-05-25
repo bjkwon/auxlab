@@ -1,15 +1,13 @@
-// AUXLAB 
+/// AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
-// Project: sigproc
-// Signal Generation and Processing Library
-// Platform-independent (hopefully) 
+// Project: graffy
+// Graphic Library (Windows only)
 // 
-// Version: 1.5
-// Date: 3/31/2019
-// 
+// Version: 1.7
+// Date: 5/21/2020
 
 #include "graffy.h"
 #include "..\sigproc\sigproc_internal.h"

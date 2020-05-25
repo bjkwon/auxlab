@@ -1,15 +1,14 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: wavplay
 // Library to play audio signals 
 // For Windows only
 // 
-// Version: 1.6
-// Date: 7/6/2019
-// 
+// Version: 1.7
+// Date: 5/24/2020
 
 #include "wavplay.h"
 #define MAX_24BIT		(double)0x007fffff
@@ -58,7 +57,7 @@ INT_PTR _continuePlay(INT_PTR pWP, const CSignals &sig, int DevID, UINT userDefi
 		double tp1, tp2;
 		int length = nextblock.getBufferLength(tp1, tp2, blockDurMs);
 		short * buffer2Play = new short[length*nChan]; // buffer2Play is cleaned inside QueuePlay
-		nextblock.makebuffer<short>(buffer2Play, length, tp1, tp2, nextblock2);
+ 		nextblock.makebuffer<short>(buffer2Play, length, tp1, tp2, nextblock2);
 		double _nBlocks = (double)length / nSamples4Block;
 		int nBlocks = (int)_nBlocks;
 		if (_nBlocks - (double)nBlocks > 0.1) nBlocks++;

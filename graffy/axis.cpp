@@ -1,15 +1,15 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
 // 
 // 
-// Version: 1.498
-// Date: 2/4/2019
-// 
+// Version: 1.7
+// Date: 5/24/2020
+
 #include <math.h>
 #include "graffy.h"	
 
@@ -361,7 +361,7 @@ int CAxes::GetDivCount(char xy, int dimens)
 	return nTicks;
 }
 
-void CAxes::setxticks()
+void CAxes::setxticks(double * const fullrange)
 {
 	int nTicks = GetDivCount('x', -1);
 	int beginID, nSamples;
@@ -372,7 +372,7 @@ void CAxes::setxticks()
 	double percentShown;
 	if (!xtick.automatic) return;
 	//nTicks is the number of divided parts (i.e., 2 means split by half)
-	percentShown = 1. - ( (xlim[0]-xlimFull[0]) + (xlimFull[1]-xlim[1]) ) / (xlimFull[1]-xlimFull[0]);
+	percentShown = 1. - ( (xlim[0]- fullrange[0]) + (fullrange[1]-xlim[1]) ) / (fullrange[1]- fullrange[0]);
 	nSamples = (int)(percentShown * m_ln.front()->sig.nSamples+.5);
 	splitevenindices(out, nSamples, nTicks);
 	vxdata.reserve(nSamples);
@@ -434,7 +434,7 @@ GRAPHY_EXPORT void CAxes::setxlim()
 		}
 	}
 	if (xlim[0] == xlim[1]) { xlim[0] -= .005;	xlim[1] += .005; }
-	memcpy(xlimFull, xlim, sizeof(xlim));
+//	memcpy(xlimFull, xlim, sizeof(xlim));
 }
 
 GRAPHY_EXPORT void CAxes::setylim()
@@ -526,10 +526,6 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 		in2->color = RGB(GetBValue(col), GetRValue(col), GetGValue(col));
 		in2->lineStyle = ls;
 		m_ln.push_back(in2);
-	}
-	if (!xlimfixed)
-	{
-		xlimFull[0] = xlim[0]; xlimFull[1] = xlim[1];
 	}
 	RECT rt;
 	GetClientRect(m_dlg->hDlg, &rt);
@@ -660,8 +656,6 @@ CAxes& CAxes::operator=(const CAxes& rhs)
 		colorAxis = rhs.colorAxis;
 		memcpy(xlim, rhs.xlim, sizeof(xlim));
 		memcpy(ylim, rhs.ylim, sizeof(ylim));
-		memcpy(xlimFull, rhs.xlimFull, sizeof(xlimFull));
-		memcpy(ylimFull, rhs.ylimFull, sizeof(ylimFull));
 		xtick = rhs.xtick;
 		ytick = rhs.ytick;
 		for (auto ln : rhs.m_ln)
