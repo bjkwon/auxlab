@@ -1151,6 +1151,121 @@ void _isaudioat(CAstSig *past, const AstNode *pnode, const AstNode *p, string &f
 	past->Sig.MakeLogical();
 }
 
+// This function datatype will eventually eliminate the use of CSIG_ series constants 
+// and all the is____ functions 5/25/2020
+
+int __datatype(const CVar &sig, WORD &out)
+{
+	if (sig.IsEmpty())				out = 0xffff;
+	else if (sig.IsGO())		out = 0x2000;
+	else if (sig.GetFs() == 1)		out = 0;
+	else if (sig.GetFs() == 2)		out = 0x0010;
+	else if (sig.GetFs() > 500)		out = 0x0020;
+	else if (sig.IsLogical())		out = 0x0040;
+	else if (!sig.cell.empty())		out = 0x1000;
+	else if (!sig.strut.empty())		out = 0x2000;
+	else
+		return -1;
+	if (sig.snap) out += 0x0008;
+	if (sig.nSamples > 0) out++;
+	if (sig.nSamples > 1) out++;
+	return 1;
+}
+
+void _datatype(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	uint16_t out;
+	if ((out=past->Sig.type())==0xffff)
+		throw CAstExceptionInternal(*past, pnode, "[INTERNAL] this particular data type has not been ready to handle.");
+	if (out & 0x2000)
+	{
+		past->pgo = NULL;
+		past->Sig.Reset();
+	}
+	past->Sig.SetValue((double)out);
+}
+
+void _veq(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	CAstSig br(past);
+	WORD type1, type2;
+	CVar arg1, arg2;
+	if (pnode->type == N_STRUCT)
+	{ // x.veg(y)
+		arg1 = past->Sig;
+		arg2 = past->Compute(pnode->alt->child);
+	}
+	else if (pnode->type == T_ID)
+	{ // veq(x,y)
+		if (pnode->alt->type == N_ARGS)
+		{
+			arg1 = past->Compute(pnode->alt->child);
+			arg2 = past->Compute(pnode->alt->tail);
+		}
+		else
+			throw CAstExceptionInternal(*past, pnode, "[INTERNAL] this particular data type has not been ready to handle.");
+	}
+	else
+		throw CAstExceptionInternal(*past, pnode, "[INTERNAL] this particular data type has not been ready to handle.");
+
+	if (__datatype(arg1, type1) < 0)
+		throw CAstExceptionInternal(*past, pnode, "[INTERNAL] this particular data type has not been ready to handle.");
+	if (__datatype(arg2, type2) < 0)
+		throw CAstExceptionInternal(*past, pnode, "[INTERNAL] this particular data type has not been ready to handle.");
+	if (type1 != type2)
+	{
+		past->Sig.SetValue(0);
+		return;
+	}
+	else if (arg1.nSamples != arg2.nSamples)
+	{
+		past->Sig.SetValue(0);
+		return;
+	}
+	else if (type1 & 0x2000) // GO
+	{
+		double v1 = arg1.value();
+		double v2 = arg2.value();
+		if (v1!=v2)
+		{
+			past->Sig.SetValue(0);
+			return;
+		}
+	}
+	else
+	{
+		if (arg1.bufBlockSize == 8)
+			for (unsigned k = 0; k < arg1.nSamples; k++)
+			{
+				if (arg1.buf[k] != arg2.buf[k])
+				{
+					past->Sig.SetValue(0);
+					return;
+				}
+			}
+		else if (arg1.bufBlockSize == 16)
+			for (unsigned k = 0; k < arg1.nSamples; k++)
+			{
+				if (arg1.cbuf[k] != arg2.cbuf[k])
+				{
+					past->Sig.SetValue(0);
+					return;
+				}
+			}
+		else
+			for (unsigned k = 0; k < arg1.nSamples; k++)
+			{
+				if (arg1.logbuf[k] != arg2.logbuf[k])
+				{
+					past->Sig.SetValue(0);
+					return;
+				}
+			}
+	}
+	past->Sig.SetValue(1.);
+	return ;
+}
+
 void _varcheck(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	string fname = pnode->str;
@@ -1865,7 +1980,8 @@ void _tone(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	if ( (len = freq.nSamples )== 1)
 	{
 		past->Sig.Reset(past->GetFs());
-		past->Sig.Tone(freq.value(), duration.value(), initPhase);
+		unsigned int nSamplesNeeded = (unsigned int)round(duration.value() / 1000.*past->GetFs());
+		past->Sig.Tone(freq.value(), nSamplesNeeded, initPhase);
 	}
 	else
 	{
@@ -2204,7 +2320,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.func =  &_right; // check 
 	builtin[name] = ft;
 
-	ft.narg1 = 0;	ft.narg2 = 1;
+	ft.narg1 = 1;	ft.narg2 = 2;
 	name = "std";
 	ft.funcsignature = "(length, [, bias])";
 	ft.func =  &_std; 
@@ -2396,6 +2512,14 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 		ft.func = _varcheck;
 		builtin[name] = ft;
 	}
+	ft.narg1 = 1;	ft.narg2 = 1;
+	name = "dtype";
+	ft.func = _datatype;
+	builtin[name] = ft;
+	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "veq";
+	ft.func = _veq;
+	builtin[name] = ft;
 
 	ft.narg1 = 2;	ft.narg2 = 4;
 	ft.funcsignature = "(signal, Numerator_array [, Denominator_array=1 for FIR])";

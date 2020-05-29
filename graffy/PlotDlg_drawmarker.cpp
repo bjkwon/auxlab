@@ -16,7 +16,7 @@
 #define C30DIV2 .433 // COS 30 degree div 2
 #define C30DIV22 .866 // COS 30 degree 
 
-void CPlotDlg::DrawMarker(CDC dc, CLine* mline, const vector<POINT> & draw)
+void CPlotDlg::DrawMarker(const CDC &dc, CLine* mline, const vector<POINT> & draw)
 {
 	if (!mline) return;
 	int radius(mline->markersize);

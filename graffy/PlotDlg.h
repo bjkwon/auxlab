@@ -191,7 +191,7 @@ private:
 	void OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc);
 	vector<POINT> OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT *pps, CLine* pline, CTimeSeries* block);
 	CPen * OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen);
-	vector<double> OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv);
+	vector<double> OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv, bool first);
 	void OnPaint_fill_sbinfo(CAxes* pax);
 	double xlim[2];
 public:
@@ -226,8 +226,9 @@ public:
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
 	vector<POINT> makeDrawVector(const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint);
+	vector<POINT> plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint);
 	int estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
-	void DrawMarker(CDC dc, CLine* mline, const vector<POINT> & dv);
+	void DrawMarker(const CDC &dc, CLine* mline, const vector<POINT> & dv);
 	POINT GetIndDisplayed(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);
 	void dBRMS(SHOWSTATUS st = FULL); // currently not used. just leave it

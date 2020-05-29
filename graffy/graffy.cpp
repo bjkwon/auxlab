@@ -186,6 +186,7 @@ INT_PTR CALLBACK DlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	}
 	switch (umsg)
 	{
+		if (theApp.hDlg_fig.empty()) break;
 		chHANDLE_DLGMSG(hDlg, WM_INITDIALOG, static_cast <CPlotDlg*>(theApp.fig[id])->OnInitDialog);
 		chHANDLE_DLGMSG(hDlg, WM_PAINT, THE_CPLOTDLG->OnPaint);
 		chHANDLE_DLGMSG(hDlg, WM_SIZE, THE_CPLOTDLG->OnSize);

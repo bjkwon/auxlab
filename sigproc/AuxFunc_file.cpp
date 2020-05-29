@@ -120,7 +120,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 }
 
 template<typename T>
-void fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uint64_t factor)
+size_t fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uint64_t factor)
 {
 	if (sig.IsAudio())
 		sig.MakeChainless();
@@ -138,7 +138,8 @@ void fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uint6
 	}
 	else
 		for_each(sig.buf, sig.buf + sig.nSamples,
-			[pvar, bytes, file](double v) { *pvar = (T)v; fwrite(pvar, bytes, 1, file); });
+			[pvar, bytes, factor, file](double v) { *pvar = (T)(factor * v); fwrite(pvar, bytes, 1, file); });
+	return sig.nSamples;
 }
 
 void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -146,57 +147,59 @@ void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	CVar firstarg = past->Sig;
 	int bytes;
 	string prec;
+	size_t res;
 	FILE * file = __freadwrite(past, pnode, p, fnsigs, bytes, prec);
 	past->Compute(p);
 	if (prec == "char")
 	{
 		if (past->Sig.IsString())
-			fwrite(past->Sig.strbuf, 1, past->Sig.nSamples, file);
+			res = fwrite(past->Sig.strbuf, 1, past->Sig.nSamples, file);
 		else
 		{
 			char temp = 0;
-			fwrite_general(temp, past->Sig, prec, file, bytes, 256);
+			res = fwrite_general(temp, past->Sig, prec, file, bytes, 256);
 		}
 	}
 	else if (prec == "int8")
 	{
 		int8_t temp = 0;
-		fwrite_general(temp, past->Sig, prec, file, bytes, 128);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 128);
 	}
 	else if (prec == "uint8")
-	{
+	{ 
 		uint8_t temp = 0;
-		fwrite_general(temp, past->Sig, prec, file, bytes, 256);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 256);
 	}
 	else if (prec == "int16")
 	{
 		int16_t temp = 0;
-		fwrite_general(temp, past->Sig, prec, file, bytes, 32768);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 32768);
 	}
 	else if (prec == "uint16")
 	{
 		uint16_t temp = 0;
-		fwrite_general(temp, past->Sig, prec, file, bytes, 65536);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 65536);
 	}
 	else if (prec == "int32")
 	{
 		int32_t temp = 0;
-		fwrite_general(temp, past->Sig, prec, file, bytes, 8388608);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 8388608);
 	}
 	else if (prec == "uint32")
 	{
 		uint32_t temp = 0;
-		fwrite_general(temp, past->Sig, prec, file, bytes, 16777216);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 16777216);
 	}
 	else if (prec == "float")
 	{ // No automatic scaling
 		float temp = 0;
-		fwrite_general(temp, past->Sig, prec, file, bytes, 1);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 1);
 	}
 	else if (prec == "double")
 	{ // No automatic scaling
-		fwrite(past->Sig.buf, bytes, past->Sig.nSamples, file);
+		res = fwrite(past->Sig.buf, bytes, past->Sig.nSamples, file);
 	}
+	past->Sig.SetValue((double)res);
 }
 
 template<typename T>

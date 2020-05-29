@@ -2333,39 +2333,38 @@ char *showcomplex(char *out, complex<double> in)
 
 void CShowvarDlg::showtype(CVar *pvar, char *buf)
 {
-	switch (pvar->GetType())
-	{
-	case CSIG_STRING:
-		strcpy(buf, "TXT");
-		break;
-	case CSIG_EMPTY:
+	uint16_t type = pvar->type();
+	if (type == 0)
 		strcpy(buf, "NUL");
-		break;
-	case CSIG_SCALAR:
+	else if (type == 1)
 		strcpy(buf, "CON");
-		break;
-	case CSIG_VECTOR:
+	else if (type == 2)
 		strcpy(buf, "VCT");
-		break;
-	case CSIG_TSERIES:
-		strcpy(buf, "TSQ");
-		break;
-	case CSIG_CELL:
+	else if (type & TYPEBIT_LOGICAL)
+		strcpy(buf, "LOG");
+	else if (type & TYPEBIT_STRING)
+		strcpy(buf, "TXT");
+	else if (type & TYPEBIT_CELL)
 		strcpy(buf, "CEL");
-		break;
-	case CSIG_HANDLE:
+	else if (type > (TYPEBIT_STRUT + TYPEBIT_STRUTS))
 		strcpy(buf, "HDL");
-		break;
-	case CSIG_STRUCT:
+	else if (type & TYPEBIT_STRUT)
+	{
 		if (pvar->nSamples == 0)
-			strcpy(buf, "CLAS");
+			strcpy(buf, "STRC");
 		else
 		{
 			CVar tp2 = (CSignals)*pvar;
 			showtype(&tp2, buf);
+			strcat(buf, "+");
 		}
-		break;
 	}
+	else if (type == TYPEBIT_AUDIO+1 )
+		strcpy(buf, "TSQ");
+	else if (type == TYPEBIT_AUDIO + TYPEBIT_SNAP + 2)
+		strcpy(buf, "TSQS");
+	else
+		strcpy(buf, "???");
 }
 
 void CShowvarDlg::showsize(CVar *pvar, char *outbuf)
@@ -2579,10 +2578,7 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	}
 	else
 	{
-		if (pvar->IsLogical()) 
-			sprintf(buf, "LOG");
-		else
-			showtype(pvar, buf);
+		showtype(pvar, buf);
 	}
 	LvItem.pszText = buf;
 	::SendMessage(hList, LVM_SETITEM, 0, (LPARAM)&LvItem);
@@ -2615,7 +2611,6 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 
 void CShowvarDlg::Fillup(map<string, CVar> *Vars, CSignals *psig)
 {
-	sendtoEventLogger("Fillup 0");
 	SendDlgItemMessage(IDC_LIST1,LVM_DELETEALLITEMS,0,0);
 	SendDlgItemMessage(IDC_LIST2,LVM_DELETEALLITEMS,0,0);
 	changed=false;
@@ -2626,7 +2621,6 @@ void CShowvarDlg::Fillup(map<string, CVar> *Vars, CSignals *psig)
 		for (auto it = pGOvars->begin(); it != pGOvars->end(); it++)
 			fillrowvar(it->second, it->first); // 
 	AdjustWidths(1); // redraw if this is not the base
-	sendtoEventLogger("Fillup 1");
 }
 
 void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)

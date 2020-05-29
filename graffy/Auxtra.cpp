@@ -244,7 +244,7 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	else if (input=="-" || input=="--" || input==":" || input=="-.")
 		ls = linestylelist[input];
 	else
-		throw CAstExceptionInvalidUsage(*past, pnode, (input + string("Invalid line style specifier")).c_str());
+		throw CAstExceptionInvalidUsage(*past, pnode, (input + string(" Invalid line style specifier")).c_str());
 	if (input2.find_first_of(MARKERSTR)==string::npos) //marker is not specified but
 		if (input.empty()) // linestyle is not 
 			ls = linestylelist["-"]; // set it solid 
@@ -252,8 +252,6 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 
 #define LOADPF(OUT, DEFTYPE, FUNCSIGNATURE) if ((OUT = (DEFTYPE)GetProcAddress((HMODULE)hLib, FUNCSIGNATURE))==NULL) {char buf[256]; sprintf(buf, "cannot find %s", FUNCSIGNATURE); MessageBox(NULL, "LOADPF error", buf, 0); return 0;}
 #define LOADPF2(OUT, DEFTYPE, INDEX, SIMPLESIGNATURE) if ((OUT = (DEFTYPE)GetProcAddress((HMODULE)hLib, (char*)INDEX))==NULL) {char buf[256]; sprintf(buf, "cannot find %s", SIMPLESIGNATURE); MessageBox(NULL, "LOADPF2 error", buf, 0); return 0;}
-
-//HANDLE _OpenFigure(RECT *rt, const CSignals &data, int devID, double block);
 
 DWORD double2RGB(double color[3])
 {

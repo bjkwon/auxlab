@@ -20,6 +20,16 @@ using namespace std;
 #include <map>
 #include <functional>
 
+#define TYPEBIT_NULL		0x0000
+#define TYPEBIT_AUDIO		0x0004
+#define TYPEBIT_SNAP		0x0008
+#define TYPEBIT_STRING		0x0020
+#define TYPEBIT_LOGICAL		0x0080
+#define TYPEBIT_GO			0x0100
+#define TYPEBIT_CELL		0x1000
+#define TYPEBIT_STRUT		0x2000
+#define TYPEBIT_STRUTS		0x4000
+
 #define CSIG_EMPTY		0
 #define CSIG_STRING		1
 #define CSIG_NULL		2
@@ -125,6 +135,7 @@ protected:
 	int fs;
 public:
 	double tmark;
+	short snap; // 0 for regular; 1 for data at a tmark snap shot (used for time sequence)
 	unsigned int Len() { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }
 
 	// Signal generation (no stereo handling)
@@ -137,7 +148,6 @@ public:
 	double * Tone(vector<double> freqs, unsigned int nsamples);
 	double * Tone(vector<double> freqs, double dur_ms);
 	double * Tone(double freq, unsigned int nsamples, double beginPhase=0.);
-	double * Tone(double freq, double dur_ms, double beginPhase=0.);
 	double * Noise(double dur_ms);
 	double * Noise(unsigned int nsamples);
 	double * Noise2(double dur_ms);
@@ -204,7 +214,7 @@ public:
 	bool IsEmpty() const { return nSamples == 0 && tmark == 0.; }
 	bool IsScalar() const { return nSamples == 1; }
 	bool IsVector() const { return fs == 1 && nSamples > 1; }
-	inline bool IsAudio() const { return fs > 2 && nSamples > 1; }
+	inline bool IsAudio() const { return type() == TYPEBIT_AUDIO + 2; }
 	bool IsString() const { return fs == 2; }
 
 	CSignal& Modulate(double *env, unsigned int lenEnv, unsigned int beginID=0);
@@ -229,7 +239,7 @@ public:
 	CSignal iFFT(unsigned int id0 = 0, unsigned int len = 0) const;
 
 	bool IsSingle() const;
-	bool IsLogical() const { return (bufBlockSize == 1 && fs != 2); } // logical can be either audio or non-audio, so GetType() of logical array will not tell you whether that's logical or not.
+	bool IsLogical() const { return bufBlockSize == 1 && fs != 2; } // this doesn't differentiate "logical" audio
 
 protected:
 	double _dur() { return (double)nSamples / fs*1000.; }// for backward compatibility 5/18. No reason to get rid of it. 10/18/2019
@@ -247,6 +257,23 @@ protected:
 	function<double(double)> op3(double me) { return [me](double you) {return me * you; }; };
 	function<double(double)> op4(double me) { return [me](double you) {return me / you; }; };
 	bool operate(const CSignal& sec, char op);
+
+	uint16_t type() const
+	{
+		uint16_t out;
+		if (IsEmpty())				out = TYPEBIT_NULL;
+		else if (fs == 1)		out = 0;
+		else if (fs == 2)		out = TYPEBIT_STRING;
+		else if (fs > 500)		out = TYPEBIT_AUDIO;
+		else
+			return 0xffff;
+		if (snap) out += TYPEBIT_SNAP;
+		if (nSamples > 0) out++;
+		if (nSamples > 1) out++;
+		if (IsLogical()) out += TYPEBIT_LOGICAL;
+		return out;
+	};
+
 
 private:
 	CSignal& _filter(vector<double> num, vector<double> den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
@@ -565,6 +592,19 @@ public:
 	CVar & operator*=(const CVar & sec);
 	CVar & operator/=(const CVar & sec);
 
+	uint16_t type() const
+	{
+		uint16_t out = CSignal::type();
+		if (out != 0xffff && out != TYPEBIT_NULL) return out;
+		if (!cell.empty())		out = TYPEBIT_CELL;
+		else if (!strut.empty())
+		{
+			out = TYPEBIT_STRUT;
+			if (!struts.empty()) out += TYPEBIT_STRUTS;
+		}
+		else if (fs == 3)		out = TYPEBIT_STRUT + TYPEBIT_STRUTS;
+		return out;
+	}
 };
 
 
