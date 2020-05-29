@@ -690,7 +690,6 @@ ostringstream outstream_complex(complex<double> cval)
 	return out;
 }
 
-
 void printf_vector(CVar *pvar, unsigned int id0, int offset, const char *postscript)
 {
 	cout << xcom::outstream_vector(pvar, id0, offset).str();
@@ -802,6 +801,17 @@ void printf_tseries(CTimeSeries *psig, bool unit)
 	cout << xcom::outstream_tseq(psig,unit).str();
 }
 
+void printf_vector(CVar *pvar, int offset, const char * postscript)
+{
+	unsigned int j;
+	if (pvar->IsLogical()) cout << "(logical) ";
+	if (pvar->nGroups > 1) cout << endl;
+	for (j = 0; j < min(10, pvar->nGroups); j++)
+		printf_vector(pvar, pvar->Len()*j, offset + 1, postscript);
+	if (j == 10)
+		cout << "\t" << "... (total rows) = " << pvar->nGroups << endl;
+}
+
 void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscript)
 {
 	ios_base::fmtflags org_flags;
@@ -809,15 +819,15 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	CVar temp;
 	streamsize org_precision(-1);
 	bool passingdown(false);
-	switch (pvar->GetType())
+	switch (pvar->type())
 	{
-	case CSIG_EMPTY:
+	case TYPEBIT_NULL:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = ";
 		cout << "[]";
 		cout << postscript << endl;
 		break;
-	case CSIG_SCALAR:
+	case 1: //CSIG_SCALAR:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = ";
 		if (strstr(postscript, "[Handle]"))
@@ -829,15 +839,20 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		}
 		printf_single(pvar);
 		cout << postscript << endl;
-		if (org_precision != -1) {
-			cout.precision(org_precision); cout.flags(org_flags);		}
+		if (org_precision != -1)
+		{
+			cout.precision(org_precision); 
+			cout.flags(org_flags);
+		}
 		break;
-	case CSIG_STRING:
+	case TYPEBIT_STRING + 1:
+	case TYPEBIT_STRING + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = ";
 		cout << "\"" << pvar->string() << "\"" << postscript << endl;
 		break;
-	case CSIG_TSERIES:
+	case TYPEBIT_AUDIO + 1: //CSIG_TSERIES:
+	case TYPEBIT_AUDIO + TYPEBIT_SNAP + 2: //snap data at tmark 
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;
 		if (pvar->next) cout << "[L] " << endl;
@@ -848,17 +863,12 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			printf_tseries(pvar->next, pvar->next->GetFs() > 0);
 		}
 		break;
-	case CSIG_VECTOR:
+	case 2: //CSIG_VECTOR:
 		for (int p = 0; p < offset; p++) cout << " ";
 		cout << varname << " = ";
-		if (pvar->IsLogical()) cout << "(logical) ";
-		if (pvar->nGroups > 1) cout << endl;
-		for (j = 0; j < min(10, pvar->nGroups); j++)
-			printf_vector(pvar, pvar->Len()*j, offset+1, postscript);
-		if (j==10)
-			cout << "\t" << "... (total rows) = " << pvar->nGroups << endl;
+		printf_vector(pvar, offset, postscript);
 		break;
-	case CSIG_AUDIO:
+	case TYPEBIT_AUDIO + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " =" << endl;
 		if (pvar->IsStereo())
@@ -877,7 +887,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			cout << xcom::outstream_tmarks(pvar, true).str();
 		}
 		break;
-	case CSIG_CELL:
+	case TYPEBIT_CELL:
 		for (vector<CVar>::iterator it = pvar->cell.begin(); it!= pvar->cell.end(); it++)
 		{
 			ostringstream _varname;
@@ -885,7 +895,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			echo(_varname.str().c_str(), &*it);
 		}
 		break;
-	case CSIG_HDLARRAY:
+	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
 		for (unsigned int k = 0; k < pvar->nSamples; k++)
 		{
 			ostringstream varstr;
@@ -894,14 +904,14 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			echo(varstr.str().c_str(), tp, offset);
 		}
 		break;
-	case CSIG_HANDLE:
+	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
 		for (int k = 0; k < offset; k++) cout << " ";
 		temp.UpdateBuffer(1);
 		memcpy(temp.buf, pvar->buf, pvar->bufBlockSize);
 		if (pvar->bufBlockSize == 1) 	temp.SetFs(2);
 		echo(varname, &temp, offset-1, " [Handle]");
 		passingdown = true;
-	case CSIG_STRUCT:
+	case TYPEBIT_STRUT:
 	{
 		CSignals tp = *pvar;
 		CVar tp2 = tp;

@@ -10,6 +10,10 @@
 // Version: 1.7
 // Date: 5/24/2020 
 
+// Time sequence with nSamples > 1 must set snap 1
+// so the data doesn't go with time but it is about at that particular tmark
+// 5/25/2020 
+
 #ifdef _WINDOWS
 #ifndef _MFC_VER // If MFC is used.
 #include <windows.h>
@@ -181,6 +185,7 @@ CSignal& CSignal::operator<=(const CSignal& rhs)
 	body::operator<=(rhs);
 	tmark = rhs.tmark;
 	fs = rhs.fs;
+	snap = rhs.snap;
 	return *this;
 }
 CSignal& CSignal::operator<=(CSignal * rhs)
@@ -188,6 +193,7 @@ CSignal& CSignal::operator<=(CSignal * rhs)
 	body::operator<=(rhs);
 	tmark = rhs->tmark;
 	fs = rhs->fs;
+	snap = rhs->snap;
 	return *this;
 }
 
@@ -204,6 +210,7 @@ CSignal& CSignal::operator=(const CSignal& rhs)
 			tmark = rhs.tmark;
 			SetFs(0);
 		}
+		snap = rhs.snap;
 		body::operator=(rhs);
 	}
 	return *this;
@@ -1086,7 +1093,7 @@ body & body::interp1(body &that, body &qx)
 }
 
 CSignal::CSignal()
-	:fs(1), tmark(0.)
+	:fs(1), tmark(0.), snap(0)
 {
 }
 
@@ -1096,13 +1103,13 @@ CTimeSeries::CTimeSeries()
 }
 
 CSignal::CSignal(int sampleRate)
-	: fs(max(sampleRate, 0)), tmark(0.)
+	: fs(max(sampleRate, 0)), tmark(0.), snap(0)
 {
 	if (fs == 2) bufBlockSize = 1;
 }
 
 CSignal::CSignal(int sampleRate, int len)
-	: fs(max(sampleRate, 0)), tmark(0.)
+	: fs(max(sampleRate, 0)), tmark(0.), snap(0)
 {
 	if (fs == 2) bufBlockSize = 1;
 	UpdateBuffer(len);
@@ -1117,7 +1124,7 @@ CTimeSeries::CTimeSeries(int sampleRate)
 }
 
 CSignal::CSignal(double value)
-	:fs(1), tmark(0.)
+	:fs(1), tmark(0.), snap(0)
 {
 	SetValue(value);
 }
@@ -1134,18 +1141,19 @@ CSignal::CSignal(vector<double> vv)
 {
 	fs = 1;
 	tmark = 0;
+	snap = 0;
 	UpdateBuffer((unsigned int)vv.size());
 	for (unsigned int k = 0; k < (unsigned int)vv.size(); k++)
 		buf[k] = vv[k];
 }
 
 CSignal::CSignal(std::string str)
+	:snap(0)
 {
 	SetString(str.c_str());
 }
 
 CSignal::CSignal(const CSignal& src)
-	:fs(1), tmark(0.)
 {
 	*this = src;
 }
@@ -1163,7 +1171,7 @@ CTimeSeries::CTimeSeries(const CTimeSeries& src)
 }
 
 CSignal::CSignal(double *y, int len)
-	: fs(1), tmark(0.)
+	: fs(1), tmark(0.), snap(0)
 {
 	UpdateBuffer(len);
 	memcpy((void*)buf, (void*)y, sizeof(double)*len);
@@ -1220,6 +1228,7 @@ CSignal& CSignal::Reset(int fs2set)	// Empty all data fields - sets nSamples to 
 	if (fs2set)	// if fs2set == 0 (default), keep the current fs.
 		fs = max(fs2set, 1);	// not to allow minus.
 	tmark = 0;
+	snap = 0;
 	return *this;
 }
 
@@ -2407,12 +2416,6 @@ double * CSignal::Tone(double freq, unsigned int nsamples, double beginPhase)
 	return buf;
 }
 
-double * CSignal::Tone(double freq, double dur_ms, double beginPhase)
-{
-	unsigned int nSamplesNeeded = (unsigned int)round(dur_ms / 1000.*fs);
-	double *p = Tone(freq, nSamplesNeeded, beginPhase);
-	return p;
-}
 #ifndef NO_FFTW
 
 #include "fftw3.h"
@@ -3692,7 +3695,7 @@ CSignals & CSignals::RMS()
 		if (len > 0)
 			pout->SetValue(10. * log10(cum / len) + 3.0103);
 		else
-			pout->SetValue(rmsComputed.value());
+			pout->SetValue(q->value());
 		if (k == 0 && (q = (CSignals *)q->next)!=nullptr)
 		{
 				out.SetNextChan(new CSignals(1));
@@ -4157,7 +4160,7 @@ CSignal CSignal::FFT(unsigned int id0, unsigned int len) const
 	p = fftw_plan_dft_r2c_1d(fftsize, in, out, FFTW_ESTIMATE);
 	fftw_execute(p);
 
-	CSignal res(1);
+	CSignal res(fs);
 	res.UpdateBuffer(fftsize);
 	res.SetComplex();
 	memcpy(res.cbuf, out, sizeof(*cbuf)*fftRealsize);
@@ -4175,6 +4178,7 @@ CSignal CSignal::FFT(unsigned int id0, unsigned int len) const
 	fftw_destroy_plan(p);
 	fftw_free(in);
 	fftw_free(out);
+	res.snap = 1;
 	return res;
 }
 
@@ -4228,6 +4232,7 @@ CSignal CSignal::iFFT(unsigned int id0, unsigned int len) const
 	}
 	fftw_free(in);
 	fftw_destroy_plan(p);
+	res.snap = 0; // this should be zero, but just to make sure
 	return res;
 }
 
@@ -4387,7 +4392,7 @@ CVar::CVar(CVar * src)
 }
 
 CVar& CVar::Reset(int fs2set)
-{
+{ // calling Reset for a CVar object will erase cell, strut and struts members
 	CSignals::Reset(fs2set);
 	cell.clear();
 	strut.clear();

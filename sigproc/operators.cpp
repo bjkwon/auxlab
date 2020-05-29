@@ -201,6 +201,9 @@ bool CTimeSeries::operate(const CTimeSeries& sec, char op)
 }
 bool CSignals::operate(const CSignals& sec, char op)
 {
+	CSignals copy;
+	if (!next && sec.next)
+		copy = *this;
 	CTimeSeries::operate(sec, op); // here sec is used as CTimeSeries
 	if (next)
 	{
@@ -210,10 +213,12 @@ bool CSignals::operate(const CSignals& sec, char op)
 			((CSignals*)next)->CTimeSeries::operate(sec, op);
 	}
 	else if (sec.next)
+
 	{
-		next = new CSignals(fs);
-		next->UpdateBuffer(1);
-		next->buf[0] = 1.;
+		//if copy is constant or vector
+		if (copy.type() <= 2)
+			copy.SetFs(sec.next->GetFs());
+		SetNextChan(&copy);
 		next->operate(*sec.next, op);
 	}
 
@@ -306,6 +311,7 @@ bool CTimeSeries::operator==(const CTimeSeries & rhs)
 bool CSignal::operator==(const CSignal & rhs)
 {
 	if (fs != rhs.fs) return false;
+	if (snap != rhs.snap) return false;
 	if (tmark != rhs.tmark) return false;
 	return body::operator==((body)rhs);
 

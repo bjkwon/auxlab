@@ -18,6 +18,9 @@
     <ClCompile Include="$(SrcPath)graffy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)OnPaint_subs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="$(SrcPath)PlotDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

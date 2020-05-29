@@ -72,10 +72,8 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 			block->tmark += 1000. * m * block->nSamples / block->GetFs();
 		if (pline->lineWidth > 0 || pline->symbol != 0)
 		{
-			int tp = estimateDrawCounts(block, pax, pline, pps->rcPaint);
-			drawvector = makeDrawVector(block, pax, pline, (CRect)pps->rcPaint);
-//			if (pline->sig.nSamples == 1) // //////////////////////// CHECK-----------------
-//				pline->initial = pline->final = draw[0];
+			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
+//			drawvector = makeDrawVector(block, pax, pline, (CRect)pps->rcPaint);
 		}
 		if (pline->symbol != 0)
 		{
@@ -157,13 +155,15 @@ CPen * CPlotDlg::OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pO
 	return newPen;
 }
 
-vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & draw)
+vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & draw, bool first)
 {
 	if (pax->m_ln.size() > 0)
 	{
 		//When there's nothing in axes.. bypass this part.. Otherwise,  gengrids will crash!! 10/5/2019
 		if (pax->xtick.tics1.empty() && pax->xtick.automatic)
 		{
+			if (first)
+				memcpy(xlim, pax->xlim, sizeof(xlim));
 			if (pax->m_ln.front()->sig.IsTimeSignal())
 			{
 				pax->xtick.tics1 = pax->gengrids('x', -3);
