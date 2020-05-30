@@ -295,42 +295,193 @@ POINT CPlotDlg::GetIndDisplayed(CAxes *pax)
 	return out;
 }
 
-int CPlotDlg::estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *lyne, RECT paintRC)
+// extent is rct.Width(); for x, rct.Height() for y
+static inline int offpixel(double a, double *lim, int extent)
 {
-	//need these two lines because after selection play is done, InvalidateRect might have been called for this part
-	if (paintRC.left > pax->rct.right) return 0;
-	if (paintRC.right < pax->rct.left) return 0;
-	if (paintRC.right > pax->rct.right) paintRC.right = pax->rct.right;
-	if (paintRC.left < pax->rct.left) paintRC.left = pax->rct.left;
-	if (pax->xlim[0] >= pax->xlim[1]) return -1;
-	// if xy plot, return the data count
-	if (lyne->xdata.nSamples) return p->nSamples;
-	int fs = lyne->sig.GetFs();
-	double xPerPixel = (pax->xlim[1] - pax->xlim[0]) / (double)pax->rct.Width(); // How much advance in x-axis per one pixel--time for audio-sig, sample points for nonaudio plot(y), whatever x-axis means for nonaudio play(x,y)
-	double nSamplesPerPixel; // how many sample counts of the sig are covered per one pixel. Calculated as a non-integer, rounded-down value is used and every once in a while the remainder is added
-	POINT pp = GetIndDisplayed(pax);//The indices of xlim[0] and xlim[1], if p were to be a single chain.
-	if (pp.x == pp.y) return -2;
-	int ind1 = max(0, pp.x);
-	int ind2 = max(0, pp.y);
-	bool tseries = ((CTimeSeries*)p)->IsTimeSignal();
-	double tpoint1, tpoint2;
-	if (tseries)
-	{ // if p is one of multiple chains, ind1 and ind2 need to be adjusted to reflect indices of the current p.
-		nSamplesPerPixel = xPerPixel * fs;
-		tpoint1 = pax->pix2timepoint(paintRC.left);
-		tpoint2 = pax->pix2timepoint(paintRC.right);
+	double relativeVal;
+	// rct field, xlim, ylim must have been prepared prior to this call.
+	relativeVal = (a- lim[0]) / (lim[1] - lim[0]);
+	return (int)((double)extent*relativeVal + .5);
+}
+
+
+vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
+{
+	// 
+	// Generate points to plot p->buf in pax (the current axes) against rcPaint
+	// double2pixelpt : turn double value p->buf[k] into a POINT
+	vector<POINT> out;
+	double  tmark = p->tmark;
+//	for_each(p->buf, p->buf + p->nSamples, [&out, pax, tmark](double v) {out.push_back(pax->double2pixelpt(tmark / 1000., v, NULL)); });
+
+	double x1, y1, x2, y2; // x1 x2: time points of rcPaint relative to rct and xlim
+	pax->GetCoordinate(rcPaint.TopLeft(), x1, y1);
+	pax->GetCoordinate(rcPaint.BottomRight(), x2, y2);
+
+	bool monotonic = true; // Monotonically increasing x in plot(x,y)
+	int width = pax->rct.Width();
+	int fs = p->GetFs();
+	//given xlim, get the range of data to plot
+	CRect drawingRt(pax->rct);
+	int ibegin, iend, count;
+	if (p->GetFs() > 500)
+	{
+		// time range of p	
+		double _dur = p->dur().front() / 1000.;
+		double tend = p->endt().front() / 1000.;
+		if (p->tmark / 1000. > pax->xlim[1] || tend < pax->xlim[0]) return out;
+		tend = min(tend, pax->xlim[1]);
+		ibegin = (int)(max(0, pax->xlim[0] - p->tmark / 1000)*fs);
+		iend = min((int)(fabs(pax->xlim[1] - p->tmark / 1000)*fs), (int)p->nSamples);
+		drawingRt.left = pax->rct.left + max(0, (int)(width * (p->tmark / 1000. - pax->xlim[0]) / (pax->xlim[1] - pax->xlim[0])));
+		drawingRt.right = pax->rct.left + (int)(width * (tend - pax->xlim[0]) / (pax->xlim[1] - pax->xlim[0]));
+		width = drawingRt.Width();
 	}
 	else
 	{
-		nSamplesPerPixel = xPerPixel * (pax->xlim[1] - pax->xlim[0]) / (ind2 - ind1);
-		tpoint1 = pax->pix2timepoint(paintRC.left);
-		tpoint2 = pax->pix2timepoint(paintRC.right);
+		if (lyne->xdata.nSamples && monotonic)
+		{
+			if (lyne->xdata.buf[0] > pax->xlim[1] || lyne->xdata.buf[lyne->xdata.nSamples - 1] < pax->xlim[0]) return out;
+			for (unsigned int k = 0; k < lyne->xdata.nSamples; k++)
+			{
+				if (lyne->xdata.buf[k] >= pax->xlim[0])
+				{
+					ibegin = k;
+					break;
+				}
+			}
+			for (unsigned int k = 0; k < lyne->xdata.nSamples; k++)
+			{
+				if (lyne->xdata.buf[lyne->xdata.nSamples - 1 - k] <= pax->xlim[1])
+				{
+					iend = lyne->xdata.nSamples - k;
+					break;
+				}
+			}
+		}
+		else if (lyne->xdata.nSamples && !monotonic)
+		{
+			ibegin = 0;
+			iend = lyne->xdata.nSamples;
+		}
+		else
+		{
+			ibegin = MAX(0, (int)ceil(pax->xlim[0]) - 1);
+			iend = (int)(pax->xlim[1]) - 1;
+		}
+		if (lyne->xdata.nSamples)
+		{
+			double lastval = lyne->xdata.buf[0];
+			for (unsigned int k = 1; k < lyne->xdata.nSamples; k++)
+			{
+				if (lyne->xdata.buf[k] - lastval < 0)
+				{
+					monotonic = false;
+					break;
+				}
+				lastval = lyne->xdata.buf[k];
+			}
+		}
 	}
-	double multiplier = 2.;
-	int nPixels = pax->rct.right - pax->rct.left + 1; // pixel count to cover the plot
-	int estimatedNSamples = (int)((pax->xlim[1] - pax->xlim[0])*(double)fs); // how many signal sample points are covered in the client axes--not actual sample counts because the signal may exist only in part of range
-	int paintAreaWidth = paintRC.right - paintRC.left;
-	return paintAreaWidth *2;
+	count = iend - ibegin;
+
+	// range x1 to x2 is mapped to rcPaint.Width()
+	POINT pt;
+	double pixadv1 = (double) width / count;
+	double advance = 1. / pixadv1;
+	{ // for each p->buf[k], pixel advances 
+		// the first index greater than x1
+		int _id0 = (int)max(pax->xlim[0], ceil(x1)) - 1;
+		unsigned int id0 = _id0 <= 0 ? 0 : _id0;
+		
+		double ticker = id0;
+		unsigned int offset = ibegin;
+		if (pixadv1 > .5)
+		{
+			if (p->GetFs() > 500)
+				for (int k = ibegin; k < iend; k++)
+					out.push_back(pax->double2pixelpt((double)(k + 1)/fs, p->buf[k], NULL));
+			else if(lyne->xdata.nSamples)
+			{
+				pt.x = pax->double2pixel(max(x1, p->tmark / 1000.), 'x');
+				CSignal *px = &lyne->xdata;
+				for (unsigned int k = 0; k < p->nSamples; k++)
+				{
+					CPoint pt0 = pt;
+					pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
+					if (pt0 != pt)
+						out.push_back(pt);
+				}
+			}
+			else
+				for (int k = ibegin; k < iend; k++)
+					out.push_back(pax->double2pixelpt(k + 1, p->buf[k], NULL));
+		}
+		else
+		{
+			pt.x = drawingRt.left;
+			int height = drawingRt.Height();
+			if (0)//(lyne->xdata.nSamples && monotonic)
+			{
+				vector<pair<int, int>> range;
+				pair<int, int> px; 
+				px.first = ibegin;
+				int margin = 2;
+				bool makenewpair = false;
+				for (int k = ibegin + 1; k < iend; k++)
+				{
+					if (makenewpair)
+					{
+						px.second = k;
+						range.push_back(px);
+						px.first = k;
+						makenewpair = false;
+					}
+					// how should I group---inspect lyne->xdata.buf[k] and get the range of index within the margin
+					else if (lyne->xdata.buf[k] - lyne->xdata.buf[px.first] > margin)
+						makenewpair = true;
+				}
+				if (px.second < (int)lyne->xdata.nSamples)
+				{
+					px.second = lyne->xdata.nSamples;
+					range.push_back(px);
+				}
+				for (auto rx : range)
+				{
+					const pair<double*, double*> ul = minmax_element(p->buf + rx.first, p->buf + rx.second);
+					if (*ul.first < pax->ylim[0]) *ul.first = pax->ylim[0];
+					pt.y = drawingRt.bottom - offpixel(*ul.first, pax->ylim, height);
+					pt.y = min(pt.y, drawingRt.bottom);
+					out.push_back(pt);
+					if (*ul.second > pax->ylim[1]) *ul.second = pax->ylim[1];
+					pt.y = drawingRt.bottom - offpixel(*ul.second, pax->ylim, height);
+					pt.y = max(pt.y, drawingRt.top);
+					if (pt.y != out.back().y)
+						out.push_back(pt);
+					pt.x += margin;
+				}
+			}
+			else
+			{
+				for (int k = 0; k < width; k++, pt.x++, ticker += advance)
+				{
+					int begin = (int)ticker + offset;
+					int end = min((int)(ticker + advance), (int)p->nSamples) + offset;
+					const pair<double*, double*> pr = minmax_element(p->buf + begin, p->buf + end);
+					if (*pr.first < pax->ylim[0]) *pr.first = pax->ylim[0];
+					pt.y = drawingRt.bottom - offpixel(*pr.first, pax->ylim, height);
+					pt.y = min(pt.y, drawingRt.bottom);
+					out.push_back(pt);
+					if (*pr.second > pax->ylim[1]) *pr.second = pax->ylim[1];
+					pt.y = drawingRt.bottom - offpixel(*pr.second, pax->ylim, height);
+					pt.y = max(pt.y, drawingRt.top);
+					if (pt.y != out.back().y)
+						out.push_back(pt);
+				}
+			}
+		}
+	}
+	return out;
 }
 
 // extent is rct.Width(); for x, rct.Height() for y
@@ -521,7 +672,6 @@ vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CR
 	}
 	return out;
 }
-
 
 vector<POINT> CPlotDlg::makeDrawVector(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
 {

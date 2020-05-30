@@ -72,9 +72,8 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 			block->tmark += 1000. * m * block->nSamples / block->GetFs();
 		if (pline->lineWidth > 0 || pline->symbol != 0)
 		{
-			int tp = estimateDrawCounts(block, pax, pline, pps->rcPaint);
-//			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
-			drawvector = makeDrawVector(block, pax, pline, (CRect)pps->rcPaint);
+			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
+//			drawvector = makeDrawVector(block, pax, pline, (CRect)pps->rcPaint);
 		}
 		if (pline->symbol != 0)
 		{

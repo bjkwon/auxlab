@@ -227,7 +227,6 @@ public:
 	void MouseLeave(UINT umsg);
 	vector<POINT> makeDrawVector(const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint);
 	vector<POINT> plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint);
-	int estimateDrawCounts(const CSignal *p, CAxes *pax, CLine *thisline, RECT paintRC);
 	void DrawMarker(const CDC &dc, CLine* mline, const vector<POINT> & dv);
 	POINT GetIndDisplayed(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);
