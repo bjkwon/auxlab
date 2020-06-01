@@ -122,6 +122,7 @@ public:
 	vector<double> sum(unsigned int id0=0, unsigned int len = 0) const;
 	vector<double> mean(unsigned int id0 = 0, unsigned int len = 0) const;
 	vector<double> stdev(unsigned int id0 = 0, unsigned int len = 0) const;
+	bool operator < (const body &rhs) const;
 
 	void* parg;
 
@@ -137,6 +138,7 @@ public:
 	double tmark;
 	short snap; // 0 for regular; 1 for data at a tmark snap shot (used for time sequence)
 	unsigned int Len() { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }
+	bool operator < (const CSignal &rhs) const;
 
 	// Signal generation (no stereo handling)
 	double * fm(double midFreq, double fmWidth, double fmRate, int  nsamples, double beginFMPhase=0.);
@@ -274,7 +276,6 @@ protected:
 		return out;
 	};
 
-
 private:
 	CSignal& _filter(vector<double> num, vector<double> den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
 	int operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset);
@@ -290,6 +291,7 @@ public:
 
 	int WriteAXL(FILE* fp);
 	int IsTimeSignal() const;
+	bool operator < (const CTimeSeries & rhs) const;
 
 	CTimeSeries runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
 	CTimeSeries & runFct2modify(CSignal& (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
@@ -399,6 +401,8 @@ class CSignals : public CTimeSeries
 public:
 	CSignals *next;
 
+	bool operator < (const CSignals & rhs) const;
+
 	CSignals runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL) ;
 	CSignals & runFct2modify(CSignal& (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
 	CSignals runFct2getsig(CSignal(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
@@ -449,7 +453,6 @@ public:
 
 	int GetType() const;
 	int GetTypePlus() const;
-
 
 	CSignals& RMS(); //to calculate the overall RMS; different from CSignal::RMS()
 
@@ -553,6 +556,7 @@ public:
 
 	bool functionEvalRes;
 
+	bool operator < (const CVar & rhs) const;
 	bool IsStruct() const { return (!strut.empty() || !struts.empty()); }
 	bool IsEmpty() const { return (CSignal::GetType() == CSIG_EMPTY && cell.empty() && strut.empty() && struts.empty()); }
 	bool IsAudioObj() const;

@@ -16,6 +16,7 @@
 #include <exception>
 #include <math.h>
 #include <time.h>
+#include <limits>
 #include <assert.h>
 #include "aux_classes.h"
 #include "sigproc.h"
@@ -907,10 +908,6 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 			}
 		}
 
-#if defined(_WINDOWS) && defined(_DEBUG)
-		//	Beep(1000, 50);
-#endif
-
 		p = pFirst;
 		while (p)
 		{
@@ -1223,6 +1220,48 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 }
 #endif // _WINDOWS
 
+multimap<CVar, AstNode *> CAstSig::register_switch_cvars(const AstNode *pnode, vector<int> &undefined)
+{
+	multimap<CVar, AstNode *> out;
+	// This evaluates the udf and computes all case keys for switch..case... loops.
+	AstNode *p, *_pnode = (AstNode *)pnode;
+	for (; _pnode; _pnode = _pnode->next)
+	{
+		if (_pnode->type == T_SWITCH)
+		{
+			for (p = _pnode->alt; p && p->next; p = p->next->alt)
+			{
+				if (p->type == N_ARGS)
+				{
+					for (AstNode *pa = p->child; pa; pa = pa->next)
+					{
+						const CVar tsig2 = Compute(pa);
+						out.emplace(tsig2, p->next);
+					}
+				}
+				else if (p->type == T_OTHERWISE)
+					break;
+				else
+				{
+					try {
+						CVar tsig2 = Compute(p);
+						out.emplace(tsig2, p->next);
+					}
+					catch (const CAstException &e)
+					{
+						string emsg = e.outstr;
+						string estr = e.tidstr;
+						int line = e.line;
+						line++; line--;
+						undefined.push_back(e.line);
+					}
+				}
+			}
+		}
+	}
+	return  out;
+}
+
 AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *internaltransport)
 {
 	/* internaltransport carries the content of AUXCON script when ReadUDF() is called in auxconDlg.cpp
@@ -1232,7 +1271,7 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *in
 	string fullpath, filecontent("");
 	AstNode *pout;
 	if (pEnv->udf.empty())
-	{ // Read aux private functions
+	{ // Read aux private functions`
 	}
 	if (!internaltransport) // not from AUXCON
 	{
@@ -1311,10 +1350,15 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 		string emsg = string(string(udf_filename) + " vs ") + pnode4Func->str;
 		throw CAstExceptionInvalidUsage(*this, p, "inconsistent function name", emsg.c_str());
 	}
+	vector<int> undefined;
+	auto vv = register_switch_cvars(pnode4Func->child->next->next, undefined);
 
 	pEnv->udf[udf_filename].pAst = pnode4Func;	
 	pEnv->udf[udf_filename].fullname = fullfilename;
 	pEnv->udf[udf_filename].content = filecontent.c_str();
+	pEnv->udf[udf_filename].switch_case = vv;
+	pEnv->udf[udf_filename].switch_case_undefined = undefined;
+	
 	for (AstNode *pp = pnode4Func->next; pp; pp = pp->next)
 	{// if one or more local functions exists
 		UDF loc;
@@ -2724,17 +2768,38 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 			Compute(pnode->alt);
 		break;
 	case T_SWITCH:
+	{
+		switch_case_handler(pnode);
 		tsig = Compute(p);
-		for (p = pnode->alt; p && p->next; p = p->next->alt)	// p is a case exp, pcase->next is the code block.
-			if (p->type == N_ARGS) {
-				for (AstNode *pa=p->child; pa; pa=pa->next)
-					if (tsig == Compute(pa))
-						return Compute(p->next);	// no further processing of this 'switch' statement.
-			} else if (tsig == Compute(p))
-				return Compute(p->next);	// no further processing of this 'switch' statement.
-		// now p is at the end of 'case' list, without executing any conditional code.
-		if (p)	// if not null, it's the 'otherwise' code block
-			Compute(p);
+		auto fd = find(pEnv->udf[u.base].switch_case_undefined.begin(), pEnv->udf[u.base].switch_case_undefined.end(), p->line);
+		if (fd != pEnv->udf[u.base].switch_case_undefined.end())
+		{ // update switch_case
+			CVar tsig2 = Compute(p->alt);
+			pEnv->udf[u.base].switch_case.emplace(tsig2, p->next);
+		}
+		if (pEnv->udf[u.base].switch_case.find(tsig) == pEnv->udf[u.base].switch_case.end())
+		{
+			Compute(pnode->tail->next);
+		}
+		else
+		{
+			auto ret = pEnv->udf[u.base].switch_case.equal_range(tsig);
+			auto it = ret.first;
+			for (; it != ret.second; it++)
+			{
+				int endline = (*it).second->line + 1;
+				if (pnode->next)
+					endline = pnode->next->line;
+				if ((*it).second->line > pnode->line && (*it).second->line < endline)
+				{
+					Compute((*it).second);
+					break;
+				}
+			}
+			if (it == ret.second)
+				Compute(pnode->tail->next);
+		}
+	}
 		break;
 	case T_WHILE:
 		fExit=fBreak=false;
@@ -2800,6 +2865,63 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		throw CAstExceptionInternal(*this, pnode, "[INTERNAL] Unknown node type", pnode->type);
 	}
 	return &Sig;
+}
+
+void CAstSig::switch_case_handler(const AstNode *pnode)
+{
+	// if switch is first encountered, take care of switch_case_undefined
+	multimap<CVar, AstNode *> more;
+	vector<int> less = pEnv->udf[u.base].switch_case_undefined;
+	AstNode *p = pnode->alt;
+	for (; p && p->next && !less.empty(); p = p->next->alt)
+	{
+		if (p->line == less.front())
+		{
+			pLast = p; // to show the error line correctly inside the switch block
+			more.emplace(Compute(p), p->next);
+			auto fd = find(less.begin(), less.end(), p->line);
+			less.erase(fd);
+		}
+	}
+	pLast = pnode;
+	//check if there's a duplicate
+	//first is there a duplicate within more?
+	for (auto mi = more.begin(); mi != more.end(); mi++)
+	{
+		auto va = (*mi).first;
+		for (auto mj = next(mi, 1); mj != more.end(); mj++)
+		{
+			bool b1 = (*mi).first < (*mj).first;
+			bool b2 = (*mj).first < (*mi).first;
+			if ( !b1 && !b2 )
+			{
+				string extra;
+				sformat(extra, "expressions on line %d and line %d", (*mi).second->line - 1, (*mj).second->line - 1);
+				throw CAstExceptionInvalidUsage(*this, pnode, "case duplates detected in a switch block--", "", extra);
+			}
+		}
+	}
+	// check more against pEnv->udf[u.base].switch_case
+	for (auto ck = more.begin(); ck != more.end(); ck++)
+	{
+		auto fd = pEnv->udf[u.base].switch_case.find((*ck).first);
+		if (fd != pEnv->udf[u.base].switch_case.end())
+		{ // duplicate found. Is it in the same switch range?
+			int a = (*ck).second->line;
+			int endline = (*ck).second->line + 1;
+			if (pnode->next)
+				endline = pnode->next->line;
+			if ((*ck).second->line > pnode->line && (*ck).second->line < endline)
+			{
+				string extra;
+				sformat(extra, "expressions on line %d and line %d", (*ck).second->line - 1, (*fd).second->line - 1);
+				throw CAstExceptionInvalidUsage(*this, pnode, "case duplates detected in a switch block--", "", extra);
+			}
+		}
+	}
+	for (auto ck = more.begin(); ck != more.end(); ck++)
+		pEnv->udf[u.base].switch_case.emplace((*ck).first, (*ck).second);
+	pEnv->udf[u.base].switch_case_undefined.clear();
 }
 
 void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)

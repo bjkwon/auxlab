@@ -225,7 +225,6 @@ public:
 	BOOL OnNCActivate(UINT state);
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
-	vector<POINT> makeDrawVector(const CSignal *p, CAxes *pax, CLine *thisline, CRect rcPaint);
 	vector<POINT> plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint);
 	void DrawMarker(const CDC &dc, CLine* mline, const vector<POINT> & dv);
 	POINT GetIndDisplayed(CAxes *pax);

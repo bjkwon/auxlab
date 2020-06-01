@@ -36,6 +36,7 @@ ERROR: N_EXTRACT : variable not available.
 
 which is not helpful to users.
 */
+
 string GetNodeType(int type)
 { // from psycon.yacc.h
 	switch (type)

@@ -557,3 +557,109 @@ CTimeSeries& CTimeSeries::operator+(CTimeSeries* sec)
 	AddMultChain('+', sec);
 	return *this;
 }
+
+bool body::operator < (const body &rhs) const
+{
+	if (nSamples < rhs.nSamples) return true;
+	if (nSamples > rhs.nSamples) return false;
+	if (nGroups < rhs.nGroups) return true;
+	if (nGroups > rhs.nGroups) return false;
+	if (bufBlockSize < rhs.bufBlockSize) return true;
+	if (bufBlockSize > rhs.bufBlockSize) return false;
+	if (bufBlockSize==8)
+		for (unsigned int k = 0; k < nSamples; k++)
+			if (buf[k] < rhs.buf[k]) return true;
+	else if (bufBlockSize == 16)
+		for (unsigned int k = 0; k < nSamples; k++)
+			if (real(cbuf[k]) < real(rhs.cbuf[k]) && imag(cbuf[k]) < imag(rhs.cbuf[k])) return true;
+	else if (bufBlockSize == 1)
+		for (unsigned int k = 0; k < nSamples; k++)
+			if (strbuf[k] < rhs.strbuf[k]) return true;
+	if (ghost && !rhs.ghost) return true;
+	if (!ghost && rhs.ghost) return false;
+	return false;
+}
+
+bool CSignal:: operator < (const CSignal &rhs) const
+{
+	if (fs < rhs.fs) return true;
+	if (fs > rhs.fs) return false;
+	if (tmark < rhs.tmark) return true;
+	if (tmark > rhs.tmark) return false;
+	if (snap < rhs.snap) return true;
+	if (snap > rhs.snap) return false;
+	body *p = (body *)this;
+	body *q = (body*)&rhs;
+	if (*p < *q) return true;
+	return false;
+}
+
+bool CTimeSeries::operator < (const CTimeSeries & rhs) const
+{
+	for (const CTimeSeries *p = &rhs, *p0 = this; p; p = p->chain, p0 = p0->chain)
+	{
+		if (!p0) return true;
+		if (*(CSignal*)p0 < *(CSignal*)p) return true;
+		if (*(CSignal*)p < *(CSignal*)p0) return false;
+	}
+	if (outarg.size() < rhs.outarg.size()) return true;
+	if (outarg.size() > rhs.outarg.size()) return false;
+	auto rm = rhs.outarg.begin();
+	for (auto m : outarg)
+	{
+		if (m < *rm) return true;
+		if (*rm < m) return false;
+	}
+	return false;
+}
+
+bool CSignals::operator < (const CSignals & rhs) const
+{
+	if (!next && rhs.next) return true;
+	if (next && !rhs.next) return false;
+	CTimeSeries *p = (CTimeSeries *)this;
+	if (*p < *(CTimeSeries *)&rhs) return true;
+	if (*(CTimeSeries *)&rhs < *p) return false;
+	if (next && rhs.next && *next < *(CTimeSeries *)rhs.next) return true;
+	return false;
+}
+
+bool CVar::operator < (const CVar & rhs) const
+{
+	if (cell.size() < rhs.cell.size()) return true;
+	if (cell.size() > rhs.cell.size()) return false;
+	if (ptarray.size() < rhs.ptarray.size()) return true;
+	if (ptarray.size() > rhs.ptarray.size()) return false;
+	auto rm = rhs.cell.begin();
+	for (auto m : cell)
+	{
+		if (m < *rm) return true;
+	}
+	auto rn = rhs.ptarray.begin();
+	for (auto n : ptarray)
+	{
+		if (n < *rn) return true;
+	}
+	auto rs = rhs.strut.begin();
+	for (auto it = strut.begin(); it != strut.end(); it++, rs++)
+	{
+		if (rs == rhs.strut.end()) return false;
+		if ((*it).first < (*rs).first) return true;
+		if ((*it).first > (*rs).first) return false;
+		return (*it).second < (*rs).second;
+	}
+	if (rs != rhs.strut.end()) return true;
+	auto rss = rhs.struts.begin();
+	for (auto it = struts.begin(); it != struts.end(); it++, rs++)
+	{
+		if (rss == rhs.struts.end()) return false;
+		if ((*it).first < (*rss).first) return true;
+		if ((*it).first > (*rss).first) return false;
+		return (*it).second < (*rss).second;
+	}
+	if (rss != rhs.struts.end()) return true;
+	CSignals *p = (CSignals *)this;
+	CSignals *q = (CSignals*)&rhs;
+	if (*p < *q) return true;
+	return false;
+}

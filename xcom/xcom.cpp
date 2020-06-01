@@ -1830,7 +1830,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	size_t nHistFromFile = mainSpace.ReadHist();
 	mainSpace.comid = nHistFromFile;
 
-
 #ifndef WIN64
 	sprintf(fname, "%sauxp32.dll", mainSpace.AppPath);
 #else

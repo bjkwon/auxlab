@@ -73,7 +73,6 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 		if (pline->lineWidth > 0 || pline->symbol != 0)
 		{
 			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
-//			drawvector = makeDrawVector(block, pax, pline, (CRect)pps->rcPaint);
 		}
 		if (pline->symbol != 0)
 		{

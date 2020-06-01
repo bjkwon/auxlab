@@ -1,0 +1,23 @@
+[SYMPTOM]
+x=tone(50,100)@-20 + noise(80)@-30>>180
+x(50~60) = noise(10)@-20
+x(210~220) = noise(10)@-3
+
+So far so good. but 
+
+x(180~200) = noise(10).hann@-3
+
+then x gets de-chained..
+
+x(181~200) = noise(19).hann@-3 OK...
+
+[SUMMARY] 
+When time range of x is t1 to t2 and t3 to t4 (where t3 > t2),
+if the time index of x oh LHS is out of range, the behavior is not clearly defined.
+
+Most erratic behavior is, given
+x(ta~tb) = something 
+if ta is the same as t3, the chain gets disrupted.
+
+[SINCE] 
+Never discovered or addressed in the past

@@ -309,12 +309,8 @@ stmt: expcondition
 		$$ = $3;
 		$$->alt = $3->alt;
 		$$->child = $2;
-		AstNode *p = $5;
-		if (p->type!=N_BLOCK)
-		{
-			p = newAstNode(N_BLOCK, @5);
-			p->next = $5;
-		}
+		AstNode *p = newAstNode(T_OTHERWISE, @5);
+		p->next = $5;
 		$$->tail = $3->tail->alt = p;
 		$$->line = @$.first_line;
 		$$->col = @$.first_column;
@@ -1003,14 +999,19 @@ case_list: /* empty */
 		$1->tail = $3->next = p;
 		$$ = $1;
 	}
-	| case_list T_CASE '{' arg_list '}' block
+	| case_list T_CASE '{' arg_list '}' T_NEWLINE block
 	{
-		if ($1->child)
-			$1->tail->next = $4;
+		if ($1->alt)
+			$1->tail->alt = $4;
 		else
-			$1->child = $4;
-		$4->next = $6;
-		$1->tail = $6;
+			$1->alt = $4;
+		AstNode *p = $7;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @7);
+			p->next = $7;
+		}
+		$1->tail = $4->next = p;
 		$$ = $1;
 	}
 ;

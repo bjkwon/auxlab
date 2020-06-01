@@ -134,6 +134,8 @@ public:
 	bool newrecruit;
 	UDF& operator=(const UDF& rhs);
 	UDF() {	pAst = NULL; newrecruit = false;	};
+	multimap<CVar, AstNode *> switch_case; // why multimap instead of map? Because the key for case may appear in multiple switch blocks
+	vector<int> switch_case_undefined;
 	virtual ~UDF() {};
 };
 
@@ -160,6 +162,7 @@ public:
 	string AuxPath;
 	bool shutdown;
 	void InitBuiltInFunctions(HWND h);
+	void InitErrorCodes();
 	void InitBuiltInFunctionsExt(const char *dllname);
 	map<string, Cfunction> builtin;
 
@@ -310,6 +313,7 @@ private:
 	CVar * NodeVector(const AstNode *pnode);
 	CVar * NodeMatrix(const AstNode *pnode);
 	CVar * Dot(AstNode *p);
+	void switch_case_handler(const AstNode *pnode);
 
 public:
 	string ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar*>> &inVars, vector<unique_ptr<CVar*>> &outVars, bool defaultcallback);
@@ -392,6 +396,7 @@ public:
 	string MakeFilename(string fname, const string ext);
 	FILE *OpenFileInPath(string fname, string ext, string &fullfilename);
 	AstNode *ReadUDF(string &emsg, const char *udf_filename, const char *internaltransport=NULL);
+	multimap<CVar, AstNode *> register_switch_cvars(const AstNode *pnode, vector<int> &undefined);
 	AstNode *RegisterUDF(const AstNode *pnode, const char *udf_filename, string &filecontent);
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int minArgs, int maxArgs);
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int *args);
