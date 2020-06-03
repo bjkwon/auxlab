@@ -3028,11 +3028,12 @@ int CSignal::DecFir(const CSignal& coeff, int offset, int nChan)
 	return 1;
 }
 
-CSignal& CSignal::_filter(vector<double> num, vector<double> den, vector<double> &initialfinal, unsigned int id0, unsigned int len)
+CSignal& CSignal::_filter(const vector<double> & num, const vector<double> & den, vector<double> &initialfinal, unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	if (IsComplex())
 	{
+		// initial and final conditions for complex not yet been done 6/2/2020
 		complex<double> xx, *out = new complex<double>[len];
 		for (unsigned int m = id0; m < id0 + len; m++)
 		{
@@ -3053,6 +3054,7 @@ CSignal& CSignal::_filter(vector<double> num, vector<double> den, vector<double>
 		double xx, *out = new double[len];
 		for (unsigned int m = id0; m < id0 + len; m++)
 		{
+			auto preex = initial.begin();
 			xx = num[0] * buf[m];
 			for (unsigned int n = 1; n < num.size(); n++)
 			{
@@ -3060,7 +3062,8 @@ CSignal& CSignal::_filter(vector<double> num, vector<double> den, vector<double>
 					xx += num[n] * buf[m - n];
 				else
 				{
-					xx += initial[m];
+					if (preex != initial.end())
+						xx += *(preex++);
 					break;
 				}
 			}
@@ -3072,12 +3075,8 @@ CSignal& CSignal::_filter(vector<double> num, vector<double> den, vector<double>
 		for (size_t m = 0; m < finalcondition.size(); m++)
 		{
 			for (size_t k = m + 1; k < num.size() && len + m >= k; k++)
-			{
 				finalcondition[m] += num[k] * buf[len - k + m];
-			}
-
 			for (size_t k = 1; k < den.size() && len + m >= k; k++)
-				//if (k <= m && m <= k + len - 1)	
 					finalcondition[m] -= den[k] * out[len - k + m];
 		}
 		delete[] buf;
@@ -3107,7 +3106,6 @@ CSignal& CSignal::conv(unsigned int id0, unsigned int len)
 	return *this = out;
 }
 
-
 CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
@@ -3119,7 +3117,7 @@ CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 		initfin = coeffs.back();
 	_filter(num, den, initfin, id0, len);
 	auto vv = (vector<vector<double>>*)parg;
-	*&vv->at(2) = initfin; // updating the content of the pointer stored at second item of the vector, parg 
+	*&vv->at(1) = initfin; // updating the content of the pointer stored at second item of the vector, parg 
 	return *this;
 }
 

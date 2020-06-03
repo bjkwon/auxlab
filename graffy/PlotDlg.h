@@ -233,7 +233,7 @@ public:
 	void GetSignalIndicesofInterest(int code, CAxes *pax, int & ind1, int &ind2);
 	int GetSelect(CSignals *pout);
 	void ShowSpectrum(CAxes *pax, CAxes *paxBase);
-	void getFFTdata(CTimeSeries *sig_mag, double *fft, int len);
+	void getFFTdata(CTimeSeries & mag, const vector<double> & fft);
 	void setInProg(bool ch) { inprogress = ch; };
 	bool getInProg() { return inprogress; };
 	void Register(CAxes *pax, bool b);

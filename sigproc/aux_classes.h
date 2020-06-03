@@ -262,13 +262,11 @@ protected:
 
 	uint16_t type() const
 	{
-		uint16_t out;
-		if (IsEmpty())				out = TYPEBIT_NULL;
+		uint16_t out = TYPEBIT_NULL;
+		if (IsEmpty())			return out;
 		else if (fs == 1)		out = 0;
 		else if (fs == 2)		out = TYPEBIT_STRING;
 		else if (fs > 500)		out = TYPEBIT_AUDIO;
-		else
-			return 0xffff;
 		if (snap) out += TYPEBIT_SNAP;
 		if (nSamples > 0) out++;
 		if (nSamples > 1) out++;
@@ -277,7 +275,7 @@ protected:
 	};
 
 private:
-	CSignal& _filter(vector<double> num, vector<double> den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& _filter(const vector<double> & num, const vector<double> & den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
 	int operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset);
 
 	friend class CSignalExt;
@@ -599,14 +597,14 @@ public:
 	uint16_t type() const
 	{
 		uint16_t out = CSignal::type();
-		if (out != 0xffff && out != TYPEBIT_NULL) return out;
-		if (!cell.empty())		out = TYPEBIT_CELL;
+//		if (out == TYPEBIT_NULL || out != 1 || out != 2) return out;
+		if (!cell.empty())		out += TYPEBIT_CELL;
 		else if (!strut.empty())
 		{
-			out = TYPEBIT_STRUT;
+			out += TYPEBIT_STRUT;
 			if (!struts.empty()) out += TYPEBIT_STRUTS;
 		}
-		else if (fs == 3)		out = TYPEBIT_STRUT + TYPEBIT_STRUTS;
+		else if (fs == 3)		out += TYPEBIT_STRUT + TYPEBIT_STRUTS;
 		return out;
 	}
 };

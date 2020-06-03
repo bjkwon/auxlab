@@ -1497,6 +1497,7 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			sig.runFct2modify(&CSignal::filter, &coeffs);
 		else if (fname == "filtfilt")
 			sig.runFct2modify(&CSignal::filtfilt, &coeffs);
+		//at this point, coeffs is not the same as before (updated with the final condition)
 	}
 	else
 	{
