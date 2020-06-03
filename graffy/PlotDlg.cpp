@@ -1412,7 +1412,7 @@ void CPlotDlg::WindowSizeAdjusting()
 int CPlotDlg::ViewSpectrum()
 {
 	CAxes *paxFFT;
-	CPosition SpecAxPos(.75, .6, .22, .35);
+	CPosition SpecAxPos(.75, .64, .22, .35);
 	if (gcf.ax.size() > 1) SpecAxPos.height -= .02;
 	int nOuts = 0;
 	for (auto Ax : gcf.ax)
