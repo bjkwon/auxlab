@@ -340,8 +340,6 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 				}
 				else
 				{
-
-
 					if (psigRHS->IsGO()) // If the base sig already has corresponding struts, it is a matter of replacing the content, but if the existing member is strut, it is complicated... 9/6/2018
 						throw CAstExceptionInvalidUsage(*pbase, p, "You are trying to update a GO member variable. This cannot be done due to a known bug. Clear the member variable and try again. Will be fixed someday. bj kwon 9/6/2018.");
 					else
@@ -350,6 +348,8 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 						psigBase->strut[p->str] = psigRHS;
 						varname += string(".") + p->str;
 					}
+					if (psigBase->GetFs() == 3) // without this, after gos(1:2).color = [1 1 1], LHS becomes non GO.
+						pbase->Sig = *psigBase;
 				}
 				if (pbase->pgo) 
 					pbase->setgo.type = p->str;

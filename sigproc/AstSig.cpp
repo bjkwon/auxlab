@@ -2178,9 +2178,8 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 		{
 			if (np.psigBase->IsGO() && np.psigBase->GetFs() != 3)
 			{
-				CVar tp = Compute(pn->child);
-				if (tp.GetType()!=CSIG_SCALAR || tp.value()!=1.) // redo this. 1/16/2020
-					throw CAstExceptionInvalidUsage(*this, ppar, "Invalid index of a graphic object arrary.", pn->child->str);
+				if (Compute(pn->child)->type()!= 1)
+					throw CAstExceptionInvalidUsage(*this, ppar, "Invalid index of a graphic object arrary.");
 			}
 			else
 			{
@@ -2322,10 +2321,11 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 								  // Need to leave the address of the data to be modified
 									np.lhsref = pres->buf + (int)pindexResolved->value() - 1; // zero-based index
 									np.psigBase = pres;
-									CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
-									if (pex && pex->IsGO())
+									if (pres->GetFs() == 3)
 									{
-										replica_prep(np.psigBase = pgo = pres = pex);
+										CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
+										if (pex)
+											replica_prep(np.psigBase = pgo = pres = pex);
 									}
 									else
 									{
@@ -2333,7 +2333,6 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 										if (searchtree(np.root->child, T_REPLICA))
 											replica_prep(&temp_single);
 									}
-			//						return p->alt;
 								}
 								else
 								{
@@ -2344,7 +2343,6 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 									else
 									{
 										Sig.buf[0] = pres->buf[(int)pindexResolved->value() - 1]; // zero-based index
-				//						return p->alt;
 									}
 								}
 							}
@@ -2480,6 +2478,8 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		setgo.frozen = true;
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
+			if (pres->GetFs() == 3)
+				throw CAstExceptionInternal(*this, pnode, "In this version, don't adjust properties of multiple GOs on LHS.");
 			if (pres->IsGO())
 				fpmsg.SetGoProperties(this, setgo.type, *np.psigBase);
 			else
@@ -2652,7 +2652,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 				funcname = p->str;
 			if (p->alt && p->alt->type == N_STRUCT)
 				funcname = p->alt->str;
-			if (!ReadUDF(emsg, funcname.c_str()) && !IsValidBuiltin(funcname))
+			if (!ReadUDF(emsg, funcname.c_str()) && !IsValidBuiltin(funcname) && emsg.empty())
 				throw_LHS_lvalue(pnode, false);
 			// Now, evaluate RHS 
 			// why not TID(((AstNode*)pnode->str), p), which might be more convenient? (that's the "inner" N_VECTOR node)
@@ -2686,8 +2686,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		tsig = Compute(p);
 		blockCell(pnode,  Sig);
 		blockString(pnode,  Sig);
-		if (pnode->type=='*')	Compute(p->next);
-		else if (pnode->type == '/')	Compute(p->next)->reciprocal();
+		if (pnode->type=='*' || pnode->type == '/')	Compute(p->next);
 		else
 		{
 			checkVector(pnode, tsig);
@@ -2698,6 +2697,8 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		}
 		blockString(pnode,  Sig);
 		blockEmpty(pnode, Sig);
+		// reciprocal should be after blocking string (or it would corrupt the heap) 6/3/2020
+		if (pnode->type == '/') Sig.reciprocal();
 		Sig *= tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case '%':
