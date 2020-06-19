@@ -3585,9 +3585,13 @@ void CSignals::SetNextChan(CSignals *second, bool need2makeghost)
 	if (next == second) return;
 	if (second && fs != second->GetFs() && second->nSamples > 0 && nSamples > 0)
 	{
-		char errstr[256];
-		sprintf(errstr, "SetNextChan attempted on different fs: fs1=%d, fs2=%d", GetFs(), second->GetFs());
-		throw errstr;
+		// tseq and scalar can be mixed--i.e., if neither of this nor second is tseq throw
+		if (!(type()&TYPEBIT_TSEQ) && !(second->type()&TYPEBIT_TSEQ))
+		{
+			char errstr[256];
+			sprintf(errstr, "SetNextChan attempted on different fs: fs1=%d, fs2=%d", GetFs(), second->GetFs());
+			throw errstr;
+		}
 	}
 	if (next) {
 //		if (!next->ghost) 
@@ -4130,8 +4134,6 @@ int CSignals::Wavwrite(const char *wavname, char *errstr, std::string wavformat)
 
 #ifndef NO_PLAYSND
 
-
-
 #endif // NO_PLAYSND
 
 #endif
@@ -4176,7 +4178,6 @@ CSignal CSignal::FFT(unsigned int id0, unsigned int len) const
 	fftw_destroy_plan(p);
 	fftw_free(in);
 	fftw_free(out);
-	res.snap = 1;
 	return res;
 }
 

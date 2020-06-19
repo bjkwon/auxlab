@@ -108,6 +108,8 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 		bytes = 1;
 	else if (prec == "int16" || prec == "uint16")
 		bytes = 2;
+	else if (prec == "int24")
+		bytes = 3;
 	else if (prec == "float" || prec == "int32" || prec == "uint32")
 		bytes = 4;
 	else if (prec == "double")
@@ -157,38 +159,43 @@ void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		else
 		{
 			char temp = 0;
-			res = fwrite_general(temp, past->Sig, prec, file, bytes, 256);
+			res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 		}
 	}
 	else if (prec == "int8")
 	{
 		int8_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 128);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x80);
 	}
 	else if (prec == "uint8")
 	{ 
 		uint8_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 256);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 	}
 	else if (prec == "int16")
 	{
 		int16_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 32768);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x8000);
 	}
 	else if (prec == "uint16")
 	{
 		uint16_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 65536);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x10000);
 	}
+	//else if (prec == "int24")
+	//{
+	//	int32_t temp = 0; // in24_t doesn't exist
+	//	res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x800000);
+	//}
 	else if (prec == "int32")
 	{
 		int32_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 8388608);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x80000000);
 	}
 	else if (prec == "uint32")
 	{
 		uint32_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 16777216);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0xffffffff);
 	}
 	else if (prec == "float")
 	{ // No automatic scaling
@@ -238,6 +245,11 @@ void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	else if (prec == "int16" || prec == "uint16")
 	{
 		int16_t temp = 0;
+		fread_general(temp, past->Sig, prec, file, bytes);
+	}
+	else if (prec == "int24")
+	{
+		int32_t temp = 0; // in24_t doesn't exist
 		fread_general(temp, past->Sig, prec, file, bytes);
 	}
 	else if (prec == "int32" || prec == "uint32")
