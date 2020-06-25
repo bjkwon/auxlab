@@ -1860,13 +1860,42 @@ int findcol(AstNode *past, const char* pstr, int line)
 
 void _audio(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
 {
-	past->Sig.SetFs(past->GetFs()); // CHECK IT!!!!!!!!
+	past->blockString(pnode, past->Sig);
+	past->blockCell(pnode, past->Sig);
+	switch (past->Sig.nGroups)
+	{
+	case 1:
+		past->Sig.SetFs(past->GetFs()); 
+		break;
+	case 2:
+	{
+		past->Sig.SetFs(past->GetFs());
+		past->Sig.nSamples /= 2;
+		CSignals next = CSignal(past->Sig.GetFs(), past->Sig.nSamples);
+		memcpy(next.logbuf, past->Sig.logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.nSamples*past->Sig.bufBlockSize);
+		past->Sig.SetNextChan(&next);
+		past->Sig.nGroups = 1;
+	}
+		break;
+	default:
+		CAstExceptionInvalidUsage(*past, p, "Cannot apply to a matrix with rows > 2.");
+		break;
+	}
 }
 
 void _vector(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
 {
+	past->checkAudioSig(pnode, past->Sig);
 	past->Sig.MakeChainless();
 	past->Sig.SetFs(1);
+	if (past->Sig.next)
+	{
+		CSignal out = CSignal(1, past->Sig.nSamples * 2);
+		memcpy(out.logbuf, past->Sig.logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.nSamples*past->Sig.bufBlockSize);
+		memcpy(out.logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.next->logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.nSamples*past->Sig.bufBlockSize);
+		out.nGroups = 2;
+		past->Sig = (CVar)(CSignals)out;
+	}
 }
 
 void _ramp(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
@@ -2469,7 +2498,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.func =  &_fprintf;
 	builtin[name] = ft;
 
-	ft.narg1 = 2;	ft.narg2 = 2;
+	ft.narg1 = 2;	ft.narg2 = 3;
 	name = "fread";
 	ft.func = &_fread;
 	builtin[name] = ft;

@@ -1108,7 +1108,7 @@ CSignal::CSignal(int sampleRate)
 	if (fs == 2) bufBlockSize = 1;
 }
 
-CSignal::CSignal(int sampleRate, int len)
+CSignal::CSignal(int sampleRate, unsigned int len)
 	: fs(max(sampleRate, 0)), tmark(0.), snap(0)
 {
 	if (fs == 2) bufBlockSize = 1;
