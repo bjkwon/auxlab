@@ -852,7 +852,8 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		cout << varname << " = ";
 		cout << "\"" << pvar->string() << "\"" << postscript << endl;
 		break;
-	case TYPEBIT_TSEQ + 1: 
+	case TYPEBIT_AUDIO + 1:
+	case TYPEBIT_TSEQ + 1:
 	case TYPEBIT_TSEQ + 2: 
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;

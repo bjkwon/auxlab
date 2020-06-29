@@ -469,6 +469,8 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	CVar tsig, isig, isig2;
 	if (!p->child)	throw CAstExceptionInvalidUsage(*pbase, pnode, "A variable index should be provided.");
 	eval_indexing(p->child, isig);
+	if (!(isig.type() & 1)) // has more than one element. 
+		lhsref_single = false;
 	if (isig._max().front() > pbase->Sig.nSamples)
 		throw CAstExceptionRange(pbase, pnode, "", varname.c_str(), (int)isig._max().front());
 	pbase->Sig = extract(pnode, isig);

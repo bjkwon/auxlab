@@ -2318,18 +2318,29 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 						//if so, resolve here
 						if (p && p->type == N_ARGS)
 						{
-							CVar *pindexResolved = Compute(p->child);
-							if (pindexResolved->IsScalar())
+							// At this point, let's read the indices as shown, which may not be actual indices in 2D cases
+							// e.g., when x is 3 by 4, x(2:3,1) reads [2 3] which turns to [5 9] in next recursion to read_node (inside else if (pn->type == N_ARGS) braces)
+							CVar *pindex; 
+							if (p->child->type == T_FULLRANGE)
+							{
+								Sig.UpdateBuffer(pres->nGroups>1 ? pres->nGroups : pres->nSamples);
+								for (unsigned int k = 0; k < Sig.nSamples; k++)
+									Sig.buf[k] = k;
+								pindex = &Sig;
+							}
+							else
+								pindex = Compute(p->child);
+							if (pindex->IsScalar())
 							{
 								np.lhsref_single = true;
 								if (RHSpresent)
 								{ // this is LHS
 								  // Need to leave the address of the data to be modified
-									np.lhsref = pres->buf + (int)pindexResolved->value() - 1; // zero-based index
+									np.lhsref = pres->buf + (int)pindex->value() - 1; // zero-based index
 									np.psigBase = pres;
 									if (pres->GetFs() == 3)
 									{
-										CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
+										CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
 										if (pex)
 											replica_prep(np.psigBase = pgo = pres = pex);
 									}
@@ -2344,11 +2355,11 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 								{
 									if (pres->GetFs() == 3) // multi GO
 									{
-										np.psigBase = pgo = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
+										np.psigBase = pgo = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
 									}
 									else
 									{
-										Sig.buf[0] = pres->buf[(int)pindexResolved->value() - 1]; // zero-based index
+										Sig.buf[0] = pres->buf[(int)pindex->value() - 1]; // zero-based index
 									}
 								}
 							}
@@ -2681,8 +2692,10 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		if (pnode->type=='+')	tsig = Compute(p->next);
 		else					tsig = -*Compute(p->next);
 		blockCell(pnode, Sig);
+		blockString(pnode, Sig);
 		Compute(p);
 		blockCell(pnode, Sig);
+		blockString(pnode, Sig);
 		blockEmpty(pnode, Sig);
 		Sig += tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);

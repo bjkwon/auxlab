@@ -24,7 +24,9 @@
 #ifdef _WINDOWS
 #include <io.h>
 #include "bjcommon.h"
+#ifndef NO_PLAYSND
 #include "wavplay.h"
+#endif
 #elif
 #include <sys/types.h>
 #include <dirent.h>
@@ -40,6 +42,8 @@
 #endif
 
 
+#ifndef NO_FILES
+//these functions are defined in AuxFunc_file.cpp
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
@@ -49,6 +53,18 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+#else
+void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+
+#endif
 
 string CAstSigEnv::AppPath = "";
 map<string, Cfunction> dummy_pseudo_vars;
@@ -130,8 +146,8 @@ bool CAstSig::IsValidBuiltin(string funcname)
 
 void CAstSig::checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg)
 {
-	if (checkthis.GetType()==CSIG_AUDIO) return;
-	if (checkthis.GetType()==CSIG_CELL && ((CSignal)checkthis).GetType()==CSIG_AUDIO) return;
+	if (checkthis.type() & TYPEBIT_AUDIO) return;
+	if (checkthis.GetType()==CSIG_CELL && ((CSignal)checkthis).GetType()==CSIG_AUDIO) return; // Why is this here? Maybe there is a data type of cell with audio data? 6/29/2020
 	string msg("requires an audio signal as the base.");
 	throw CAstExceptionInvalidUsage(*this, pnode, (msg+addmsg).c_str());
 }
@@ -1886,7 +1902,7 @@ void _audio(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &
 void _vector(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	past->Sig.MakeChainless();
+//	past->Sig.MakeChainless(); // if this is on, you can't easily display values from an audio obj 6/29/2020
 	past->Sig.SetFs(1);
 	if (past->Sig.next)
 	{
