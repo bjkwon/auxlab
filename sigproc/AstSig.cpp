@@ -1374,56 +1374,61 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string
 
 CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 {
-	CVar refRMS, dB = Compute(p->next);
+	CVar sigRMS, refRMS, dB = Compute(p->next);
 	// if tsig is scalar -- apply it across the board of Sig
 	// if tsig is two-element vector -- if Sig is stereo, apply each; if not, take only the first vector and case 1
 	// if tsig is stereo-scalar, apply the scalar to each L and R of Sig. If Sig is mono, ignore tsig.next
 	// if tsig is tseq, it must have the same chain and next structure (exception otherwise)
-	// if tsig is tseq, it must have the same chain and next structure (exception otherwise)
 	if (p->type == '@')
 	{// trinary
+		if (dB.type() & TYPEBIT_TSEQ)
+			throw CAstExceptionInvalidUsage(*this, pnode, "sig @ ref @ level ---- level cannot be time sequence.");
 		refRMS <= Compute(p->child->next);
 		if (!refRMS.IsAudio())
-			throw CAstExceptionInvalidUsage(*this, pnode, "A @ B @ C ---- B must be an audio signal.");
+			throw CAstExceptionInvalidUsage(*this, pnode, "sig @ ref @ level ---- ref must be an audio signal.");
 		refRMS.RMS(); // this should be called here, once another Compute is called refRMS.buf won't be valid
-		Sig = Compute(p->child);
+		Compute(p->child);
+		sigRMS <= Sig;
+		sigRMS.RMS();
+		sigRMS -= refRMS;
 	}
 	else
 	{
 		Sig = Compute(p);
-		refRMS <= Sig;
-		if (dB.IsScalar() && dB.chain) // scalar time sequence
-		{
+		sigRMS <= Sig;
+		if (dB.type() == TYPEBIT_TSEQ + 1) // scalar time sequence
+		{// for tseq leveling, % operator is used.
 			for (CTimeSeries *p = &dB; p; p = p->chain)
-			{
 				p->buf[0] = pow(10, p->buf[0] / 20.);
-			}
+			for (CTimeSeries *p = dB.next; p; p = p->chain)
+				p->buf[0] = pow(10, p->buf[0] / 20.);
 			Sig % dB;
 			return &Sig;
 		}
+		// sig @ level
+		// if sig is chained, level is applied across all chains
+		// i.e., currently there's no simple way to specify chain-specific levels 6/17/2020
+
 		// A known hole in the logic here---if dB is stereo but first channel is scalar
 		// and next is chained, or vice versa, this will not work
 		// Currently it's difficult to define dB that way (maybe possible, but I can't think about an easy way)
 		// A new, simpler and intuitive way to define T_SEQ should be in place
 		// before fixing this hole.  10/7/2019
+
+		//Being fixed.... but need further checking
+		//6/17/2020
 		if (dB.chain || (dB.next && dB.next->chain))
-			refRMS = refRMS.runFct2getvals(&CSignal::RMS);
+			sigRMS = sigRMS.runFct2getvals(&CSignal::RMS);
 		else
-			refRMS.RMS(); // this should be called before another Compute is called (then, refRMS.buf won't be valid)
+			sigRMS.RMS(); // this should be called before another Compute is called (then, refRMS.buf won't be valid)
 	}
 	//Reject dB if empty, if string, or if bool
 	if (dB.IsEmpty() || dB.IsString() || dB.IsBool())
 		throw CAstExceptionInvalidUsage(*this, pnode, "Target_RMS_dB after @ must be a real value.");
 	if (dB.nSamples > 1 && !dB.next)
-	{
 		dB.SetNextChan(new CSignals(dB.buf[1]));
-		refRMS = refRMS + dB.operator-();
-	}
-	else
-	{
-		refRMS = refRMS - dB;
-	}
-	Sig | -refRMS;
+	sigRMS = dB - sigRMS;
+	Sig | sigRMS;
 	return &Sig;
 }
 
@@ -1543,6 +1548,7 @@ CVar * CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 			*run = tp;
 		}
 	}
+	Sig.setsnap();
 	return &Sig;
 }
 
@@ -1680,7 +1686,7 @@ CVar * CAstSig::NodeVector(const AstNode *pn)
 	AstNode *p = pn->str ? (AstNode *)pn->str : (AstNode *)pn;
 	//for vector, p is not NULL; p->alt should be non-null (check)
 	CVar tsig = Compute(p->alt);
-	if (tsig.GetType()==CSIG_AUDIO) return &(Sig = tsig);
+	if (tsig.IsAudio()) return &(Sig = tsig);
 	bool thisisGO = false;
 	bool beginswithempty = tsig.IsEmpty();
 	thisisGO = tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO();
@@ -2178,9 +2184,8 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 		{
 			if (np.psigBase->IsGO() && np.psigBase->GetFs() != 3)
 			{
-				CVar tp = Compute(pn->child);
-				if (tp.GetType()!=CSIG_SCALAR || tp.value()!=1.) // redo this. 1/16/2020
-					throw CAstExceptionInvalidUsage(*this, ppar, "Invalid index of a graphic object arrary.", pn->child->str);
+				if (Compute(pn->child)->type()!= 1)
+					throw CAstExceptionInvalidUsage(*this, ppar, "Invalid index of a graphic object arrary.");
 			}
 			else
 			{
@@ -2313,19 +2318,31 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 						//if so, resolve here
 						if (p && p->type == N_ARGS)
 						{
-							CVar *pindexResolved = Compute(p->child);
-							if (pindexResolved->IsScalar())
+							// At this point, let's read the indices as shown, which may not be actual indices in 2D cases
+							// e.g., when x is 3 by 4, x(2:3,1) reads [2 3] which turns to [5 9] in next recursion to read_node (inside else if (pn->type == N_ARGS) braces)
+							CVar *pindex; 
+							if (p->child->type == T_FULLRANGE)
+							{
+								Sig.UpdateBuffer(pres->nGroups>1 ? pres->nGroups : pres->nSamples);
+								for (unsigned int k = 0; k < Sig.nSamples; k++)
+									Sig.buf[k] = k;
+								pindex = &Sig;
+							}
+							else
+								pindex = Compute(p->child);
+							if (pindex->IsScalar())
 							{
 								np.lhsref_single = true;
 								if (RHSpresent)
 								{ // this is LHS
 								  // Need to leave the address of the data to be modified
-									np.lhsref = pres->buf + (int)pindexResolved->value() - 1; // zero-based index
+									np.lhsref = pres->buf + (int)pindex->value() - 1; // zero-based index
 									np.psigBase = pres;
-									CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
-									if (pex && pex->IsGO())
+									if (pres->GetFs() == 3)
 									{
-										replica_prep(np.psigBase = pgo = pres = pex);
+										CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
+										if (pex)
+											replica_prep(np.psigBase = pgo = pres = pex);
 									}
 									else
 									{
@@ -2333,18 +2350,16 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 										if (searchtree(np.root->child, T_REPLICA))
 											replica_prep(&temp_single);
 									}
-			//						return p->alt;
 								}
 								else
 								{
 									if (pres->GetFs() == 3) // multi GO
 									{
-										np.psigBase = pgo = (CVar*)(INT_PTR)pres->buf[(int)pindexResolved->value() - 1];
+										np.psigBase = pgo = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
 									}
 									else
 									{
-										Sig.buf[0] = pres->buf[(int)pindexResolved->value() - 1]; // zero-based index
-				//						return p->alt;
+										Sig.buf[0] = pres->buf[(int)pindex->value() - 1]; // zero-based index
 									}
 								}
 							}
@@ -2480,6 +2495,8 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		setgo.frozen = true;
 		if (setgo.type)
 		{ // It works now but check this later. 2/5/2019
+			if (pres->GetFs() == 3)
+				throw CAstExceptionInternal(*this, pnode, "In this version, don't adjust properties of multiple GOs on LHS.");
 			if (pres->IsGO())
 				fpmsg.SetGoProperties(this, setgo.type, *np.psigBase);
 			else
@@ -2652,7 +2669,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 				funcname = p->str;
 			if (p->alt && p->alt->type == N_STRUCT)
 				funcname = p->alt->str;
-			if (!ReadUDF(emsg, funcname.c_str()) && !IsValidBuiltin(funcname))
+			if (!ReadUDF(emsg, funcname.c_str()) && !IsValidBuiltin(funcname) && emsg.empty())
 				throw_LHS_lvalue(pnode, false);
 			// Now, evaluate RHS 
 			// why not TID(((AstNode*)pnode->str), p), which might be more convenient? (that's the "inner" N_VECTOR node)
@@ -2675,8 +2692,10 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		if (pnode->type=='+')	tsig = Compute(p->next);
 		else					tsig = -*Compute(p->next);
 		blockCell(pnode, Sig);
+		blockString(pnode, Sig);
 		Compute(p);
 		blockCell(pnode, Sig);
+		blockString(pnode, Sig);
 		blockEmpty(pnode, Sig);
 		Sig += tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);
@@ -2686,8 +2705,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		tsig = Compute(p);
 		blockCell(pnode,  Sig);
 		blockString(pnode,  Sig);
-		if (pnode->type=='*')	Compute(p->next);
-		else if (pnode->type == '/')	Compute(p->next)->reciprocal();
+		if (pnode->type=='*' || pnode->type == '/')	Compute(p->next);
 		else
 		{
 			checkVector(pnode, tsig);
@@ -2698,6 +2716,8 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		}
 		blockString(pnode,  Sig);
 		blockEmpty(pnode, Sig);
+		// reciprocal should be after blocking string (or it would corrupt the heap) 6/3/2020
+		if (pnode->type == '/') Sig.reciprocal();
 		Sig *= tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case '%':

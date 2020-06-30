@@ -304,19 +304,16 @@ static inline int offpixel(double a, double *lim, int extent)
 	return (int)((double)extent*relativeVal + .5);
 }
 
-
 vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
 {
-	// 
 	// Generate points to plot p->buf in pax (the current axes) against rcPaint
 	// double2pixelpt : turn double value p->buf[k] into a POINT
 	vector<POINT> out;
 	double  tmark = p->tmark;
 //	for_each(p->buf, p->buf + p->nSamples, [&out, pax, tmark](double v) {out.push_back(pax->double2pixelpt(tmark / 1000., v, NULL)); });
 
-	double x1, y1, x2, y2; // x1 x2: time points of rcPaint relative to rct and xlim
+	double x1, y1; // x1 x2: time points of rcPaint relative to rct and xlim
 	pax->GetCoordinate(rcPaint.TopLeft(), x1, y1);
-	pax->GetCoordinate(rcPaint.BottomRight(), x2, y2);
 
 	bool monotonic = true; // Monotonically increasing x in plot(x,y)
 	int width = pax->rct.Width();
@@ -469,9 +466,11 @@ vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CR
 					int end = min((int)(ticker + advance), (int)p->nSamples) + offset;
 					const pair<double*, double*> pr = minmax_element(p->buf + begin, p->buf + end);
 					if (*pr.first < pax->ylim[0]) *pr.first = pax->ylim[0];
+					if (*pr.second < pax->ylim[0]) *pr.second = pax->ylim[0];
 					pt.y = drawingRt.bottom - offpixel(*pr.first, pax->ylim, height);
 					pt.y = min(pt.y, drawingRt.bottom);
 					out.push_back(pt);
+					if (*pr.first > pax->ylim[1]) *pr.first = pax->ylim[1];
 					if (*pr.second > pax->ylim[1]) *pr.second = pax->ylim[1];
 					pt.y = drawingRt.bottom - offpixel(*pr.second, pax->ylim, height);
 					pt.y = max(pt.y, drawingRt.top);
@@ -1413,7 +1412,7 @@ void CPlotDlg::WindowSizeAdjusting()
 int CPlotDlg::ViewSpectrum()
 {
 	CAxes *paxFFT;
-	CPosition SpecAxPos(.75, .6, .22, .35);
+	CPosition SpecAxPos(.75, .64, .22, .35);
 	if (gcf.ax.size() > 1) SpecAxPos.height -= .02;
 	int nOuts = 0;
 	for (auto Ax : gcf.ax)
@@ -1846,20 +1845,21 @@ int CPlotDlg::GetSelect(CSignals *pout)
 	return 0;
 }
 
-void CPlotDlg::getFFTdata(CTimeSeries *psig_mag, double *fft, int len)
-{ // output: psig_mag
-	int lenFFT = (len + 1) / 2;
-	psig_mag->UpdateBuffer(len / 2 + 1);
-	for (int k = 1; k < (len + 1) / 2; ++k)  /* (k < N/2 rounded up) */
-		psig_mag->buf[k] = 20.*log10(fft[k] * fft[k] + fft[len - k] * fft[len - k]);
-	/* DC and Nyquist components are not displayed
-	psig_mag->buf[0] = 20.*log10(fft[0] * fft[0]); // DC component
-	if (len % 2 == 0) // N is even 
-		psig_mag->buf[len / 2] = 20.*log10(fft[len / 2] * fft[len / 2]);  // Nyquist freq. 
+void CPlotDlg::getFFTdata(CTimeSeries & mag, const vector<double> & fft)
+{ // output: mag
+	size_t lenFFT = (fft.size() + 1) / 2;
+	mag.UpdateBuffer((unsigned int)fft.size() / 2 + 1);
+	for (int k = 1; k < (fft.size() + 1) / 2; ++k)  /* (k < N/2 rounded up) */
+		mag.buf[k] = 20.*log10(fft[k] * fft[k] + fft[fft.size() - k] * fft[fft.size() - k]);
+	/* DC and Nyquist components are not displayed. If they were to be displayed, remove comments
+	mag.buf[0] = 20.*log10(fft[0] * fft[0]); // DC component
+	if (fft.size() % 2 == 0) //  even 
+		mag.buf[fft.size() / 2] = 20.*log10(fft[fft.size() / 2] * fft[fft.size() / 2]);  // Nyquist freq. 
 	*/
-	if (len % 2 == 0) psig_mag->nSamples--; // Nyquist component excluded
-	double maxmag = psig_mag->_max().front();
-	(CVar)*psig_mag-=CSignals(maxmag);
+	if (fft.size() % 2 == 0) mag.nSamples--; // Nyquist component excluded
+	double maxmag = mag._max().front();
+	for (unsigned int k = 0; k < mag.nSamples; k++)
+		mag.buf[k] -= maxmag;
 }
 
 void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
@@ -1867,7 +1867,6 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	bool stereo;
 	int len;
 	fftw_plan plan;
-	double dfs, *freq, *fft;
 	CSignals _sig;
 	double lastxlim[2];
 	CTick lastxtick;
@@ -1877,7 +1876,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 	if ( gcf.ax.size()==0) return;
 
 	// It gets Chainless inside GetSignalofInterest in this call
-	dfs = (double)paxBase->m_ln.front()->sig.GetFs();
+	double dfs = (double)paxBase->m_ln.front()->sig.GetFs();
 	pax->xlim[0] = 0;  pax->xlim[1] = dfs / 2;
 	//Right now _sig is a chainless'ed version... do it later to keep the chain
 	GetGhost(_sig);
@@ -1907,32 +1906,26 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 		delete[] dotted;
 		return;
 	}
-	freq = new double[len/2+1];
-	fft = new double[len];
-	for (int k=0; k<len/2+1; k++)		
-		freq[k] = dfs / len * k ;
-	plan = fftw_plan_r2r_1d(len, _sig.buf, fft, FFTW_R2HC, FFTW_ESTIMATE);
+	vector<double> freq;
+	freq.resize(len / 2 + 1);
+	double mult = dfs / len;
+	int k = 0;
+	for_each(freq.begin(), freq.end(), [mult, &k](double &v) { v = mult * k++; });
+	vector<double> fft;
+	fft.resize(len);
+	plan = fftw_plan_r2r_1d(len, _sig.buf, fft.data(), FFTW_R2HC, FFTW_ESTIMATE);
 	fftw_execute(plan);
 	CSignals mag;
-	getFFTdata(&mag, fft, len);
+	getFFTdata(mag, fft);
 	if (_sig.next)
 	{
 		int len2 = _sig.next->nSamples;
-		if (len2 > len)
-		{
-			delete[] freq;
-			delete[] fft;
-			freq = new double[len2 / 2 + 1];
-			fft = new double[len2];
-		}
-		for (int k = 0; k < len2 / 2 + 1; k++)
-			freq[k] = dfs / len2 * k;
-		plan = fftw_plan_r2r_1d(len2, _sig.next->buf, fft, FFTW_R2HC, FFTW_ESTIMATE);
+		plan = fftw_plan_r2r_1d(len2, _sig.next->buf, fft.data(), FFTW_R2HC, FFTW_ESTIMATE);
 		fftw_execute(plan);
 		mag.next = new CSignals; // this will be deleted during the cleanup of mag... really?
-		getFFTdata(mag.next, fft, len2);
+		getFFTdata(*mag.next, fft);
 	}
-	PlotCSignals(pax, freq, &mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
+	PlotCSignals(pax, freq.data(), &mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
 	strcpy(pax->xtick.format,"%.2gk"); // pax->xtick.format is called in anticipation of drawticks. i.e., format is used in drawticks
 	if (lastxlim[0]>lastxlim[1])
 	{
@@ -1944,11 +1937,11 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 		pax->xtick = lastxtick;
 		memcpy((void*)pax->xlim, (void*)lastxlim, sizeof(pax->xlim));
 	}
-	pax->ylim[0]=-110; pax->ylim[1] = 0;
+	pax->ylim[0]=-110; pax->ylim[1] = 5;
+	CVar *ylim = ((CVar*)pax)->struts["y"].front();
+	memcpy(ylim->strut["lim"].buf, pax->ylim, sizeof(pax->ylim));
 	pax->ytick.tics1 = pax->gengrids('y');
 	pax->m_ln.front()->color = gcf.ax.front()->m_ln.front()->color;
-	delete[] freq;
-	delete[] fft;
 
 	CRect rt, rt2;
 	GetClientRect(hDlg, &rt);

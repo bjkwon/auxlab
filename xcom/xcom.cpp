@@ -819,7 +819,8 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	CVar temp;
 	streamsize org_precision(-1);
 	bool passingdown(false);
-	switch (pvar->type())
+	uint16_t dt = pvar->type();
+	switch (dt)
 	{
 	case TYPEBIT_NULL:
 		for (int k = 0; k < offset; k++) cout << " ";
@@ -851,8 +852,9 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		cout << varname << " = ";
 		cout << "\"" << pvar->string() << "\"" << postscript << endl;
 		break;
-	case TYPEBIT_AUDIO + 1: //CSIG_TSERIES:
-	case TYPEBIT_AUDIO + TYPEBIT_SNAP + 2: //snap data at tmark 
+	case TYPEBIT_AUDIO + 1:
+	case TYPEBIT_TSEQ + 1:
+	case TYPEBIT_TSEQ + 2: 
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;
 		if (pvar->next) cout << "[L] " << endl;
@@ -895,7 +897,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			echo(_varname.str().c_str(), &*it);
 		}
 		break;
-	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
+	case TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
 		for (unsigned int k = 0; k < pvar->nSamples; k++)
 		{
 			ostringstream varstr;
@@ -904,7 +906,8 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			echo(varstr.str().c_str(), tp, offset);
 		}
 		break;
-	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
+	case TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
+	case TYPEBIT_STRUT + TYPEBIT_STRUTS + TYPEBIT_STRING + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		temp.UpdateBuffer(1);
 		memcpy(temp.buf, pvar->buf, pvar->bufBlockSize);
@@ -967,7 +970,6 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			if (!pvar) return; // this filters out a null statement in a block such as a=1; b=100; 500 
 		}
 		if (CAstSig::IsLooping(pnode)) return; // T_IF, T_FOR, T_WHILE
-		if (pvar->IsEmpty()) return;
 		if (!pctx->lhs && depth==1)
 		{
 			pctx->SetVar("ans", pvar);

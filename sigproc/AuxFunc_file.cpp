@@ -78,8 +78,19 @@ void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		file_ids.erase(fl);
 	}
 }
+/* fwrite: audio signal --> rescale from -1 to 1 to each integer range corresponding to the format, 
+   e.g., -32768 to 32767 for int16, 0 to 65535 for uint16
+   if it is stereo, writes the data in an interleaved manner for each channel
+   nonaudio signal --> write as is.. don't care whether it is outside of the range.
 
-FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, int &bytes, string &prec)
+   fread: reads the data according to the format, e.g., -2^31 to 2^31 for int32, makes a non-audio object
+   if the last arg is "a" or "audio," it rescales in the range and makes the object audio (mono)
+   if the last arg is "a2" or "audio2," it rescales in the range and makes the object audio (stereo)
+*/
+
+FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, int &bytes, string &prec, char *additional = NULL);
+
+FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, int &bytes, string &prec, char *additional)
 {
 	//first arg is always file identifier
 	//second arg is the signal to write to file
@@ -89,7 +100,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 		file = file_ids[past->Sig.value()];
 	if (!file)
 		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "First arg must be either a file identifider");
-	CVar second;
+	CVar second, addition;
 	string estr;
 	if (!strcmp(pnode->str, "fread"))
 	{
@@ -108,13 +119,29 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 		bytes = 1;
 	else if (prec == "int16" || prec == "uint16")
 		bytes = 2;
+	else if (prec == "int24")
+		bytes = 3;
 	else if (prec == "float" || prec == "int32" || prec == "uint32")
 		bytes = 4;
 	else if (prec == "double")
 		bytes = 8;
 	else
 		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "Second arg must be either ....");
-	if (!strcmp(pnode->str, "fwrite"))
+	if (!strcmp(pnode->str, "fread"))
+	{
+		if (p->next)
+		{
+			addition = past->Compute(p->next);
+			if (!addition.IsString())
+			{
+				estr = "Third arg must be a string--either \"a\" \"audio\" \"a2\" or \"audio2\" ";
+				throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, estr.c_str());
+			}
+			else
+				strcpy(additional, addition.string().c_str());
+		}
+	}
+	else
 		past->Compute(p->next);
 	return file;
 }
@@ -133,12 +160,18 @@ size_t fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uin
 		double *buf2 = sig.next->buf;
 		for_each(sig.buf, sig.buf + sig.nSamples,
 			[buf2, pvar, factor, bytes, file, &k](double v) {
-				*pvar = (T)(factor * v); fwrite(pvar, bytes, 1, file);
-				*pvar = (T)(factor * buf2[k++]); fwrite(pvar, bytes, 1, file); });
+				*pvar = (T)(factor * v - .5); fwrite(pvar, bytes, 1, file);
+				*pvar = (T)(factor * buf2[k++] - .5); fwrite(pvar, bytes, 1, file); });
 	}
 	else
-		for_each(sig.buf, sig.buf + sig.nSamples,
-			[pvar, bytes, factor, file](double v) { *pvar = (T)(factor * v); fwrite(pvar, bytes, 1, file); });
+	{
+		if (sig.IsAudio())
+			for_each(sig.buf, sig.buf + sig.nSamples,
+				[pvar, bytes, factor, file](double v) { *pvar = (T)(factor * v - .5); fwrite(pvar, bytes, 1, file); });
+		else
+			for_each(sig.buf, sig.buf + sig.nSamples,
+				[pvar, bytes, factor, file](double v) { *pvar = (T)(v - .5); fwrite(pvar, bytes, 1, file); });
+	}
 	return sig.nSamples;
 }
 
@@ -157,38 +190,51 @@ void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		else
 		{
 			char temp = 0;
-			res = fwrite_general(temp, past->Sig, prec, file, bytes, 256);
+			res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 		}
 	}
 	else if (prec == "int8")
 	{
 		int8_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 128);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x80);
 	}
 	else if (prec == "uint8")
 	{ 
 		uint8_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 256);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 	}
 	else if (prec == "int16")
 	{
 		int16_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 32768);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x8000);
+		//int16_t * pvar = &temp;
+		//for (unsigned int k = 0; k < past->Sig.nSamples; k++)
+		//{
+		//	double v = (past->Sig.buf[k] * 0x8000 - .5);
+		//	*pvar = (int16_t)(v);
+		//	res = fwrite(pvar, sizeof(temp), 1, file);
+		//}
+
 	}
 	else if (prec == "uint16")
 	{
 		uint16_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 65536);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x10000);
 	}
+	//else if (prec == "int24")
+	//{
+	//	int32_t temp = 0; // in24_t doesn't exist
+	//	res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x800000);
+	//}
 	else if (prec == "int32")
 	{
 		int32_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 8388608);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x80000000);
 	}
 	else if (prec == "uint32")
 	{
 		uint32_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 16777216);
+		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0xffffffff);
 	}
 	else if (prec == "float")
 	{ // No automatic scaling
@@ -203,18 +249,34 @@ void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 }
 
 template<typename T>
-void fread_general(T var, CVar &sig, string prec, FILE * file, int bytes)
+void fread_general(T var, CVar &sig, FILE * file, int bytes, char *addarg, uint64_t factor)
 {
 	T *pvar = &var;
-	for_each(sig.buf, sig.buf + sig.nSamples,
-		[pvar, bytes, file](double &v) { fread(pvar, bytes, 1, file); v = *pvar; });
+	if (!strcmp(addarg, "audio") || !strcmp(addarg, "a"))
+		for_each(sig.buf, sig.buf + sig.nSamples,
+			[pvar, bytes, file, factor](double &v) { fread(pvar, bytes, 1, file); v = *pvar / (double)factor; });
+	else if (!strcmp(addarg, "audio2") || !strcmp(addarg, "a2"))
+	{
+		int k = 0;
+		CSignals next = CSignal(sig.GetFs(), sig.nSamples);
+		sig.SetNextChan(&next);
+		double *buf2 = sig.next->buf;
+		for_each(sig.buf, sig.buf + sig.nSamples, 
+			[buf2, pvar, bytes, file, factor, &k](double &v) {
+				fread(pvar, bytes, 1, file); v = *pvar / (double)factor;
+				fread(pvar, bytes, 1, file); buf2[k++] = *pvar / (double)factor; });
+	}
+	else
+		for_each(sig.buf, sig.buf + sig.nSamples,
+			[pvar, bytes, file](double &v) { fread(pvar, bytes, 1, file); v = *pvar; });
 }
 
 void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	int bytes;
 	string prec;
-	FILE * file = __freadwrite(past, pnode, p, fnsigs, bytes, prec);
+	char addarg[16] = {};
+	FILE * file = __freadwrite(past, pnode, p, fnsigs, bytes, prec, addarg);
 
 	fseek(file, 0L, SEEK_END);
 	size_t sz = ftell(file);
@@ -229,32 +291,47 @@ void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		return;
 	}
 	past->Sig.Reset(1); // always make it non-audio
+	if (!strcmp(addarg, "audio2") || !strcmp(addarg, "a2"))
+	{
+		if (nItems / 2 * 2 != nItems)
+			throw CAstExceptionInvalidUsage(*past, pnode, "attempting to read stereo audio data but data count is not even.");
+		nItems /= 2;
+	}
 	past->Sig.UpdateBuffer((unsigned int)nItems);
+	if (!strcmp(addarg, "audio") || !strcmp(addarg, "a") || !strcmp(addarg, "audio2") || !strcmp(addarg, "a2"))
+		past->Sig.SetFs(past->pEnv->Fs);
 	if (prec == "int8" || prec == "uint8")
 	{
 		int8_t temp = 0;
-		fread_general(temp, past->Sig, prec, file, bytes);
+		fread_general(temp, past->Sig, file, bytes, addarg, 0x80);
 	}
 	else if (prec == "int16" || prec == "uint16")
 	{
 		int16_t temp = 0;
-		fread_general(temp, past->Sig, prec, file, bytes);
+		fread_general(temp, past->Sig, file, bytes, addarg, 0x8000);
+	}
+	else if (prec == "int24")
+	{
+		int32_t temp = 0; // in24_t doesn't exist
+		fread_general(temp, past->Sig, file, bytes, addarg, 0x80000000); // check
 	}
 	else if (prec == "int32" || prec == "uint32")
 	{
 		int32_t temp = 0;
-		fread_general(temp, past->Sig, prec, file, bytes);
+		fread_general(temp, past->Sig, file, bytes, addarg, 0x80000000);
 	}
 	else if (prec == "float")
 	{
 		float temp = 0.;
-		fread_general(temp, past->Sig, prec, file, bytes);
+		fread_general(temp, past->Sig, file, bytes, addarg, 1);
 	}
 	else if (prec == "double")
 	{
 		double temp = 0.;
-		fread_general(temp, past->Sig, prec, file, bytes);
+		fread_general(temp, past->Sig, file, bytes, addarg, 1);
 	}
+	if (!strcmp(addarg, "audio") || !strcmp(addarg, "a") | !strcmp(addarg, "audio2") || !strcmp(addarg, "a2"))
+		past->Sig.SetFs(past->pEnv->Fs);
 }
 
 void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)

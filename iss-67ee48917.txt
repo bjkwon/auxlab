@@ -1,0 +1,3 @@
+12:59 AM 6/3/2020
+* filt crashes with IIR coeff
+* After a named plot is made. If the variable changes to null. It crashes.

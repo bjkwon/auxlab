@@ -2359,9 +2359,9 @@ void CShowvarDlg::showtype(CVar *pvar, char *buf)
 			strcat(buf, "+");
 		}
 	}
-	else if (type == TYPEBIT_AUDIO+1 )
+	else if (type == TYPEBIT_TSEQ + 1 )
 		strcpy(buf, "TSQ");
-	else if (type == TYPEBIT_AUDIO + TYPEBIT_SNAP + 2)
+	else if (type == TYPEBIT_TSEQ + 2)
 		strcpy(buf, "TSQS");
 	else
 		strcpy(buf, "???");

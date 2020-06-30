@@ -93,15 +93,6 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 			}
 			if (pline->lineStyle != LineStyle_noline)
 				dc.Polyline(drawvector.data(), (int)drawvector.size());
-			//{
-			//	int nOutOfAx = 0;
-			//	for (int k = nDraws - 1; k > 0; k--)
-			//	{
-			//		if (draw[k].x > pax->rct.right) nOutOfAx++;
-			//		else break;
-			//	}
-			//	dc.Polyline(draw, nDraws - nOutOfAx);
-			//}
 			if (kolor.size() > 1)
 			{
 				colorIt++;

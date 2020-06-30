@@ -21,8 +21,13 @@ using namespace std;
 #include <functional>
 
 #define TYPEBIT_NULL		0x0000
-#define TYPEBIT_AUDIO		0x0004
+#define TYPEBIT_TEMPORAL	0x0004
 #define TYPEBIT_SNAP		0x0008
+// The difference between TYPEBIT_AUDIO and TYPEBIT_TSEQ: 
+// data in TYPEBIT_AUDIO aligned with time points in grid of 1/fs,
+// data in TYPEBIT_TSEQ are stacked on the same tmark.
+#define TYPEBIT_AUDIO		(TYPEBIT_TEMPORAL + TYPEBIT_NULL)
+#define TYPEBIT_TSEQ		(TYPEBIT_TEMPORAL + TYPEBIT_SNAP)
 #define TYPEBIT_STRING		0x0020
 #define TYPEBIT_LOGICAL		0x0080
 #define TYPEBIT_GO			0x0100
@@ -136,7 +141,7 @@ protected:
 	int fs;
 public:
 	double tmark;
-	short snap; // 0 for regular; 1 for data at a tmark snap shot (used for time sequence)
+	short snap; // 0 for regular; 1 for time seq or an object where data stack up on the same tmark (vertically), like FFT 
 	unsigned int Len() { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }
 	bool operator < (const CSignal &rhs) const;
 
@@ -213,10 +218,10 @@ public:
 	CSignal& IIR(unsigned int id0 = 0, unsigned int len = 0); 
 #endif // NO_IIR
 
-	bool IsEmpty() const { return nSamples == 0 && tmark == 0.; }
-	bool IsScalar() const { return nSamples == 1; }
-	bool IsVector() const { return fs == 1 && nSamples > 1; }
-	inline bool IsAudio() const { return type() == TYPEBIT_AUDIO + 2; }
+	inline bool IsEmpty() const { return nSamples == 0 && tmark == 0.; }
+	inline bool IsScalar() const { return nSamples == 1; }
+	inline bool IsVector() const { return nSamples > 1; }
+	inline bool IsAudio() const { uint16_t tp = type(); return tp & TYPEBIT_AUDIO  && !(tp & TYPEBIT_SNAP); }
 	bool IsString() const { return fs == 2; }
 
 	CSignal& Modulate(double *env, unsigned int lenEnv, unsigned int beginID=0);
@@ -224,7 +229,7 @@ public:
 
 	CSignal(); // default construct
 	CSignal(int  sampleRate); // construct with a specified sample rate.
-	CSignal(int sampleRate, int len); // construct with a specified sample rate and buffer size
+	CSignal(int sampleRate, unsigned int len); // construct with a specified sample rate and buffer size
 	CSignal(double value); // construct a scala with the specified value
 	CSignal(const CSignal& src); // copy constructor
 	CSignal(double *y, int  len);
@@ -262,13 +267,11 @@ protected:
 
 	uint16_t type() const
 	{
-		uint16_t out;
-		if (IsEmpty())				out = TYPEBIT_NULL;
+		uint16_t out = TYPEBIT_NULL;
+		if (IsEmpty())			return out;
 		else if (fs == 1)		out = 0;
 		else if (fs == 2)		out = TYPEBIT_STRING;
-		else if (fs > 500)		out = TYPEBIT_AUDIO;
-		else
-			return 0xffff;
+		else if (fs == 0 || fs > 500)		out = TYPEBIT_TEMPORAL;
 		if (snap) out += TYPEBIT_SNAP;
 		if (nSamples > 0) out++;
 		if (nSamples > 1) out++;
@@ -277,7 +280,7 @@ protected:
 	};
 
 private:
-	CSignal& _filter(vector<double> num, vector<double> den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
+	CSignal& _filter(const vector<double> & num, const vector<double> & den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
 	int operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset);
 
 	friend class CSignalExt;
@@ -333,9 +336,9 @@ public:
 	CTimeSeries & operator%(double v);
 	CTimeSeries & operator|(double v);
 	CTimeSeries & operator|(CTimeSeries * RMS2adjust);
-
 	bool operator==(const CTimeSeries& rhs);
 
+	void setsnap(int set=1) {	for (CTimeSeries*p = this; p; p = p->chain)		p->snap = set;	};
 	bool IsAudioOnAt(double timept);
 	int GetType() const;
 	void SwapContents1node(CTimeSeries &sec);
@@ -471,6 +474,8 @@ public:
 	CSignals& LogOp(CSignals &rhs, int type);
 	CSignals& SAM(double modRate, double modDepth, double initPhase);
 
+	void setsnap(int set=1) {	CTimeSeries::setsnap(set); if (next) next->CTimeSeries::setsnap(set);	};
+
 	CSignals& NullIn(double tpoint);
 
 	double alldur() const;
@@ -599,14 +604,16 @@ public:
 	uint16_t type() const
 	{
 		uint16_t out = CSignal::type();
-		if (out != 0xffff && out != TYPEBIT_NULL) return out;
-		if (!cell.empty())		out = TYPEBIT_CELL;
+//		if (out == TYPEBIT_NULL || out != 1 || out != 2) return out;
+		if (!cell.empty())		out += TYPEBIT_CELL;
 		else if (!strut.empty())
 		{
-			out = TYPEBIT_STRUT;
+			out += TYPEBIT_STRUT;
 			if (!struts.empty()) out += TYPEBIT_STRUTS;
 		}
-		else if (fs == 3)		out = TYPEBIT_STRUT + TYPEBIT_STRUTS;
+		else if (fs == 3)		out += TYPEBIT_STRUT + TYPEBIT_STRUTS;
+		// fs zero means tseq with relative time, treat it as TYPEBIT_AUDIO
+		else if (out == 1 && fs == 0)	out += TYPEBIT_AUDIO;
 		return out;
 	}
 };

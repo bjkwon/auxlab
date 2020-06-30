@@ -24,7 +24,9 @@
 #ifdef _WINDOWS
 #include <io.h>
 #include "bjcommon.h"
+#ifndef NO_PLAYSND
 #include "wavplay.h"
+#endif
 #elif
 #include <sys/types.h>
 #include <dirent.h>
@@ -40,6 +42,8 @@
 #endif
 
 
+#ifndef NO_FILES
+//these functions are defined in AuxFunc_file.cpp
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
@@ -49,6 +53,18 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+#else
+void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+
+#endif
 
 string CAstSigEnv::AppPath = "";
 map<string, Cfunction> dummy_pseudo_vars;
@@ -130,8 +146,8 @@ bool CAstSig::IsValidBuiltin(string funcname)
 
 void CAstSig::checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg)
 {
-	if (checkthis.GetType()==CSIG_AUDIO) return;
-	if (checkthis.GetType()==CSIG_CELL && ((CSignal)checkthis).GetType()==CSIG_AUDIO) return;
+	if (checkthis.type() & TYPEBIT_AUDIO) return;
+	if (checkthis.GetType()==CSIG_CELL && ((CSignal)checkthis).GetType()==CSIG_AUDIO) return; // Why is this here? Maybe there is a data type of cell with audio data? 6/29/2020
 	string msg("requires an audio signal as the base.");
 	throw CAstExceptionInvalidUsage(*this, pnode, (msg+addmsg).c_str());
 }
@@ -1377,6 +1393,7 @@ void _fft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 		}
 	}
 	past->Sig = past->Sig.runFct2getsig(&CSignal::FFT, (void*)&param);
+	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
 void _ifft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1399,6 +1416,7 @@ void _ifft(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		}
 	}
 	past->Sig = past->Sig.runFct2getsig(&CSignal::iFFT, (void*)&param);
+	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap(0);
 }
 
 void _envelope(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1497,6 +1515,7 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			sig.runFct2modify(&CSignal::filter, &coeffs);
 		else if (fname == "filtfilt")
 			sig.runFct2modify(&CSignal::filtfilt, &coeffs);
+		//at this point, coeffs is not the same as before (updated with the final condition)
 	}
 	else
 	{
@@ -1594,7 +1613,6 @@ void _iir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 }
 #endif // NO_IIR
 
-
 void _squeeze(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->Sig.Squeeze();
@@ -1675,8 +1693,8 @@ void _std(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 		catch (const CAstException &e) { throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, e.getErrMsg().c_str()); }
 	}
 	past->Sig = past->Sig.runFct2getvals(&CSignal::stdev, &arg);
+	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
-
 
 void _size(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -1706,6 +1724,7 @@ void _size(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		past->Sig.SetValue(tp2);
 	else
 		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "Invalid parameter: should be either 1 or 2.");
+	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
 void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1761,10 +1780,7 @@ void _arraybasic(CAstSig *past, const AstNode *pnode, const AstNode *p, string &
 		else if (fname == "rms") past->Sig = past->Sig.runFct2getvals(&CSignal::RMS);
 		else if (fname == "rmsall") past->Sig = past->Sig.RMS(); // overall RMS from artificially concatenated chain's 
 	}
-	//commenting out 3/6/2019--don't know what this was for. Now causing crash.
-//	if (past->pAst->type == N_VECTOR)
-//		if (past->pAst->alt->next)
-//			past->SetVar(past->pAst->alt->next->str, &additionalArg);
+	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
 void _mostleast(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1776,6 +1792,7 @@ void _mostleast(CAstSig *past, const AstNode *pnode, const AstNode *p, string &f
 	CVar param = past->Compute(p);
 	if (func == "atmost") past->Sig = sig.runFct2modify(&CSignal::_atmost, &param);
 	else if (func == "atleast") past->Sig = sig.runFct2modify(&CSignal::_atleast, &param);
+	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
 void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -1796,6 +1813,23 @@ void _minmax(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	}
 	else
 		delete newpointer;
+	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
+}
+
+void _setnextchan(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{ // current this is used only when a right channel is added to a mono (and it becomes left)
+	if (past->Sig.next)
+		throw CAstExceptionInvalidUsage(*past, pnode, "This function should be used only for a mono signal.");
+	CVar sig = past->Sig;
+	CVar param = past->Compute(p);
+	if (param.next)
+		throw CAstExceptionInvalidUsage(*past, pnode, "This function should be used with a mono signal argument.");
+	if ( !(param.type() & TYPEBIT_TEMPORAL) && param.type()!=1)
+		throw CAstExceptionInvalidUsage(*past, pnode, "Invalid argument.");
+	CVar *second = new CVar;
+	*second = param;
+	sig.SetNextChan(second);
+	past->Sig = sig;
 }
 
 AstNode *searchstr(AstNode *p, int findthis)
@@ -1842,13 +1876,42 @@ int findcol(AstNode *past, const char* pstr, int line)
 
 void _audio(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
 {
-	past->Sig.SetFs(past->GetFs()); // CHECK IT!!!!!!!!
+	past->blockString(pnode, past->Sig);
+	past->blockCell(pnode, past->Sig);
+	switch (past->Sig.nGroups)
+	{
+	case 1:
+		past->Sig.SetFs(past->GetFs()); 
+		break;
+	case 2:
+	{
+		past->Sig.SetFs(past->GetFs());
+		past->Sig.nSamples /= 2;
+		CSignals next = CSignal(past->Sig.GetFs(), past->Sig.nSamples);
+		memcpy(next.logbuf, past->Sig.logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.nSamples*past->Sig.bufBlockSize);
+		past->Sig.SetNextChan(&next);
+		past->Sig.nGroups = 1;
+	}
+		break;
+	default:
+		CAstExceptionInvalidUsage(*past, p, "Cannot apply to a matrix with rows > 2.");
+		break;
+	}
 }
 
 void _vector(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
 {
-	past->Sig.MakeChainless();
+	past->checkAudioSig(pnode, past->Sig);
+//	past->Sig.MakeChainless(); // if this is on, you can't easily display values from an audio obj 6/29/2020
 	past->Sig.SetFs(1);
+	if (past->Sig.next)
+	{
+		CSignal out = CSignal(1, past->Sig.nSamples * 2);
+		memcpy(out.logbuf, past->Sig.logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.nSamples*past->Sig.bufBlockSize);
+		memcpy(out.logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.next->logbuf + past->Sig.nSamples*past->Sig.bufBlockSize, past->Sig.nSamples*past->Sig.bufBlockSize);
+		out.nGroups = 2;
+		past->Sig = (CVar)(CSignals)out;
+	}
 }
 
 void _ramp(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string &fnsigs)
@@ -1935,7 +1998,6 @@ void _erase(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 			past->Sig.strut.erase(it);
 		const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
 		past->SetVar(pRoot->str, &past->Sig);
-		past->Sig.Reset(); // Let's not return anything from this call.
 	}
 	catch (const CAstException &e) { throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, e.getErrMsg().c_str()); }
 }
@@ -1952,7 +2014,6 @@ void _head(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	catch (const CAstException &e) { throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, e.getErrMsg().c_str()); }
 	const AstNode *pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
-	past->Sig.Reset(); // Let's not return anything from this call.
 }
 
 void _tone(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -2325,9 +2386,11 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.funcsignature = "(length, [, bias])";
 	ft.func =  &_std; 
 	builtin[name] = ft;
-
 	
 	ft.narg1 = 2;	ft.narg2 = 2;
+	name = "setnextchan";
+	ft.func = &_setnextchan;
+	builtin[name] = ft;
 	const char *f4[] = { "atleast", "atmost", 0 };
 	ft.funcsignature = "(array_or_value, array_or_value_of_limit)";
 	for (int k = 0; f4[k]; k++)
@@ -2451,7 +2514,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.func =  &_fprintf;
 	builtin[name] = ft;
 
-	ft.narg1 = 2;	ft.narg2 = 2;
+	ft.narg1 = 2;	ft.narg2 = 3;
 	name = "fread";
 	ft.func = &_fread;
 	builtin[name] = ft;
