@@ -1155,6 +1155,25 @@ void _dir(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 #endif
 }
 
+void _ismember(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	if (!past->Sig.IsStruct())
+		throw CAstInvalidFuncSyntax(*past, p, fnsigs, "Must be applied to a class/struct object.");
+	try {
+		CAstSig tp(past);
+		CVar param = tp.Compute(p);
+		if (!param.IsString())
+			throw CAstInvalidFuncSyntax(*past, p, fnsigs, "Argument must be a string.");
+		auto it = past->Sig.strut.find(param.string());
+		if (it == past->Sig.strut.end())
+			past->Sig.SetValue(0.);
+		else
+			past->Sig.SetValue(1.);
+		past->Sig.MakeLogical();
+	}
+	catch (const CAstException &e) { throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, e.getErrMsg().c_str()); }
+}
+
 void _isaudioat(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // if the signal is null at specified time_pt
 	past->checkAudioSig(pnode, past->Sig);
@@ -2399,11 +2418,15 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 		ft.func = &_mostleast;
 	builtin[name] = ft;
 	}
-	ft.funcsignature = "(member_variable_string)";
+	ft.funcsignature = "(obj, member_variable_string)";
 	name = "erase";
 	ft.func = &_erase;
 	builtin[name] = ft;
-	ft.funcsignature = "(any_non-cell_non-class_expression)";
+	ft.funcsignature = "(obj, member_variable_string)";
+	name = "ismember";
+	ft.func = &_ismember;
+	builtin[name] = ft;
+	ft.funcsignature = "(obj, any_non-cell_non-class_expression)";
 	name = "head";
 	ft.func = &_head;
 	builtin[name] = ft;
@@ -2567,7 +2590,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 
 	ft.alwaysstatic = false;
 	ft.narg1 = 1;	ft.narg2 = 1;
-	ft.funcsignature = "(variable)";
+	ft.funcsignature = "(object)";
 	const char *f7[] = { "isempty", "isaudio", "isvector", "isstring", "isstereo", "isbool", "iscell", "isclass", "istseq", 0 };
 	for (int k = 0; f7[k]; k++)
 	{
@@ -2579,11 +2602,13 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	name = "dtype";
 	ft.func = _datatype;
 	builtin[name] = ft;
+	ft.alwaysstatic = true;
 	ft.narg1 = 2;	ft.narg2 = 2;
-	name = "veq";
+	name = "issame";
 	ft.func = _veq;
 	builtin[name] = ft;
 
+	ft.alwaysstatic = false;
 	ft.narg1 = 2;	ft.narg2 = 4;
 	ft.funcsignature = "(signal, Numerator_array [, Denominator_array=1 for FIR])";
 	const char *f8[] = { "filt", "filtfilt", 0 };
