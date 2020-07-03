@@ -657,7 +657,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 		}
 		past->blockCell(pnode, past->Sig);
 		past->blockString(pnode, past->Sig);
-		past->blockScalar(pnode, past->Sig);
+		past->blockScalar(pnode, past->Sig); // this should be gone to plot time series 7/2/2020
 		if (pp)
 		{//check whether pp is processed into a string...We need to know whether this is x-ploy or xy-plot
 		 //it should have survived error handling in _plot_line

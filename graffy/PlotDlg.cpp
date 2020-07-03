@@ -555,7 +555,8 @@ void CPlotDlg::OnPaint()
 				{
 					if (lyne->visible)
 						for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
-							drawvector = OnPaint_drawblock(pax, dc, &ps, lyne, p);
+							if (lyne->sig.nSamples>0)
+								drawvector = OnPaint_drawblock(pax, dc, &ps, lyne, p);
 				}
 			}
 			if (hDlg == hwnd_AudioCapture)

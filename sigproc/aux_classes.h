@@ -248,6 +248,20 @@ public:
 	bool IsSingle() const;
 	bool IsLogical() const { return bufBlockSize == 1 && fs != 2; } // this doesn't differentiate "logical" audio
 
+	uint16_t type() const
+	{
+		uint16_t out = TYPEBIT_NULL;
+		if (IsEmpty())			return out;
+		else if (fs == 1)		out = 0;
+		else if (fs == 2)		out = TYPEBIT_STRING;
+		else if (fs == 0 || fs > 500)		out = TYPEBIT_TEMPORAL;
+		if (snap) out += TYPEBIT_SNAP;
+		if (nSamples > 0) out++;
+		if (nSamples > 1) out++;
+		if (IsLogical()) out += TYPEBIT_LOGICAL;
+		return out;
+	};
+
 protected:
 	double _dur() { return (double)nSamples / fs*1000.; }// for backward compatibility 5/18. No reason to get rid of it. 10/18/2019
 	CSignal& operator<=(CSignal * prhs);
@@ -264,20 +278,6 @@ protected:
 	function<double(double)> op3(double me) { return [me](double you) {return me * you; }; };
 	function<double(double)> op4(double me) { return [me](double you) {return me / you; }; };
 	bool operate(const CSignal& sec, char op);
-
-	uint16_t type() const
-	{
-		uint16_t out = TYPEBIT_NULL;
-		if (IsEmpty())			return out;
-		else if (fs == 1)		out = 0;
-		else if (fs == 2)		out = TYPEBIT_STRING;
-		else if (fs == 0 || fs > 500)		out = TYPEBIT_TEMPORAL;
-		if (snap) out += TYPEBIT_SNAP;
-		if (nSamples > 0) out++;
-		if (nSamples > 1) out++;
-		if (IsLogical()) out += TYPEBIT_LOGICAL;
-		return out;
-	};
 
 private:
 	CSignal& _filter(const vector<double> & num, const vector<double> & den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
@@ -548,7 +548,6 @@ public:
 
 protected:
 	bool operate(const CSignals& sec, char op);
-
 };
 
 class CVar : public CSignals
@@ -604,7 +603,7 @@ public:
 	uint16_t type() const
 	{
 		uint16_t out = CSignal::type();
-//		if (out == TYPEBIT_NULL || out != 1 || out != 2) return out;
+		if (out == TYPEBIT_NULL && next) return ((CVar*)next)->CSignal::type();
 		if (!cell.empty())		out += TYPEBIT_CELL;
 		else if (!strut.empty())
 		{

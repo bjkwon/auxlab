@@ -221,7 +221,7 @@ void CAstSig::blockEmpty(const AstNode *pnode, CVar &checkthis)
 
 void CAstSig::blockScalar(const AstNode *pnode, CVar &checkthis)
 {
-	if (checkthis.GetType() != CSIG_SCALAR && !checkthis.IsEmpty()) return;
+	if (!(checkthis.type() & 1)) return;
 	string msg("Not valid with a scalar variable ");
 	throw CAstExceptionInvalidUsage(*this, pnode, msg.c_str());
 }

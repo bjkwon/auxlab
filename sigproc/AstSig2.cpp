@@ -175,6 +175,8 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 				{
 					id1 = (unsigned int)round(indsig.buf[0] * psigBase->GetFs() / 1000.);
 					memcpy(psigBase->logbuf + id1 * psigBase->bufBlockSize, sec.buf, sec.nSamples*sec.bufBlockSize);
+					if (psigBase->next)
+						memcpy(psigBase->next->logbuf + id1 * psigBase->bufBlockSize, sec.next->buf, sec.nSamples*sec.bufBlockSize);
 				}
 				else
 					psigBase->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
@@ -426,9 +428,9 @@ bool CAstSig::builtin_func_call(CNodeProbe &diggy, AstNode *p)
 	{
 		if (p->str[0] == '$' || IsValidBuiltin(p->str)) // hook bypasses IsValidBuiltin
 		{
-			// if diggy.root->child is present, it generally means that RHS exists and should be rejected if LHS is a function call
+			// if diggy.pnode->child is present, it generally means that RHS exists and should be rejected if LHS is a function call
 			// The exception is if LHS has alt node, because it will go down through the next node and it may end up a non-function call.
-			if (diggy.root->child) 
+			if (diggy.root->child)
 				if (!diggy.root->alt)
 					throw CAstExceptionInvalidUsage(*this, diggy.root, "LHS must be an l-value. Isn't it a built-in function?");
 			HandleAuxFunctions(p, diggy.root);
@@ -457,7 +459,7 @@ CNodeProbe::CNodeProbe(CAstSig *past, AstNode *pnode, CVar *psig)
 {
 	psigBase = NULL;
 	pbase = past;
-	root = pnode;
+	root = pnode; //what's this?
 	psigBase = psig; // NULL except for T_REPLICA
 	lhsref_single = false;
 	lhsref = NULL;
