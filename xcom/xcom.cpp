@@ -804,7 +804,7 @@ void printf_tseries(CTimeSeries *psig, bool unit)
 void printf_vector(CVar *pvar, int offset, const char * postscript)
 {
 	unsigned int j;
-	if (pvar->IsLogical()) cout << "(logical) ";
+	if (pvar->IsLogical()) cout << "(bool) ";
 	if (pvar->nGroups > 1) cout << endl;
 	for (j = 0; j < min(10, pvar->nGroups); j++)
 		printf_vector(pvar, pvar->Len()*j, offset + 1, postscript);
@@ -827,6 +827,12 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		cout << varname << " = ";
 		cout << "[]";
 		cout << postscript << endl;
+		break;
+	case TYPEBIT_LOGICAL+1:
+	case TYPEBIT_LOGICAL+2:
+		for (int k = 0; k < offset; k++) cout << " ";
+		cout <<  varname << " = ";
+		printf_vector(pvar, offset, postscript);
 		break;
 	case 1: //CSIG_SCALAR:
 		for (int k = 0; k < offset; k++) cout << " ";

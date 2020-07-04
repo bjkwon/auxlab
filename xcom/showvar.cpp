@@ -2337,15 +2337,15 @@ void CShowvarDlg::showtype(CVar *pvar, char *buf)
 	if (type == 0)
 		strcpy(buf, "NUL");
 	else if (type == 1)
-		strcpy(buf, "CON");
+		strcpy(buf, "CONS");
 	else if (type == 2)
-		strcpy(buf, "VCT");
+		strcpy(buf, "VECT");
 	else if (type & TYPEBIT_LOGICAL)
-		strcpy(buf, "LOG");
+		strcpy(buf, "BOOL");
 	else if (type & TYPEBIT_STRING)
-		strcpy(buf, "TXT");
+		strcpy(buf, "TEXT");
 	else if (type & TYPEBIT_CELL)
-		strcpy(buf, "CEL");
+		strcpy(buf, "CELL");
 	else if (type > (TYPEBIT_STRUT + TYPEBIT_STRUTS))
 		strcpy(buf, "HDL");
 	else if (type & TYPEBIT_STRUT)

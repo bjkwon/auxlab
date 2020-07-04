@@ -1247,58 +1247,48 @@ void _veq(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 		throw CAstExceptionInternal(*past, pnode, "[INTERNAL] this particular data type has not been ready to handle.");
 	if (__datatype(arg2, type2) < 0)
 		throw CAstExceptionInternal(*past, pnode, "[INTERNAL] this particular data type has not been ready to handle.");
-	if (type1 != type2)
-	{
-		past->Sig.SetValue(0);
-		return;
-	}
-	else if (arg1.nSamples != arg2.nSamples)
-	{
-		past->Sig.SetValue(0);
-		return;
-	}
-	else if (type1 & 0x2000) // GO
-	{
-		double v1 = arg1.value();
-		double v2 = arg2.value();
-		if (v1!=v2)
+	try {
+		// throw 0 for false
+		if (type1 != type2) throw 0;
+		else if (arg1.nSamples != arg2.nSamples) throw 0;
+		else if (type1 & 0x2000) // GO
 		{
-			past->Sig.SetValue(0);
-			return;
+			if (arg1.value() != arg2.value()) throw 0;
 		}
-	}
-	else
-	{
-		if (arg1.bufBlockSize == 8)
-			for (unsigned k = 0; k < arg1.nSamples; k++)
-			{
-				if (arg1.buf[k] != arg2.buf[k])
-				{
-					past->Sig.SetValue(0);
-					return;
-				}
-			}
-		else if (arg1.bufBlockSize == 16)
-			for (unsigned k = 0; k < arg1.nSamples; k++)
-			{
-				if (arg1.cbuf[k] != arg2.cbuf[k])
-				{
-					past->Sig.SetValue(0);
-					return;
-				}
-			}
 		else
-			for (unsigned k = 0; k < arg1.nSamples; k++)
-			{
-				if (arg1.logbuf[k] != arg2.logbuf[k])
+		{
+			if (arg1.bufBlockSize == 8)
+				for (unsigned k = 0; k < arg1.nSamples; k++)
 				{
-					past->Sig.SetValue(0);
-					return;
+					if (arg1.buf[k] != arg2.buf[k]) throw 0;
 				}
-			}
+			else if (arg1.bufBlockSize == 16)
+				for (unsigned k = 0; k < arg1.nSamples; k++)
+				{
+					if (arg1.cbuf[k] != arg2.cbuf[k]) throw 0;
+				}
+			else
+				for (unsigned k = 0; k < arg1.nSamples; k++)
+				{
+					if (arg1.logbuf[k] != arg2.logbuf[k]) throw 0;
+				}
+		}
+		past->Sig.Reset(1);
+		past->Sig.MakeLogical();
+		past->Sig.UpdateBuffer(1);
+		past->Sig.logbuf[0] = true;
+		return;
 	}
-	past->Sig.SetValue(1.);
-	return ;
+	catch (int k)
+	{
+		//k should be 0 and it doesn't matter what k is.
+		k = 0; // just to avoid warning C4101
+		past->Sig.Reset(1);
+		past->Sig.MakeLogical();
+		past->Sig.UpdateBuffer(1);
+		past->Sig.logbuf[0] = false;
+		return;
+	}
 }
 
 void _varcheck(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -2108,8 +2098,8 @@ void _tsq_gettimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::s
 	int k = 0;
 	int nChains=1;
 	bool relative = past->Sig.GetFs() == 0;
-	for (CTimeSeries *p = &past->Sig; p; p = p->chain)
-		dbuf[k++] = p->tmark;
+	for (CTimeSeries *q = &past->Sig; q; q = q->chain)
+		dbuf[k++] = q->tmark;
 	if (p)
 	{
 		past->Compute(p);
@@ -2152,10 +2142,11 @@ void _tsq_gettimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::s
 		}
 		past->Sig.Reset(1);
 	}
-	else
-		past->Sig.SetFs(0); // setting fs=0 to indicate relative time points... this is a temporary hack. 3/10/2019
+//	else
+//		past->Sig.SetFs(0); // setting fs=0 to indicate relative time points... this is a temporary hack. 3/10/2019
+	past->Sig.Reset(1);
 	past->Sig.UpdateBuffer(nItems*nChains);
-	past->Sig.nGroups = nChains;
+	past->Sig.nGroups = 1;// nChains;
 	memcpy(past->Sig.buf, dbuf, sizeof(double)*past->Sig.nSamples);
 	delete[] dbuf;
 }
@@ -2189,7 +2180,7 @@ void _tsq_getvalues(CAstSig *past, const AstNode *pnode, const AstNode *p, std::
 	int k=0, nItems = past->Sig.CountChains();
 	CTimeSeries out(1);
 	out.UpdateBuffer(nItems * past->Sig.nSamples);
-	out.nGroups = nItems;
+//	out.nGroups = nItems;
 	for (CTimeSeries *p = &past->Sig; p; p = p->chain)
 		memcpy(out.buf + k++ * p->nSamples, p->buf, sizeof(double)*p->nSamples); // assuming that p->nSamples is always the same
 	past->Sig = out;

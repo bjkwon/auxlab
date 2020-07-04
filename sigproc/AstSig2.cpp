@@ -688,7 +688,8 @@ CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *p
 				for (CTimeSeries *cts = prhs; cts; cts = cts->chain)
 				{
 					// id translated from tmark for each chain
-					id = (unsigned int)(cts->tmark / 1000. * cts->GetFs());
+					int fs = cts->GetFs();
+					id = (unsigned int)(cts->tmark / 1000. * fs + .5);
 					memcpy(p->buf + id, cts->buf, cts->nSamples * sizeof(double));
 				}
 			}
