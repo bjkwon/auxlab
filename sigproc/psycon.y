@@ -528,8 +528,6 @@ compop: "+="
 		$$ = newAstNode('@', @$);	
 		$$->child = newAstNode('@', @$);
 	}
-	| "++="
-	{ 		$$ = newAstNode(T_OP_CONCAT, @$);	}
 	| ">>="
 	{ 		$$ = newAstNode(T_OP_SHIFT, @$);	}
 	| "%="
@@ -565,8 +563,27 @@ assign2this: '=' exp_range
 		$$ = $2;
 	}
 	| '=' condition
-	{ 
+	{ // LHS OP RHS: if RHS is condition, OP should be either '=' or "++="
+	  // For other OP's (such as += @= #= etc), condition on RHS is not allowed.
 		$$ = $2;
+	}
+	| "++=" condition
+	{ 
+		$$ = newAstNode(T_OP_CONCAT, @$);
+		AstNode *p = $$;
+		if (p->alt)
+			p = p->alt;
+		p->child = 	newAstNode(T_REPLICA, @2);
+		p->tail = p->child->next = $2;
+	}
+	| "++=" exp
+	{ 
+		$$ = newAstNode(T_OP_CONCAT, @$);	
+		AstNode *p = $$;
+		if (p->alt)
+			p = p->alt;
+		p->child = 	newAstNode(T_REPLICA, @2);
+		p->tail = p->child->next = $2;
 	}	
 	| compop exp_range
 	{ 
@@ -577,15 +594,13 @@ assign2this: '=' exp_range
 			$$->child->tail = $$->child->child->next = newAstNode(T_REPLICA, @$);
 			$$->tail = $$->child->next = $2;
 		}
-		else if ($$->alt) 
-		{
-			$$->alt->child = newAstNode(T_REPLICA, @2);
-			$$->alt->tail = $$->alt->child->next = $2;
-		}
 		else
 		{
-			$$->child = newAstNode(T_REPLICA, @2);
-			$$->tail = $$->child->next = $2;
+			AstNode *p = $$;
+			if (p->alt)
+				p = p->alt;
+			p->child = 	newAstNode(T_REPLICA, @2);
+			p->tail = p->child->next = $2;
 		}
 	}
 ;

@@ -1,0 +1,19 @@
+//#define SHOW_yyn
+  FILE *fp = fopen("c:\\temp\\yyn.log", "at");
+  fprintf(fp, "%d", yyn);
+  if (yyn == 88 || yyn == 121)
+  {
+	  fprintf(fp, "(%s)\t", yyval.str);
+  }
+  else if (yyn == 120 || yyn == 121)
+  {
+	  fprintf(fp, "(%.3f)\t", yyval.dval);
+  }
+  else if (yyn == 3)
+  {
+	  fprintf(fp, "\n");
+  }
+  else
+	  fprintf(fp, "\t");
+
+  fclose(fp);

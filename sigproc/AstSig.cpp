@@ -2340,64 +2340,64 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 
 						//check if pn->alt is N_ARGS and the index is scalar
 						//if so, resolve here
-						if (p && p->type == N_ARGS)
-						{
-							// At this point, let's read the indices as shown, which may not be actual indices in 2D cases
-							// e.g., when x is 3 by 4, x(2:3,1) reads [2 3] which turns to [5 9] in next recursion to read_node (inside else if (pn->type == N_ARGS) braces)
-							CVar *pindex = NULL; 
-							if (p->child->type == T_FULLRANGE)
-							{
-								if (p->child->next && pres->type() & TYPEBIT_AUDIO)
-								{
-									pres = getchannel(pres, p);
-									pn = pn->alt;
-								}
-								else
-								{
-									Sig.UpdateBuffer(pres->nGroups > 1 ? pres->nGroups : pres->nSamples);
-									for (unsigned int k = 0; k < Sig.nSamples; k++)
-										Sig.buf[k] = k;
-									pindex = &Sig;
-								}
-							}
-							else
-								pindex = Compute(p->child);
-							if (pindex && pindex->IsScalar())
-							{
-								np.lhsref_single = true;
-								if (RHSpresent)
-								{ // this is LHS
-								  // Need to leave the address of the data to be modified
-									np.lhsref = pres->buf + (int)pindex->value() - 1; // zero-based index
-									np.psigBase = pres;
-									if (pres->GetFs() == 3)
-									{
-										CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
-										if (pex)
-											replica_prep(np.psigBase = pgo = pres = pex);
-									}
-									else
-									{
-										CVar temp_single(*np.lhsref);
-										if (searchtree(np.root->child, T_REPLICA))
-											replica_prep(&temp_single);
-									}
-								}
-								else
-								{
-									if (pres->GetFs() == 3) // multi GO
-									{
-										np.psigBase = pgo = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
-									}
-									else
-									{
-										Sig.buf[0] = pres->buf[(int)pindex->value() - 1]; // zero-based index
-									}
-								}
-							}
-							else
-								np.lhsref_single = false;
-						}
+						//if (p && p->type == N_ARGS)
+						//{
+						//	// At this point, let's read the indices as shown, which may not be actual indices in 2D cases
+						//	// e.g., when x is 3 by 4, x(2:3,1) reads [2 3] which turns to [5 9] in next recursion to read_node (inside else if (pn->type == N_ARGS) braces)
+						//	CVar *pindex = NULL; 
+						//	if (p->child->type == T_FULLRANGE)
+						//	{
+						//		if (p->child->next && pres->type() & TYPEBIT_AUDIO)
+						//		{
+						//			pres = getchannel(pres, p);
+						//			pn = pn->alt;
+						//		}
+						//		else
+						//		{
+						//			Sig.UpdateBuffer(pres->nGroups > 1 ? pres->nGroups : pres->nSamples);
+						//			for (unsigned int k = 0; k < Sig.nSamples; k++)
+						//				Sig.buf[k] = k;
+						//			pindex = &Sig;
+						//		}
+						//	}
+						//	else
+						//		pindex = Compute(p->child);
+						//	if (pindex && pindex->IsScalar())
+						//	{
+						//		np.lhsref_single = true;
+						//		if (RHSpresent)
+						//		{ // this is LHS
+						//		  // Need to leave the address of the data to be modified
+						//			np.lhsref = pres->buf + (int)pindex->value() - 1; // zero-based index
+						//			np.psigBase = pres;
+						//			if (pres->GetFs() == 3)
+						//			{
+						//				CVar *pex = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
+						//				if (pex)
+						//					replica_prep(np.psigBase = pgo = pres = pex);
+						//			}
+						//			else
+						//			{
+						//				CVar temp_single(*np.lhsref);
+						//				if (searchtree(np.root->child, T_REPLICA))
+						//					replica_prep(&temp_single);
+						//			}
+						//		}
+						//		else
+						//		{
+						//			if (pres->GetFs() == 3) // multi GO
+						//			{
+						//				np.psigBase = pgo = (CVar*)(INT_PTR)pres->buf[(int)pindex->value() - 1];
+						//			}
+						//			else
+						//			{
+						//				Sig.buf[0] = pres->buf[(int)pindex->value() - 1]; // zero-based index
+						//			}
+						//		}
+						//	}
+						//	else
+						//		np.lhsref_single = false;
+						//}
 
 					}
 					Sig = *(np.psigBase = pres);
@@ -3001,19 +3001,11 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 		return;
 	}
 	Compute(p);
-	if (pgo)
-		throw CAstExceptionInvalidUsage(*this, p, "LHS is a graphic handle. RHS is not. Can't concatenate.");
-	if ((tsig.GetType() == CSIG_CELL) && (Sig.GetType() != CSIG_CELL))
+	uint16_t a = tsig.type();
+	uint16_t b = Sig.type();
+	if (a & TYPEBIT_CELL)
 	{
-		oss << "A cell object ";
-		if (p->next->str)
-			oss << "\"" << p->next->str << "\"";
-		oss << "cannot be appended to a non-cell object.";
-		throw CAstExceptionInvalidUsage(*this, p->next, oss.str().c_str());
-	}
-	if (Sig.GetType() == CSIG_CELL)
-	{
-		if (tsig.GetType() == CSIG_CELL)
+		if (b & TYPEBIT_CELL)
 		{
 			for (size_t k = 0; k < tsig.cell.size(); k++)
 				Sig.cell.push_back(tsig.cell[(int)k]);
@@ -3023,14 +3015,16 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 	}
 	else
 	{
+		if (b > 0 && a >> 2 != b >> 2)
+			throw CAstExceptionInvalidUsage(*this, p, "Different object type between LHS and RHS. Can't concatenate.");
 		//Check rejection conditions
 		if (tsig.nSamples * Sig.nSamples > 0) // if either is empty, no rejection
 		{
-			if (tsig.nGroups!=Sig.nGroups && tsig.Len() !=Sig.Len())
+			if (tsig.nGroups != Sig.nGroups && tsig.Len() != Sig.Len())
 				throw CAstExceptionInvalidUsage(*this, p->next, "To concatenate, the second operand must have the same number of elements or the same number of groups (i.e., rows) ");
 		}
 		//For matrix, Group-wise (i.e., row-wise) concatenation
-		if (Sig.nGroups > 1 && Sig.Len()!=tsig.Len())
+		if (Sig.nGroups > 1 && Sig.Len() != tsig.Len())
 		{ //  append row-wise
 			unsigned int len0 = Sig.Len();
 			Sig.UpdateBuffer(Sig.nSamples + tsig.nSamples);
