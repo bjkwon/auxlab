@@ -2135,6 +2135,30 @@ inline void CAstSig::throw_LHS_lvalue(const AstNode *pn, bool udf)
 	throw CAstExceptionInvalidUsage(*this, pn, out.str().c_str());
 }
 
+CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode)
+{
+	CVar tsig;
+	if (pnode->child->next)
+	{
+		tsig = Compute(pnode->child->next);
+		Sig = *pin;
+		checkScalar(pnode, tsig, "second { }");
+		if (tsig.value() == 2.)
+		{
+			if (!pin->next)
+				Sig.Reset(1);
+			else
+				Sig = *pin->next;
+		}
+		else if (tsig.value() == 1.)
+		{
+			delete Sig.next;
+			Sig.next = NULL;
+		}
+	}
+	return &Sig;
+}
+
 AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RHSpresent)
 {
 	if (pn->type == T_OP_CONCAT || pn->type == '+' || pn->type == '-' || pn->type == T_TRANSPOSE || pn->type == T_MATRIXMULT
@@ -2320,17 +2344,25 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 						{
 							// At this point, let's read the indices as shown, which may not be actual indices in 2D cases
 							// e.g., when x is 3 by 4, x(2:3,1) reads [2 3] which turns to [5 9] in next recursion to read_node (inside else if (pn->type == N_ARGS) braces)
-							CVar *pindex; 
+							CVar *pindex = NULL; 
 							if (p->child->type == T_FULLRANGE)
 							{
-								Sig.UpdateBuffer(pres->nGroups>1 ? pres->nGroups : pres->nSamples);
-								for (unsigned int k = 0; k < Sig.nSamples; k++)
-									Sig.buf[k] = k;
-								pindex = &Sig;
+								if (p->child->next && pres->type() & TYPEBIT_AUDIO)
+								{
+									pres = getchannel(pres, p);
+									pn = pn->alt;
+								}
+								else
+								{
+									Sig.UpdateBuffer(pres->nGroups > 1 ? pres->nGroups : pres->nSamples);
+									for (unsigned int k = 0; k < Sig.nSamples; k++)
+										Sig.buf[k] = k;
+									pindex = &Sig;
+								}
 							}
 							else
 								pindex = Compute(p->child);
-							if (pindex->IsScalar())
+							if (pindex && pindex->IsScalar())
 							{
 								np.lhsref_single = true;
 								if (RHSpresent)

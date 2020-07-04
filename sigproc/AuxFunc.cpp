@@ -2100,50 +2100,6 @@ void _tsq_gettimes(CAstSig *past, const AstNode *pnode, const AstNode *p, std::s
 	bool relative = past->Sig.GetFs() == 0;
 	for (CTimeSeries *q = &past->Sig; q; q = q->chain)
 		dbuf[k++] = q->tmark;
-	if (p)
-	{
-		past->Compute(p);
-		past->checkAudioSig(pnode, past->Sig);
-		if (past->Sig.next)
-			throw CAstExceptionInvalidUsage(*past, pnode, "Cannot be a stereo audio signal--just for now...");
-		if (relative)
-		{
-			nChains = past->Sig.CountChains();
-			double *newdbuf = new double[nItems*nChains];
-			for (int k = 0; k < nChains; k++)
-				memcpy(newdbuf + k * nItems, dbuf, sizeof(double)*nItems);
-			delete[] dbuf;
-			dbuf = newdbuf;
-			int id = 0;
-			for (CTimeSeries *p = &past->Sig; p; p = p->chain)
-			{
-				double durseg = p->dur().front();
-				for (int k = 0; k < nItems; k++)
-				{
-					dbuf[id*nItems + k] *= durseg;
-					dbuf[id*nItems + k] += p->tmark;
-				}
-				id++;
-			}
-		}
-		else
-		{
-			//Now, check the audio is on at each time point.. if not remove the time point
-			double *newdbuf = new double[nItems*nChains];
-			int count = 0;
-			for (int k = 0; k < nItems; k++)
-			{
-				if (past->Sig.IsAudioOnAt(dbuf[k]))
-					newdbuf[count++] = dbuf[k];
-			}
-			delete[] dbuf;
-			dbuf = newdbuf;
-			nItems = count;
-		}
-		past->Sig.Reset(1);
-	}
-//	else
-//		past->Sig.SetFs(0); // setting fs=0 to indicate relative time points... this is a temporary hack. 3/10/2019
 	past->Sig.Reset(1);
 	past->Sig.UpdateBuffer(nItems*nChains);
 	past->Sig.nGroups = 1;// nChains;

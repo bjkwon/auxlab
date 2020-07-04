@@ -304,6 +304,7 @@ private:
 	void Concatenate(const AstNode *pnode, AstNode *p);
 	AstNode *read_node(CNodeProbe &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
 	AstNode *read_nodes(CNodeProbe &diggy, bool bRHS = false);
+	CVar * getchannel(CVar *pin, const AstNode *pnode);
 	void interweave_indices(CVar &isig, CVar &isig2, unsigned int len);
 	void index_array_satisfying_condition(CVar &isig);
 	void replica_prep(CVar *psig);
