@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.61
-// Date: 7/27/2019
+// Version: 1.7
+// Date: 7/4/2020
 */ 
 
 /* scanner for Psycon syntax parser */
@@ -64,7 +64,10 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 	yylval.dval = strtod(yytext, NULL);
 	return T_NUMBER;
 	}
-
+<BRACKET>end {
+	yylloc.last_column += yyleng;
+	return T_ENDPOINT;
+	}
 <BRACKET>\] {	/* closing bracket */
 	yylloc.last_column += yyleng;
 	yy_pop_state();

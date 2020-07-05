@@ -7,8 +7,8 @@
 // Signal Generation and Processing Library
 // Platform-independent (hopefully) 
 // 
-// Version: 1.5
-// Date: 3/20/2019
+// Version: 1.7
+// Date: 7/4/2020
 */ 
 
 /* Psycon syntax parser */
@@ -559,7 +559,7 @@ compop: "+="
 ;
 
 assign2this: '=' exp_range
-	{ //85
+	{ //84
 		$$ = $2;
 	}
 	| '=' condition
@@ -606,12 +606,12 @@ assign2this: '=' exp_range
 ;
 
 varblock:	 T_ID
-	{ //88
+	{ //89
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 	}
 	|	tid '.' T_ID
-	{//89
+	{//90
 		$$ = $1;
 		AstNode *p = newAstNode(N_STRUCT, @$);
 		p->str = $3;
@@ -642,7 +642,7 @@ varblock:	 T_ID
 		$$->tail = p;
 	}
 	| varblock '{' exp '}'
-	{//91
+	{//92
 		$$ = $1;
 		$$->tail = $$->alt->alt = newAstNode(N_CELL, @$);
 		$$->tail->child = $3;
@@ -655,7 +655,7 @@ varblock:	 T_ID
 		$$->tail->child->next = $5;
 	}
 	| '[' vector ']'
-	{//tid-vector 93
+	{//tid-vector 94
 		$$ = $2;
 	}
 	| '$' varblock
@@ -681,7 +681,7 @@ tid: varblock
 		$$->alt->child = $3;
 	}
 	| T_ID '{' exp '}' '(' arg_list ')'
-	{ //97
+	{ //99
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 		$$->alt = newAstNode(N_CELL, @$);
@@ -705,7 +705,7 @@ tid: varblock
 			$$->tail = $$->alt = $3;
 	}
 	| varblock '(' ')'
-	{ // 101
+	{ // 102
 		if ($$->alt != NULL  && $$->alt->type==N_STRUCT)
 		{ // dot notation with a blank parentheses, e.g., a.sqrt() or (1:2:5).sqrt()
 			$$ = $1;
@@ -747,7 +747,7 @@ tid: varblock
 		$3->next = $5;
 	}
 	| tid '\''
-	{ 	//107
+	{ 	//108
 		$$ = newAstNode(T_TRANSPOSE, @$);
  		$$->child = $1;
 	}
@@ -798,7 +798,7 @@ tid: varblock
 
 /* Here, both rules of tid and varblock should be included... tid assign2this alone is not enough 8/18/2018*/
 assign: tid assign2this
-	{ //115
+	{ //116
 		$$ = $1;
 		$$->child = $2;
 	}
@@ -848,12 +848,12 @@ assign: tid assign2this
 
 
 exp: T_NUMBER
-	{ // 120
+	{ // 121
 		$$ = newAstNode(T_NUMBER, @$);
 		$$->dval = $1;
 	}
 	| T_STRING
-	{ // 121
+	{ // 122
 		$$ = newAstNode(T_STRING, @$);
 		$$->str = $1;
 	}
@@ -863,7 +863,7 @@ exp: T_NUMBER
 	}
 	| initcell
 	| tid
-	{//124
+	{//125
 		$$ = $1;
 	}
 	| tid '(' exp '~' exp ')'
@@ -1030,7 +1030,7 @@ case_list: /* empty */
 		$$ = $1;
 	}
 ;
-//153
+//154
 csig: exp_range
 ;
 

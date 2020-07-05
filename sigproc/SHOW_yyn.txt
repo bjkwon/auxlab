@@ -1,19 +1,47 @@
 //#define SHOW_yyn
   FILE *fp = fopen("c:\\temp\\yyn.log", "at");
   fprintf(fp, "%d", yyn);
-  if (yyn == 88 || yyn == 121)
+  switch(yyn)
   {
-	  fprintf(fp, "(%s)\t", yyval.str);
-  }
-  else if (yyn == 120 || yyn == 121)
-  {
-	  fprintf(fp, "(%.3f)\t", yyval.dval);
-  }
-  else if (yyn == 3)
-  {
+  case 3:
 	  fprintf(fp, "\n");
-  }
-  else
+	  break;
+  case 56:
+	  fprintf(fp, "(exp_range)\t");
+	  break;
+  case 58:
+	  fprintf(fp, "(arg)\t");
+	  break;
+  case 59:
+	  fprintf(fp, "(arg,)\t");
+	  break;
+  case 65:
+	  fprintf(fp, "(vector1)\t");
+	  break;
+  case 70:
+	  fprintf(fp, "(exp)\t");
+	  break;
+  case 96:
+	  fprintf(fp, "(varblock1)\t");
+	  break;
+  case 97:
+	  fprintf(fp, "(%s(arg_list))\t", yyval.str);
+	  break;
+  case 89:
+  case 122:
+	  fprintf(fp, "(%s)\t", yyval.str);
+	  break;
+  case 121:
+	  fprintf(fp, "(%.1f)\t", yyval.dval);
+	  break;
+  case 123:
+	  fprintf(fp, "(endp)\t");
+	  break;
+  case 125:
+	  fprintf(fp, "(tid)\t");
+	  break;
+  default:
 	  fprintf(fp, "\t");
-
+	  break;
+  }
   fclose(fp);
