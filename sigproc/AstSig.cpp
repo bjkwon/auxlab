@@ -2305,9 +2305,21 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 				// i.e., pn->alt->child should be non-NULL
 				{
 					size_t cellind = (size_t)(int)Compute(pn->alt->child)->value(); // check the validity of ind...probably it will be longer than this.
-					if (cellind > pres->cell.size())
-						throw CAstExceptionRange(*this, pn->alt, "", pn->str, -1, (int)cellind);
-					Sig = *(np.psigBase = &pres->cell.at(cellind - 1));
+					if (pres->type() & TYPEBIT_CELL)
+					{
+						if (cellind > pres->cell.size())
+							throw CAstExceptionRange(*this, pn->alt, "", pn->str, -1, (int)cellind);
+						Sig = *(np.psigBase = &pres->cell.at(cellind - 1));
+					}
+					else
+					{ // in this case x{2} means second chain
+						if (cellind > pres->CountChains())
+							throw CAstExceptionRange(*this, pn->alt, "", pn->str, -1, (int)cellind);
+						CTimeSeries *pout = pres;
+						for (size_t k = 0; k < cellind; k++, pout = pout->chain) {}
+						Sig = *pout;
+						np.psigBase = &Sig;
+					}
 				}
 				else
 				{

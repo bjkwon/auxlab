@@ -3352,7 +3352,7 @@ yyreduce:
 
 /* Line 1455 of yacc.c  */
 #line 633 "psycon.y"
-    {
+    { // Questionable. What is this? Marked 7/5/2020
 		(yyval.pnode) = (yyvsp[(1) - (3)].pnode);
 		AstNode *p = newAstNode(N_STRUCT, (yyloc));
 		p->str = (yyvsp[(3) - (3)].str);

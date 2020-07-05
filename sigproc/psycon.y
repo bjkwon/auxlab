@@ -630,7 +630,7 @@ varblock:	 T_ID
 		}
 	}
 	| condition '.' T_ID
-	{
+	{ // Questionable. What is this? Marked 7/5/2020
 		$$ = $1;
 		AstNode *p = newAstNode(N_STRUCT, @$);
 		p->str = $3;
