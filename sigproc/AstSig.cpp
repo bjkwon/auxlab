@@ -2137,25 +2137,24 @@ inline void CAstSig::throw_LHS_lvalue(const AstNode *pn, bool udf)
 
 CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode)
 {
-	CVar tsig;
-	if (pnode->child->next)
+	if (pnode->child->next->type != T_FULLRANGE)
+		throw CAstExceptionInvalidUsage(*this, pnode, "2-D style extraction of audio signal not implemented yet.");
+	CVar tsig = Compute(pnode->child);
+	checkScalar(pnode, tsig, "first arg should be either 1 or 2.");
+	if (tsig.value() == 2.)
 	{
-		tsig = Compute(pnode->child->next);
-		Sig = *pin;
-		checkScalar(pnode, tsig, "second { }");
-		if (tsig.value() == 2.)
-		{
-			if (!pin->next)
-				Sig.Reset(1);
-			else
-				Sig = *pin->next;
-		}
-		else if (tsig.value() == 1.)
-		{
-			delete Sig.next;
-			Sig.next = NULL;
-		}
+		if (!pin->next)
+			Sig.Reset(1);
+		else
+			Sig = *pin->next;
 	}
+	else if (tsig.value() == 1.)
+	{
+		delete Sig.next;
+		Sig.next = NULL;
+	}
+	else
+		throw CAstExceptionInvalidUsage(*this, pnode, "x(1,:) for left, x(2,:) for right");
 	return &Sig;
 }
 
@@ -2215,8 +2214,15 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 			{
 				if (np.psigBase->type() & TYPEBIT_CELL)
 					throw CAstExceptionInvalidUsage(*this, ppar, "A cell array cannot be accessed with ( ).", ppar->str);
-				if (np.psigBase->type() & TYPEBIT_AUDIO && pn->child->type == T_FULLRANGE)
-					np.psigBase = getchannel(np.psigBase, p);
+				if (np.psigBase->type() & TYPEBIT_AUDIO)
+				{
+					if (pn->child->next) // 2-D style notation 
+					{
+						if (pn->child->type == T_FULLRANGE)
+							throw CAstExceptionInvalidUsage(*this, ppar, "The first arg in () cannot be : for audio.", ppar->str);
+						np.psigBase = getchannel(np.psigBase, p); // special case; x(1,:) or x(2,:)
+					}
+				}
 				else
 					np.ExtractByIndex(ppar, pn); //Sig updated. No change in psig
 				//if child exists --> RHS --> Sig just computed is only used as replica. Otherwise, Sig will be ignored (overridden)
