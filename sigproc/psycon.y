@@ -686,7 +686,21 @@ tid: varblock
 		$$->str = $1;
 		$$->alt = newAstNode(N_CELL, @$);
 		$$->alt->child = $3;
-		$$->tail = $$->alt->alt = $6;
+		AstNode *p = $6->child;
+		if (p->type==T_ID && !strcmp(p->str,"respeed"))
+		{ // x{2}(t1~t2) checks here because t1~t2 can be arg_list through
+		  // exp:exp '~' exp --> exp_range:exp --> arg:exp_range --> arg_list:arg
+		  // that's why T_ID '{' exp '}' '(' exp '~' exp ')' creates a conflict and can't be a node
+		  // Take care of it manually here, but it's better to re-desig grammar rules in the future. 7/5/2020
+			$$->tail = $$->alt->alt = newAstNode(N_TIME_EXTRACT, @2);
+			$$->alt->alt->child = p->alt->child;
+			$$->alt->alt->child->next = p->alt->child->next;
+			p->alt->child = NULL;
+			yydeleteAstNode(p, 1);
+		}
+		else
+			$$->tail = $$->alt->alt = $6;
+		
 	}
 	| T_ID '(' exp '~' exp ')'
 	{

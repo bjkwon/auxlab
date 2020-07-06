@@ -547,13 +547,7 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 			}
 		}
 		out.SetReal();
-		if (pbase->Sig.GetType() == CSIG_VECTOR)
-		{
-			int id(0);
-			for (unsigned int k = 0; k < isig.nSamples; k++)
-				out.buf[id++] = (psigBase)->buf[(int)isig.buf[k] - 1];
-		}
-		else if (pbase->Sig.GetType() == CSIG_AUDIO)
+		if (pbase->Sig.type() & TYPEBIT_AUDIO)
 		{
 			CTimeSeries *_pisig = &isig;
 			while (_pisig)
@@ -600,6 +594,14 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 					p = p->chain;
 				}
 			}
+		}
+		else if (pbase->Sig.type() >= TYPEBIT_GO)
+			throw CAstExceptionInvalidUsage(*pbase, pnode, "Invalid object type to extract based on index.");
+		else // should be non-audio, non-time sequence data such as vector
+		{
+			int id(0);
+			for (unsigned int k = 0; k < isig.nSamples; k++)
+				out.buf[id++] = (psigBase)->buf[(int)isig.buf[k] - 1];
 		}
 	}
 	out.nGroups = isig.nGroups;
