@@ -2158,6 +2158,29 @@ CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode)
 	return &Sig;
 }
 
+CVar *CAstSig::cell_indexing(CVar *pBase, AstNode *pn, CNodeProbe &np)
+{
+	size_t cellind = (size_t)(int)Compute(pn->alt->child)->value(); // check the validity of ind...probably it will be longer than this.
+	if (pBase->type() & TYPEBIT_CELL)
+	{
+		if (cellind > pBase->cell.size())
+			throw CAstExceptionRange(*this, pn->alt, "", pn->str, -1, (int)cellind);
+		Sig = *(np.psigBase = &pBase->cell.at(cellind - 1));
+		if (pn->child && np.root->child && searchtree(np.root->child, T_REPLICA))
+			replica_prep(&Sig);
+	}
+	else
+	{ // in this case x{2} means second chain
+		if (cellind > pBase->CountChains())
+			throw CAstExceptionRange(*this, pn->alt, "", pn->str, -1, (int)cellind);
+		CTimeSeries *pout = pBase;
+		for (size_t k = 0; k < cellind; k++, pout = pout->chain) {}
+		Sig = *pout;
+		np.psigBase = &Sig;
+	}
+	return np.psigBase;
+}
+
 AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RHSpresent)
 {
 	if (pn->type == T_OP_CONCAT || pn->type == '+' || pn->type == '-' || pn->type == T_TRANSPOSE || pn->type == T_MATRIXMULT
@@ -2212,16 +2235,13 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 			}
 			else
 			{
-				if (np.psigBase->type() & TYPEBIT_CELL)
+				if (np.psigBase->type() & TYPEBIT_CELL && ppar->type==T_ID)
 					throw CAstExceptionInvalidUsage(*this, ppar, "A cell array cannot be accessed with ( ).", ppar->str);
-				if (np.psigBase->type() & TYPEBIT_AUDIO)
-				{
-					if (pn->child->next) // 2-D style notation 
-					{
-						if (pn->child->type == T_FULLRANGE)
-							throw CAstExceptionInvalidUsage(*this, ppar, "The first arg in () cannot be : for audio.", ppar->str);
-						np.psigBase = getchannel(np.psigBase, p); // special case; x(1,:) or x(2,:)
-					}
+				if (np.psigBase->type() & TYPEBIT_AUDIO && pn->child->next)
+				{ // 2-D style notation for audio
+					if (pn->child->type == T_FULLRANGE)
+						throw CAstExceptionInvalidUsage(*this, ppar, "The first arg in () cannot be : for audio.", ppar->str);
+					np.psigBase = getchannel(np.psigBase, p); // special case; x(1,:) or x(2,:)
 				}
 				else
 					np.ExtractByIndex(ppar, pn); //Sig updated. No change in psig
@@ -2235,7 +2255,12 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 		else if (pn->type == N_TIME_EXTRACT)
 			np.TimeExtract(pn, pn->child);
 		else if (pn->type == T_REPLICA || pn->type == T_ENDPOINT)
-			Sig = *np.psigBase;
+		{
+			if (pn->alt && pn->alt->type == N_CELL)
+				cell_indexing(np.psigBase, pn, np);
+			else
+				Sig = *np.psigBase;
+		}
 		else
 		{
 			if (pn->type == N_HOOK)
@@ -2313,22 +2338,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 				//either cellvar{2} or cellvar{2}(3). cellvar or cellvar(2) doesn't come here.
 				// i.e., pn->alt->child should be non-NULL
 				{
-					size_t cellind = (size_t)(int)Compute(pn->alt->child)->value(); // check the validity of ind...probably it will be longer than this.
-					if (pres->type() & TYPEBIT_CELL)
-					{
-						if (cellind > pres->cell.size())
-							throw CAstExceptionRange(*this, pn->alt, "", pn->str, -1, (int)cellind);
-						Sig = *(np.psigBase = &pres->cell.at(cellind - 1));
-					}
-					else
-					{ // in this case x{2} means second chain
-						if (cellind > pres->CountChains())
-							throw CAstExceptionRange(*this, pn->alt, "", pn->str, -1, (int)cellind);
-						CTimeSeries *pout = pres;
-						for (size_t k = 0; k < cellind; k++, pout = pout->chain) {}
-						Sig = *pout;
-						np.psigBase = &Sig;
-					}
+					cell_indexing(pres, pn, np);
 				}
 				else
 				{

@@ -302,6 +302,7 @@ private:
 	void prepare_endpoint(const AstNode *p, CVar *pvar);
 	bool builtin_func_call(CNodeProbe &diggy, AstNode *p);
 	void Concatenate(const AstNode *pnode, AstNode *p);
+	CVar *cell_indexing(CVar *pBase, AstNode *pn, CNodeProbe &np);
 	AstNode *read_node(CNodeProbe &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
 	AstNode *read_nodes(CNodeProbe &diggy, bool bRHS = false);
 	CVar * getchannel(CVar *pin, const AstNode *pnode);
@@ -427,7 +428,7 @@ public:
 	CVar * TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
 	CVar * TimeExtract(const AstNode *pnode, AstNode *p);
 	void insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig);
-	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2);
+	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, CSignal &sec, int id1, int id2);
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
 	CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
 	CAstException ExceptionMsg(const AstNode *pnode, const char *msg);

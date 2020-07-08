@@ -1,0 +1,29 @@
+function res = test_timeextract_condition
+res=[]
+x0 = tone(500,250).sam(8)@-20
+x = tone(500,250).sam(8)@-20
+y = x(30~80)
+x(30~80) *= 2
+x(30~80) = .. / 2
+x(30~80) = silence(10)
+x(30~40) = y
+// is x equal to original?
+res ++= issame(x,x0)
+x(x>0) = .7
+x(x>0) *= .5
+// is max x .35?
+res2 = x.max.vector==.35
+res ++= res2
+// when x is stereo
+// x(1,:) is x.left x(2,:) is x.right -- done
+// when x is chain'ed
+// x{n} is n-th chain
+// when x is chain'ed and stereo
+// x{n} is n-th chain
+// x{n,1} is n-th chain, 1st channel
+// x{n,2} is n-th chain, 2nd channel
+// x{vector,:} is the chains specified by the vector in both channels
+
+
+
+

@@ -1,0 +1,85 @@
+function [res, res1]=test_indexing
+res=[]
+x=(1:11)*10
+a=x(2:4)
+//test TID(exp_range)
+res++=issame(a,[20 30 40])
+x([3 5 10]) += 3
+b=x(3)
+//test TID(exp:T_NUM)
+res++=b==33
+res++=issame(x.mean, (1:11).mean*10+9/11)
+x(6:8) = ...sqrt
+c=x(6:8)*x(6:8)
+//test TID(exp_range) = ...
+res++=issame(c.mean, 70)
+x([3 9:end]) /=10
+//test TID(vector) compop
+res++=issame(x(10:end).sum,21.3)
+x = (1:30).matrix(6)
+x(2,:) *= -1
+b=x(2,:)
+//test TID(2D indexing) compop
+res++= b.mean == -(6:10).mean
+x = (1:30).matrix(6)
+x = ..(:,1)
+//test .. (arg_list)
+res ++= issame(x',1:5:30)
+if res.and 
+	fprintf(0,"basic array indexing success\n")
+else
+	fprintf(0,"basic array indexing failed. Check the output\n")
+end
+
+//==============================================
+a=noise(500).hann@-10
+b = a(100~200)
+a(100~200) = ...sqrt
+//test TID(t1~t2) and TID(t1~t2) = ... together
+res++=issame(b.sqrt.rms, a(100~200).rms)
+//==============================================
+// Cell array
+longname=noise(500).lpf(500)@-20
+x = {200, (1:18).matrix(3), longname}
+res1=[]
+// TID{cellid}
+res1++=issame(longname, x{3})
+b=x{2}(:,3)
+// TID{cellid}(arg_list)
+res1++=issame(b.mean, 9)
+x{2}(:,3) *= .1
+b=x{2}(:,3)
+// TID{cellid}(arg_list) compop
+res1++=issame(b.mean, .9)
+c = x{3}(100~200)
+// TID{cellid}(t1~t2) and  TID{cellid}(t1~t2).func
+res1++=issame(c.rms, x{3}(100~200).rms)
+x{3}(100~200) @@= -10
+// TID{cellid}(t1~t2) compop
+res1++=(c.rms.vector-10-x{3}(100~200).rms.vector).abs < 1.e-6
+x = ..{2}
+// TID = .. {2}
+res1++=!x.iscell && issame(x.size,[3 6])
+x = {200, (1:18).matrix(3), longname}
+// TID{2} = ..(2:8)
+x{2}=..(2:8)
+res1++=issame(x{2}.size,[1 7])
+// TID{2} = ...sqrt
+x{2}=...sqrt
+res1++=issame(x{2},[2:8].sqrt)
+
+if res1.and 
+	fprintf(0,"cell array indexing success\n")
+else
+	fprintf(0,"cell array indexing failed. Check the output\n")
+end
+
+//==============================================
+// struct 
+
+//==============================================
+// struct cell 
+
+
+//==============================================
+// cell struct

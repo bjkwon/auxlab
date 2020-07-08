@@ -1,15 +1,15 @@
-/* AUXLAB 
+/* AUXLAB
 //
 // Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
-// Platform-independent (hopefully) 
-// 
+// Platform-independent (hopefully)
+//
 // Version: 1.7
 // Date: 7/4/2020
-*/ 
+*/
 
 /* Psycon syntax parser */
 %{
@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "psycon.yacc.h"
+#include "show_node.c"
 #define strdup _strdup
 #define YYPRINT(file, type, value) print_token_value (file, type, value)
 /*#define DEBUG*/
@@ -69,7 +70,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 
 %token <dval> T_NUMBER "number"
 %token <str> T_STRING "string"	T_ID "identifier"
-%token T_ENDPOINT T_FULLRANGE	 
+%token T_ENDPOINT T_FULLRANGE
 
 %type <pnode> block block_func line line_func stmt funcdef elseif_list condition conditional case_list id_list arg arg_list vector matrix range exp_range assign exp expcondition initcell compop assign2this tid csig varblock func_static_or_not
 
@@ -77,7 +78,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 %right '\''
 %left T_LOGIC_OR
 %left T_LOGIC_AND
-%left T_LOGIC_EQ T_LOGIC_NE 
+%left T_LOGIC_EQ T_LOGIC_NE
 %left '<' '>' T_LOGIC_LE T_LOGIC_GE
 %left ':' '~'
 %left '-' '+' T_OP_CONCAT
@@ -85,7 +86,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 %left '*' T_MATRIXMULT '/'
 %right '^' /* exponentiation */
 %left T_LOGIC_NOT T_POSITIVE T_NEGATIVE /* unary plus/minus */
-%token T_TRANSPOSE  
+%token T_TRANSPOSE
 %token T_EOF	0	"end of text"
 
 %parse-param {AstNode **pproot}
@@ -121,6 +122,7 @@ AstNode *makeFunctionCall(char *name, AstNode *first, AstNode *second, YYLTYPE l
 AstNode *makeBinaryOpNode(int op, AstNode *first, AstNode *second, YYLTYPE loc);
 void print_token_value(FILE *file, int type, YYSTYPE value);
 char *getT_ID_str(AstNode *p);
+void handle_tilde(AstNode *proot, AstNode *pp, YYLTYPE loc);
 %}
 
 /* Note to myself 6/7/2018--------------
@@ -131,7 +133,12 @@ Q. What is tail?
 A. When attaching an argument to the last position, sometimes it's cumbersome to find the last position, i.e., often we have to trace down the pointer all the way to the last.
    By saving it with the tail pointer, we can avoid tracing it down and just put the last argument right there. Once you do it, you just need to update it with a new last position.
 End of Note to myself 6/7/2018--------------*/
-
+/*
+'(' exp '~' exp ')'
+creates a conflict and is removed from the grammar rule.
+Why? t1~t2 is reduced to arg_list
+7/6/2020
+*/
 %% /* The grammar follows. */
 
 input: /* empty */
@@ -147,12 +154,12 @@ block_func: line_func	/* block_func can be NULL */
 		if ($2) {
 			if ($1 == NULL)
 				$$ = $2;
-			else if ($1->type == N_BLOCK) 
+			else if ($1->type == N_BLOCK)
 			{
 				$1->tail->next = $2;
 				$1->tail = $2;
-			} 
-			else 
+			}
+			else
 			{ // a=1; b=2; ==> $1->type is '='. So first, a N_BLOCK tree should be made.
 				$$ = newAstNode(N_BLOCK, @$);
 				$$->next = $1;
@@ -192,19 +199,19 @@ block:	line	/* complicated to prevent NULL (make empty block instead) or single 
 	}
 ;
 
-line:	T_NEWLINE 
+line:	T_NEWLINE
 	{ $$ = NULL;} //yyn=8
-	| error T_NEWLINE 
+	| error T_NEWLINE
 	{ //yyn=9
 		$$ = NULL;
 		yyerrok;
-	} 
+	}
 	| stmt eol
 	| stmt eol2
 	{ //yyn=11
-		$$ = $1; 
+		$$ = $1;
 		$$->suppress=1;
-	} 
+	}
 ;
 
 line_func: line
@@ -214,7 +221,7 @@ line_func: line
 eol: ',' | T_NEWLINE | T_EOF
 ;
 
-eol2: ';' 
+eol2: ';'
 ;
 
 func_end: /* empty */ | T_EOF
@@ -228,7 +235,7 @@ elseif_list: /*empty*/
 		$$ = newAstNode(T_IF, @$);
 		$$->col = 3923;
 	}
-	| T_ELSEIF conditional block elseif_list 
+	| T_ELSEIF conditional block elseif_list
 	{
 		$$ = newAstNode(T_IF, @$);
 		$$->child = $2;
@@ -243,15 +250,15 @@ elseif_list: /*empty*/
 		$$->col = 4000;
 	}
 	| elseif_list T_ELSE block
-	{ //yyn=26; 
+	{ //yyn=26;
 		AstNode *p = $3;
 		if (p->type!=N_BLOCK)
 		{
-			p = newAstNode(N_BLOCK, @3);				
+			p = newAstNode(N_BLOCK, @3);
 			p->next = $3;
 		}
 		if ($1->child==NULL) // if there's no elseif; i.e., elseif_list is empty
-		{  
+		{
 			yydeleteAstNode($1, 1);
 			$$ = p;
 		}
@@ -268,7 +275,7 @@ expcondition: csig
 ;
 //yyn=29
 stmt: expcondition
-	| assign 
+	| assign
 	| initcell
 	| T_IF conditional block elseif_list T_END
 	{ // yyn=32; This works, too, for "if cond, act; end" without else, because elseif_list can be empty
@@ -447,7 +454,7 @@ arg_list: arg
 
 matrix: /* empty */
 	{
-	// N_MATRIX consists of "outer" N_MATRIX--alt for dot notation 
+	// N_MATRIX consists of "outer" N_MATRIX--alt for dot notation
 	// and "inner" N_VECTOR--alt for all successive items thru next
 	// the str field of the outer N_MATRIX node is cast to the inner N_VECTOR.
 	// this "fake" str pointer is freed during normal clean-up
@@ -467,14 +474,14 @@ matrix: /* empty */
 	{
 		$$ = $1;
 		AstNode * p = (AstNode *)$1->str;
-		p->tail = p->tail->next = (AstNode *)$3; 
+		p->tail = p->tail->next = (AstNode *)$3;
 	}
 	| matrix ';'
 ;
 
 vector: exp_range
 	{ //yyn=65
-	// N_VECTOR consists of "outer" N_VECTOR--alt for dot notation 
+	// N_VECTOR consists of "outer" N_VECTOR--alt for dot notation
 	// and "inner" N_VECTOR--alt for all successive items thru next
 	// Because N_VECTOR doesn't use str, the inner N_VECTOR is created there and cast for further uses.
 	// this "fake" str pointer is freed during normal clean-up
@@ -512,7 +519,7 @@ range: exp ':' exp
 exp_range: exp	| range ;
 
 compop: "+="
-	{ 	
+	{
 		$$ = newAstNode('+', @$);
 	}
 	| "-="
@@ -525,7 +532,7 @@ compop: "+="
 	{ 		$$ = newAstNode('@', @$);	}
 	| "@@="
 	{
-		$$ = newAstNode('@', @$);	
+		$$ = newAstNode('@', @$);
 		$$->child = newAstNode('@', @$);
 	}
 	| ">>="
@@ -533,25 +540,25 @@ compop: "+="
 	| "%="
 	{ 		$$ = newAstNode('%', @$);	}
 	| "->="
-	{ 		
+	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("movespec");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "~="
-	{ 		
+	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("respeed");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "<>="
-	{ 		
+	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("timestretch");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "#="
-	{ 		
+	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = strdup("pitchscale");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
@@ -568,7 +575,7 @@ assign2this: '=' exp_range
 		$$ = $2;
 	}
 	| "++=" condition
-	{ 
+	{
 		$$ = newAstNode(T_OP_CONCAT, @$);
 		AstNode *p = $$;
 		if (p->alt)
@@ -577,16 +584,16 @@ assign2this: '=' exp_range
 		p->tail = p->child->next = $2;
 	}
 	| "++=" exp
-	{ 
-		$$ = newAstNode(T_OP_CONCAT, @$);	
+	{
+		$$ = newAstNode(T_OP_CONCAT, @$);
 		AstNode *p = $$;
 		if (p->alt)
 			p = p->alt;
 		p->child = 	newAstNode(T_REPLICA, @2);
 		p->tail = p->child->next = $2;
-	}	
+	}
 	| compop exp_range
-	{ 
+	{
 		$$ = $1;
 		if ($$->child) // compop should be "@@=" and $$->child->type should be '@'  (64)
 		{
@@ -620,7 +627,7 @@ varblock:	 T_ID
 			$$->alt->alt = p; //always initiating
 			$$->tail = p; // so that next concatenation can point to p, even thought p is "hidden" underneath $$->alt
 		}
-		if ($$->tail) 
+		if ($$->tail)
 		{
 			$$->tail = $$->tail->alt = p;
 		}
@@ -647,15 +654,8 @@ varblock:	 T_ID
 		$$->tail = $$->alt->alt = newAstNode(N_CELL, @$);
 		$$->tail->child = $3;
 	}
-	| varblock '(' exp '~' exp ')'
-	{
-		$$ = $1;
-		$$->tail = $$->tail->alt = newAstNode(N_TIME_EXTRACT, @2);
-		$$->tail->child = $3;
-		$$->tail->child->next = $5;
-	}
 	| '[' vector ']'
-	{//tid-vector 94
+	{//tid-vector 93
 		$$ = $2;
 	}
 	| '$' varblock
@@ -664,14 +664,14 @@ varblock:	 T_ID
 		$$->str = strdup($2->str);
 		$$->alt = $2->alt;
 	}
-; 
+;
 
-tid: varblock 
+tid: varblock
 	|  T_ID '(' arg_list ')'
 	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
-		$$->tail = $$->alt = $3;
+		handle_tilde($$, $3, @3);
 	}
 	| T_ID '{' exp '}'
 	{
@@ -681,45 +681,21 @@ tid: varblock
 		$$->alt->child = $3;
 	}
 	| T_ID '{' exp '}' '(' arg_list ')'
-	{ //99
+	{ //98
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 		$$->alt = newAstNode(N_CELL, @$);
 		$$->alt->child = $3;
-		AstNode *p = $6->child;
-		if (p->type==T_ID && !strcmp(p->str,"respeed"))
-		{ // x{2}(t1~t2) checks here because t1~t2 can be arg_list through
-		  // exp:exp '~' exp --> exp_range:exp --> arg:exp_range --> arg_list:arg
-		  // that's why T_ID '{' exp '}' '(' exp '~' exp ')' creates a conflict and can't be a node
-		  // Take care of it manually here, but it's better to re-desig grammar rules in the future. 7/5/2020
-			$$->tail = $$->alt->alt = newAstNode(N_TIME_EXTRACT, @2);
-			$$->alt->alt->child = p->alt->child;
-			$$->alt->alt->child->next = p->alt->child->next;
-			p->alt->child = NULL;
-			yydeleteAstNode(p, 1);
-		}
-		else
-			$$->tail = $$->alt->alt = $6;
-		
-	}
-	| T_ID '(' exp '~' exp ')'
-	{
-		$$ = newAstNode(T_ID, @$);
-		$$->str = $1;
-		$$->tail = $$->alt = newAstNode(N_TIME_EXTRACT, @2);
-		$$->tail->child = $3;
-		$3->next = $5;
+		handle_tilde($$->alt, $6, @6);
+		$$->tail = $$->alt->alt; // we need this; or tail is broken and can't put '.' tid at the end
 	}
 	| varblock '(' arg_list ')'
 	{
 		$$ = $1;
-		if ($$->tail)
-			$$->tail = $$->tail->alt = $3; // just remember--- this is different from $$->tail->alt = $$->tail = $3; 8/20/2018
-		else
-			$$->tail = $$->alt = $3;
+		handle_tilde($$, $3, @3);
 	}
 	| varblock '(' ')'
-	{ // 102
+	{ // 100
 		if ($$->alt != NULL  && $$->alt->type==N_STRUCT)
 		{ // dot notation with a blank parentheses, e.g., a.sqrt() or (1:2:5).sqrt()
 			$$ = $1;
@@ -737,31 +713,24 @@ tid: varblock
 	|  T_REPLICA '(' arg_list ')'
 	{
 		$$ = newAstNode(T_REPLICA, @$);
-		$$->tail = $$->alt = $3;
-	}	
+		handle_tilde($$, $3, @3);
+	}
 	|  T_REPLICA '{' exp '}'
 	{
 		$$ = newAstNode(T_REPLICA, @$);
 		$$->tail = $$->alt = newAstNode(N_CELL, @$);
 		$$->alt->child = $3;
-		$$->tail = $$->alt = $3;
-	}	
+	}
 	| T_REPLICA '{' exp '}' '(' arg_list ')'
 	{
 		$$ = newAstNode(T_REPLICA, @$);
 		$$->alt = newAstNode(N_CELL, @$);
 		$$->alt->child = $3;
-		$$->tail = $$->alt->alt = $6;
-	}
-	| T_REPLICA '(' exp '~' exp ')'
-	{
-		$$ = newAstNode(T_REPLICA, @$);
-		$$->tail = $$->alt = newAstNode(N_TIME_EXTRACT, @2);
-		$$->tail->child = $3;
-		$3->next = $5;
+		handle_tilde($$->alt, $6, @6);
+		$$->tail = $$->alt->alt; // we need this; or tail is broken and can't put '.' tid at the end
 	}
 	| tid '\''
-	{ 	//108
+	{ 	//105
 		$$ = newAstNode(T_TRANSPOSE, @$);
  		$$->child = $1;
 	}
@@ -812,7 +781,7 @@ tid: varblock
 
 /* Here, both rules of tid and varblock should be included... tid assign2this alone is not enough 8/18/2018*/
 assign: tid assign2this
-	{ //116
+	{ //113
 		$$ = $1;
 		$$->child = $2;
 	}
@@ -823,12 +792,12 @@ assign: tid assign2this
 	}
 	| varblock '=' assign
 	{ //c=a(2)=44
-		if (!$1->child) 
+		if (!$1->child)
 			$1->child = $3;
 		else
 			for (AstNode *p = $1->child; p; p=p->child)
 			{
-				if (!p->child) 
+				if (!p->child)
 				{
 					p->child = $3;
 					break;
@@ -838,12 +807,12 @@ assign: tid assign2this
 	}
 	| tid '=' assign
 	{ //a(2)=d=11
-		if (!$1->child) 
+		if (!$1->child)
 			$1->child = $3;
 		else
 			for (AstNode *p = $1->child; p; p=p->child)
 			{
-				if (!p->child) 
+				if (!p->child)
 				{
 					p->child = $3;
 					break;
@@ -851,7 +820,7 @@ assign: tid assign2this
 			}
 		$$ = $1;
 	}
-	| varblock '=' initcell 
+	| varblock '=' initcell
 	{ // x={"bjk",noise(300), 4.5555}
 		$$->str = getT_ID_str($1);
 		$$->child = $3;
@@ -862,12 +831,12 @@ assign: tid assign2this
 
 
 exp: T_NUMBER
-	{ // 121
+	{ // 118
 		$$ = newAstNode(T_NUMBER, @$);
 		$$->dval = $1;
 	}
 	| T_STRING
-	{ // 122
+	{ // 119
 		$$ = newAstNode(T_STRING, @$);
 		$$->str = $1;
 	}
@@ -877,24 +846,8 @@ exp: T_NUMBER
 	}
 	| initcell
 	| tid
-	{//125
+	{//122
 		$$ = $1;
-	}
-	| tid '(' exp '~' exp ')'
-	{
-		if ($1->type==N_CELL)
-		{
-			$$ = $1;
-			$$->child = newAstNode(N_TIME_EXTRACT, @$);
-			$$->child->child = $3;
-		}
-		else
-		{
-			$$ = newAstNode(N_TIME_EXTRACT, @$);
-			$$->str = getT_ID_str($1);
-			$$->child = $3;
-		}
-		$3->next = $5;
 	}
 	| '-' exp %prec T_NEGATIVE
 	{
@@ -1063,7 +1016,7 @@ initcell: '{' arg_list '}'
 //		$$ = newAstNode(N_TSEQ, @$);
 //		$$->child = $1;
 //	}
-//	| 
+//	|
 // vector matrix
 //	{
 //		$$ = newAstNode(N_TSEQ, @$);
@@ -1188,8 +1141,8 @@ char *getAstNodeName(AstNode *p)
 }
 
 /* As of 4/17/2018
-In makeFunctionCall and makeBinaryOpNode, 
-node->tail is removed, because it caused conflict with tail made in 
+In makeFunctionCall and makeBinaryOpNode,
+node->tail is removed, because it caused conflict with tail made in
 tid: tid '.' T_ID or tid: tid '(' arg_list ')'
 or possibly other things.
 The only downside from this change is, during debugging, the last argument is not seen at the top node where several nodes are cascaded: e.g., a+b+c
@@ -1245,6 +1198,29 @@ char *getT_ID_str(AstNode *p)
 	return NULL;
 }
 
+void handle_tilde(AstNode *proot, AstNode *pp, YYLTYPE loc)
+{
+	AstNode *p = pp->child;
+	if (p->type==T_ID && !strcmp(p->str,"respeed"))
+	{ // x{2}(t1~t2) checks here because t1~t2 can be arg_list through
+        AstNode *q = newAstNode(N_TIME_EXTRACT, loc);
+		q->child = p->alt->child;
+		q->child->next = p->alt->child->next;
+        if (proot->tail)
+            proot->tail = proot->tail->alt = q;
+		else
+			proot->tail = proot->alt = q;
+		p->alt->child = NULL;
+		yydeleteAstNode(p, 1);
+	}
+	else
+	{
+	    if (proot->tail)
+			proot->tail = proot->tail->alt = pp;
+		else
+			proot->tail = proot->alt = pp;
+	}
+}
 
 int yydeleteAstNode(AstNode *p, int fSkipNext)
 {
@@ -1252,7 +1228,7 @@ int yydeleteAstNode(AstNode *p, int fSkipNext)
     static int cnt=0;
 #endif
   AstNode *tmp, *next;
-  
+
   if (!p)
 	return 0;
 #ifdef DEBUG

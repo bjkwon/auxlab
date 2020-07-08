@@ -1913,6 +1913,7 @@ void _vector(CAstSig *past, const AstNode *pnode, const AstNode *p, std::string 
 	past->checkAudioSig(pnode, past->Sig);
 //	past->Sig.MakeChainless(); // if this is on, you can't easily display values from an audio obj 6/29/2020
 	past->Sig.SetFs(1);
+	past->Sig.snap = false;
 	if (past->Sig.next)
 	{
 		CSignal out = CSignal(1, past->Sig.nSamples * 2);

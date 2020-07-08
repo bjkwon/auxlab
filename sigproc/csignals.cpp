@@ -1479,6 +1479,10 @@ CTimeSeries CTimeSeries::runFct2getvals(vector<double> (CSignal::*fp)(unsigned i
 		}
 		else
 		{
+			if (nGroups == nSamples) {
+				nGroups = 1; // computing a column vector should yield a scalar. 7/7/2020
+				len = nSamples;
+			}
 			out.UpdateBuffer(nGroups);
 			out.nGroups = nGroups;
 			additional.UpdateBuffer(nGroups);

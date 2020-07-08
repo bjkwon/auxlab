@@ -169,7 +169,8 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 					}
 				}
 			}
-			else if (p->type == N_TIME_EXTRACT || (p->next && p->next->type == N_IDLIST))  // s(repl_RHS1~repl_RHS2)   or  cel{n}(repl_RHS1~repl_RHS2)
+			else if ( (p->alt && p->alt->type == N_TIME_EXTRACT) || // x{id}(t1~t2) = ...sqrt
+				p->type == N_TIME_EXTRACT || (p->next && p->next->type == N_IDLIST))  // s(repl_RHS1~repl_RHS2)   or  cel{n}(repl_RHS1~repl_RHS2)
 			{
 				if (repl_RHS) //direct update of buf
 				{
@@ -818,7 +819,7 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 	return *pobj;
 }
 
-CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
+CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, CSignal &sec, int id1, int id2)
 { // this replaces the data body between id1 and id2 (including edges) with sec
 	if (id1 < 0) throw CAstExceptionRange(*pbase, pnode, "replace index cannot be negative.", "", id1);
 	if (id2 < 0) throw CAstExceptionRange(*pbase, pnode, "replace index cannot be negative.", "", id2);
@@ -834,11 +835,10 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 	if (id1 > (int)pobj->nSamples - 1) throw CAstExceptionRange(*pbase, pnode, "replace index1 ", "", id1);
 	if (id2 > (int)pobj->nSamples - 1) throw CAstExceptionRange(*pbase, pnode, "replace index2 ", "", id1);
 	unsigned int secnsamples = sec.nSamples;
-	bool ch = ((CSignal *)&sec)->bufBlockSize == 1;
-	if (ch) secnsamples--;
+	if (sec.type() & TYPEBIT_STRING) secnsamples--;
 	if (secnsamples == 1) // no change in length--items from id1 to id2 are to be replaced with sec.value()
 	{
-		if (ch)
+		if (sec.type() & TYPEBIT_LOGICAL)
 			for (int k = id1; k <= id2; k++) pobj->strbuf[k] = sec.strbuf[0];
 		else if (((CSignal *)&sec)->bufBlockSize == 16)
 			for (int k = id1; k <= id2; k++) pobj->cbuf[k] = sec.cvalue();

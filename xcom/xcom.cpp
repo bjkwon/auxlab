@@ -711,6 +711,7 @@ void printf_single(CVar *pvar)
 ostringstream xcom::outstream_tmarks(CTimeSeries *psig, bool unit)
 {
 	// unit is to be used in the future 8/15/2018
+	// Get the timepoints 
 	ostringstream out;
 	streamsize org_precision = out.precision();
 	out.setf(ios::fixed);
@@ -818,6 +819,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	unsigned int j = 1;
 	CVar temp;
 	streamsize org_precision(-1);
+	bool show_tpoints = true;
 	bool passingdown(false);
 	uint16_t dt = pvar->type();
 	switch (dt)
@@ -877,22 +879,27 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		printf_vector(pvar, offset, postscript);
 		break;
 	case TYPEBIT_AUDIO + 2:
+		// if the object to echo is not straightforward in time, don't show detail
+		if (strchr(varname, '~')) show_tpoints = false;
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " =" << endl;
 		if (pvar->IsStereo())
 		{
 			for (int k = 0; k < offset+1; k++) cout << " ";
 			cout << "audio(L) ";
-			cout << xcom::outstream_tmarks(pvar, true).str();
+			if (show_tpoints) cout << xcom::outstream_tmarks(pvar, true).str();
+			else cout << ".." << endl;
 			for (int k = 0; k < offset + 1; k++) cout << " ";
 			cout << "audio(R) ";
-			cout << xcom::outstream_tmarks(pvar->next, true).str();
+			if (show_tpoints) cout << xcom::outstream_tmarks(pvar->next, true).str();
+			else cout << ".." << endl;
 		}
 		else
 		{
 			for (int k = 0; k < offset + 1; k++) cout << " ";
 			cout << "audio ";
-			cout << xcom::outstream_tmarks(pvar, true).str();
+			if (show_tpoints) cout << xcom::outstream_tmarks(pvar, true).str();
+			else cout << ".." << endl;
 		}
 		break;
 	case TYPEBIT_CELL:
@@ -1853,7 +1860,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		while (1)
 		{
 			// this is outside of try... an exception will not be handled. Make sure it won't fail. 8/16/2019
-			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
+//			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
 			if (res.empty())
 				break;
 		}
