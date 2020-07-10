@@ -3056,9 +3056,9 @@ CSignal& CSignal::_filter(const vector<double> & num, const vector<double> & den
 		vector<double> initial = initialfinal;
 		vector<double> finalcondition(max(num.size(), den.size()) - 1, 0.);
 		double xx, *out = new double[len];
+		auto preex = initial.begin();
 		for (unsigned int m = id0; m < id0 + len; m++)
 		{
-			auto preex = initial.begin();
 			xx = num[0] * buf[m];
 			for (unsigned int n = 1; n < num.size(); n++)
 			{
@@ -3080,8 +3080,8 @@ CSignal& CSignal::_filter(const vector<double> & num, const vector<double> & den
 		{
 			for (size_t k = m + 1; k < num.size() && len + m >= k; k++)
 				finalcondition[m] += num[k] * buf[len - k + m];
-			for (size_t k = 1; k < den.size() && len + m >= k; k++)
-					finalcondition[m] -= den[k] * out[len - k + m];
+			for (size_t k = m + 1; k < den.size() && len + m >= k; k++)
+				finalcondition[m] -= den[k] * out[len - k + m];
 		}
 		delete[] buf;
 		buf = out;
@@ -3121,7 +3121,10 @@ CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 		initfin = coeffs.back();
 	_filter(num, den, initfin, id0, len);
 	auto vv = (vector<vector<double>>*)parg;
-	*&vv->at(1) = initfin; // updating the content of the pointer stored at second item of the vector, parg 
+	if (vv->size() == 3)
+		vv->back() = initfin; // updating the content of the pointer at the last position of the vector, in parg 
+	else // size should be 2 or less
+		vv->push_back(initfin);
 	return *this;
 }
 
