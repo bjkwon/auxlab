@@ -1,0 +1,60 @@
+function test_filt
+in=[1 2 -1 2 .5 -.4 2 .1 0 -1.5];
+num=[.3 -.1 .9 -1];
+den=[1 .1 -.05 .0001];
+initial=[.5 .2 -.3];
+out=in.audio.filt(num,den,initial)
+
+fd=fopen("filt_output_matlab.bin","rb")
+if fd<0
+    error("filt_output_matlab.bin not found.");
+end
+from_matlab = fd.fread("double")
+if from_matlab.length != out.length
+    fd.fclose
+    str = sprintf("read %d items from filt_output_matlab.bin ( < %d)", from_matlab.length, out.length)
+    error(str);
+end
+fd.fclose
+df = out.vector - from_matlab
+res = df.max < 1.e-9
+if res
+    fprintf(0,"filt success for non-grouped input\n");
+else
+    fprintf(0,"filt not success for non-grouped input\n");
+end
+
+x = noise(10)@-10
+num=[.3 -.1 .9 -1];
+den=[1 .07 -.005];
+x2 = x.matrix(10)
+y = x.filt(num, den)
+y2 = x2.filt(num, den)
+y2 = y2(1:y.length)
+res = issame(y,y2)
+if res
+    fprintf(0,"filt success for grouped input\n");
+else
+	dff = y-y2;
+	if dff.max < 1.e-9
+		fprintf(0,"filt success for grouped input\n");
+	else
+		fprintf(0,"filt not success for grouped input\n");
+	end
+end
+
+// Make a bin file to use in MATLAB (generate a binary output from MATLAB using this input)
+//fd=fopen("filt_input_auxlab.bin","wb")
+//fd.fwrite(x,"double")
+//fd.fclose
+
+
+// MATLAB script to generate filt_output_matlab.bin
+//num=[.3 -.1 .9 -1];
+//den=[1 .1 -.5 -1];
+//in=[1 2 -1 2 .5 -.4 2 .1 0 -1.5];
+//initial=[.5 .2 2];
+//[y,f]=filter(num,den,in,initial);
+//fd=fopen('filt_output_matlab.bin','wb');
+//fwrite(fd,y,'double');
+//fclose(fd);
