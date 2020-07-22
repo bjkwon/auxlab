@@ -52,7 +52,6 @@ bool moduleLoop(false);
 typedef void (*PFUN) (const vector<CAstSig*> &);
 
 xcom mainSpace;
-extern vector<CAstSig*> xscope;
 double CAstSig::play_block_ms = 300;
 double CAstSig::record_block_ms = 300;
 short CAstSig::play_bytes = 2;

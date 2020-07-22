@@ -33,7 +33,7 @@
 #include "sigproc_internal.h"
 
 //Application-wide global variables
-vector<CAstSig*> xscope;
+vector<unique_ptr<CAstSig>> xscope;
 extern HWND hShowDlg;
 
 #define PRINTLOG(FNAME,STR) \
@@ -127,21 +127,21 @@ unsigned long GetTickCount0()
 #ifndef GRAFFY
 void CAstSig::cleanup_nodes(CAstSig *beginhere)
 {
-	size_t nLayersBase(1);
-	if (!beginhere) // if called from auxcon, beginhere is NULL, then beginhere should be set to point the last astsig 
-	{
-		nLayersBase++;
-		for (beginhere = xscope.front(); beginhere->son; )
-			beginhere = beginhere->son;
-	}
-	for (CAstSig *pst = beginhere; xscope.size() > nLayersBase; )
-	{
-		xscope.pop_back();
-		CAstSig *up = pst->dad;
-		delete pst;
-		up->son = NULL;
-		pst = up;
-	}
+	//size_t nLayersBase(1);
+	//if (!beginhere) // if called from auxcon, beginhere is NULL, then beginhere should be set to point the last astsig 
+	//{
+	//	nLayersBase++;
+	//	for (beginhere = xscope.front(); beginhere->son; )
+	//		beginhere = beginhere->son;
+	//}
+	//for (CAstSig *pst = beginhere; xscope.size() > nLayersBase; )
+	//{
+	//	xscope.pop_back();
+	//	CAstSig *up = pst->dad;
+	//	delete pst;
+	//	up->son = NULL;
+	//	pst = up;
+	//}
 }
 
 AstNode *CAstSig::findParentNode(AstNode *p, AstNode *pME, bool altonly)
@@ -484,7 +484,6 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 {
 	u.currentLine = pCalling->line; // ? 10/18/2018
 	AstNode *p;
-	CAstSigEnv tempEnv(*pEnv);
 	//input parameter binding
 	// required nArgin
 	size_t nargin_expected = 0;
@@ -497,7 +496,8 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 		throw CAstExceptionInvalidUsage(*this, pCalling, " too many input args.");
 	if (inVars.size() < nargin_expected)
 		throw CAstExceptionInvalidUsage(*this, pCalling, " insufficient input args.");
-	son = new CAstSig(&tempEnv);
+	CAstSigEnv tempEnv(*pEnv);
+	son = make_unique<CAstSig>(new CAstSig(&tempEnv));
 	son->u = u;
 	son->u.title = pCalling->str;
 	son->u.debug.status = null;
@@ -517,7 +517,7 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 			son->SetVar(p->str, **itOutVar);
 	}
 	son->lhs = lhs;
-	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
+	son->dad = make_unique<CAstSig>(this); // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
 	auto itUDF = pEnv->udf.find(pCalling->str);
 	son->u.pUDF = (*itUDF).second.pAst;
@@ -634,7 +634,8 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 		else // b.p. set in other udf 
 			u.debug.status = progress;
 	}
-	delete son;
+	// delete son; // not necessary
+	son.reset();
 	son = NULL;
 	u.pLastRead = NULL;
 	if (pgo) pgo->functionEvalRes = true;
@@ -709,12 +710,12 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
 	CAstSigEnv tempEnv(*pEnv);
-	son = new CAstSig(&tempEnv);
+	son = make_unique<CAstSig>(new CAstSig(&tempEnv));
 	son->u = u;
 	son->u.title = pCalling->str;
 	son->u.debug.status = null;
 	son->lhs = lhs;
-	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
+	son->dad = make_unique<CAstSig>(this); // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
 	if (GOvars.find("?foc") != GOvars.end()) son->GOvars["?foc"] = GOvars["?foc"];
 	if (GOvars.find("gcf") != GOvars.end())	son->GOvars["gcf"] = GOvars["gcf"];
@@ -830,7 +831,6 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	}
 	if (son->GOvars.find("?foc") != son->GOvars.end()) GOvars["?foc"] = son->GOvars["?foc"];
 	if (son->GOvars.find("gcf") != son->GOvars.end()) GOvars["gcf"] = son->GOvars["gcf"];
-	delete son;
 	son = NULL;
 	u.pLastRead = NULL;
 	if (pgo) pgo->functionEvalRes = true;

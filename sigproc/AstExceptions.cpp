@@ -101,29 +101,29 @@ void adjust_AstNode(const AstNode *p)
 // The only reason pnode is left is for auxcon stuff, but otherwise they can go 3/15/2019
 CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const string s2)
 {
-	return CAstException(pnode, this, s1, s2);
+	return CAstException(pnode, s1, s2);
 }
 CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
 {
-	return CAstException(pnode, this, msg);
+	return CAstException(pnode, msg);
 }
 
-CAstException::CAstException(CAstSig *pContext, const string s1, const string s2)
-	: pCtx(pContext), str2(s2)
+CAstException::CAstException(const string s1, const string s2)
+	:str2(s2)
 {
 #ifdef _WINDOWS
-	if (pContext->u.pUDF)
-		pnode = pContext->u.pUDF;
+	if (u.pUDF)
+		pnode = u.pUDF;
 	else
 #endif
-		pnode = pContext->pAst;
+		pnode = pAst;
 	//Use this format when you are not sure what pnode to use
 	// Probably it's safe to use this all the time. 
 	//Replace the other constructor CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
 	//with this eventually 3/30/2019
 
 #ifdef _WINDOWS
-	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
+	if (!strcmp(u.application, "auxcon"))
 		adjust_AstNode(pnode);
 #endif
 	str1 = pnode->str;
@@ -132,21 +132,21 @@ CAstException::CAstException(CAstSig *pContext, const string s1, const string s2
 	str1 += s1;
 	outstr = str1;
 #ifdef _WINDOWS
-	if (pCtx && pCtx->u.debug.status == typed_line) return;
+	if (u.debug.status == typed_line) return;
 #endif
 	str1.insert(0, "[GOTO_BASE]");
-	if (!pnode) pnode = pCtx->pAst;
+	if (!pnode) pnode = pAst;
 //	makeOutStr();
 	outstr += '\n';
 }
 
-CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
-: pCtx(pContext), pnode(p), str2(s2)
+CAstException::CAstException(const AstNode *p, const string s1, const string s2)
+: pnode(p), str2(s2)
 {
 	//Use this format to create an exception message for invalid function definition (and others)
 	//p carries the function name
 #ifdef _WINDOWS
-	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
+	if (!strcmp(u.application, "auxcon"))
 		adjust_AstNode(pnode);
 #endif
 	ostringstream oss;
@@ -159,33 +159,33 @@ CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s
 	oss << " : " << s2 << s1;
 	outstr = str1 = oss.str().c_str();
 #ifdef _WINDOWS
-	if (pCtx && pCtx->u.debug.status == typed_line) return;
+	if (u.debug.status == typed_line) return;
 #endif
 	str1.insert(0, "[GOTO_BASE]");
-	if (!p) pnode = pCtx->pAst;
+	if (!p) pnode = pAst;
 //	makeOutStr();
 	outstr += '\n';
 }
 
-CAstException::CAstException(const AstNode *p, CAstSig *pAst, const string s1)
+CAstException::CAstException(const AstNode *p, const string s1)
 {
-	CAstException(p, pAst, s1.c_str());
+	CAstException(p, s1.c_str());
 }
 
-CAstException::CAstException(const AstNode *p0, CAstSig *pContext, const char* msg)
-	: pCtx(pContext), pnode(p0)
+CAstException::CAstException(const AstNode *p0, const char* msg)
+	: pnode(p0)
 {
 #ifdef _WINDOWS
-	if (pCtx && !strcmp(pCtx->u.application,"auxcon"))
+	if (!strcmp(u.application,"auxcon"))
 		adjust_AstNode(pnode);
 #endif
 	outstr = str1 = msg;
 	//If this is user-typed lines during debugging (F10, F5,... etc), it should just return without going into what's going on in the current UDF.
 #ifdef _WINDOWS
-	if (pCtx && pCtx->u.debug.status == typed_line) return;
+	if (u.debug.status == typed_line) return;
 #endif
 	str1.insert(0, "[GOTO_BASE]");
-	if (!pnode) pnode = pCtx->pAst;
+	if (!pnode) pnode = pAst;
 //	makeOutStr();
 	outstr += '\n';
 }
@@ -209,14 +209,14 @@ void CAstException::findTryLine(const CAstSig & scope)
 void CAstException::addLineCol()
 {
 	ostringstream oss;
-	if (!pCtx && pnode)
-		oss << "\nIn line " << pnode->line << ", col " << pnode->col; // is this necessary? 1/12/2020
-	else
+//	if (!pCtx && pnode)
+//		oss << "\nIn line " << pnode->line << ", col " << pnode->col; // is this necessary? 1/12/2020
+//	else
 	{
-		if (!pCtx->dad) return;
+		if (!dad) return;
 		vector<int> lines;
 		vector<string> strs;
-		const CAstSig *tp = pCtx;
+		unique_ptr<CAstSig> tp = make_unique<CAstSig>(this);
 		char *pstr=NULL;
 		while (tp)
 		{
@@ -229,7 +229,7 @@ void CAstException::addLineCol()
 				if (tp->pLast)
 					lines.push_back(tp->pLast->line);
 			}
-			tp=tp->dad;
+			tp = make_unique<CAstSig>(tp->dad);
 		}
 		if (!strs.empty())
 		{
@@ -250,8 +250,8 @@ void CAstException::addLineCol()
 void CAstException::clean()
 {
 	// if the exception is thrown from auxcon, it will skip
-	if (pCtx && pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017
-		if (pCtx->pAst && pCtx->pAst->type == N_BLOCK) // pCtx->pCtx is checked to avoid crash during wavwrite(undefined_var,"filename")
-			CAstSig::cleanup_nodes((CAstSig *)pCtx);
+//	if (pCtx && pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017
+//		if (pCtx->pAst && pCtx->pAst->type == N_BLOCK) // pCtx->pCtx is checked to avoid crash during wavwrite(undefined_var,"filename")
+//			CAstSig::cleanup_nodes((CAstSig *)pCtx);
 }
 

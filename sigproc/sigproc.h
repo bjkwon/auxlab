@@ -96,33 +96,6 @@ class CNodeProbe;
 
 #include "aux_classes.h"
 
-class CAstException {
-public:
-	const AstNode *pnode;
-	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
-	int line, col;
-	string str1, str2;
-	CAstException() { 
-		pTarget = nullptr;	pnode = nullptr; pCtx = nullptr;
-	};
-	CAstException(const AstNode *p, CAstSig *pAst, const string s1);
-	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const string s2);
-	CAstException(CAstSig *pContext, const string s1, const string s2);
-	CAstException(const AstNode *p0, CAstSig *past, const char* msg);
-	~CAstException() {};
-	void findTryLine(const CAstSig & scope);
-	string getErrMsg() const { return outstr; };
-	string basemsg, tidstr;
-	string msgonly; // including basemsg, tidstr, and extra
-	string sourceloc; // source location; where the error occurred (line, col and file)
-	string outstr; // msgonly \n sourceloc
-	int arrayindex, cellindex;
-	const AstNode *pTarget;
-protected:
-	void clean();
-	void addLineCol();
-}; 
-
 class UDF
 {
 public:
@@ -234,6 +207,8 @@ public:
 	AstNode *pLastRead; //used for isthisUDFscope only, to mark the last pnode processed in 
 };
 
+class CAstException;
+
 class CAstSig
 {
 	friend class CNodeProbe;
@@ -271,8 +246,8 @@ public:
 	CVar *MakeGOContainer(vector<INT_PTR> GOs);
 	vector<unique_ptr<CVar*>> Sigs; // used to store results of Compute for additional outputs.
 	AstNode *lhs;
-	CAstSig *son;
-	CAstSig *dad;
+	unique_ptr<CAstSig> son;
+	unique_ptr<CAstSig> dad;
 	const AstNode *pLast;
 	string statusMsg; // to display any message during processing inside of AstSig.cpp in the application
 	unsigned long Tick0, Tick1;
@@ -403,6 +378,32 @@ public:
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int minArgs, int maxArgs);
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int *args);
 };
+
+class CAstException : public CAstSig
+{
+public:
+	const AstNode *pnode;
+	int line, col;
+	string str1, str2;
+	CAstException(const AstNode *p, const string s1);
+	CAstException(const AstNode *p, const string s1, const string s2);
+	CAstException(const string s1, const string s2);
+	CAstException(const AstNode *p0, const char* msg);
+	~CAstException() {};
+	void findTryLine(const CAstSig & scope);
+	string getErrMsg() const { return outstr; };
+	string basemsg, tidstr;
+	string msgonly; // including basemsg, tidstr, and extra
+	string sourceloc; // source location; where the error occurred (line, col and file)
+	string outstr; // msgonly \n sourceloc
+	int arrayindex, cellindex;
+	const AstNode *pTarget;
+protected:
+	void clean();
+	void addLineCol();
+};
+
+
 
 class CNodeProbe
 {
