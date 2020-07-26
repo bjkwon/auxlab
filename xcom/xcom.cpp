@@ -1053,11 +1053,11 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			string input1 = input.substr(1);
 			nItems = str2array(tar, 2, input1.c_str(), " ");
 			if (nItems == 0) return 0;
-			if (hook(pContext, tar[0], tar[1].c_str()) == 0)
-			{
-				ShowWS_CommandPrompt(pContext);
-				return pTemp ? 1 : 0;
-			}
+			if (hook(pContext, tar[0], tar[1].c_str()) == -1)
+				return -1;
+			// hook returned 0
+			ShowWS_CommandPrompt(pContext);
+			return pTemp ? 1 : 0;
 		}
 		if (!pContext->SetNewScript(emsg, input.c_str()))
 			throw emsg.c_str();
@@ -1409,7 +1409,7 @@ void AuxconGetInputThread(void *var)
 void ShowVariables(CAstSig *pastsig)
 {
 	CAstSig *pbase = xscope.front();
-	if (pastsig->dad == pbase && xscope.size() == 1)
+	if (pastsig->dad.get() == pbase && xscope.size() == 1)
 	{
 		moduleLoop = true;
 		xscope.push_back(pastsig);

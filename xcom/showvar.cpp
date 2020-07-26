@@ -766,7 +766,7 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 		mainSpace.need2validate = true;
 		// inspect how many layers of udf's to add to the scope list
 		// begin from debugAstSig and check his dad, up and up until NULL
-		for (CAstSig *tp = debugAstSig; tp; tp = tp->dad)
+		for (CAstSig *tp = debugAstSig; tp; tp = tp->dad.get())
 			if (!tp->u.title.empty()) list.push_back(tp->u.title);
 		for (auto scopeStr = list.rbegin(); scopeStr != list.rend(); scopeStr++)
 			SendDlgItemMessage(IDC_DEBUGSCOPE, CB_ADDSTRING, 0, (LPARAM)(*scopeStr).c_str());
@@ -854,7 +854,7 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 			lastDebug->Debug(NULL, status);
 			if (debugAstSig && debugAstSig->dad)
 			{
-				CDebugDlg::pAstSig = debugAstSig = debugAstSig->dad;
+				CDebugDlg::pAstSig = debugAstSig = debugAstSig->dad.get();
 				it = dbmap.find(debugAstSig->u.base);
 				if (it != dbmap.end())
 				{

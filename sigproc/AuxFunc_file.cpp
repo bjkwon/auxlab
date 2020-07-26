@@ -65,7 +65,7 @@ void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (!past->Sig.IsScalar())
-		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "First arg must be a file identifider");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be a file identifider");
 	double fl = past->Sig.value();
 	FILE *file = file_ids[fl];
 	if (!file || fclose(file) == EOF)
@@ -99,7 +99,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 	if (past->Sig.IsScalar())
 		file = file_ids[past->Sig.value()];
 	if (!file)
-		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "First arg must be either a file identifider");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be either a file identifider");
 	CVar second, addition;
 	string estr;
 	if (!strcmp(pnode->str, "fread"))
@@ -113,7 +113,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 		estr = "Third arg must be a string";
 	}
 	if (!past->Sig.IsString())
-		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, estr.c_str());
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, estr.c_str());
 	prec = past->Sig.string();
 	if (prec == "int8" || prec == "uint8" || prec == "char")
 		bytes = 1;
@@ -126,7 +126,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 	else if (prec == "double")
 		bytes = 8;
 	else
-		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "Second arg must be either ....");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Second arg must be either ....");
 	if (!strcmp(pnode->str, "fread"))
 	{
 		if (p->next)
@@ -135,7 +135,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 			if (!addition.IsString())
 			{
 				estr = "Third arg must be a string--either \"a\" \"audio\" \"a2\" or \"audio2\" ";
-				throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, estr.c_str());
+				throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, estr.c_str());
 			}
 			else
 				strcpy(additional, addition.string().c_str());
@@ -294,7 +294,7 @@ void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	if (!strcmp(addarg, "audio2") || !strcmp(addarg, "a2"))
 	{
 		if (nItems / 2 * 2 != nItems)
-			throw CAstExceptionInvalidUsage(*past, pnode, "attempting to read stereo audio data but data count is not even.");
+			throw CAstException(USAGE, *past, pnode).proc("attempting to read stereo audio data but data count is not even.");
 		nItems /= 2;
 	}
 	past->Sig.UpdateBuffer((unsigned int)nItems);
@@ -366,7 +366,7 @@ void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 	}
 	if (!file)
 	{
-		throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, "First arg must be either a file identifider, filename or 0 (for console)");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be either a file identifider, filename or 0 (for console)");
 	}
 	if (fprintf(file, buffer.c_str()) < 0)
 		past->Sig.SetValue(-3.);
@@ -428,7 +428,7 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 		tp.Compute(p);
 		tp.checkString(p, tp.Sig);
 		if (tp.Sig.string().empty())
-			throw CAstExceptionInvalidUsage(tp, p, "Empty filename");
+			throw CAstException(USAGE, tp, p).proc("Empty filename");
 		filename = tp.Sig.string();
 		if (p->next != NULL)
 		{
@@ -437,11 +437,11 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 			option = third.string();
 		}
 	}
-	catch (const CAstException &e) { throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
 	filename = past->MakeFilename(filename, "wav");
 	char errStr[256];
 	if (!past->Sig.Wavwrite(filename.c_str(), errStr, option))
-		throw CAstExceptionInvalidUsage(*past, p, errStr);
+		throw CAstException(USAGE, *past, p).proc(errStr);
 }
 
 void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -455,7 +455,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		tp.Compute(p);
 		tp.checkString(p, tp.Sig);
 		if (tp.Sig.string().empty())
-			throw CAstExceptionInvalidUsage(tp, p, "Empty filename");
+			throw CAstException(USAGE, tp, p).proc("Empty filename");
 		filename = tp.Sig.string();
 		if (p->next != NULL)
 		{
@@ -464,12 +464,12 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 			option = third.string();
 		}
 	}
-	catch (const CAstException &e) { throw CAstInvalidFuncSyntax(*past, pnode, fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
 	trim(filename, ' ');
 	size_t pdot = filename.rfind('.');
 	string extension = filename.substr(pdot + 1);
 	if (extension.empty())
-		throw CAstExceptionInvalidUsage(*past, p, "The extension must be specified .wav .mp3 or .txt");
+		throw CAstException(USAGE, *past, p).proc("The extension must be specified .wav .mp3 or .txt");
 	else if (extension == "mp3")
 	{
 		/* For now, MakeChainless makes the whole audio data into one big piece.
@@ -485,7 +485,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		char errStr[256] = { 0 };
 		int res = write_mp3(past->Sig.nSamples, past->Sig.buf, past->Sig.next ? past->Sig.next->buf : NULL, past->Sig.GetFs(), filename.c_str(), errStr);
 		if (!res)
-			throw CAstExceptionInvalidUsage(*past, p, errStr);
+			throw CAstException(USAGE, *past, p).proc(errStr);
 	}
 	else if (extension == "wav")
 	{
@@ -495,12 +495,12 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	{
 		FILE* fid = fopen(filename.c_str(), "wt");
 		if (!fid)
-			throw CAstExceptionInvalidUsage(*past, p, "File creation error");
+			throw CAstException(USAGE, *past, p).proc("File creation error");
 		write2textfile(fid, &past->Sig);
 		fclose(fid);
 	}
 	else
-		throw CAstExceptionInvalidUsage(*past, p, "unknown audio file extension. Must be .wav or .mp3");
+		throw CAstException(USAGE, *past, p).proc("unknown audio file extension. Must be .wav or .mp3");
 }
 
 void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -515,7 +515,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	string filename = past->MakeFilename(past->Sig.string(), "wav");
 	char errStr[256];
 	if (!past->Sig.Wavread(filename.c_str(), errStr))
-		throw CAstExceptionInvalidUsage(*past, p, errStr);
+		throw CAstException(USAGE, *past, p).proc(errStr);
 	vector<string> audiovars;
 	EnumAudioVariables(past, audiovars);
 	if (past->FsFixed || audiovars.size() > 0)
@@ -527,7 +527,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			ratio.SetValue(past->Sig.GetFs() / (double)oldFs);
 			past->Sig.runFct2modify(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
-				throw CAstInvalidFuncSyntax(*past, p, fnsigs, ratio.string().c_str());
+				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, ratio.string().c_str());
 			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), oldFs);
 			past->Sig.SetFs(oldFs);
 			if (past->Sig.next)
@@ -574,7 +574,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			}
 			int res = read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr);
 			if (!res)
-				throw CAstInvalidFuncSyntax(*past, p, fnsigs, errStr);
+				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, errStr);
 			past->Sig.nSamples = res;
 			if (nChans > 1) past->Sig.next->nSamples = res;
 		}
@@ -587,7 +587,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			if (nChans > 1)
 				past->Sig.SetNextChan(&past->Sig);
 			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
-				throw CAstInvalidFuncSyntax(*past, p, fnsigs, errStr);
+				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, errStr);
 		}
 		else if (GetFileText(fullpath.c_str(), "rb", content))
 		{
@@ -626,6 +626,6 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		}
 	}
 	else
-		throw CAstInvalidFuncSyntax(*past, p, fnsigs, "cannot open file");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "cannot open file");
 }
 

@@ -64,6 +64,15 @@ enum DEBUG_STATUS
 	typed_line,
 };
 
+enum EXCEPTIONTYPE
+{
+	USAGE = 1,
+	FUNC_SYNTAX,
+	RANGE,
+	ARGS,
+	INTERNAL,
+};
+
 //End of Used for communication bet sigproc and xcom (i.e., AstSig.cpp and showvar.cpp)
 
 #ifdef _WINDOWS
@@ -379,17 +388,25 @@ public:
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int *args);
 };
 
-class CAstException : public CAstSig
+class CAstException
 {
 public:
+	CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *pnode);
+	CAstException &proc(string fnsig, const char * _basemsg); //FUNC_SYNTAX
+	CAstException &proc(const char * _basemsg, const char * tidname = "", string extra = ""); //invalid usage; internal
+	CAstException &proc(const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell); //range
+	CAstException &proc(const char * _basemsg, const char * funcname, int argIndex); // arg
+	CAstException() {
+		pTarget = nullptr;	pnode = nullptr;
+	};
+	~CAstException() {};
+
+//private:
+	EXCEPTIONTYPE type;
 	const AstNode *pnode;
+	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
 	int line, col;
 	string str1, str2;
-	CAstException(const AstNode *p, const string s1);
-	CAstException(const AstNode *p, const string s1, const string s2);
-	CAstException(const string s1, const string s2);
-	CAstException(const AstNode *p0, const char* msg);
-	~CAstException() {};
 	void findTryLine(const CAstSig & scope);
 	string getErrMsg() const { return outstr; };
 	string basemsg, tidstr;
@@ -431,8 +448,8 @@ public:
 	void insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig);
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, CSignal &sec, int id1, int id2);
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
-	CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
-	CAstException ExceptionMsg(const AstNode *pnode, const char *msg);
+	//CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
+	//CAstException ExceptionMsg(const AstNode *pnode, const char *msg);
 };
 
 

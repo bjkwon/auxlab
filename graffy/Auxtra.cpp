@@ -217,12 +217,12 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	string input2(input);
 	ReplaceStr(input, "-.", "__");
 	if (input.length() > 4)
-		throw CAstExceptionInvalidUsage(*past, pnode, "Plot option argument must be 4 characters or less.");
+		throw CAstException(USAGE, *past, pnode).proc("Plot option argument must be 4 characters or less.");
 	id = input.find_first_of(COLORSTR);
 	if (id!=string::npos) col = linecolorlist[input[id]], input.erase(id,1);
 	while ((id=input.find_first_of(COLORSTR))!=string::npos) {
 		// what's this? 1/17/2020 
-		throw CAstExceptionInvalidUsage(*past, pnode, "more than two characters for line color");
+		throw CAstException(USAGE, *past, pnode).proc("more than two characters for line color");
 		input.erase(id,1);
 		// Do something 1/17/2020
 	}
@@ -231,7 +231,7 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	else				markerspecified = false, mk = 0;
 	while ((id=input.find_first_of(MARKERSTR))!=string::npos) {
 		// what's this? 1/17/2020 
-		throw CAstExceptionInvalidUsage(*past, pnode, "more than two characters for marker");
+		throw CAstException(USAGE, *past, pnode).proc("more than two characters for marker");
 		input.erase(id,1);
 		// Do something 1/17/2020
 	}
@@ -244,7 +244,7 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	else if (input=="-" || input=="--" || input==":" || input=="-.")
 		ls = linestylelist[input];
 	else
-		throw CAstExceptionInvalidUsage(*past, pnode, (input + string(" Invalid line style specifier")).c_str());
+		throw CAstException(USAGE, *past, pnode).proc((input + string(" Invalid line style specifier")).c_str());
 	if (input2.find_first_of(MARKERSTR)==string::npos) //marker is not specified but
 		if (input.empty()) // linestyle is not 
 			ls = linestylelist["-"]; // set it solid 
@@ -320,7 +320,7 @@ void delete_toDelete(CAstSig *past, CVar *delThis)
 GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (!past->Sig.IsGO())
-		throw CAstExceptionInvalidUsage(*past, p, "The argument must be a graphic handle.");
+		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
 	if (past->Sig.strut["type"].string() == "figure")
 	{
 		HANDLE h = FindFigure(&past->Sig);
@@ -328,7 +328,7 @@ GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *
 		InvalidateRect(hh, NULL, 1);
 	}
 	else
-		throw CAstExceptionInvalidUsage(*past, p, "Only figure handle is supported now.");
+		throw CAstException(USAGE, *past, p).proc("Only figure handle is supported now.");
 }
 
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -363,7 +363,7 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 
 	CGobj *hobj = (CGobj *)past->pgo;
 	if (!hobj)
-		throw CAstExceptionInvalidUsage(*past, pnode, "1st argument is not a valid graphic object identifier."); //check
+		throw CAstException(USAGE, *past, pnode).proc("1st argument is not a valid graphic object identifier."); //check
 	//remove from registered ax list
 	if (past->pgo->strut["type"] == string("axes"))
 	{
@@ -372,11 +372,11 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 	}
 
 	map<CAstSig *, vector<CVar *>> scope_delList;
-	CAstSig *tp = past->dad;
+	CAstSig *tp = past->dad.get();
 	while (tp)
 	{
 		scope_delList[tp] = toDelete(tp, past->pgo);
-		tp = tp->dad;
+		tp = tp->dad.get();
 	}
 
 	// Clear the content of the corresponding variable from GOvar
@@ -422,12 +422,12 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 	deleteObj(hobj);
 	past->Sig = CVar();
 	past->pgo = NULL;
-	tp = past->dad;
+	tp = past->dad.get();
 	while (tp)
 	{
 		for (auto it = scope_delList[tp].begin(); it != scope_delList[tp].end(); it++)
 			delete_toDelete(tp, *it);
-		tp = tp->dad;
+		tp = tp->dad.get();
 	}
 	if (past->isthisUDFscope(pnode))
 		past->u.rt2validate[GetHWND_PlotDlg(hobj)] = CRect(0, 0, 0, 0);
@@ -480,7 +480,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 					return;
 				}
 				else
-					throw CAstExceptionInvalidUsage(*past, pnode, "Argument must be a blank, figure handle (either integer alias or real handle), or a 4-element vector specifying the figure position (screen coordinate).");
+					throw CAstException(USAGE, *past, pnode).proc("Argument must be a blank, figure handle (either integer alias or real handle), or a 4-element vector specifying the figure position (screen coordinate).");
 
 			}
 			past->Sig = *static_cast<CFigure *>(h);
@@ -535,11 +535,11 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		args.push_back(past->Compute(pp));
 	int count = 0;
 	vector<CVar *>::reverse_iterator rit = args.rbegin();
-	if ((**rit).GetType() != CSIG_STRING) throw CAstExceptionInvalidUsage(*past, pnode, "The last argument must be string.");
+	if ((**rit).GetType() != CSIG_STRING) throw CAstException(USAGE, *past, pnode).proc("The last argument must be string.");
 	for (rit++; count<2; rit++, count++)
 	{
 		if ((**rit).GetType() != CSIG_SCALAR) 
-			throw CAstExceptionInvalidUsage(*past, pnode, "X- and Y- positions must be scalar.");
+			throw CAstException(USAGE, *past, pnode).proc("X- and Y- positions must be scalar.");
 	}
 	CSignals *pgcf = past->GetVariable("gcf");
 	if (!pGO)
@@ -575,7 +575,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		pGO = &past->Sig;
 	if (p) past->Compute(p);
 	else if(pGO)
-		throw CAstExceptionInvalidUsage(*past, pnode, "axes position is required.");
+		throw CAstException(USAGE, *past, pnode).proc("axes position is required.");
 	CPosition pos(past->Sig.buf[0], past->Sig.buf[1], past->Sig.buf[2], past->Sig.buf[3]);
 	CSignals *pgcf;
 	if (!pGO || pGO->IsEmpty())
@@ -592,7 +592,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		if (pGO->strut["type"].string() == "figure")
 			pgcf = pGO;
 		else 
-			throw CAstExceptionInvalidUsage(*past, pnode, "Only figure handle can create axes or handle axes");
+			throw CAstException(USAGE, *past, pnode).proc("Only figure handle can create axes or handle axes");
 	}
 	CFigure *cfig = (CFigure *)FindFigure(pgcf);
 	CAxes * cax;
@@ -675,7 +675,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, s
 			if (xdata)
 			{ //xy-plot
 				if (past->Sig.nSamples != xdataLen)
-					throw CAstExceptionInvalidUsage(*past, pnode, "The length of 1st and 2nd arguments must be the same.");
+					throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
 				plotlines = PlotCSignals(pax, xdata, &past->Sig, col, marker, linestyle);
 				delete[] xdata;
 				break;
@@ -773,7 +773,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 			else if (pgo->strut["type"].string() == "axes")
 				cax = (CAxes *)pgo;
 			else
-				throw CAstInvalidFuncSyntax(*past, p, fnsigs, "A non-graphic object nor a data array is given as the first argument.");
+				throw CAstException(USAGE, *past, p).proc(fnsigs, "A non-graphic object nor a data array is given as the first argument.");
 		}
 		if (newFig)
 		{
@@ -832,7 +832,9 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked.");
 	}
 	catch (const CAstException &e) { 
-		throw CAstExceptionInvalidUsage(*past, pnode, e.getErrMsg().c_str()); }
+		throw e;
+//			CAstException(USAGE, *past, pnode).proc(e.getErrMsg().c_str()); 
+	}
 
 	//past->pgo carries the pointer, past->Sig is sent only for console display
 	switch (plotlines.size())
@@ -874,9 +876,9 @@ GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 GRAPHY_EXPORT void _showrms(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	if (!past->Sig.IsGO())
-		throw CAstExceptionInvalidUsage(*past, p, "The argument must be a graphic handle.");
+		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
 	if (past->Sig.strut["type"].string() != "figure")
-		throw CAstExceptionInvalidUsage(*past, p, "The argument must be a figure handle.");
+		throw CAstException(USAGE, *past, p).proc("The argument must be a figure handle.");
 	CVar *pgo = past->pgo;
 	showRMS(pgo, 0);
 }
@@ -888,7 +890,7 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 	CFigure *cfig;
 	CAxes *cax;
 	if (!past->Sig.IsGO())
-		throw CAstExceptionInvalidUsage(*past, p, "The argument must be a graphic handle.");
+		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
 	if (past->Sig.strut["type"].string() == "figure")
 	{
 		static GRAFWNDDLGSTRUCT in;
