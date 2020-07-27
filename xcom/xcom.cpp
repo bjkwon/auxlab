@@ -340,7 +340,9 @@ unsigned int WINAPI histThread (PVOID var)
 		mHistDlg.MoveWindow(rt3);
 	else
 	{
-		RECT rc, rc2;
+		CRect rcConsole(30, 450, 700, 900);
+		RECT rc(rcConsole);
+		RECT rc2(rcConsole);
 		int res = GetWindowRect(GetConsoleWindow(), &rc);
 		rc2 = rc;
 		int width = rc.right-rc.left;
@@ -389,19 +391,19 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 		mShowDlg.MoveWindow(rt2);
 	else
 	{
-		GetWindowRect(GetConsoleWindow(), &rc);
-		int width = rc.right-rc.left;
-		int height = rc.bottom-rc.top;
-		RECT rc2(rc);
-		rc2.right = rc.left;
+		CRect rcConsole(30, 450, 700, 900);
+		RECT rc2(rcConsole);
+		int width = rcConsole.right- rcConsole.left;
+		int height = rcConsole.bottom- rcConsole.top;
+		rc2.right = rcConsole.left;
 		rc2.left = rc2.right - width/7*4+10;
-		rc2.bottom = rc.bottom;
+		rc2.bottom = rcConsole.bottom;
 		rc2.top = rc2.bottom - height/5*4;
 		if (rc2.left<0) 
 		{
 			rc2.right -= rc2.left;
 			rc2.left = 0;
-			MoveWindow(GetConsoleWindow(), rc2.right, rc.top, width, height, 1);
+			MoveWindow(GetConsoleWindow(), rc2.right, rcConsole.top, width, height, 1);
 		}
 		MoveWindow(mShowDlg.hDlg, rc2.left, rc2.top, width/7*4, height/5*4, 1);
 	}
