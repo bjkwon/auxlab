@@ -43,7 +43,6 @@
 #include "cipsycon.tab.h"
 #endif
 
-#include "wavplay.h"
 #include "lame_bj.h"
 
 
@@ -1479,6 +1478,10 @@ CTimeSeries CTimeSeries::runFct2getvals(vector<double> (CSignal::*fp)(unsigned i
 		}
 		else
 		{
+			if (nGroups == nSamples) {
+				nGroups = 1; // computing a column vector should yield a scalar. 7/7/2020
+				len = nSamples;
+			}
 			out.UpdateBuffer(nGroups);
 			out.nGroups = nGroups;
 			additional.UpdateBuffer(nGroups);
@@ -3034,15 +3037,16 @@ CSignal& CSignal::_filter(const vector<double> & num, const vector<double> & den
 	if (IsComplex())
 	{
 		// initial and final conditions for complex not yet been done 6/2/2020
-		complex<double> xx, *out = new complex<double>[len];
-		for (unsigned int m = id0; m < id0 + len; m++)
+		complex<double> val, *out = new complex<double>[len];
+		unsigned int m = id0;
+		for (; m < id0 + len; m++)
 		{
-			xx = num[0] * cbuf[m];
+			val = num[0] * cbuf[m];
 			for (unsigned int n = 1; n < num.size() && m >= n; n++)
-				xx += num[n] * cbuf[m - n];
+				val += num[n] * cbuf[m - n];
 			for (unsigned int n = 1; n < den.size() && m >= n; n++)
-				xx -= den[n] * out[m - n];
-			out[m] = xx;
+				val -= den[n] * out[m - n];
+			out[m] = val;
 		}
 		delete[] cbuf;
 		cbuf = out;
@@ -3050,38 +3054,46 @@ CSignal& CSignal::_filter(const vector<double> & num, const vector<double> & den
 	else
 	{
 		vector<double> initial = initialfinal;
-		vector<double> finalcondition(max(num.size(), den.size()) - 1, 0.);
-		double xx, *out = new double[len];
-		for (unsigned int m = id0; m < id0 + len; m++)
+		size_t tbufsize = max(num.size(), den.size());
+		vector<double> finalcondition(tbufsize - 1, 0.);
+		double val, *out = new double[tbufsize];
+		auto preex = initial.begin();
+		unsigned int m = 0;
+		for (; m < len; m++)
 		{
-			auto preex = initial.begin();
-			xx = num[0] * buf[m];
+			val = num[0] * buf[id0 + m];
 			for (unsigned int n = 1; n < num.size(); n++)
 			{
-				if (m>=n)
-					xx += num[n] * buf[m - n];
+				if (m >= n)
+					val += num[n] * buf[id0 + m - n];
 				else
 				{
 					if (preex != initial.end())
-						xx += *(preex++);
+						val += *(preex++);
 					break;
 				}
 			}
 			for (unsigned int n = 1; n < den.size() && m >= n; n++)
-				xx -= den[n] * out[m - n];
-			out[m] = xx;
+				val -= den[n] * out[(m - n) % tbufsize];
+			if (m >= num.size())
+			{
+				buf[id0 + m - num.size()] = out[(m - num.size()) % tbufsize];
+				out[(m - num.size()) % tbufsize] = val;
+			}
+			else
+				out[m] = val;
 		}
 		//final condition
-		for (size_t m = 0; m < finalcondition.size(); m++)
-		{
-			for (size_t k = m + 1; k < num.size() && len + m >= k; k++)
-				finalcondition[m] += num[k] * buf[len - k + m];
-			for (size_t k = 1; k < den.size() && len + m >= k; k++)
-					finalcondition[m] -= den[k] * out[len - k + m];
-		}
-		delete[] buf;
-		buf = out;
+		for (size_t q = 0; q < finalcondition.size(); q++)
+			for (size_t k = q + 1; k < num.size() && len + q >= k; k++)
+				finalcondition[q] += num[k] * buf[id0 + len - k + q];
+		for (; m - num.size() < len; m++)
+			buf[id0 + m - num.size()] = out[(m - num.size()) % tbufsize];
+		for (size_t q = 0; q < finalcondition.size(); q++)
+			for (size_t k = q + 1; k < den.size() && len + q >= k; k++)
+				finalcondition[q] -= den[k] * buf[id0 + len - k + q];
 		initialfinal = finalcondition;
+		delete[] out;
 	}
 	return *this;
 }
@@ -3117,7 +3129,10 @@ CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 		initfin = coeffs.back();
 	_filter(num, den, initfin, id0, len);
 	auto vv = (vector<vector<double>>*)parg;
-	*&vv->at(1) = initfin; // updating the content of the pointer stored at second item of the vector, parg 
+	if (vv->size() == 3)
+		vv->back() = initfin; // updating the content of the pointer at the last position of the vector, in parg 
+	else // size should be 2 or less
+		vv->push_back(initfin);
 	return *this;
 }
 
@@ -3687,22 +3702,30 @@ CSignals & CSignals::RMS()
 	for (int k = 0; q && k < 2; k++)
 	{  // psig is just a copy of the sig, used to get nSamples info
 		double cum = 0;
-		int len = 0;
-		for (CTimeSeries * p = q; p; p = p->chain, psig = psig->chain)
+		unsigned int len = 0;
+		if (psig->chain)
 		{
-			double P = pow(10, (p->value() - 3.0103) / 10.);
-			cum += P * psig->nSamples;
-			len += psig->nSamples;
+			for (CTimeSeries * p = q; p; p = p->chain, psig = psig->chain)
+			{
+				double P = pow(10, (p->value() - 3.0103) / 10.);
+				if (psig->chain)
+					cum += P * psig->nSamples;
+				len += psig->nSamples;
+			}
+			if (len > 0)
+				pout->SetValue(10. * log10(cum / len) + 3.0103);
+			else
+				pout->SetValue(q->value());
 		}
-		if (len > 0)
-			pout->SetValue(10. * log10(cum / len) + 3.0103);
 		else
+		{ // matrix'ed audio signal (not real chains, just separate rows)
 			pout->SetValue(q->value());
+		}
 		if (k == 0 && (q = (CSignals *)q->next)!=nullptr)
 		{
-				out.SetNextChan(new CSignals(1));
-				pout = ((CSignals *)pout)->next;
-				psig = next;
+			out.SetNextChan(new CSignals(1));
+			pout = ((CSignals *)pout)->next;
+			psig = next;
 		}
 	}
 	return *this = out;

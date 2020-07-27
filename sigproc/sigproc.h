@@ -64,6 +64,15 @@ enum DEBUG_STATUS
 	typed_line,
 };
 
+enum EXCEPTIONTYPE
+{
+	USAGE = 1,
+	FUNC_SYNTAX,
+	RANGE,
+	ARGS,
+	INTERNAL,
+};
+
 //End of Used for communication bet sigproc and xcom (i.e., AstSig.cpp and showvar.cpp)
 
 #ifdef _WINDOWS
@@ -95,33 +104,6 @@ class CAstSig;
 class CNodeProbe;
 
 #include "aux_classes.h"
-
-class CAstException {
-public:
-	const AstNode *pnode;
-	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
-	int line, col;
-	string str1, str2;
-	CAstException() { 
-		pTarget = nullptr;	pnode = nullptr; pCtx = nullptr;
-	};
-	CAstException(const AstNode *p, CAstSig *pAst, const string s1);
-	CAstException(const AstNode *p, CAstSig *pAst, const string s1, const string s2);
-	CAstException(CAstSig *pContext, const string s1, const string s2);
-	CAstException(const AstNode *p0, CAstSig *past, const char* msg);
-	~CAstException() {};
-	void findTryLine(const CAstSig & scope);
-	string getErrMsg() const { return outstr; };
-	string basemsg, tidstr;
-	string msgonly; // including basemsg, tidstr, and extra
-	string sourceloc; // source location; where the error occurred (line, col and file)
-	string outstr; // msgonly \n sourceloc
-	int arrayindex, cellindex;
-	const AstNode *pTarget;
-protected:
-	void clean();
-	void addLineCol();
-}; 
 
 class UDF
 {
@@ -234,6 +216,8 @@ public:
 	AstNode *pLastRead; //used for isthisUDFscope only, to mark the last pnode processed in 
 };
 
+class CAstException;
+
 class CAstSig
 {
 	friend class CNodeProbe;
@@ -258,6 +242,8 @@ public:
 	static AstNode *findParentNode(AstNode *p, AstNode *pME, bool altonly = false);
 	static char *showGraffyHandle(char *out, CVar *pvar);
 #endif //GRAFFY
+	int level;
+	vector<int> baselevel;
 	map<string, CVar> Vars;
 	map<string, vector<CVar *>> GOvars;
 	AstNode *pAst;
@@ -271,7 +257,7 @@ public:
 	CVar *MakeGOContainer(vector<INT_PTR> GOs);
 	vector<unique_ptr<CVar*>> Sigs; // used to store results of Compute for additional outputs.
 	AstNode *lhs;
-	CAstSig *son;
+	unique_ptr<CAstSig> son;
 	CAstSig *dad;
 	const AstNode *pLast;
 	string statusMsg; // to display any message during processing inside of AstSig.cpp in the application
@@ -302,8 +288,10 @@ private:
 	void prepare_endpoint(const AstNode *p, CVar *pvar);
 	bool builtin_func_call(CNodeProbe &diggy, AstNode *p);
 	void Concatenate(const AstNode *pnode, AstNode *p);
+	CVar *cell_indexing(CVar *pBase, AstNode *pn, CNodeProbe &np);
 	AstNode *read_node(CNodeProbe &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
 	AstNode *read_nodes(CNodeProbe &diggy, bool bRHS = false);
+	CVar * getchannel(CVar *pin, const AstNode *pnode);
 	void interweave_indices(CVar &isig, CVar &isig2, unsigned int len);
 	void index_array_satisfying_condition(CVar &isig);
 	void replica_prep(CVar *psig);
@@ -402,6 +390,40 @@ public:
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int *args);
 };
 
+class CAstException
+{
+public:
+	CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *pnode);
+	CAstException &proc(string fnsig, const char * _basemsg); //FUNC_SYNTAX
+	CAstException &proc(const char * _basemsg, const char * tidname = "", string extra = ""); //invalid usage; internal
+	CAstException &proc(const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell); //range
+	CAstException &proc(const char * _basemsg, const char * funcname, int argIndex); // arg
+	CAstException() {
+		pTarget = nullptr;	pnode = nullptr;
+	};
+	~CAstException() {};
+
+//private:
+	EXCEPTIONTYPE type;
+	const AstNode *pnode;
+	const CAstSig *pCtx; // pointer to the context, AKA AstSig, that threw the exception
+	int line, col;
+	string str1, str2;
+	void findTryLine(const CAstSig & scope);
+	string getErrMsg() const { return outstr; };
+	string basemsg, tidstr;
+	string msgonly; // including basemsg, tidstr, and extra
+	string sourceloc; // source location; where the error occurred (line, col and file)
+	string outstr; // msgonly \n sourceloc
+	int arrayindex, cellindex;
+	const AstNode *pTarget;
+protected:
+	void clean();
+	void addLineCol();
+};
+
+
+
 class CNodeProbe
 {
 	friend class CAstSig;
@@ -426,10 +448,10 @@ public:
 	CVar * TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
 	CVar * TimeExtract(const AstNode *pnode, AstNode *p);
 	void insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig);
-	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2);
+	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, CSignal &sec, int id1, int id2);
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
-	CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
-	CAstException ExceptionMsg(const AstNode *pnode, const char *msg);
+	//CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
+	//CAstException ExceptionMsg(const AstNode *pnode, const char *msg);
 };
 
 

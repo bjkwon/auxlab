@@ -1066,7 +1066,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	CFigure *cfig;
 	HANDLE h;
 	if (!pctx->isThisAllowedPropGO(pctx->pgo, proptype, RHS))
-		throw CAstException(pctx, "Invalid parameter for the property", proptype);
+		throw CAstException(ARGS, pctx, NULL).proc("Invalid parameter for the property", proptype);
 	string type = pctx->pgo->strut["type"].string();
 	CRect rt(0, 0, 0, 0);
 //	h = FindGObj(pctx->pgo);
@@ -1189,7 +1189,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		{
 			LineStyle tp = cline->GetLineStyle();
 			if (tp == LineStyle_err) 
-				throw CAstException(pctx, "linestyle must be one of the following\nnone - : -- -. ..", "");
+				throw CAstException(ARGS, pctx, NULL).proc("linestyle must be one of the following\nnone - : -- -. ..", "");
 			cline->lineStyle = tp;
 		}
 		else if (!strcmp(proptype, "visible"))
@@ -1197,7 +1197,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		else if (!strcmp(proptype, "xdata"))
 		{
 			if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
-				throw CAstException(pctx, "RHS elements must be equal to existing points", "");
+				throw CAstException(USAGE, pctx, NULL).proc("RHS elements must be equal to existing points", "");
 			cline->xdata = RHS;
 			cax->setxlim();
 			cax->xtick.tics1.clear();

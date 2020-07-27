@@ -742,15 +742,29 @@ void CShowvarDlg::OnVarChanged(const char *varname)
 	}
 }
 
+vector<string> getlbtexts(int idc)
+{
+	char buf[256];
+	vector<string> names;
+	int cc = (int)mShowDlg.SendDlgItemMessage(idc, CB_GETCOUNT);
+	for (int k = 0; k < cc; k++)
+	{
+		if (mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXT, k, (LPARAM)buf) > 0)
+			names.push_back(buf);
+	}
+	return names;
+}
+
 void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 {
 	unordered_map<string, CDebugDlg*>::iterator it;
 	LRESULT res;
 	CAstSig *lp;
 	const char *basename;
-	static	string fullname;
+	static string fullname; // get rid of static!!!! 7/26/2020
 	int curId;
-	vector<string> list;
+	vector<string> list, ll, ll2;
+	vector<string>::iterator istr;
 	map<string, UDF>::iterator itUDF;
 	switch(status)
 	{
@@ -766,11 +780,25 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 		mainSpace.need2validate = true;
 		// inspect how many layers of udf's to add to the scope list
 		// begin from debugAstSig and check his dad, up and up until NULL
+		ll = getlbtexts(IDC_DEBUGSCOPE);
+		istr = ll.end() - 1;
 		for (CAstSig *tp = debugAstSig; tp; tp = tp->dad)
-			if (!tp->u.title.empty()) list.push_back(tp->u.title);
+			if (ll.empty())
+				list.push_back(tp->u.title);
+			else
+			{
+				if (tp->level > debugAstSig->baselevel.back())
+				{
+					if (tp->u.title != *istr)
+						list.push_back(tp->u.title);
+					else
+						istr--;
+				}
+			}
 		for (auto scopeStr = list.rbegin(); scopeStr != list.rend(); scopeStr++)
 			SendDlgItemMessage(IDC_DEBUGSCOPE, CB_ADDSTRING, 0, (LPARAM)(*scopeStr).c_str());
-//	case progress:
+		ll2 = getlbtexts(IDC_DEBUGSCOPE);
+		//	case progress:
 		SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL, SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCOUNT)-1);
 		pcast = lp = xscope.back(); 
 		// is name already open in DebugDlg or not
@@ -839,9 +867,13 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 					m_cvDlg->SetWindowTextA(title);
 				}
 			}
+
+			ll = getlbtexts(IDC_DEBUGSCOPE);
+
 			res = SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCOUNT) - 1;
 			SendDlgItemMessage(IDC_DEBUGSCOPE, CB_DELETESTRING, res);
 			SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL, res - 1);
+			ll2 = getlbtexts(IDC_DEBUGSCOPE);
 		}
 //		else
 		{
@@ -2337,15 +2369,15 @@ void CShowvarDlg::showtype(CVar *pvar, char *buf)
 	if (type == 0)
 		strcpy(buf, "NUL");
 	else if (type == 1)
-		strcpy(buf, "CON");
+		strcpy(buf, "CONS");
 	else if (type == 2)
-		strcpy(buf, "VCT");
+		strcpy(buf, "VECT");
 	else if (type & TYPEBIT_LOGICAL)
-		strcpy(buf, "LOG");
+		strcpy(buf, "BOOL");
 	else if (type & TYPEBIT_STRING)
-		strcpy(buf, "TXT");
+		strcpy(buf, "TEXT");
 	else if (type & TYPEBIT_CELL)
-		strcpy(buf, "CEL");
+		strcpy(buf, "CELL");
 	else if (type > (TYPEBIT_STRUT + TYPEBIT_STRUTS))
 		strcpy(buf, "HDL");
 	else if (type & TYPEBIT_STRUT)

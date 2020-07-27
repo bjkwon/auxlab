@@ -47,7 +47,6 @@ bool CSignals::IsAudio() const
 {
 	bool out = CTimeSeries::IsAudio();
 	if (!next) return out;
-	if (!out) return out;
 	for (CTimeSeries const *p = next; p; p = p->chain)
 		if (!p->CSignal::IsAudio())
 			return false;

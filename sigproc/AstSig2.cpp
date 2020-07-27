@@ -137,7 +137,7 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 						if (sec.nSamples != id2 - id1 + 1)
 						{
 							if (!sec.IsScalar())
-								throw CAstExceptionInvalidUsage(*pbase, pnode, "to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
+								throw CAstException(USAGE, *pbase, pnode).proc("to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
 						}
 						if (sec.IsComplex() && !psigBase->IsComplex()) psigBase->SetComplex();
 						replace(pnode, psigBase, sec, id1 - 1, id2 - 1);
@@ -147,7 +147,7 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 			else if (!pnode->next && !pnode->str) // if s(conditional) is on the LHS, the RHS must be either a scalar, or the replica, i.e., s(conditional)
 			{
 				if (!repl_RHS && !indsig.IsLogical()) 
-					throw CAstExceptionInternal(*pbase, pnode, "[INTERNAL] insertreplace()--s(conditional?)");
+					throw CAstException(INTERNAL,*pbase, pnode).proc("insertreplace()--s(conditional?)");
 				if (sec.IsScalar())
 				{
 					double val = sec.value();
@@ -169,12 +169,15 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 					}
 				}
 			}
-			else if (p->type == N_TIME_EXTRACT || (p->next && p->next->type == N_IDLIST))  // s(repl_RHS1~repl_RHS2)   or  cel{n}(repl_RHS1~repl_RHS2)
+			else if ( (p->alt && p->alt->type == N_TIME_EXTRACT) || // x{id}(t1~t2) = ...sqrt
+				p->type == N_TIME_EXTRACT || (p->next && p->next->type == N_IDLIST))  // s(repl_RHS1~repl_RHS2)   or  cel{n}(repl_RHS1~repl_RHS2)
 			{
 				if (repl_RHS) //direct update of buf
 				{
 					id1 = (unsigned int)round(indsig.buf[0] * psigBase->GetFs() / 1000.);
 					memcpy(psigBase->logbuf + id1 * psigBase->bufBlockSize, sec.buf, sec.nSamples*sec.bufBlockSize);
+					if (psigBase->next)
+						memcpy(psigBase->next->logbuf + id1 * psigBase->bufBlockSize, sec.next->buf, sec.nSamples*sec.bufBlockSize);
 				}
 				else
 					psigBase->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
@@ -184,7 +187,11 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 				psigBase->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
 			}
 			else
-				throw CAstExceptionInternal(*pbase, pnode, "[INTERNAL] insertreplace()--unexpected node type.", pnode->type);
+			{
+				ostringstream oss;
+				oss << "TYPE=" << pnode->type << " insertreplace()--unexpected node type.";
+				throw CAstException(INTERNAL, *pbase, pnode).proc(oss.str().c_str());
+			}
 		}
 		else
 		{
@@ -192,7 +199,7 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 			// v(1:2:5) or v([non-contiguous]) = RHS; //LHS and RHS must match length.
 			bool contig = pbase->isContiguous(indsig, id1, id2);
 			if (!sec.IsEmpty() && !contig && sec.nSamples != 1 && sec.nSamples != indsig.nSamples) 
-				throw CAstExceptionInvalidUsage(*pbase, pnode, "the number of replaced items must be the same as that of replacing items.");
+				throw CAstException(USAGE, *pbase, pnode).proc("the number of replaced items must be the same as that of replacing items.");
 			if (repl_RHS) //direct update of buf
 			{
 				if (contig)
@@ -227,7 +234,7 @@ CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
 		if (lhsref_single)
 		{
 			if (tsig->nSamples > 1)
-				throw CAstExceptionInvalidUsage(*pbase, pLHS, "LHS indicates a scalar; RHS is not.");
+				throw CAstException(USAGE, *pbase, pLHS).proc("LHS indicates a scalar; RHS is not.");
 			*lhsref = tsig->value();
 			return psigBase;
 		}
@@ -282,8 +289,12 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 				}
 			}
 		}
-		else 
-			throw CAstExceptionInternal(*pbase, p, "[INTERNAL] TID_tag()", p->alt->type);
+		else
+		{
+			ostringstream oss;
+			oss << "TYPE=" << p->type << " unknwon type in TID_tag()";
+			throw CAstException(INTERNAL, *pbase, p).proc(oss.str().c_str());
+		}
 	}
 	else// if (!p->alt) // T-Y-2-2
 	{ // no indexing--assign RHS to LHS (if RHS is available) or retrieve LHS
@@ -292,11 +303,11 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 			if (psigBase && psigBase->IsGO())
 			{ //reject an attempt to modify unchangeable struts
 				if (!strcmp(p->str,"children") || !strcmp(p->str, "parent") || !strcmp(p->str, "gcf") || !strcmp(p->str, "gca"))
-					throw CAstExceptionInvalidUsage(*pbase, p, "LHS is unmodifiable.");
+					throw CAstException(USAGE, *pbase, p).proc("LHS is unmodifiable.");
 			}
 			// illegal if p-str is a built-in function name
 			if (p->str[0] == '#' || pbase->IsValidBuiltin(p->str))
-				throw CAstExceptionInvalidUsage(*pbase, p, "LHS must be l-value; cannot be a built-in function");
+				throw CAstException(USAGE, *pbase, p).proc("LHS must be l-value; cannot be a built-in function");
 			CVar *psigRHS = pbase->Compute(pRHS);
 			//This is where an existing variable is changed, upated or replaced by indices.
 			if (p->type == N_VECTOR) 
@@ -341,7 +352,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 				else
 				{
 					if (psigRHS->IsGO()) // If the base sig already has corresponding struts, it is a matter of replacing the content, but if the existing member is strut, it is complicated... 9/6/2018
-						throw CAstExceptionInvalidUsage(*pbase, p, "You are trying to update a GO member variable. This cannot be done due to a known bug. Clear the member variable and try again. Will be fixed someday. bj kwon 9/6/2018.");
+						throw CAstException(USAGE, *pbase, p).proc("You are trying to update a GO member variable. This cannot be done due to a known bug. Clear the member variable and try again. Will be fixed someday. bj kwon 9/6/2018.");
 					else
 						//if psigBase is not strut yet, make it now
 					{
@@ -360,7 +371,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 			// if trying to retrieve a.var_not_existing Sig is NULL whereas psig is not
 			// is this possible? 1/17/2020
 			if (pbase->Sig.nSamples)
-				throw CAstExceptionInvalidUsage(*pbase, p, "not available member variable or function.");
+				throw CAstException(USAGE, *pbase, p).proc("not available member variable or function.");
 			if (p->type == N_CALL) 
 				return &pbase->Sig;
 			if (psig)
@@ -381,7 +392,7 @@ CVar * CNodeProbe::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *p
 			pbase->replica = TimeExtract(pnode, p->child);
 		CVar tsig = pbase->Compute(pRHS); // rhs
 		if (tsig.GetType() != CSIG_AUDIO && !tsig.IsEmpty())
-			throw CAstExceptionInvalidUsage(*pbase, p, "Referencing timepoint(s) in an audio variable requires another audio signal on the RHS.");
+			throw CAstException(USAGE, *pbase, p).proc("Referencing timepoint(s) in an audio variable requires another audio signal on the RHS.");
 		CVar isig(1);
 		isig.UpdateBuffer(2);
 		isig.buf[0] = tpoints[0];
@@ -399,7 +410,7 @@ CVar * CNodeProbe::TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *p
 CVar * CNodeProbe::TimeExtract(const AstNode *pnode, AstNode *p)
 {
 	if (!psigBase)
-		throw CAstExceptionInternal(*pbase, pnode, "[INTERNAL] TimeExtract(): null psigBase");
+		throw CAstException(INTERNAL,*pbase, pnode).proc("TimeExtract(): null psigBase");
 	pbase->checkAudioSig(pnode, *psigBase);
 
 	CTimeSeries *pts = psigBase;
@@ -426,11 +437,11 @@ bool CAstSig::builtin_func_call(CNodeProbe &diggy, AstNode *p)
 	{
 		if (p->str[0] == '$' || IsValidBuiltin(p->str)) // hook bypasses IsValidBuiltin
 		{
-			// if diggy.root->child is present, it generally means that RHS exists and should be rejected if LHS is a function call
+			// if diggy.pnode->child is present, it generally means that RHS exists and should be rejected if LHS is a function call
 			// The exception is if LHS has alt node, because it will go down through the next node and it may end up a non-function call.
-			if (diggy.root->child) 
+			if (diggy.root->child)
 				if (!diggy.root->alt)
-					throw CAstExceptionInvalidUsage(*this, diggy.root, "LHS must be an l-value. Isn't it a built-in function?");
+					throw CAstException(USAGE, *this, diggy.root).proc("LHS must be an l-value. Isn't it a built-in function?");
 			HandleAuxFunctions(p, diggy.root);
 			// while pgo is active, psigBase should point to pgo, not &Sig
 			// this causes a crash on the line Sig = *diggy.psigBase in read_node() in AstSig.cpp   4/7/2019
@@ -457,7 +468,7 @@ CNodeProbe::CNodeProbe(CAstSig *past, AstNode *pnode, CVar *psig)
 {
 	psigBase = NULL;
 	pbase = past;
-	root = pnode;
+	root = pnode; //what's this?
 	psigBase = psig; // NULL except for T_REPLICA
 	lhsref_single = false;
 	lhsref = NULL;
@@ -467,12 +478,12 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 { // pnode->type should be N_ARGS
 	ostringstream ostream;
 	CVar tsig, isig, isig2;
-	if (!p->child)	throw CAstExceptionInvalidUsage(*pbase, pnode, "A variable index should be provided.");
+	if (!p->child)	throw CAstException(USAGE, *pbase, pnode).proc("A variable index should be provided.");
 	eval_indexing(p->child, isig);
 	if (!(isig.type() & 1)) // has more than one element. 
 		lhsref_single = false;
 	if (isig._max().front() > pbase->Sig.nSamples)
-		throw CAstExceptionRange(pbase, pnode, "", varname.c_str(), (int)isig._max().front());
+		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max().front());
 	pbase->Sig = extract(pnode, isig);
 	return pbase->Sig;
 }
@@ -495,7 +506,7 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 	if (isig._min().front() <= 0.)
 	{
 		outstream << "Invalid index " << "for " << varname << " : " << (int)isig._min().front() << " (must be positive)";
-		throw CAstExceptionInvalidUsage(*pbase, pnode, outstream.str().c_str());
+		throw CAstException(USAGE, *pbase, pnode).proc(outstream.str().c_str());
 	}
 	if ((psigBase)->IsComplex())
 	{
@@ -521,7 +532,7 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 		if ((psigBase)->IsGO())
 		{
 			if (isig._max().front() > (psigBase)->nSamples)
-				throw CAstExceptionRange(pbase, pnode, "", "", (int)isig._max().front());
+				throw CAstException(RANGE, pbase, pnode).proc("", "", (int)isig._max().front());
 			if (isig.nSamples == 1)
 			{
 				size_t did = (size_t)isig.value() - 1;
@@ -545,13 +556,7 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 			}
 		}
 		out.SetReal();
-		if (pbase->Sig.GetType() == CSIG_VECTOR)
-		{
-			int id(0);
-			for (unsigned int k = 0; k < isig.nSamples; k++)
-				out.buf[id++] = (psigBase)->buf[(int)isig.buf[k] - 1];
-		}
-		else if (pbase->Sig.GetType() == CSIG_AUDIO)
+		if (pbase->Sig.type() & TYPEBIT_AUDIO)
 		{
 			CTimeSeries *_pisig = &isig;
 			while (_pisig)
@@ -599,6 +604,14 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 				}
 			}
 		}
+		else if (pbase->Sig.type() >= TYPEBIT_GO)
+			throw CAstException(USAGE, *pbase, pnode).proc("Invalid object type to extract based on index.");
+		else // should be non-audio, non-time sequence data such as vector
+		{
+			int id(0);
+			for (unsigned int k = 0; k < isig.nSamples; k++)
+				out.buf[id++] = (psigBase)->buf[(int)isig.buf[k] - 1];
+		}
 	}
 	out.nGroups = isig.nGroups;
 	pbase->Sig = out;
@@ -644,12 +657,12 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 			}
 			if (isig2.IsLogical()) pbase->index_array_satisfying_condition(isig2);
 			else if (isig2._max().front() > (double)psigBase->Len())
-				throw CAstExceptionRange(pbase, pInd, "2nd index ", "", (int)isig2._max().front());
+				throw CAstException(RANGE, pbase, pInd).proc("2nd index ", "", (int)isig2._max().front());
 			pbase->interweave_indices(isig, isig2, psigBase->Len());
 		}
 	}
 	catch (const CAstException &e) {
-		throw CAstExceptionInvalidUsage(*pbase, pInd, e.getErrMsg().c_str());
+		throw CAstException(USAGE, *pbase, pInd).proc(e.getErrMsg().c_str());
 	}
 	return isig;
 }
@@ -686,7 +699,8 @@ CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *p
 				for (CTimeSeries *cts = prhs; cts; cts = cts->chain)
 				{
 					// id translated from tmark for each chain
-					id = (unsigned int)(cts->tmark / 1000. * cts->GetFs());
+					int fs = cts->GetFs();
+					id = (unsigned int)(cts->tmark / 1000. * fs + .5);
 					memcpy(p->buf + id, cts->buf, cts->nSamples * sizeof(double));
 				}
 			}
@@ -707,7 +721,7 @@ CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *p
 		pbase->Sig.Reset();
 	}
 	else
-		throw CAstExceptionInvalidUsage(*pbase, pRHS, "Invalid RHS; For LHS with conditional indexing, RHS should be either a scalar, empty, or .. (self).");
+		throw CAstException(USAGE, *pbase, pRHS).proc("Invalid RHS; For LHS with conditional indexing, RHS should be either a scalar, empty, or .. (self).");
 	pbase->SetVar(pnode->str, psigBase);
 	if (isig.nSamples > 0)
 	{
@@ -747,7 +761,7 @@ CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 			TID_tag(pnode, pLHS, pRHS, psig);
 		}
 		else
-			throw CAstExceptionInvalidUsage(*pbase, pLHS, "Pseudo variable cannot be modified.");
+			throw CAstException(USAGE, *pbase, pLHS).proc("Pseudo variable cannot be modified.");
 		break;
 	default:  // T-Y-5
 		return pbase->Compute(pRHS); // check... this may not happen.. if so, inspect.
@@ -775,12 +789,12 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 	for (unsigned int k = 0; k < index.nSamples; k++)
 	{
 		if (index.buf[k] < 1.)
-			throw CAstExceptionRange(*pbase, pnode, "must be equal or greater than 1", "", (int)index.buf[k]);
+			throw CAstException(RANGE, *pbase, pnode).proc("must be equal or greater than 1", "", (int)index.buf[k]);
 		unsigned int id = (int)index.buf[k];
 		if (id - index.buf[k] > .25 || index.buf[k] - id > .25)
-			throw CAstExceptionRange(*pbase, pnode, "must be integer", "", id);
+			throw CAstException(RANGE, *pbase, pnode).proc("must be integer", "", id);
 		if (id > pobj->nSamples)
-			throw CAstExceptionRange(*pbase, pnode, "", "", id);
+			throw CAstException(RANGE, *pbase, pnode).proc("", "", id);
 	}
 	if (sec.nSamples == 0)
 	{
@@ -798,12 +812,12 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 		for (unsigned int k = 0; k < index.nSamples; k++)
 		{
 			if (index.buf[k] < 1.)
-				throw CAstExceptionRange(*pbase, pnode, "must be equal or greater than 1", "", (int)index.buf[k]);
+				throw CAstException(RANGE, *pbase, pnode).proc("must be equal or greater than 1", "", (int)index.buf[k]);
 			unsigned int id = (unsigned int)(index.buf[k]);
 			if (id - index.buf[k] > .05 || index.buf[k] - id > .05)
-				throw CAstExceptionRange(*pbase, pnode, "must be integer", "", id);
+				throw CAstException(RANGE, *pbase, pnode).proc("must be integer", "", id);
 			if (id > pobj->nSamples)
-				throw CAstExceptionRange(*pbase, pnode, "", "", id);
+				throw CAstException(RANGE, *pbase, pnode).proc("", "", id);
 			id--; // zero-based
 			if (sec.nSamples == 1) // items from id1 to id2 are to be replaced with sec.value()
 				memcpy(pobj->logbuf + id * pobj->bufBlockSize, sec.logbuf, pobj->bufBlockSize);
@@ -813,10 +827,10 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 	return *pobj;
 }
 
-CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
+CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, CSignal &sec, int id1, int id2)
 { // this replaces the data body between id1 and id2 (including edges) with sec
-	if (id1 < 0) throw CAstExceptionRange(*pbase, pnode, "replace index cannot be negative.", "", id1);
-	if (id2 < 0) throw CAstExceptionRange(*pbase, pnode, "replace index cannot be negative.", "", id2);
+	if (id1 < 0) throw CAstException(RANGE, *pbase, pnode).proc("replace index cannot be negative.", "", id1);
+	if (id2 < 0) throw CAstException(RANGE, *pbase, pnode).proc("replace index cannot be negative.", "", id2);
 	if (sec.bufBlockSize != pobj->bufBlockSize)
 	{
 		if (pobj->bufBlockSize == 1 && sec.bufBlockSize != 1) sec.MakeLogical();
@@ -826,14 +840,13 @@ CTimeSeries &CNodeProbe::replace(const AstNode *pnode, CTimeSeries *pobj, body &
 		else if (pobj->bufBlockSize == 16 && sec.bufBlockSize == 8) sec.SetComplex();
 	}
 	//id1 and id2 are zero-based here.
-	if (id1 > (int)pobj->nSamples - 1) throw CAstExceptionRange(*pbase, pnode, "replace index1 ", "", id1);
-	if (id2 > (int)pobj->nSamples - 1) throw CAstExceptionRange(*pbase, pnode, "replace index2 ", "", id1);
+	if (id1 > (int)pobj->nSamples - 1) throw CAstException(RANGE, *pbase, pnode).proc("replace index1 ", "", id1);
+	if (id2 > (int)pobj->nSamples - 1) throw CAstException(RANGE, *pbase, pnode).proc("replace index2 ", "", id1);
 	unsigned int secnsamples = sec.nSamples;
-	bool ch = ((CSignal *)&sec)->bufBlockSize == 1;
-	if (ch) secnsamples--;
+	if (sec.type() & TYPEBIT_STRING) secnsamples--;
 	if (secnsamples == 1) // no change in length--items from id1 to id2 are to be replaced with sec.value()
 	{
-		if (ch)
+		if (sec.type() & TYPEBIT_LOGICAL)
 			for (int k = id1; k <= id2; k++) pobj->strbuf[k] = sec.strbuf[0];
 		else if (((CSignal *)&sec)->bufBlockSize == 16)
 			for (int k = id1; k <= id2; k++) pobj->cbuf[k] = sec.cvalue();

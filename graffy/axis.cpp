@@ -408,6 +408,17 @@ GRAPHY_EXPORT void CAxes::setRange(const char xy, double x1, double x2)
 
 GRAPHY_EXPORT void CAxes::setxlim()
 {//to be called after CLine objects are prepared
+	if (m_ln.empty()) return;
+	CTimeSeries *psig = NULL;
+	for (auto lyne : m_ln)
+	{
+		if (lyne->sig.type() > 0)
+		{
+			psig = &lyne->sig;
+			break;
+		}
+	}
+	if (!psig || !psig->nSamples) return;
 	xlim[0] = std::numeric_limits<double>::infinity();
 	xlim[1] = -std::numeric_limits<double>::infinity();
 	for (auto line : m_ln)
@@ -419,7 +430,7 @@ GRAPHY_EXPORT void CAxes::setxlim()
 		}
 		else
 		{
-			if (line->sig.IsTimeSignal())
+			if (psig->IsTimeSignal())
 			{
 				xlim[0] = 0;
 				xlim[1] = max(line->sig.alldur() / 1000., xlim[1]); // milliseconds

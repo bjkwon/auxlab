@@ -385,98 +385,106 @@ vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CR
 	// range x1 to x2 is mapped to rcPaint.Width()
 	POINT pt;
 	double pixadv1 = (double) width / count;
-	double advance = 1. / pixadv1;
-	{ // for each p->buf[k], pixel advances 
-		// the first index greater than x1
-		int _id0 = (int)max(pax->xlim[0], ceil(x1)) - 1;
-		unsigned int id0 = _id0 <= 0 ? 0 : _id0;
+	// for each p->buf[k], pixel advances 
+	// the first index greater than x1
+	int _id0 = (int)max(pax->xlim[0], ceil(x1)) - 1;
+	unsigned int id0 = _id0 <= 0 ? 0 : _id0;
 		
-		double ticker = id0;
-		unsigned int offset = ibegin;
-		if (pixadv1 > .5)
+	double ticker = id0;
+	unsigned int offset = ibegin;
+	if (pixadv1 > .5)
+	{
+		if (p->GetFs() > 500)
 		{
-			if (p->GetFs() > 500)
-				for (int k = ibegin; k < iend; k++)
-					out.push_back(pax->double2pixelpt((double)(k + 1)/fs, p->buf[k], NULL));
-			else if(lyne->xdata.nSamples)
+			pt.x = drawingRt.left;
+			double cum = 0.;
+			for (int k = ibegin; k < iend; k++)
 			{
-				pt.x = pax->double2pixel(max(x1, p->tmark / 1000.), 'x');
-				CSignal *px = &lyne->xdata;
-				for (unsigned int k = 0; k < p->nSamples; k++)
-				{
-					CPoint pt0 = pt;
-					pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
-					if (pt0 != pt)
-						out.push_back(pt);
-				}
+				cum += pixadv1;
+				pt.y = pax->double2pixel(p->buf[k], 'y');
+				if (cum >= 1.) { pt.x++; cum--; }
+				out.push_back(pt);
 			}
-			else
-				for (int k = ibegin; k < iend; k++)
-					out.push_back(pax->double2pixelpt(k + 1, p->buf[k], NULL));
+		}
+		else if(lyne->xdata.nSamples)
+		{
+			pt.x = pax->double2pixel(max(x1, p->tmark / 1000.), 'x');
+			CSignal *px = &lyne->xdata;
+			for (unsigned int k = 0; k < p->nSamples; k++)
+			{
+				CPoint pt0 = pt;
+				pt = pax->double2pixelpt(lyne->xdata.buf[k], p->buf[k], NULL);
+				if (pt0 != pt)
+					out.push_back(pt);
+			}
+		}
+		else
+			for (int k = ibegin; k < iend; k++)
+				out.push_back(pax->double2pixelpt(k + 1, p->buf[k], NULL));
+	}
+	else
+	{
+		pt.x = drawingRt.left;
+		int height = drawingRt.Height();
+		if (0)//(lyne->xdata.nSamples && monotonic)
+		{
+			vector<pair<int, int>> range;
+			pair<int, int> px; 
+			px.first = ibegin;
+			int margin = 2;
+			bool makenewpair = false;
+			for (int k = ibegin + 1; k < iend; k++)
+			{
+				if (makenewpair)
+				{
+					px.second = k;
+					range.push_back(px);
+					px.first = k;
+					makenewpair = false;
+				}
+				// how should I group---inspect lyne->xdata.buf[k] and get the range of index within the margin
+				else if (lyne->xdata.buf[k] - lyne->xdata.buf[px.first] > margin)
+					makenewpair = true;
+			}
+			if (px.second < (int)lyne->xdata.nSamples)
+			{
+				px.second = lyne->xdata.nSamples;
+				range.push_back(px);
+			}
+			for (auto rx : range)
+			{
+				const pair<double*, double*> ul = minmax_element(p->buf + rx.first, p->buf + rx.second);
+				if (*ul.first < pax->ylim[0]) *ul.first = pax->ylim[0];
+				pt.y = drawingRt.bottom - offpixel(*ul.first, pax->ylim, height);
+				pt.y = min(pt.y, drawingRt.bottom);
+				out.push_back(pt);
+				if (*ul.second > pax->ylim[1]) *ul.second = pax->ylim[1];
+				pt.y = drawingRt.bottom - offpixel(*ul.second, pax->ylim, height);
+				pt.y = max(pt.y, drawingRt.top);
+				if (pt.y != out.back().y)
+					out.push_back(pt);
+				pt.x += margin;
+			}
 		}
 		else
 		{
-			pt.x = drawingRt.left;
-			int height = drawingRt.Height();
-			if (0)//(lyne->xdata.nSamples && monotonic)
+			double advance = 1. / pixadv1;
+			for (int k = 0; k < width; k++, pt.x++, ticker += advance)
 			{
-				vector<pair<int, int>> range;
-				pair<int, int> px; 
-				px.first = ibegin;
-				int margin = 2;
-				bool makenewpair = false;
-				for (int k = ibegin + 1; k < iend; k++)
-				{
-					if (makenewpair)
-					{
-						px.second = k;
-						range.push_back(px);
-						px.first = k;
-						makenewpair = false;
-					}
-					// how should I group---inspect lyne->xdata.buf[k] and get the range of index within the margin
-					else if (lyne->xdata.buf[k] - lyne->xdata.buf[px.first] > margin)
-						makenewpair = true;
-				}
-				if (px.second < (int)lyne->xdata.nSamples)
-				{
-					px.second = lyne->xdata.nSamples;
-					range.push_back(px);
-				}
-				for (auto rx : range)
-				{
-					const pair<double*, double*> ul = minmax_element(p->buf + rx.first, p->buf + rx.second);
-					if (*ul.first < pax->ylim[0]) *ul.first = pax->ylim[0];
-					pt.y = drawingRt.bottom - offpixel(*ul.first, pax->ylim, height);
-					pt.y = min(pt.y, drawingRt.bottom);
+				int begin = (int)ticker + offset;
+				int end = min((int)(ticker + advance), (int)p->nSamples) + offset;
+				const pair<double*, double*> pr = minmax_element(p->buf + begin, p->buf + end);
+				if (*pr.first < pax->ylim[0]) *pr.first = pax->ylim[0];
+				if (*pr.second < pax->ylim[0]) *pr.second = pax->ylim[0];
+				pt.y = drawingRt.bottom - offpixel(*pr.first, pax->ylim, height);
+				pt.y = min(pt.y, drawingRt.bottom);
+				out.push_back(pt);
+				if (*pr.first > pax->ylim[1]) *pr.first = pax->ylim[1];
+				if (*pr.second > pax->ylim[1]) *pr.second = pax->ylim[1];
+				pt.y = drawingRt.bottom - offpixel(*pr.second, pax->ylim, height);
+				pt.y = max(pt.y, drawingRt.top);
+				if (pt.y != out.back().y)
 					out.push_back(pt);
-					if (*ul.second > pax->ylim[1]) *ul.second = pax->ylim[1];
-					pt.y = drawingRt.bottom - offpixel(*ul.second, pax->ylim, height);
-					pt.y = max(pt.y, drawingRt.top);
-					if (pt.y != out.back().y)
-						out.push_back(pt);
-					pt.x += margin;
-				}
-			}
-			else
-			{
-				for (int k = 0; k < width; k++, pt.x++, ticker += advance)
-				{
-					int begin = (int)ticker + offset;
-					int end = min((int)(ticker + advance), (int)p->nSamples) + offset;
-					const pair<double*, double*> pr = minmax_element(p->buf + begin, p->buf + end);
-					if (*pr.first < pax->ylim[0]) *pr.first = pax->ylim[0];
-					if (*pr.second < pax->ylim[0]) *pr.second = pax->ylim[0];
-					pt.y = drawingRt.bottom - offpixel(*pr.first, pax->ylim, height);
-					pt.y = min(pt.y, drawingRt.bottom);
-					out.push_back(pt);
-					if (*pr.first > pax->ylim[1]) *pr.first = pax->ylim[1];
-					if (*pr.second > pax->ylim[1]) *pr.second = pax->ylim[1];
-					pt.y = drawingRt.bottom - offpixel(*pr.second, pax->ylim, height);
-					pt.y = max(pt.y, drawingRt.top);
-					if (pt.y != out.back().y)
-						out.push_back(pt);
-				}
 			}
 		}
 	}
@@ -555,7 +563,8 @@ void CPlotDlg::OnPaint()
 				{
 					if (lyne->visible)
 						for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
-							drawvector = OnPaint_drawblock(pax, dc, &ps, lyne, p);
+							if (lyne->sig.nSamples>0)
+								drawvector = OnPaint_drawblock(pax, dc, &ps, lyne, p);
 				}
 			}
 			if (hDlg == hwnd_AudioCapture)

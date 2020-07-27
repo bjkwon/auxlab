@@ -150,11 +150,22 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 	if (pax->m_ln.size() > 0)
 	{
 		//When there's nothing in axes.. bypass this part.. Otherwise,  gengrids will crash!! 10/5/2019
+		CTimeSeries *psig = NULL;
+		//if pax->m_ln has multiple lines and some of them are empty, it bypasses and continues until 
+		// it finds a non-empty one. That first non-empty one is used to make tics
+		for (auto lyne : pax->m_ln)
+		{
+			if (lyne->sig.type() > 0)
+			{
+				psig = &lyne->sig;
+				break;
+			}
+		}
 		if (pax->xtick.tics1.empty() && pax->xtick.automatic)
 		{
 			if (first)
 				memcpy(xlim, pax->xlim, sizeof(xlim));
-			if (pax->m_ln.front()->sig.IsTimeSignal())
+			if (psig && psig->IsTimeSignal())
 			{
 				pax->xtick.tics1 = pax->gengrids('x', -3);
 			}
@@ -175,7 +186,7 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 		}
 		if (pax->ytick.tics1.empty() && pax->ytick.automatic)
 		{
-			if (pax->m_ln.front()->sig.bufBlockSize == 1)
+			if (psig && psig->bufBlockSize == 1)
 			{
 				vector<double> tics;
 				tics.push_back(0); tics.push_back(1);

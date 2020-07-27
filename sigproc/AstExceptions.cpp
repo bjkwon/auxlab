@@ -14,6 +14,7 @@
 #include <list>
 #include <algorithm>
 #include <exception>
+#include <assert.h>
 #include <math.h>
 #include <time.h>
 #include "aux_classes.h"
@@ -99,95 +100,88 @@ void adjust_AstNode(const AstNode *p)
 
 /**/
 // The only reason pnode is left is for auxcon stuff, but otherwise they can go 3/15/2019
-CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const string s2)
+//CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const string s2)
+//{
+//	return CAstException(pnode, this, s1, s2);
+//}
+//CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
+//{
+//	return CAstException(pnode, this, msg);
+//}
+
+CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *_pnode)
 {
-	return CAstException(pnode, this, s1, s2);
-}
-CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
-{
-	return CAstException(pnode, this, msg);
+	type = extp;
+	pCtx = &base;
+	pnode = _pnode ? _pnode : base.pAst;
+	if (base.inTryCatch)
+		findTryLine(base);
+	line = pnode->line;
+	col = pnode->col;
 }
 
-CAstException::CAstException(CAstSig *pContext, const string s1, const string s2)
-	: pCtx(pContext), str2(s2)
-{
-#ifdef _WINDOWS
-	if (pContext->u.pUDF)
-		pnode = pContext->u.pUDF;
+CAstException &CAstException::proc(string fnsig, const char * _basemsg)
+{ //FUNC_SYNTAX
+	assert(type == FUNC_SYNTAX);
+	msgonly = basemsg = _basemsg;
+	if (!fnsig.empty())
+		msgonly += string("\n  Usage: ") + fnsig;
+	arrayindex = cellindex = -1;
+	addLineCol();
+	outstr = msgonly + sourceloc;
+	return *this;
+}
+
+CAstException &CAstException::proc(const char * _basemsg, const char * tidname, string extra)
+{ //invalid usage
+	assert(type == USAGE || type == INTERNAL);
+	if (type == INTERNAL)
+	{
+		msgonly = basemsg = string("[INTERNAL] ") + _basemsg;
+	}
 	else
-#endif
-		pnode = pContext->pAst;
-	//Use this format when you are not sure what pnode to use
-	// Probably it's safe to use this all the time. 
-	//Replace the other constructor CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
-	//with this eventually 3/30/2019
-
-#ifdef _WINDOWS
-	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
-		adjust_AstNode(pnode);
-#endif
-	str1 = pnode->str;
-	str1 += " : ";
-	str1 += s2 + '\n';
-	str1 += s1;
-	outstr = str1;
-#ifdef _WINDOWS
-	if (pCtx && pCtx->u.debug.status == typed_line) return;
-#endif
-	str1.insert(0, "[GOTO_BASE]");
-	if (!pnode) pnode = pCtx->pAst;
-//	makeOutStr();
-	outstr += '\n';
+	{
+		msgonly = basemsg = _basemsg;
+		msgonly += string(" ") + (tidstr = tidname);
+		if (!extra.empty())
+			msgonly += string("\n") + extra;
+		arrayindex = cellindex = -1;
+	}
+	addLineCol();
+	outstr = msgonly + sourceloc;
+	return *this;
 }
 
-CAstException::CAstException(const AstNode *p, CAstSig *pContext, const string s1, const string s2)
-: pCtx(pContext), pnode(p), str2(s2)
-{
-	//Use this format to create an exception message for invalid function definition (and others)
-	//p carries the function name
-#ifdef _WINDOWS
-	if (pCtx && !strcmp(pCtx->u.application, "auxcon"))
-		adjust_AstNode(pnode);
-#endif
+CAstException &CAstException::proc(const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell)
+{ //range
+	assert(type == RANGE);
+	msgonly = basemsg = _basemsg;
+	if (strlen(varname) > 0)
+		msgonly += (tidstr = varname);
+	arrayindex = indexSpecified;
+	cellindex = indexSpecifiedCell;
 	ostringstream oss;
-	if (p->str)
-		oss << p->str;
-	else if (p->type == T_NUMBER)
-		oss << p->dval;
+	if (cellindex >= 0) // if cell index is invalid, it doesn't check indexSpecified
+		oss << msgonly << " cell index " << cellindex << " out of range.";
 	else
-		oss << "unknown type ";
-	oss << " : " << s2 << s1;
-	outstr = str1 = oss.str().c_str();
-#ifdef _WINDOWS
-	if (pCtx && pCtx->u.debug.status == typed_line) return;
-#endif
-	str1.insert(0, "[GOTO_BASE]");
-	if (!p) pnode = pCtx->pAst;
-//	makeOutStr();
-	outstr += '\n';
+		oss << msgonly << " index " << indexSpecified << " out of range.";
+	msgonly = oss.str().c_str();
+	addLineCol();
+	outstr = msgonly + sourceloc;
+	return *this;
 }
-
-CAstException::CAstException(const AstNode *p, CAstSig *pAst, const string s1)
-{
-	CAstException(p, pAst, s1.c_str());
-}
-
-CAstException::CAstException(const AstNode *p0, CAstSig *pContext, const char* msg)
-	: pCtx(pContext), pnode(p0)
-{
-#ifdef _WINDOWS
-	if (pCtx && !strcmp(pCtx->u.application,"auxcon"))
-		adjust_AstNode(pnode);
-#endif
-	outstr = str1 = msg;
-	//If this is user-typed lines during debugging (F10, F5,... etc), it should just return without going into what's going on in the current UDF.
-#ifdef _WINDOWS
-	if (pCtx && pCtx->u.debug.status == typed_line) return;
-#endif
-	str1.insert(0, "[GOTO_BASE]");
-	if (!pnode) pnode = pCtx->pAst;
-//	makeOutStr();
-	outstr += '\n';
+CAstException &CAstException::proc(const char * _basemsg, const char * funcname, int argIndex)
+{ // args
+	assert(type == ARGS);
+	basemsg = _basemsg;
+	ostringstream oss;
+	oss << "" << funcname << " : " << "argument " << argIndex << ' ' << _basemsg;
+	msgonly = oss.str().c_str();
+	arrayindex = argIndex;
+	cellindex = -1;
+	addLineCol();
+	outstr = msgonly + sourceloc;
+	return *this;
 }
 
 void CAstException::findTryLine(const CAstSig & scope)
@@ -213,7 +207,7 @@ void CAstException::addLineCol()
 		oss << "\nIn line " << pnode->line << ", col " << pnode->col; // is this necessary? 1/12/2020
 	else
 	{
-		if (!pCtx->dad) return;
+		if (pCtx->level == pCtx->baselevel.back()) return;
 		vector<int> lines;
 		vector<string> strs;
 		const CAstSig *tp = pCtx;
