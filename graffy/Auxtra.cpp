@@ -372,11 +372,11 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 	}
 
 	map<CAstSig *, vector<CVar *>> scope_delList;
-	CAstSig *tp = past->dad.get();
+	CAstSig *tp = past->dad;
 	while (tp)
 	{
 		scope_delList[tp] = toDelete(tp, past->pgo);
-		tp = tp->dad.get();
+		tp = tp->dad;
 	}
 
 	// Clear the content of the corresponding variable from GOvar
@@ -422,12 +422,12 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 	deleteObj(hobj);
 	past->Sig = CVar();
 	past->pgo = NULL;
-	tp = past->dad.get();
+	tp = past->dad;
 	while (tp)
 	{
 		for (auto it = scope_delList[tp].begin(); it != scope_delList[tp].end(); it++)
 			delete_toDelete(tp, *it);
-		tp = tp->dad.get();
+		tp = tp->dad;
 	}
 	if (past->isthisUDFscope(pnode))
 		past->u.rt2validate[GetHWND_PlotDlg(hobj)] = CRect(0, 0, 0, 0);

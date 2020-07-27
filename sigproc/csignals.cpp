@@ -43,7 +43,6 @@
 #include "cipsycon.tab.h"
 #endif
 
-#include "wavplay.h"
 #include "lame_bj.h"
 
 

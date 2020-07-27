@@ -14,8 +14,8 @@
 #ifndef XCOM
 #define XCOM
 
-#define MAIN_PROMPT "AUX> "
-#define DEBUG_PROMPT "k> "
+#define MAIN_PROMPT "AUX>"
+#define DEBUG_PROMPT "k>"
 #define AUX_EXT_NAME "aux_ext"
 
 #define INI_HEAD_SRATE "SAMPLE RATE"

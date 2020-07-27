@@ -80,6 +80,7 @@ void debug_appl_manager(CAstSig *debugAstSig, DEBUG_STATUS debug_status, int lin
 void HoldAtBreakPoint(CAstSig *past, const AstNode *pnode);
 bool dbmapfind(const char* udfname);
 void Back2BaseScope(int closeauxcon);
+vector<string> getlbtexts(int idc);
 
 void ValidateFig(const char* scope);
 
@@ -1063,6 +1064,21 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			throw emsg.c_str();
 		pContext->statusMsg.clear();
 		pContext->Compute();
+
+		string line;
+		CONSOLE_SCREEN_BUFFER_INFO coninfo;
+		size_t res;
+		GetConsoleScreenBufferInfo(hStdout, &coninfo);
+		res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
+		if (line == DEBUG_PROMPT)
+		{
+			coninfo.dwCursorPosition.X = 0;
+			SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
+			char space = ' ';
+			DWORD dw2;
+			for (size_t k=0; k<line.size(); k++) res = WriteConsole(hStdout, &space, 1, &dw2, NULL);
+			SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
+		}
 		if (pTemp == NULL)
 			CDebugDlg::pAstSig = NULL;
 		int dt = 1;
@@ -1087,29 +1103,21 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		else // see if lhs makes more sense than pAst 
 			echo(dt, pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
 	}
-	catch (const char *_errmsg) {
-		bool gotobase = false;
-		if (!strncmp(_errmsg, "[GOTO_BASE]", strlen("[GOTO_BASE]")))
-			gotobase = true;
-		char *errmsg = (char *)_errmsg + (gotobase ? strlen("[GOTO_BASE]") : 0);
-		CDebugDlg::pAstSig = NULL;
-		// cleanup_nodes was called with CAstException
+	catch (const char *errmsg) {
 		if (strncmp(errmsg, "Invalid", strlen("Invalid")))
 			cout << "ERROR: " << errmsg << endl;	 
 		else
 			cout << errmsg << endl;
 		//Going back to the base scope only during the debugging (F10, F5,... etc)
-		if (gotobase)
-			Back2BaseScope(0);
-		//		succ = false; // Shouldn't be set here. Must be a leftover fromthe past. 10/11/2018
+		Back2BaseScope(0);
+		pContext->baselevel.pop_back();
 	}
 	catch (CAstSig *ast) 
 	{ // this was thrown by aux_HOOK
 		if (ast->u.debug.status == aborting)
 		{
-			CDebugDlg::pAstSig = NULL;
-			CAstSig::cleanup_nodes(ast);
 			Back2BaseScope(0);
+			pContext->baselevel.pop_back();
 		}
 		else
 		{
@@ -1136,7 +1144,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 				return -1;	
 		}
 		catch (const char *errmsg)				{
-			//		succ = false; // Shouldn't be set here. Must be a leftover fromthe past. 10/11/2018
 			cout << "ERROR:" << errmsg << endl;	 }
 		}
 	}
@@ -1409,7 +1416,7 @@ void AuxconGetInputThread(void *var)
 void ShowVariables(CAstSig *pastsig)
 {
 	CAstSig *pbase = xscope.front();
-	if (pastsig->dad.get() == pbase && xscope.size() == 1)
+	if (pastsig->dad == pbase && xscope.size() == 1)
 	{
 		moduleLoop = true;
 		xscope.push_back(pastsig);
@@ -1427,42 +1434,37 @@ void UnloadModule(const char *modulename)
 
 void Back2BaseScope(int closeauxcon)
 {
-	while (mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_DELETESTRING, 1) != CB_ERR) {}
-	mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL, 0);
-	mShowDlg.debug(exiting, NULL, -1);
-	mShowDlg.pVars = &xscope.front()->Vars;
-	mShowDlg.pGOvars = &xscope.front()->GOvars;
-	mShowDlg.Fillup();
-	if (xscope.size() > 1)
+	char buf[256];
+	vector<string> names = getlbtexts(IDC_DEBUGSCOPE);
+	int cc = (int)names.size();
+	while (xscope.back()->level > xscope.back()->baselevel.back())
 	{
-		xscope.pop_back();
-		FlushConsoleInputBuffer(hStdin);
-	}
-	if (closeauxcon)
-	{
-		if (hAuxconThread)
+		if (xscope.size() == cc && mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETLBTEXT, cc - 1, (LPARAM)buf) > 0)
 		{
-			moduleLoop = false;
-			//Emulating "enter" keystroke
-			memset(mainSpace.debug_command_frame, 0, sizeof(mainSpace.debug_command_frame));
-			for (int k = 0; k < 2; k++)
+			CAstSig *pp = xscope.back();
+			if (pp->u.title == buf)
 			{
-				mainSpace.debug_command_frame[k].EventType = KEY_EVENT;
-				mainSpace.debug_command_frame[k].Event.KeyEvent.uChar.AsciiChar = 0;
-				mainSpace.debug_command_frame[k].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+				mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_DELETESTRING, cc - 1);
+				xscope.pop_back();
+				cc--;
 			}
-			DWORD dw;
-			int res;
-			mainSpace.debug_command_frame[0].Event.KeyEvent.bKeyDown = 1;
-			mainSpace.debug_command_frame[1].Event.KeyEvent.bKeyDown = 0;
-			res = WriteConsoleInput(hStdin, mainSpace.debug_command_frame, 2, &dw);
-			if (hEventLastKeyStroke2Base) CloseHandle(hEventLastKeyStroke2Base);
-			hEventLastKeyStroke2Base = NULL;
-			hEventLastKeyStroke2Base = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "");
-			WaitForSingleObject(hEventLastKeyStroke2Base, INFINITE);
 		}
-		SetEvent(hEventModule);
+		else
+			xscope.pop_back();
 	}
+	if (xscope.back()->baselevel.back() == 1)
+		CDebugDlg::pAstSig = NULL;
+	else
+		CDebugDlg::pAstSig = xscope.back();
+
+	mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL, 
+		mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCOUNT)-1);
+	
+	mShowDlg.debug(exiting, NULL, -1);
+	mShowDlg.pVars = &xscope.back()->Vars;
+	mShowDlg.pGOvars = &xscope.back()->GOvars;
+	mShowDlg.Fillup();
+	FlushConsoleInputBuffer(hStdin);
 }
 
 void HoldAtBreakPoint(CAstSig *pastsig, const AstNode *pnode)
@@ -1639,12 +1641,24 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 	size_t res;
 	GetConsoleScreenBufferInfo(hStdout, &coninfo);
 	res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
-	if (res > 0) printf("\n");
 	if (IsNowDebugging(pcast))
 		mainSpace.comPrompt = DEBUG_PROMPT;
 	else
 		mainSpace.comPrompt = MAIN_PROMPT;
-	printf(mainSpace.comPrompt.c_str());
+	if (res > 0)
+	{
+		if (line != mainSpace.comPrompt)
+			printf("\n%s ", mainSpace.comPrompt.c_str());
+		else
+		{
+			coninfo.dwCursorPosition.X = (SHORT)line.length() + 1;
+			SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
+		}
+	}
+	else
+	{
+		printf("%s ", mainSpace.comPrompt.c_str());
+	}
 	RepaintGO(pcast);
 	if (pcast->pAst)
 	{
@@ -1859,13 +1873,13 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		while (1)
 		{
 			// this is outside of try... an exception will not be handled. Make sure it won't fail. 8/16/2019
-//			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
+			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
 			if (res.empty())
 				break;
 		}
 		FreeLibrary((HMODULE)hLib);
 	}
-	WriteConsole(hStdout, mainSpace.comPrompt.c_str(), (DWORD)mainSpace.comPrompt.size(), &dw, NULL);
+	WriteConsole(hStdout, (mainSpace.comPrompt + ' ').c_str(), (DWORD)mainSpace.comPrompt.size() + 1, &dw, NULL);
 
 	while (mShowDlg.hDlg == NULL) {
 		Sleep(100);

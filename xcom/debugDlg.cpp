@@ -43,15 +43,11 @@ vector<CDebugDlg *> debugVct; // Debug dialogboxes, which appear on the tab cont
 unordered_map<string, CDebugDlg*> dbmap;
 char fullfname[_MAX_PATH], fname[_MAX_FNAME + _MAX_EXT];
 
-int spyWM(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char* const fname, vector<UINT> msg2excl, char* const tagstr);
-
 BOOL CALLBACK DebugBaseProc (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK TabPage_DlgProc(HWND hwndDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 
 #define WM__NEWDEBUGDLG	WM_APP+0x2000
 #define WM__UPDATE_UDF_CONTENT	WM_APP+0x2001
-
-//extern vector<UINT> exc; //temp
 
 string cleanupstring(string in)
 {

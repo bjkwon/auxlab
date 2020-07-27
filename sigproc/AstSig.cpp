@@ -214,7 +214,7 @@ CAstSig::CAstSig(const char *str, const CAstSig *src)
 	{
 		pgo = src->pgo;
 		Script = src->Script;
-//		dad = src->dad;
+		dad = src->dad;
 		pLast = src->pLast;
 	}
 }
@@ -243,7 +243,7 @@ CAstSig::CAstSig(AstNode *pnode, const CAstSig *src)
 	endpoint = src->endpoint;
 	pgo = src->pgo;
 	Script = src->Script;
-//	dad = src->dad;
+	dad = src->dad;
 	pLast = src->pLast;
 }
 
@@ -272,6 +272,8 @@ void CAstSig::init()
 	pgo = NULL;
 	Tick0 = 1;
 	inTryCatch = 0;
+	level = 1;
+	baselevel.push_back(level);
 }
 
 CAstSig::~CAstSig()
@@ -482,7 +484,6 @@ CFuncPointers& CFuncPointers::operator=(const CFuncPointers& rhs)
 
 string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar*>> &inVars, vector<unique_ptr<CVar*>> &outVars, bool customcallback)
 {
-	u.currentLine = pCalling->line; // ? 10/18/2018
 	AstNode *p;
 	//input parameter binding
 	// required nArgin
@@ -517,7 +518,7 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 			son->SetVar(p->str, **itOutVar);
 	}
 	son->lhs = lhs;
-	son->dad = make_unique<CAstSig>(this); // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
+	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
 	auto itUDF = pEnv->udf.find(pCalling->str);
 	son->u.pUDF = (*itUDF).second.pAst;
@@ -709,7 +710,6 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 {
 	if (!pCalling->str)
 		throw CAstException(INTERNAL, *this, pCalling).proc("p->str null pointer in PrepareAndCallUDF(p,...)");
-	u.currentLine = pCalling->line; // ? 10/18/2018
 	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
 	CAstSigEnv tempEnv(*pEnv);
@@ -718,7 +718,9 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	son->u.title = pCalling->str;
 	son->u.debug.status = null;
 	son->lhs = lhs;
-	son->dad = make_unique<CAstSig>(this); // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
+	son->level = level + 1;
+	son->baselevel.front() = baselevel.back();
+	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
 	if (GOvars.find("?foc") != GOvars.end()) son->GOvars["?foc"] = GOvars["?foc"];
 	if (GOvars.find("gcf") != GOvars.end())	son->GOvars["gcf"] = GOvars["gcf"];
@@ -918,6 +920,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		{
 			pLast = p;
 			// T_IF, T_WHILE, T_FOR are checked here to break right at the beginning of the loop
+			u.currentLine = p->line;
 			if (p->type == T_ID || p->type == T_FOR || p->type == T_IF || p->type == T_WHILE || p->type == N_IDLIST || p->type == N_VECTOR)
 				hold_at_break_point(p);
 			Compute(p);
@@ -934,7 +937,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 			if (u.debug.GUI_running == true)
 			{
 				// send to purgatory and standby for another debugging key action, if dad is the base scope
-				if (dad.get() == xscope.front() && u.debug.status == stepping)
+				if (dad == xscope.front() && u.debug.status == stepping)
 				{
 					fpmsg.UpdateDebuggerGUI(this, purgatory, -1);
 					fpmsg.HoldAtBreakPoint(this, pLast);
@@ -947,7 +950,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 			if (xscope.size() > 2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
 			{//why is this necessary? 10/19/2018----yes this is...2/16/2019
 				if (u.debug.status == stepping && fpmsg.IsCurrentUDFOnDebuggerDeck && !fpmsg.IsCurrentUDFOnDebuggerDeck(Script.c_str()))
-					fpmsg.UpdateDebuggerGUI(this, entering, -1);
+					fpmsg.UpdateDebuggerGUI(dad, entering, -1);
 			}
 		}
 	}
@@ -1896,7 +1899,9 @@ vector<CVar *> CAstSig::Compute(void)
 		}
 		else
 		{
+			baselevel.push_back(level);
 			res.push_back(Compute(pAst));
+			baselevel.pop_back();
 		}
 		Tick1 = GetTickCount0();
 		return res;

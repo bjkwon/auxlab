@@ -242,6 +242,8 @@ public:
 	static AstNode *findParentNode(AstNode *p, AstNode *pME, bool altonly = false);
 	static char *showGraffyHandle(char *out, CVar *pvar);
 #endif //GRAFFY
+	int level;
+	vector<int> baselevel;
 	map<string, CVar> Vars;
 	map<string, vector<CVar *>> GOvars;
 	AstNode *pAst;
@@ -256,7 +258,7 @@ public:
 	vector<unique_ptr<CVar*>> Sigs; // used to store results of Compute for additional outputs.
 	AstNode *lhs;
 	unique_ptr<CAstSig> son;
-	unique_ptr<CAstSig> dad;
+	CAstSig *dad;
 	const AstNode *pLast;
 	string statusMsg; // to display any message during processing inside of AstSig.cpp in the application
 	unsigned long Tick0, Tick1;
