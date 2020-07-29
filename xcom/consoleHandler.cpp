@@ -273,15 +273,7 @@ try {
 					}
 					if (showscreen && !num)
 						num = (DWORD)ReadLines(hStdout, buf, coninfo0, coninfo, offset);
-					{
-						int idd = 0;
-						while (idd<11)
-						{
-							if (buf[idd++] != ' ') break;
-						}
-						if (idd==11)
-							MessageBox(NULL, "empty", "", 0);
-					}
+					trimRight(buf, " ");
 					strcpy(readbuffer, buf);
 					buf1[0] = 0, histOffset = 0; 
 					WriteConsole (hStdout, "\r\n", 2, &dw2, NULL); // this is the real "action" of pressing the return/enter key, exiting from the loop and return out of getinput()

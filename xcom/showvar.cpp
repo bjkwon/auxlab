@@ -750,9 +750,9 @@ vector<string> getlbtexts(int idc)
 	for (int k = 0; k < cc; k++)
 	{
 		//len1 must be equal or less than 255 (MR 1)
-		TCHAR len1 = mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXTLEN, (WPARAM)k, 0);
+		LRESULT len1 = mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXTLEN, (WPARAM)k, 0);
 		assert(len1 < 256);
-		TCHAR len2 = mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXT, k, (LPARAM)buf);
+		LRESULT len2 = mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXT, k, (LPARAM)buf);
 		if (len2 != CB_ERR)
 		{
 			buf[len2] = 0;

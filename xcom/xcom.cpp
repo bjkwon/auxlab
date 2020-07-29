@@ -1451,7 +1451,7 @@ void Back2BaseScope(int closeauxcon)
 	{
 		if (xscope.size() == cc)
 		{
-			TCHAR len = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETLBTEXT, cc - 1, (LPARAM)buf);
+			LRESULT len = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETLBTEXT, cc - 1, (LPARAM)buf);
 			assert(len < 256); // MR 1
 			buf[len] = 0;
 			if (xscope.back()->u.title == buf)
@@ -1567,6 +1567,15 @@ void ValidateFig(const char* scope)
 	}
 }
 
+static bool same_trimmed_string(const string &_s1, const string &_s2)
+{
+	string s1 = _s1;
+	string s2 = _s2;
+	trimr(s1, ' ');
+	trimr(s2, ' ');
+	return s1 == s2;
+}
+
 void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 {
 	if (success && pcast && pcast->pAst)
@@ -1659,17 +1668,17 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		mainSpace.comPrompt = MAIN_PROMPT;
 	if (res > 0)
 	{
-		if (line != mainSpace.comPrompt)
-			printf("\n%s ", mainSpace.comPrompt.c_str());
+		if (!same_trimmed_string(line, mainSpace.comPrompt))
+			printf("\n%s", mainSpace.comPrompt.c_str());
 		else
 		{
-			coninfo.dwCursorPosition.X = (SHORT)line.length() + 1;
+			coninfo.dwCursorPosition.X = (SHORT)line.length();
 			SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
 		}
 	}
 	else
 	{
-		printf("%s ", mainSpace.comPrompt.c_str());
+		printf("%s", mainSpace.comPrompt.c_str());
 	}
 	RepaintGO(pcast);
 	if (pcast->pAst)
@@ -1891,7 +1900,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		}
 		FreeLibrary((HMODULE)hLib);
 	}
-	WriteConsole(hStdout, (mainSpace.comPrompt + ' ').c_str(), (DWORD)mainSpace.comPrompt.size() + 1, &dw, NULL);
+	WriteConsole(hStdout, mainSpace.comPrompt.c_str(), (DWORD)mainSpace.comPrompt.size(), &dw, NULL);
 
 	while (mShowDlg.hDlg == NULL) {
 		Sleep(100);
@@ -1937,121 +1946,3 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	closeXcom(mainSpace.AppPath);
 	return 1;
 }
-
-#ifdef _DEBUG
-#include <fstream>
-
-int xcom::RunTestType(string &line)
-{
-	//get thd first word
-	size_t pos = line.find(' ');
-	string cmd = line.substr(0, pos);
-	line = line.substr(cmd.size());
-	if (cmd == "vector")		return CSIG_VECTOR;
-	if (cmd == "matrix")		return CSIG_MATRIX;
-	if (cmd == "audio")		return CSIG_AUDIO;
-	if (cmd == "cell")		return CSIG_CELL;
-	if (cmd == "class")		return CSIG_STRUCT;
-	if (cmd == "scalar")		return CSIG_SCALAR;
-	if (cmd == "string")		return CSIG_STRING;
-	if (cmd == "tseq")		return CSIG_TSERIES;
-	return -1;
-}
-
-int xcom::RunTestCountElement(int type, string &rest, int &col)
-{
-	istringstream iss(rest);
-	col = -1;
-	int m(-1);
-	switch (type)
-	{
-	case CSIG_SCALAR:
-		return 0;
-	case CSIG_VECTOR:
-	case CSIG_AUDIO:
-	case CSIG_CELL:
-		iss >> m;
-		return m;
-	case CSIG_MATRIX:
-		iss >> m >> col;
-		return m;
-	default:
-		return -1;
-	}
-}
-int xcom::RunTestCheckElements(const CVar &generated, const string &expected)
-{ // only for CSIG_SCALAR, CSIG_VECTOR, CSIG_MATRIX
-	istringstream iss(expected);
-	double val;
-	for (unsigned int k = 0; k < generated.nSamples; k++)
-	{
-		iss >> val;
-		if (fabs(val - generated.buf[k]) > 1.e-3) return 0;
-	}
-	return 1;
-}
-int xcom::RunTest(const char *infile, const char *intended_result_file, const char *reportfile)
-{
-	ifstream file1, filer;
-	ofstream file2;
-	ostringstream oss;
-	string cmd, ref, out;
-	file1.open(infile);
-	filer.open(reportfile);
-	size_t pos;
-	char errstr[256];
-	int lineID = 1;
-	CAstSig *past = xscope.front();
-	int type, nsamples, ncols;
-	try {
-		while (getline(file1, cmd))
-		{
-			computeandshow(cmd.c_str());
-			while (1)
-			{
-				getline(filer, ref);
-				if (ref.find("//") == string::npos) break;
-			}
-			type = RunTestType(ref);
-			if (type != past->Sig.GetType())
-			{
-				oss << "Unexpected type error in line " << lineID;
-				throw oss.str().c_str();
-			}
-			if (type == CSIG_SCALAR || type == CSIG_VECTOR || type == CSIG_MATRIX || type == CSIG_CELL)
-			{
-				nsamples = RunTestCountElement(type, ref, ncols);
-				if (nsamples != past->Sig.nSamples)
-				{
-					oss << "nSamples not the same in line " << lineID;
-					throw oss.str().c_str();
-				}
-			}
-			if (type == CSIG_SCALAR || type == CSIG_VECTOR || type == CSIG_MATRIX)
-			{
-				const string rest = ref.substr(ref.find('\t'));
-				pos = RunTestCheckElements(past->Sig, rest);
-			}
-			else if (type == CSIG_AUDIO)
-			{
-				double block = CAstSig::play_block_ms;
-				PlayCSignals(past->Sig, 0, 0, NULL, &block, errstr, 1);
-				CSignals tp;
-				if (!tp.Wavread(ref.c_str(), errstr))
-				{
-					oss << "audio file" << ref << " not found line " << lineID;
-					throw oss.str().c_str();
-				}
-				PlayCSignals(tp, 0, 0, NULL, &block, errstr, 1);
-			}
-		}
-	}
-	catch (const char *emsg)
-	{
-		printf("%s\n", emsg);
-	}
-	file1.close();
-	filer.close();
-	return 1;
-}
-#endif
