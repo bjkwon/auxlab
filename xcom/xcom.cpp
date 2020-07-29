@@ -1063,7 +1063,12 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			return pTemp ? 1 : 0;
 		}
 		if (!pContext->SetNewScript(emsg, input.c_str()))
-			throw emsg.c_str();
+		{
+			if (emsg.empty())
+				throw 1; // continue down to dummy and ShowWS_CommandPrompt
+			else
+				throw emsg.c_str();
+		}
 		pContext->statusMsg.clear();
 		pContext->Compute();
 
@@ -1112,7 +1117,7 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			cout << errmsg << endl;
 		//Going back to the base scope only during the debugging (F10, F5,... etc)
 		Back2BaseScope(0);
-		pContext->baselevel.pop_back();
+		if (pContext->baselevel.size()>1) pContext->baselevel.pop_back();
 	}
 	catch (CAstSig *ast) 
 	{ // this was thrown by aux_HOOK
@@ -1148,6 +1153,10 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		catch (const char *errmsg)				{
 			cout << "ERROR:" << errmsg << endl;	 }
 		}
+	}
+	catch (int dummy)
+	{
+		dummy++;
 	}
 	ShowWS_CommandPrompt(pContext, succ);
 	return pTemp ? 1:0;
@@ -1417,8 +1426,7 @@ void AuxconGetInputThread(void *var)
 
 void ShowVariables(CAstSig *pastsig)
 {
-	CAstSig *pbase = xscope.front();
-	if (pastsig->dad == pbase && xscope.size() == 1)
+	if (pastsig->dad == xscope.front() && xscope.size() == 1)
 	{
 		moduleLoop = true;
 		xscope.push_back(pastsig);
@@ -1441,10 +1449,12 @@ void Back2BaseScope(int closeauxcon)
 	int cc = (int)names.size();
 	while (xscope.back()->level > xscope.back()->baselevel.back())
 	{
-		if (xscope.size() == cc && mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETLBTEXT, cc - 1, (LPARAM)buf) > 0)
+		if (xscope.size() == cc)
 		{
-			CAstSig *pp = xscope.back();
-			if (pp->u.title == buf)
+			TCHAR len = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETLBTEXT, cc - 1, (LPARAM)buf);
+			assert(len < 256); // MR 1
+			buf[len] = 0;
+			if (xscope.back()->u.title == buf)
 			{
 				mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_DELETESTRING, cc - 1);
 				xscope.pop_back();
@@ -1459,9 +1469,9 @@ void Back2BaseScope(int closeauxcon)
 	else
 		CDebugDlg::pAstSig = xscope.back();
 
-	mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL, 
-		mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCOUNT)-1);
-	
+	mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_SETCURSEL,
+		mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCOUNT) - 1);
+
 	mShowDlg.debug(exiting, NULL, -1);
 	mShowDlg.pVars = &xscope.back()->Vars;
 	mShowDlg.pGOvars = &xscope.back()->GOvars;

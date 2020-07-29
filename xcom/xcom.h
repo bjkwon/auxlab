@@ -124,3 +124,7 @@ typedef struct {
 
 
 #endif
+
+/* Some miscellaneous rules in AUXLAB
+ - MR 1: Name of a udf should be limited to 255 characters
+*/

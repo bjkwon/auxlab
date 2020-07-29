@@ -744,13 +744,20 @@ void CShowvarDlg::OnVarChanged(const char *varname)
 
 vector<string> getlbtexts(int idc)
 {
-	char buf[256];
+	char buf[256] = {};
 	vector<string> names;
 	int cc = (int)mShowDlg.SendDlgItemMessage(idc, CB_GETCOUNT);
 	for (int k = 0; k < cc; k++)
 	{
-		if (mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXT, k, (LPARAM)buf) > 0)
+		//len1 must be equal or less than 255 (MR 1)
+		TCHAR len1 = mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXTLEN, (WPARAM)k, 0);
+		assert(len1 < 256);
+		TCHAR len2 = mShowDlg.SendDlgItemMessage(idc, CB_GETLBTEXT, k, (LPARAM)buf);
+		if (len2 != CB_ERR)
+		{
+			buf[len2] = 0;
 			names.push_back(buf);
+		}
 	}
 	return names;
 }

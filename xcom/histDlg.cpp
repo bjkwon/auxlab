@@ -200,7 +200,7 @@ void CHistDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 		ListView_GetItemText(lpnmitem->hdr.hwndFrom, clickedRow, 0, buf, 256);
 		//This hopefully takes care of the weird character problem 9/28/2017
 		GetConsoleScreenBufferInfo(hStdout, &coninfo);
-		coninfo.dwCursorPosition.X = (SHORT)mainSpace.comPrompt.size();
+		coninfo.dwCursorPosition.X = (SHORT)mainSpace.comPrompt.size() + 1;
 		SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
 		ir = new INPUT_RECORD[2*strlen(buf)+3];
 		WriteConsoleInput(GetStdHandle(STD_INPUT_HANDLE), ir, char2INPUT_RECORD(buf, ir), &dw);
