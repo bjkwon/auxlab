@@ -1859,11 +1859,11 @@ void CPlotDlg::getFFTdata(CTimeSeries & mag, const vector<double> & fft)
 	size_t lenFFT = (fft.size() + 1) / 2;
 	mag.UpdateBuffer((unsigned int)fft.size() / 2 + 1);
 	for (int k = 1; k < (fft.size() + 1) / 2; ++k)  /* (k < N/2 rounded up) */
-		mag.buf[k] = 20.*log10(fft[k] * fft[k] + fft[fft.size() - k] * fft[fft.size() - k]);
+		mag.buf[k] = 10.*log10(fft[k] * fft[k] + fft[fft.size() - k] * fft[fft.size() - k]);
 	/* DC and Nyquist components are not displayed. If they were to be displayed, remove comments
-	mag.buf[0] = 20.*log10(fft[0] * fft[0]); // DC component
+	mag.buf[0] = 10.*log10(fft[0] * fft[0]); // DC component
 	if (fft.size() % 2 == 0) //  even 
-		mag.buf[fft.size() / 2] = 20.*log10(fft[fft.size() / 2] * fft[fft.size() / 2]);  // Nyquist freq. 
+		mag.buf[fft.size() / 2] = 10.*log10(fft[fft.size() / 2] * fft[fft.size() / 2]);  // Nyquist freq. 
 	*/
 	if (fft.size() % 2 == 0) mag.nSamples--; // Nyquist component excluded
 	double maxmag = mag._max().front();
