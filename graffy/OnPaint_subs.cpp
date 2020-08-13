@@ -30,6 +30,104 @@ void CPlotDlg::OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc)
 	}
 }
 
+static POINT getpoint(double x, double y, const CRect &rcAx, double xlim[], double ylim[])
+{
+	//convert (x,y) in double to point in rcAx
+	// rcAx.left is xlim[0]
+	// rcAx.right is xlim[1]
+	// rcAx.top is ylim[0]
+	// rcAx.bottom is ylim[1]
+
+	double mapx = rcAx.Width() / (xlim[1] - xlim[0]);
+	double mapy = rcAx.Height() / (ylim[1] - ylim[0]);
+	double _x = .5 + rcAx.left + mapx * (x - xlim[0]);
+	double _y = .5 + rcAx.bottom - mapy * (y - ylim[0]);
+	POINT out = { (LONG)_x, (LONG)_y };
+	return out;
+}
+
+static pair<map<double, double>::const_iterator, map<double, double>::const_iterator> 
+get_inside_xlim(int &count, const map<double, double> &data, double xlim[])
+{
+	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> out;
+	auto it = data.begin();
+	//Assumption: xlim is monotonically increasing
+	for (; it != data.end() && (*it).first <= xlim[1]; it++)
+	{
+		if ((*it).first < xlim[0]) continue;
+		else
+		{
+			out.first = it;
+			break;
+		}
+	}
+	count = 0;
+	for (; it != data.end(); it++)
+	{
+		if ((*it).first <= xlim[1])
+		{
+			count++;
+			continue;
+		}
+		else
+		{
+			out.second = it;
+			break;
+		}
+	}
+	if (it==data.end())
+		out.second = it;
+	return out;
+}
+
+static vector<POINT> data2points(const map<double, double> &data, const CRect &rcAx, double xlim[], double ylim[])
+{
+	vector<POINT> out;
+	POINT pt;
+	// Inspect data and find out where the key is within xlim
+	// Assume the key of data is ordered.--> Isn't it what map is about?
+	int count;
+	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> range = get_inside_xlim(count, data, xlim);
+	// calculate how many data points one pixel represents 
+	double dataCount_per_pixel = (double)count / rcAx.Width();
+	if (dataCount_per_pixel > 5)
+	{
+		// get the points of min and max 
+		// and skip (advance) to the next data point group
+
+	}
+	else
+	{
+		for (auto it = range.first; it != range.second; it++)
+		{
+			// Map data point into point in RECT
+			pt = getpoint((*it).first, (*it).second, rcAx, xlim, ylim);
+			out.push_back(pt);
+		}
+	}
+
+
+	return out;
+}
+
+vector<POINT> CPlotDlg::plotpoints2(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
+{
+	vector<POINT> out;
+
+	map<double, double> in;
+	int fs = p->GetFs();
+	for (unsigned int k = 0; k < p->nSamples; k++)
+	{
+		double t = (double)k / fs;
+		in[t] = p->buf[k];
+	}
+	// Get the range of iterators in the relevant area from xlim
+
+
+	out = data2points(in, pax->rct, pax->xlim, pax->ylim);
+	return out;
+}
+
 vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pline, CTimeSeries* block)
 {
 	// For tseq, if you want to streamline, you can bypass estimateDrawCounts assuming that individual nSample for the block is 1
@@ -72,7 +170,7 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 			block->tmark += 1000. * m * block->nSamples / block->GetFs();
 		if (pline->lineWidth > 0 || pline->symbol != 0)
 		{
-			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
+			drawvector = plotpoints2(block, pax, pline, (CRect)pps->rcPaint);
 		}
 		if (pline->symbol != 0)
 		{

@@ -2836,6 +2836,9 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_FOR:
 		fExit=fBreak=false;
 		isig = Compute(p->child);
+		//isig must be a vector
+		if (isig.type()>2)
+			throw CAstException(USAGE, *this, p).proc("For-loop index variable must be a vector.");
 		for (unsigned int i=0; i<isig.nSamples && !fExit && !fBreak; i++) 
 		{
 			SetVar(p->str, &CVar(isig.buf[i]));

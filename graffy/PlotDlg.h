@@ -226,6 +226,7 @@ public:
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
 	vector<POINT> plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint);
+	vector<POINT> plotpoints2(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint);
 	void DrawMarker(const CDC &dc, CLine* mline, const vector<POINT> & dv);
 	POINT GetIndDisplayed(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam=0);
