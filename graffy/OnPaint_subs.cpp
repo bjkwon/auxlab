@@ -13,6 +13,7 @@
 #include <limits>
 #include <mutex>
 #include <thread>
+#include <iterator>
 
 #include "wavplay.h"
 
@@ -80,51 +81,156 @@ get_inside_xlim(int &count, const map<double, double> &data, double xlim[])
 	return out;
 }
 
-static vector<POINT> data2points(const map<double, double> &data, const CRect &rcAx, double xlim[], double ylim[])
+static pair<vector<double>::const_iterator, vector<double>::const_iterator>
+get_inside_xlim(int& count, const vector<double> &buf, double xlim[])
 {
+	pair<vector<double>::const_iterator, vector<double>::const_iterator> out;
+//	map<double, double>::const_iterator it;
+	//Assumption: xlim is monotonically increasing
+	auto it = buf.begin();
+	for (; it != buf.end() && *it <= xlim[1]; it++)
+	{
+		if (*it < xlim[0]) continue;
+		else
+		{
+			out.first = it;
+			break;
+		}
+	}
+	count = 0;
+	for (; it != buf.end(); it++)
+	{
+		if (*it <= xlim[1])
+		{
+			count++;
+			continue;
+		}
+		else
+		{
+			out.second = it;
+			break;
+		}
+	}
+	if (it == buf.end())
+		out.second = it;
+	return out;
+}
+
+
+
+static vector<POINT> data2points(const vector<double>& xbuf, const vector<double> &buf, const CRect& rcArea, double xlim[], double ylim[])
+{
+	// grab data in the range of xlim
+	// plot them in the coordinate of rcArea
 	vector<POINT> out;
 	POINT pt;
 	// Inspect data and find out where the key is within xlim
 	// Assume the key of data is ordered.--> Isn't it what map is about?
 	int count;
-	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> range = get_inside_xlim(count, data, xlim);
+	pair<vector<double>::const_iterator, vector<double>::const_iterator>
+		range = get_inside_xlim(count, xbuf, xlim);
 	// calculate how many data points one pixel represents 
-	double dataCount_per_pixel = (double)count / rcAx.Width();
+	double dataCount_per_pixel = (double)count / rcArea.Width();
+	int idataCount_per_pixel = (int)dataCount_per_pixel;
+	const double remainder = dataCount_per_pixel - idataCount_per_pixel;
+	double leftover = remainder;
+	if (dataCount_per_pixel > 4)
+	{
+		int cnt = 0;
+		auto it = range.first;
+		auto it2 = buf.begin();
+		advance(it2, distance(xbuf.begin(), it));
+		int advance_count;
+		size_t cum = 0;
+		bool loop = true;
+		while (loop)//cum < buf.size())
+		{
+			advance_count = idataCount_per_pixel;
+			if (leftover > 1)
+			{
+				advance_count++;
+				leftover--;
+			}
+			pair<vector<double>::const_iterator, vector<double>::const_iterator>
+				ul = minmax_element(it2, it2 + advance_count);
+			pt = getpoint(*it, *ul.first, rcArea, xlim, ylim);
+			out.push_back(pt);
+			LONG temp = pt.y;
+			pt = getpoint(*it, *ul.second, rcArea, xlim, ylim);
+			if (pt.y!=temp)
+				out.push_back(pt);
+			advance(it, advance_count);
+			advance(it2, advance_count);
+			cum += advance_count;
+			if (pt.x >= rcArea.right-1)
+				loop = false;
+			leftover += remainder;
+		}
+	}
+	else
+	{
+		auto it2 = buf.begin();
+		advance(it2, distance(xbuf.begin(), range.first));
+		for (auto it = range.first; it != range.second; it++, it2++)
+		{
+			// Map data point into point in RECT
+			pt = getpoint(*it, *it2, rcArea, xlim, ylim);
+			out.push_back(pt);
+		}
+	}
+	return out;
+}
+
+// when do I use this?
+static vector<POINT> data2points(const map<double, double> &data, const CRect & rcArea, double xlim[], double ylim[])
+{
+	// grab data in the range of xlim
+	// plot them in the coordinate of rcArea
+	vector<POINT> out;
+	POINT pt;
+	// Inspect data and find out where the key is within xlim
+	// Assume the key of data is ordered.--> Isn't it what map is about?
+	int count;
+	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> 
+		range = get_inside_xlim(count, data, xlim);
+	// calculate how many data points one pixel represents 
+	double dataCount_per_pixel = (double)count / rcArea.Width();
 	if (dataCount_per_pixel > 5)
 	{
-		// get the points of min and max 
-		// and skip (advance) to the next data point group
-
+//		out = data2points()
 	}
 	else
 	{
 		for (auto it = range.first; it != range.second; it++)
 		{
 			// Map data point into point in RECT
-			pt = getpoint((*it).first, (*it).second, rcAx, xlim, ylim);
+			pt = getpoint((*it).first, (*it).second, rcArea, xlim, ylim);
 			out.push_back(pt);
 		}
 	}
-
-
 	return out;
 }
 
+// if it is audio, or null-x, plot, forget about map. Use this.
 vector<POINT> CPlotDlg::plotpoints2(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
 {
 	vector<POINT> out;
-
-	map<double, double> in;
 	int fs = p->GetFs();
+	//map<double, double> in;
+	//for (unsigned int k = 0; k < p->nSamples; k++)
+	//{
+	//	double t = (double)k / fs;
+	//	in[t] = p->buf[k];
+	//}
+	//out = data2points(in, pax->rct, pax->xlim, pax->ylim);
+	vector<double> xbuf;
+	vector<double> buf(p->buf, p->buf + p->nSamples);
 	for (unsigned int k = 0; k < p->nSamples; k++)
 	{
 		double t = (double)k / fs;
-		in[t] = p->buf[k];
+		xbuf.push_back(t);
 	}
-	// Get the range of iterators in the relevant area from xlim
-
-
-	out = data2points(in, pax->rct, pax->xlim, pax->ylim);
+	out = data2points(xbuf, buf, pax->rct, pax->xlim, pax->ylim);
 	return out;
 }
 
