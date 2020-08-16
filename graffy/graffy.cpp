@@ -13,6 +13,7 @@
 #include "msgCrack.h"
 #include <string.h>
 #include <algorithm>
+#include "audstr.h"
 
 extern vector<CAstSig*> xscope;
 #ifndef GRAFFY_STATIC 
@@ -57,6 +58,8 @@ public:
 	multimap<HWND, RECT> redraw;
 	int getselRange(CSignals *hgo, CSignals *out);
 	int closeFigure(HANDLE h);
+	string iniFilename;
+	CRect defFigPos;
 	CGraffyEnv();
 	virtual ~CGraffyEnv();
 private:
@@ -406,6 +409,13 @@ HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 	}
 	if (hIcon)
 		SetClassLongPtr(newFig->hDlg, GCLP_HICON, (LONG)(LONG_PTR)hIcon);
+	CRect RectApplication, rcCon;
+	GetWindowRect(hWndAppl, RectApplication);
+	int screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
+	int screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
+	HWND hConsole = GetParent(hWndAppl);
+	GetWindowRect(GetConsoleWindow(), rcCon);
+
 	newFig->pctx = pctx;
 	newFig->devID = devID;
 	newFig->block = blocksize; //  7/7/2018
@@ -448,12 +458,27 @@ int CGraffyEnv::countFigures()
 	return out;
 }
 
+static int writePos(const char *fname, const RECT &pos, char *errStr)
+{
+	char buf[256];
+	sprintf(buf, "%d %d %d %d", pos.left, pos.top, pos.right, pos.bottom);
+	if (!printfINI(errStr, fname, "DEFAULT 1st FIG POS", "%s", buf))  return -1;
+	return 0;
+}
 
 int CGraffyEnv::closeFigure(HANDLE h)
 {
+	CRect rt;
+	char errstr[256];
 	//Returns the number of fig dlg windows remaining.
 	if (h == NULL) // delete all
 	{
+		GetWindowRect(hDlg_fig.back(), rt);
+		if (!writePos(theApp.iniFilename.c_str(), rt, errstr))
+		{
+			//decide what to do 8/15/2020
+		}
+		fig.back();
 		for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
 			(*it)->OnClose(); // inside OnClose(), delete *it is called.
 		fig.clear();
@@ -461,6 +486,15 @@ int CGraffyEnv::closeFigure(HANDLE h)
 	}
 	else
 	{
+		if (hDlg_fig.size() == 1)
+		{
+			GetWindowRect(hDlg_fig.back(), rt);
+			if (!writePos(theApp.iniFilename.c_str(), rt, errstr))
+			{
+				//decide what to do 8/15/2020
+			}
+		}
+		// When the last remaining figure window is closed, store the position info
 		CFigure *cfig = (CFigure*)h;
 		for (vector<HWND>::iterator it = hDlg_fig.begin(); it != hDlg_fig.end(); it++)
 		{
@@ -526,12 +560,38 @@ GRAPHY_EXPORT HWND GetHWND_PlotDlg2(HANDLE hFig)
 	return NULL;
 }
 
+
+static RECT readFigPos(const char *fname)
+{
+	char errStr[256];
+	string strRead;
+	int tar[4];
+	RECT out;
+	if (ReadINI(errStr, fname, "DEFAULT 1st FIG POS", strRead) >= 0 && str2array(tar, 4, strRead.c_str(), " ") == 4)
+	{
+		out.left = tar[0];
+		out.top = tar[1];
+		out.right = tar[2];
+		out.bottom = tar[3];
+	}
+	else
+	{
+		// Default values if the default was not specified or unavailable
+		out.left = 0;
+		out.top = 50;
+		out.right = 500;
+		out.bottom = 310;
+	}
+	return out;
+}
+
 void thread4Plot(PVOID var)
 {
 	MSG         msg;
 	CSignals gcf;
 	GRAFWNDDLGSTRUCT *in = (GRAFWNDDLGSTRUCT *)var;
-	if ((in->fig = OpenFigure(&in->rt, in->caption.c_str(), in->hWndAppl, in->devID, in->block, in->callbackID.c_str(), in->hIcon)) == NULL)
+	CRect pos = readFigPos(theApp.iniFilename.c_str());
+	if ((in->fig = OpenFigure(&pos, in->caption.c_str(), in->hWndAppl, in->devID, in->block, in->callbackID.c_str(), in->hIcon)) == NULL)
 	{
 		PostThreadMessage(in->threadCaller, WM_PLOT_DONE, 0, 0);
 		return;
@@ -616,6 +676,12 @@ GRAPHY_EXPORT HANDLE OpenChildGraffy(GRAFWNDDLGCHILDSTRUCT &in)
 	return pin->fig;
 }
 
+GRAPHY_EXPORT void showvar2graffy(void *p)
+{//To be used to send any block of data from showvar to graffy
+ // iniFilename is sent for now 8/15/2020
+	theApp.iniFilename = (char*)p;
+}
+
 GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in)
 { 
 	GRAFWNDDLGSTRUCT* pin = new GRAFWNDDLGSTRUCT;
@@ -627,7 +693,7 @@ GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in)
 	pin->hWndAppl = in.hWndAppl;
 	pin->threadCaller = in.threadCaller;
 	pin->caption = in.caption;
-	pin->rt = in.rt;
+	pin->rt = in.rt; // probably not necessary any more
 	pin->callbackID = in.callbackID;
 	_beginthread(thread4Plot, 0, (void*)pin);
 

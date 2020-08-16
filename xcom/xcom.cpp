@@ -247,27 +247,27 @@ CWndDlg * Find_cellviewdlg(const char *name)
 	return NULL;
 }
 
-void closeXcom(const char *AppPath)
+void closeXcom(const char *EnvAppPath, int fs, const char *AppPath)
 {
-	//When CTRL_CLOSE_EVENT is pressed, you have 5 seconds. That's how Console app works in Windows.
+	// When CTRL_CLOSE_EVENT is pressed, you have 5 seconds. That's how Console app works in Windows.
+	// This function may continue after WinMain is finished; i.e., pEnv might have already lost its scope.
 	// Finish all cleanup work during this time.
 
 	CAstSig *pcast = xscope.front();
 	char estr[256], buffer[256];
-	const char *sss = pcast->GetPath();
-	const char* pt = strstr(pcast->GetPath(), AppPath); 
+	const char* pt = strstr(EnvAppPath, AppPath);
 	string pathnotapppath;
 	size_t loc;
 	if (pt!=NULL)
 	{
-		pathnotapppath.append(pcast->GetPath(),  pcast->GetPath()-pt);
+		pathnotapppath.append(EnvAppPath, EnvAppPath - pt);
 		string  str(pt + strlen(AppPath));
 		loc = str.find_first_not_of(';');
 		pathnotapppath.append(pt + strlen(AppPath)+loc);
 	}
 	else
-		pathnotapppath.append(pcast->GetPath());
-	int res = writeINIs(iniFile, estr, pcast->pEnv->Fs, pathnotapppath.c_str());
+		pathnotapppath.append(EnvAppPath);
+	int res = writeINIs(iniFile, estr, fs, pathnotapppath.c_str());
 	delete pcast->pEnv;
 
 	CRect rt1, rt2, rt3;
@@ -310,8 +310,9 @@ void closeXcom(const char *AppPath)
 	if (!printfINI(estr, iniFile, "DEBUG VIEW", "%d", debugview))
 	{	//do something	
 	}
-	for (vector<CAstSig*>::iterator it = xscope.begin()+1; it != xscope.end(); it++)
-		delete *it;
+	// Investigate--when there's an error during a udf and exit the application the delete *it causes a crash. 8/15/2020
+//	for (vector<CAstSig*>::iterator it = xscope.begin()+1; it != xscope.end(); it++)
+//		delete *it;
 	fclose(stdout);
 	fclose(stdin);
 }
@@ -376,6 +377,12 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	bool win7 = isWin7() ? true : false;
 	HINSTANCE hModule = GetModuleHandle(NULL);
 	hShowDlg = mShowDlg.hDlg = CreateDialogParam (hModule, MAKEINTRESOURCE(IDD_SHOWVAR), win7 ? NULL : GetConsoleWindow(), (DLGPROC)showvarDlgProc, (LPARAM)&mShowDlg);
+	if (!hShowDlg)
+	{
+		hShowvarThread = NULL;
+		MessageBox(NULL, "Cannot create Settings and Variables Dialogbox", "AUXLAB Critical", MB_OK);
+		return 0;
+	}
 	SetEvent(hE);
 
 	ShowWindow(mHistDlg.hDlg,SW_SHOW);
@@ -1783,19 +1790,21 @@ LRESULT CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 
 #include "wavplay.h"
 
-
-int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
+CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 {
-	char buf[256], auxextdllname[256];
-	int res;
-	string addp, emsg;
-	vector<string> tar;
+	char buf[256];
 	int fs;
+	INITCOMMONCONTROLSEX InitCtrls;
+	InitCtrls.dwICC = ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS; // ICC_LINK_CLASS will not work without common control 6.0 which I opted not to use
+	InitCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
+	BOOL bRet = InitCommonControlsEx(&InitCtrls);
+	AllocConsole();
+	AttachConsole(ATTACH_PARENT_PROCESS);
+	SetConsoleCP(437);
+	SetConsoleOutputCP(437);
 	HWND hr = GetConsoleWindow();
 	char fullmoduleName[MAX_PATH], moduleName[MAX_PATH];
-	char drive[16], dir[256], ext[8], fname[MAX_PATH], buffer[MAX_PATH];
-
-	//	 _set_output_format(_TWO_DIGIT_EXPONENT);
+	char drive[16], dir[256], ext[8];
 
 	hE = CreateEvent(NULL, 0, 0, "showvarThreadCreation");
 
@@ -1815,45 +1824,24 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	strcat(auxextdllname, "64");
 #endif
 	SetConsoleTitle(buf);
-	EditPrintfFileBackup("c:\\temp\\eventlogs.txt");
 
-	RECT rt;
-	GetWindowRect(hr, &rt);
 	DWORD dw = sizeof(buf);
 	GetComputerName(buf, &dw);
 	sprintf(iniFile, "%s%s_%s.ini", mainSpace.AppPath, fname, buf);
-	res = readINIs(iniFile, buf, fs, udfpath);
-	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
+	int res = readINIs(iniFile, buf, fs, udfpath);
 	CAstSigEnv::AppPath = string(mainSpace.AppPath);
-	HMENU hMenu = GetSystemMenu(hr, FALSE);
-	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
-	AppendMenu(hMenu, MF_STRING, 1010, "F1 does not work here. Use it in \"Settings & Variables\"");
-	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
-		::MessageBox(hr, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
-	if ((hHistoryThread = _beginthreadex(NULL, 0, histThread, (void*)mainSpace.AppPath, 0, NULL)) == -1)
-		::MessageBox(hr, "History Thread Creation Failed.", "AUXLAB mainSpace", 0);
+	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
+	assert(pglobalEnv);
+	return pglobalEnv;
+}
 
-	INITCOMMONCONTROLSEX InitCtrls;
-	InitCtrls.dwICC = ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS; // ICC_LINK_CLASS will not work without common control 6.0 which I opted not to use
-	InitCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
-	BOOL bRet = InitCommonControlsEx(&InitCtrls);
-	cellviewdlg.push_back(&mShowDlg);
-
-	hEventLogger = FindWindow("EventLogger", "");
-	setHWNDEventLogger(hEventLogger);
-	sendtoEventLogger("AUXLAB begins.");
-
-	AllocConsole();
-	AttachConsole(ATTACH_PARENT_PROCESS);
-	SetConsoleCP(437);
-	SetConsoleOutputCP(437);
-
-	WaitForSingleObject(hE, INFINITE);
-	CloseHandle(hE);
+void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
+{
+	char buf[256];
+	string addp;
+	vector<string> tar;
 	pglobalEnv->InitBuiltInFunctions(hShowDlg);
 	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
-	CAstSig cast(pglobalEnv);
-	cast.u.application = "xcom";
 
 	addp = mainSpace.AppPath;
 	if (strlen(udfpath) > 0 && udfpath[0] != ';') addp += ';';
@@ -1866,24 +1854,31 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
 	DWORD fdwMode = ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_INSERT_MODE | ENABLE_EXTENDED_FLAGS;
-	//    DWORD fdwMode = ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_INSERT_MODE | ENABLE_EXTENDED_FLAGS | ENABLE_QUICK_EDIT_MODE; 
 	SetConsoleMode(hStdin, fdwMode);
-	if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE)) ::MessageBox(hr, "Console control handler error", "AUXLAB", MB_OK);
+	if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)CtrlHandler, TRUE))
+		::MessageBox(NULL, "Console control handler error", "AUXLAB", MB_OK);
 
 	fdwMode = ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT;
-	res = SetConsoleMode(hStdout, fdwMode);
+	if (!SetConsoleMode(hStdout, fdwMode))
+		::MessageBox(NULL, "Error--SetConsoleMode", "AUXLAB", MB_OK);
 
-	dw = sizeof(buf);
+	DWORD dw = sizeof(buf);
 	GetComputerName(buf, &dw);
 	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", mainSpace.AppPath, fname, HISTORY_FILENAME, buf);
 	size_t nHistFromFile = mainSpace.ReadHist();
 	mainSpace.comid = nHistFromFile;
+}
 
+int initializeAUXLAB3(CAstSig *pcast, char *auxextdllname)
+{
+	char fname[256];
+	string emsg;
 #ifndef WIN64
 	sprintf(fname, "%sauxp32.dll", mainSpace.AppPath);
 #else
 	sprintf(fname, "%sauxp64.dll", mainSpace.AppPath);
 #endif
+	pcast->u.application = "xcom";
 	HANDLE hLib = LoadLibrary(fname); // fix this.... if the path has been changed in the middle, we are no longer in AppPath
 	if (!hLib)
 		printf("[Warning] Private UDF library module %s not found\n", fname);
@@ -1894,46 +1889,69 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 		while (1)
 		{
 			// this is outside of try... an exception will not be handled. Make sure it won't fail. 8/16/2019
-			res = cast.LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
+			res = pcast->LoadPrivateUDF((HMODULE)hLib, ++id, emsg);
 			if (res.empty())
 				break;
 		}
 		FreeLibrary((HMODULE)hLib);
 	}
+	mShowDlg.pcast = pcast;
+	mShowDlg.pcastCreated = false;
+	mShowDlg.name = "#base";
+	mShowDlg.Fillup();
+	mShowDlg.changed = false;
+	mShowDlg.pVars = &pcast->Vars; // new 
+	mShowDlg.pGOvars = &pcast->GOvars; // new 
+	xscope.push_back(pcast);
+	initGraffy(pcast);
+	pcast->astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &ValidateFig, &SetGOProperties, &RepaintGO);
+	init_aux_reserves();
+	return 0;
+}
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
+{
+	char buf[256], auxextdllname[256], fname[256];
+	CAstSigEnv *pglobalEnv = initializeAUXLAB(auxextdllname, fname);
+
+	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
+		::MessageBox(NULL, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
+	if ((hHistoryThread = _beginthreadex(NULL, 0, histThread, (void*)mainSpace.AppPath, 0, NULL)) == -1)
+		::MessageBox(NULL, "History Thread Creation Failed.", "AUXLAB mainSpace", 0);
+	WaitForSingleObject(hE, INFINITE);
+	CloseHandle(hE);
+
+	cellviewdlg.push_back(&mShowDlg);
+
+	hEventLogger = FindWindow("EventLogger", "");
+	setHWNDEventLogger(hEventLogger);
+	sendtoEventLogger("AUXLAB begins.");
+
+	initializeAUXLAB2(pglobalEnv, auxextdllname, fname);
+	CAstSig cast(pglobalEnv);
+	initializeAUXLAB3(&cast, auxextdllname);
+
+	DWORD dw;
 	WriteConsole(hStdout, mainSpace.comPrompt.c_str(), (DWORD)mainSpace.comPrompt.size(), &dw, NULL);
 
-	while (mShowDlg.hDlg == NULL) {
-		Sleep(100);
-		mShowDlg.pcast = &cast;
-		mShowDlg.pcastCreated = false;
-		mShowDlg.name = "#base";
-		mShowDlg.Fillup();
-		mShowDlg.changed = false;
-	}
-	mShowDlg.pcast = &cast; // to be deleted...
-	mShowDlg.pVars = &cast.Vars; // new 
-	mShowDlg.pGOvars = &cast.GOvars; // new 
 	ShowWindow(mShowDlg.hDlg, SW_SHOW);
 	ShowWindow(mHistDlg.hDlg, SW_SHOW);
 
 	CRect rt1, rt2, rt3, rt4;
-	res = readINI_pos(iniFile, &rt1, &rt2, &rt3, &rt4);
+	int res = readINI_pos(iniFile, &rt1, &rt2, &rt3, &rt4);
+	HWND hr2 = GetConsoleWindow();
 	if (res & 1)
-		MoveWindow(hr, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
+		MoveWindow(hr2, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
+	HMENU hMenu = GetSystemMenu(hr2, FALSE);
+	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
+	AppendMenu(hMenu, MF_STRING, 1010, "F1 does not work here. Use it in \"Settings & Variables\"");
 
-	xscope.push_back(&cast);
-	initGraffy(&cast);
-	cast.u.application = "xcom";
-//	mainSpace.RunTest("d:\\temp\\auxlabtest.txt", "", "d:\\temp\\reffile.txt");
 	SYSTEMTIME lt;
 	GetLocalTime(&lt);
-	sprintf(buffer, "//\t[%02d/%02d/%4d, %02d:%02d:%02d] AUXLAB %s begins------", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond, mainSpace.AppVersion);
+	sprintf(buf, "//\t[%02d/%02d/%4d, %02d:%02d:%02d] AUXLAB %s begins------", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond, mainSpace.AppVersion);
 	vector<string> in;
-	in.push_back(buffer);
+	in.push_back(buf);
 	mainSpace.LogHistory(in);
 
-	cast.astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &ValidateFig, &SetGOProperties, &RepaintGO);
-	init_aux_reserves();
 
 	CONSOLE_CURSOR_INFO concurinf;
 
@@ -1942,7 +1960,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	SetConsoleCursorInfo(hStdout, &concurinf);
 
 	mainSpace.console();
+	sendtoEventLogger("closeXcom called.");
 
-	closeXcom(mainSpace.AppPath);
+	closeXcom(pglobalEnv->AuxPath.c_str(), pglobalEnv->Fs, mainSpace.AppPath);
+	sendtoEventLogger("WinMain exiting.");
 	return 1;
 }

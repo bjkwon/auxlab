@@ -31,18 +31,26 @@ void CPlotDlg::OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc)
 	}
 }
 
-static POINT getpoint(double x, double y, const CRect &rcAx, double xlim[], double ylim[])
+static inline LONG getpointx(double x, const CRect &rcAx, double xlim[])
+{
+	double mapx = rcAx.Width() / (xlim[1] - xlim[0]);
+	double _x = .5 + rcAx.left + mapx * (x - xlim[0]);
+	LONG out = (LONG)_x;
+	return out;
+}
+static inline LONG getpointy(double y, const CRect &rcAx, double ylim[])
+{
+	double mapy = rcAx.Height() / (ylim[1] - ylim[0]);
+	double _y = rcAx.bottom - mapy * (y - ylim[0]);
+	LONG out = (LONG)_y;
+	return out;
+}
+
+static inline POINT getpoint(double x, double y, const CRect &rcAx, double ratiox, double ratioy, double xlim[], double ylim[])
 {
 	//convert (x,y) in double to point in rcAx
-	// rcAx.left is xlim[0]
-	// rcAx.right is xlim[1]
-	// rcAx.top is ylim[0]
-	// rcAx.bottom is ylim[1]
-
-	double mapx = rcAx.Width() / (xlim[1] - xlim[0]);
-	double mapy = rcAx.Height() / (ylim[1] - ylim[0]);
-	double _x = .5 + rcAx.left + mapx * (x - xlim[0]);
-	double _y = .5 + rcAx.bottom - mapy * (y - ylim[0]);
+	double _x = .5 + rcAx.left + ratiox * (x - xlim[0]);
+	double _y = .5 + rcAx.bottom - ratioy * (y - ylim[0]);
 	POINT out = { (LONG)_x, (LONG)_y };
 	return out;
 }
@@ -85,7 +93,6 @@ static pair<vector<double>::const_iterator, vector<double>::const_iterator>
 get_inside_xlim(int& count, const vector<double> &buf, double xlim[])
 {
 	pair<vector<double>::const_iterator, vector<double>::const_iterator> out;
-//	map<double, double>::const_iterator it;
 	//Assumption: xlim is monotonically increasing
 	auto it = buf.begin();
 	for (; it != buf.end() && *it <= xlim[1]; it++)
@@ -112,7 +119,7 @@ get_inside_xlim(int& count, const vector<double> &buf, double xlim[])
 		}
 	}
 	if (it == buf.end())
-		out.second = it;
+		out.second = --it;
 	return out;
 }
 
@@ -129,8 +136,13 @@ static vector<POINT> data2points(const vector<double>& xbuf, const vector<double
 	int count;
 	pair<vector<double>::const_iterator, vector<double>::const_iterator>
 		range = get_inside_xlim(count, xbuf, xlim);
+	// if xbuf is out of xlim, return empty
+	if (count == 0) return out;
 	// calculate how many data points one pixel represents 
-	double dataCount_per_pixel = (double)count / rcArea.Width();
+	LONG px1 = getpointx(*range.first, rcArea, xlim);
+	LONG px2 = getpointx(*range.second, rcArea, xlim);
+	LONG pxdiff = px2 - px1;
+	double dataCount_per_pixel = (double)count / pxdiff;
 	int idataCount_per_pixel = (int)dataCount_per_pixel;
 	const double remainder = dataCount_per_pixel - idataCount_per_pixel;
 	double leftover = remainder;
@@ -140,48 +152,51 @@ static vector<POINT> data2points(const vector<double>& xbuf, const vector<double
 		auto it = range.first;
 		auto it2 = buf.begin();
 		advance(it2, distance(xbuf.begin(), it));
-		int advance_count;
 		size_t cum = 0;
 		bool loop = true;
-		while (loop)//cum < buf.size())
+		pt.x = px1;
+		while (loop)
 		{
-			advance_count = idataCount_per_pixel;
+			size_t advance_count = idataCount_per_pixel;
 			if (leftover > 1)
 			{
 				advance_count++;
 				leftover--;
 			}
+			if (cum + advance_count > count) advance_count = count - cum;
 			pair<vector<double>::const_iterator, vector<double>::const_iterator>
 				ul = minmax_element(it2, it2 + advance_count);
-			pt = getpoint(*it, *ul.first, rcArea, xlim, ylim);
+			LONG temp = pt.y = getpointy(*ul.first, rcArea, ylim);
 			out.push_back(pt);
-			LONG temp = pt.y;
-			pt = getpoint(*it, *ul.second, rcArea, xlim, ylim);
+			pt.y = getpointy(*ul.second, rcArea, ylim);
 			if (pt.y!=temp)
 				out.push_back(pt);
 			advance(it, advance_count);
 			advance(it2, advance_count);
 			cum += advance_count;
-			if (pt.x >= rcArea.right-1)
+			if (pt.x >= px2 || cum >= count)
 				loop = false;
 			leftover += remainder;
+			pt.x++;
 		}
 	}
 	else
 	{
 		auto it2 = buf.begin();
 		advance(it2, distance(xbuf.begin(), range.first));
+		double ratiox = rcArea.Width() / (xlim[1] - xlim[0]);
+		double ratioy = rcArea.Height() / (ylim[1] - ylim[0]);
 		for (auto it = range.first; it != range.second; it++, it2++)
 		{
 			// Map data point into point in RECT
-			pt = getpoint(*it, *it2, rcArea, xlim, ylim);
+			pt = getpoint(*it, *it2, rcArea, ratiox, ratioy, xlim, ylim);
 			out.push_back(pt);
 		}
 	}
 	return out;
 }
 
-// when do I use this?
+// Keep this for the case of plot(x,y) with x not monotonically increasing.
 static vector<POINT> data2points(const map<double, double> &data, const CRect & rcArea, double xlim[], double ylim[])
 {
 	// grab data in the range of xlim
@@ -197,14 +212,16 @@ static vector<POINT> data2points(const map<double, double> &data, const CRect & 
 	double dataCount_per_pixel = (double)count / rcArea.Width();
 	if (dataCount_per_pixel > 5)
 	{
-//		out = data2points()
+//		DO THIS AGAIN
 	}
 	else
 	{
+		double ratiox = rcArea.Width() / (xlim[1] - xlim[0]);
+		double ratioy = rcArea.Height() / (ylim[1] - ylim[0]);
 		for (auto it = range.first; it != range.second; it++)
 		{
 			// Map data point into point in RECT
-			pt = getpoint((*it).first, (*it).second, rcArea, xlim, ylim);
+			pt = getpoint((*it).first, (*it).second, rcArea, ratiox, ratioy, xlim, ylim);
 			out.push_back(pt);
 		}
 	}
@@ -227,7 +244,7 @@ vector<POINT> CPlotDlg::plotpoints2(const CSignal *p, CAxes *pax, CLine *lyne, C
 	vector<double> buf(p->buf, p->buf + p->nSamples);
 	for (unsigned int k = 0; k < p->nSamples; k++)
 	{
-		double t = (double)k / fs;
+		double t = (double)k / fs + p->tmark / 1000.;
 		xbuf.push_back(t);
 	}
 	out = data2points(xbuf, buf, pax->rct, pax->xlim, pax->ylim);
