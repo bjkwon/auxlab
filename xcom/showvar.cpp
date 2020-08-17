@@ -28,6 +28,7 @@
 #include <cstdlib>
 
 #include "wavplay.h"
+#include "utils.h"
 
 HWND hLog;
 
@@ -103,8 +104,6 @@ BOOL CALLBACK debugDlgProc (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK DebugBaseProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 
 #define RMSDB(BUF,FORMAT1,FORMAT2,X) { double rms;	if ((rms=X)==-1.*std::numeric_limits<double>::infinity()) strcpy(BUF, FORMAT1); else sprintf(BUF, FORMAT2, rms); }
-
-CWndDlg * Find_cellviewdlg(const char *name);
 
 uintptr_t hDebugThread(NULL);
 uintptr_t hDebugThread2(NULL);

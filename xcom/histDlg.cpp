@@ -68,6 +68,7 @@ CHistDlg::~CHistDlg(void)
 BOOL CHistDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 {
 	CWndDlg::OnInitDialog(hwndFocus, lParam);
+	sendtoEventLogger("CHistDlg::OnInitDialog");
 	lvInit();
 	SetTimer(FILLHIST, 100, NULL);
 	return TRUE;
@@ -94,6 +95,7 @@ void CHistDlg::OnTimer(UINT id)
 	DWORD dw = sizeof(buf);
 	GetComputerName(buf, &dw);
 	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", AppPath, AppName, HISTORY_FILENAME, buf);
+	sendtoEventLogger("CHistDlg::OnTimer begins");
 
 	vector<string> lines;
 	FILE *fp = fopen(logfilename, "rt");
@@ -106,10 +108,13 @@ void CHistDlg::OnTimer(UINT id)
 		size_t res = fread(buf, 1, (size_t)filesize, fp);
 		buf[res]=0;
 		fclose(fp);
+		sendtoEventLogger("str2vect begins");
 		size_t res2 = str2vect(lines, buf, "\r\n");
+		sendtoEventLogger("str2vect ends");
 		delete[] buf;
 	}
 	FillupHist(lines);
+	sendtoEventLogger("CHistDlg::OnTimer ends");
 }
 
 void CHistDlg::OnShowWindow(BOOL fShow, UINT status)
@@ -244,7 +249,7 @@ LRESULT CHistDlg::ProcessCustomDraw (NMHDR *lParam)
 	return CDRF_DODEFAULT;
 }
 
-void CHistDlg::FillupHist(vector<string> in)
+void CHistDlg::FillupHist(const vector<string> &in)
 {
 	int width[]={400, };
 	LRESULT res;
@@ -257,7 +262,7 @@ void CHistDlg::FillupHist(vector<string> in)
 	LvItem.iItem=0;
 	LvItem.iSubItem=0;
 	//display up to 2048 previous commands
-	for (vector<string>::reverse_iterator r = in.rbegin(); r<in.rend() && cum<2048; r++)
+	for (auto r = in.rbegin(); r<in.rend() && cum<2048; r++)
 	{
 		if ((*r).find("//")!=0)
 		{

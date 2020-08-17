@@ -42,6 +42,6 @@ public:
 	LRESULT ProcessCustomDraw (NMHDR *lParam);
 	void UpdateSheets();
 	void lvInit();
-	void FillupHist(vector<string> in);
+	void FillupHist(const vector<string> &in);
 	void AppendHist(vector<string> input);
 };

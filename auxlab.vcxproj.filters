@@ -42,6 +42,9 @@
     <ClCompile Include="$(SrcPath)TabCtrl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="$(SrcPath)xcom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -69,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="$(SrcPath)TabCtrl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(SrcPath)utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="$(SrcPath)xcom.h">

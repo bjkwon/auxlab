@@ -502,11 +502,10 @@ try {
 	if (strlen(readbuffer) > 0)
 	{
 		size_t count = str2vect(tar, readbuffer, "\r\n");
-		sendtoEventLogger("Enter pressed.Trying to logging %s\n", tar.front().c_str());
+		sendtoEventLogger("Enter pressed. Trying to logging %s", tar.front().c_str());
 		LogHistory(tar);
 		mHistDlg.AppendHist(tar);
-//		if (tar.size()>2)
-//			MessageBox(NULL, "multiline", tar.front().c_str(),0);
+		sendtoEventLogger("mHistDlg.AppendHist done.");
 		for (size_t k = 0; k < tar.size(); k++)
 		{
 			history.push_back(tar[k].c_str());
