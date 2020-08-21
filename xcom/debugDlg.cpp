@@ -33,7 +33,6 @@ extern HANDLE hStdin, hStdout;
 CFileDlg fileDlg2;
 extern CShowvarDlg mShowDlg;
 extern uintptr_t hDebugThread2;
-extern char iniFile[256];
 
 CTabControl mTab;
 
@@ -742,7 +741,7 @@ BOOL CDebugBaseDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 	int firstPage2show(0);
 	char errstr[256];
 	string strRead;
-	if (ReadINI (errstr, iniFile, "DEBUGGING UDFS", strRead)>0)
+	if (ReadINI (errstr, mainSpace.iniFile, "DEBUGGING UDFS", strRead)>0)
 	{
 		vector<string> tar;
 		vector<bool> good;
@@ -771,7 +770,7 @@ BOOL CDebugBaseDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 			}
 		}
 		if (count > 0)
-			printfINI(errstr, iniFile, "DEBUGGING UDFS", newfiles.c_str());
+			printfINI(errstr, mainSpace.iniFile, "DEBUGGING UDFS", newfiles.c_str());
 	}
 	else
 	{
@@ -791,7 +790,7 @@ BOOL CDebugBaseDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 	if (udfname.size() > 0)
 	{
 		ShowWindow(SW_SHOW);
-		if (ReadINI(errstr, iniFile, "DEBUG VIEW POS", strRead) > 0)
+		if (ReadINI(errstr, mainSpace.iniFile, "DEBUG VIEW POS", strRead) > 0)
 		{
 			int tar[4];
 			if (str2array(tar, 4, strRead.c_str(), " ") == 4)

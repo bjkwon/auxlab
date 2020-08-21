@@ -57,6 +57,7 @@ public:
 	vector<string> LoadedModule;
 	size_t nHistFromFile;
 	size_t comid; // command ID
+	char iniFile[256];
 	char AppPath[256];
 	char AppVersion[16];
 	INPUT_RECORD debug_command_frame[6];

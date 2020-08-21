@@ -127,6 +127,7 @@ size_t str2vect(vector<string> &_out, const char* input, const char *delim, int 
 	string delim2(delim); 
 	vector<string> out;
 	if (maxSize_x < 0) return 0;
+	if (!input[0]) return 0;
 	int nitems = countDeliminators(input, delim);
 	out.reserve(nitems);
 	trimr(str, delim);
