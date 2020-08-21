@@ -46,7 +46,7 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	string filename = past->MakeFilename(past->ComputeString(p), "");
+	string filename = past->makefullfile(past->ComputeString(p));
 	char mode[8];
 	strcpy(mode, past->ComputeString(p->next).c_str());
 
@@ -346,8 +346,8 @@ void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 //	past->Compute(p);
 	if (firstarg.IsString())
 	{
-		string filename = past->MakeFilename(past->ComputeString(p), "txt");
-		file = fopen(filename.c_str(), "a");
+		string filename = past->makefullfile(firstarg.string());
+		file = fopen(filename.c_str(), "at");
 	}
 	else
 	{
@@ -438,9 +438,10 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 		}
 	}
 	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
-	filename = past->MakeFilename(filename, "wav");
+
+	string fullfilename = past->makefullfile(filename, ".wav");
 	char errStr[256];
-	if (!past->Sig.Wavwrite(filename.c_str(), errStr, option))
+	if (!past->Sig.Wavwrite(fullfilename.c_str(), errStr, option))
 		throw CAstException(USAGE, *past, p).proc(errStr);
 }
 
@@ -512,7 +513,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	*  Output: audio_signal
 	*/
 	past->checkString(pnode, past->Sig);
-	string filename = past->MakeFilename(past->Sig.string(), "wav");
+	string filename = past->makefullfile(past->Sig.string(), ".wav");
 	char errStr[256];
 	if (!past->Sig.Wavread(filename.c_str(), errStr))
 		throw CAstException(USAGE, *past, p).proc(errStr);

@@ -29,18 +29,11 @@ extern CHistDlg mHistDlg;
 extern xcom mainSpace;
 extern HANDLE hEventLastKeyStroke2Base;
 
-void closeXcom(const char *penvAppPath, int fs, const char *AppPath);
+void closeXcom();
 
 BOOL CtrlHandler( DWORD fdwCtrlType ) 
 { 
 	sendtoEventLogger("in CtrlHandler");
-	HMODULE h = HMODULE_THIS;
-	char fullmoduleName[MAX_PATH], AppPath[MAX_PATH], drive[16], dir[256];
- 	GetModuleFileName(h, fullmoduleName, MAX_PATH);
- 	_splitpath(fullmoduleName, drive, dir, NULL, NULL);
- 	sprintf (AppPath, "%s%s", drive, dir);
-	char penvapppath[256]; 
-	int fs = xscope.front()->pEnv->Fs;
 
   switch( fdwCtrlType ) 
   { 
@@ -53,8 +46,7 @@ BOOL CtrlHandler( DWORD fdwCtrlType )
     // CTRL-CLOSE: confirm that the user wants to exit. 
     case CTRL_CLOSE_EVENT: 
 		printf("Ctrl-Close event. Exiting..\n");
-		strcpy(penvapppath, xscope.front()->pEnv->AppPath.c_str());
-		closeXcom(penvapppath, fs, AppPath);
+		closeXcom();
 		return( TRUE );
  
     // Pass other signals to the next handler. 

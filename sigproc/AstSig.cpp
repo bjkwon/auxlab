@@ -3068,7 +3068,7 @@ void CAstSig::Transpose(const AstNode *pnode, AstNode *p)
 	Sig.transpose();
 }
 
-CAstSig &CAstSig::Reset(const int fs, const char* path)
+CAstSig &CAstSig::Reset(const int fs)
 {
 	map<string,UDF>::iterator it;
 	for (it=pEnv->udf.begin(); it!=pEnv->udf.end(); it++)
@@ -3076,7 +3076,6 @@ CAstSig &CAstSig::Reset(const int fs, const char* path)
 	Script = "";
 	pEnv->udf.clear();
 	Vars.clear();
-	if (path)	pEnv->AuxPath=path; // I don't know if this might cause a trouble.
 	if (fs > 1)
 		pEnv->Fs = fs;
 	return *this;
@@ -3152,41 +3151,69 @@ CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
 	return *this;
 }
 
-CAstSigEnv &CAstSigEnv::SetPath(const char *path)
+string CAstSigEnv::path_delimited_semicolon()
 {
-	string strPath = path;
-	size_t len = strlen(path);
-	if (len && path[len-1] != '\\')	strPath += '\\';
-	AuxPath = strPath;
-	return *this;
+	string out;
+	for (auto s : AuxPath)
+		out += s + ';';
+	return out;
 }
 
-CAstSigEnv &CAstSigEnv::AddPath(const char *path)
+void CAstSigEnv::AddPath(string path)
 {
-	vector<string> paths;
-	size_t nItems = str2vect(paths, AuxPath.c_str(), ";");
-	string path0(path);
-	size_t len0 = path0.length();
-	if ((len0>0) && (path0[len0 - 1] != '\\'))
-		path0 += '\\';
-	for (size_t k = 0; k < nItems; k++)
+	trim(path, "\r \n\t");
+	if (!path.empty())
 	{
-		if (paths[(int)k] == path0) return *this;
+		transform(path.begin(), path.end(), path.begin(), ::tolower);
+		if (path.back() != '\\') path += '\\';
+		auto fd = find(AuxPath.begin(), AuxPath.end(), path);
+		if (fd == AuxPath.end())
+			AuxPath.push_back(path);
 	}
-	size_t len = AuxPath.length();
-	if ( (len>0) && (AuxPath[len-1] != ';') )
-		AuxPath += ';';
-	AuxPath += path;
-	return *this;
+}
+
+int CAstSigEnv::SetPath(const char *path)
+{
+	string _path = path;
+	size_t pos = _path.find_first_of(';');
+	size_t off = 0;
+	string pcs;
+	int count = 0;
+	while (1)
+	{
+		if (pos == string::npos)
+			pcs = _path.substr(off);
+		else
+			pcs = _path.substr(off, pos - off);
+		AddPath(pcs);
+		count++;
+		if (pos == string::npos) break;
+		off = pos + 1;
+		pos = _path.find_first_of(';', off);
+	}
+	return count;
 }
 
 #if !defined(MAX_PATH)
 #define MAX_PATH          260
 #endif
 
+string CAstSig::makefullfile(const string &fname, char *extension)
+{
+	char drive[64], dir[MAX_PATH], ext[MAX_PATH];
+	_splitpath(fname.c_str(), drive, dir, NULL, ext);
+	string fullfilename;
+	if (drive[0] == 0 && dir[0] == 0) // no directory info
+		fullfilename = pEnv->AppPath;
+	fullfilename += fname;
+	if (!ext[0])
+		fullfilename += extension;
+	return fullfilename;
+}
+
+
 FILE *CAstSig::OpenFileInPath(string fname, string ext, string &fullfilename)
 { // in in out
-	string pathscanned;
 	char drive[64], dir[MAX_PATH], filename[MAX_PATH], extension[MAX_PATH];
 	_splitpath(fname.c_str(), drive, dir, filename, extension);
 	transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -3204,43 +3231,21 @@ FILE *CAstSig::OpenFileInPath(string fname, string ext, string &fullfilename)
 		return fopen(fname.c_str(), type);
 	}
 	else {
-		string path, ofname(fname);
-//		if (ext == "aux") // AuxPath is for all, not just for aux files.
-			path = pEnv->AuxPath;
-		for (size_t ps=0; size_t p=path.find(';', ps); ps=p+1) {
-			int pe = (p==string::npos) ? (int)path.length() - 1 : (int)p - 1;
-			for (; ps < path.length() && isspace(path[ps]); ps++)
-				;
-			for (; pe >= 0 && isspace(path[pe]); pe--)
-				;
-			if ((int)ps <= pe)
+		string ofname(fname);
+		// search fname in AuxPath, beginning with current working directory
+		fullfilename = pEnv->AppPath + fname;
+		FILE *file = fopen(fullfilename.c_str(), type);
+		if (!file)
+		{
+			for (auto path : pEnv->AuxPath)
 			{
-				pathscanned += path.substr(ps, pe - ps + 1);
-				fname = path.substr(ps, pe - ps + 1) + ofname;
+				fullfilename = path + fname;
+				file = fopen(fullfilename.c_str(), type);
+				if (file) return file;
 			}
-			if (FILE *file = fopen(fname.c_str(), type))
-			{
-				fullfilename = fname;
-				return file;
-			}
-			if (p == string::npos)
-				break;
 		}
-		fullfilename = pathscanned;
-		return NULL;
+		return file;
 	}
-}
-
-string CAstSig::MakeFilename(string fname, const string ext)
-{
-	trim(fname,' ');
-	size_t pdot = fname.rfind('.');
-	if (pdot == fname.npos || pdot < fname.length()-4)
-		fname += "." + ext;
-	if (fname[0] != '\\' && fname[1] != ':')
-		if (ext == "aux")
-			return pEnv->AuxPath + fname;
-	return fname;
 }
 
 bool CAstSig::IsStatement(const AstNode *pnode)

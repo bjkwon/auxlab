@@ -5,13 +5,13 @@
 #include "showvar.h"
 #include "histDlg.h"
 #include "xcom.h"
+#include "resource1.h"
 
+extern xcom mainSpace;
 extern vector<CWndDlg*> cellviewdlg;
-extern char iniFile[256];
 extern CShowvarDlg mShowDlg;
 extern CHistDlg mHistDlg;
 extern unordered_map<string, CDebugDlg*> dbmap;
-extern xcom mainSpace;
 extern uintptr_t hShowvarThread;
 extern uintptr_t hHistoryThread;
 extern uintptr_t hDebugThread2;
@@ -55,7 +55,7 @@ static int writeINI_pos(const char *fname, char *estr, CRect rtMain, CRect rtSho
 	return 1;
 }
 
-void closeXcom(const char *EnvAppPath, int fs, const char *AppPath)
+void closeXcom()
 {
 	// When the close button is pressed, i.e.,	CTRL_CLOSE_EVENT is posted, 
 	// you have 5 seconds to finish all cleanup work
@@ -65,26 +65,13 @@ void closeXcom(const char *EnvAppPath, int fs, const char *AppPath)
 
 	CAstSig *pcast = xscope.front();
 	char estr[256], buffer[256];
-	const char* pt = strstr(EnvAppPath, AppPath);
-	string pathnotapppath;
-	size_t loc;
-	if (pt != NULL)
-	{
-		pathnotapppath.append(EnvAppPath, EnvAppPath - pt);
-		string  str(pt + strlen(AppPath));
-		loc = str.find_first_not_of(';');
-		pathnotapppath.append(pt + strlen(AppPath) + loc);
-	}
-	else
-		pathnotapppath.append(EnvAppPath);
-	int res = writeINIs(iniFile, estr, fs, pathnotapppath.c_str());
 	delete pcast->pEnv;
 
 	CRect rt1, rt2, rt3;
 	GetWindowRect(GetConsoleWindow(), &rt1);
 	mShowDlg.GetWindowRect(rt2);
 	mHistDlg.GetWindowRect(rt3);
-	res = writeINI_pos(iniFile, estr, rt1, rt2, rt3);
+	int res = writeINI_pos(mainSpace.iniFile, estr, rt1, rt2, rt3);
 
 	string debugudfs("");
 	for (unordered_map<string, CDebugDlg*>::iterator it = dbmap.begin(); it != dbmap.end(); it++)
@@ -93,12 +80,12 @@ void closeXcom(const char *EnvAppPath, int fs, const char *AppPath)
 	}
 	if (debugudfs.size() > 0)
 	{
-		if (!printfINI(estr, iniFile, "DEBUGGING UDFS", "%s", debugudfs.c_str())) strcpy(buffer, estr);
+		if (!printfINI(estr, mainSpace.iniFile, "DEBUGGING UDFS", "%s", debugudfs.c_str())) strcpy(buffer, estr);
 		unordered_map<string, CDebugDlg*>::iterator it = dbmap.begin();
 		GetWindowRect(it->second->hParent->hDlg, &rt1);
 		CString str;
 		str.Format("%d %d %d %d", rt1.left, rt1.top, rt1.Width(), rt1.Height());
-		if (!printfINI(estr, iniFile, "DEBUG VIEW POS", "%s", str.c_str())) { strcpy(buffer, estr);/*do something*/ }
+		if (!printfINI(estr, mainSpace.iniFile, "DEBUG VIEW POS", "%s", str.c_str())) { strcpy(buffer, estr);/*do something*/ }
 	}
 	SYSTEMTIME lt;
 	GetLocalTime(&lt);
@@ -117,13 +104,38 @@ void closeXcom(const char *EnvAppPath, int fs, const char *AppPath)
 		if (it != dbmap.end())
 			PostThreadMessage(GetWindowThreadProcessId((it->second)->hDlg, NULL), WM__ENDTHREAD, 0, 0);
 	}
-	if (!printfINI(estr, iniFile, "DEBUG VIEW", "%d", debugview))
+	if (!printfINI(estr, mainSpace.iniFile, "DEBUG VIEW", "%d", debugview))
 	{	//do something	
 	}
-	// Investigate--when there's an error during a udf and exit the application the delete *it causes a crash. 8/15/2020
-//	for (vector<CAstSig*>::iterator it = xscope.begin()+1; it != xscope.end(); it++)
-//		delete *it;
 	fclose(stdout);
 	fclose(stdin);
 }
 
+BOOL CALLBACK AuxPathDlg(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
+{
+	string str;
+	char strbuf[4096];
+	int res;
+	switch (umsg)
+	{
+	case WM_INITDIALOG:
+		str = xscope.front()->pEnv->path_delimited_semicolon();
+		SetDlgItemText(hDlg, IDC_PATH, str.c_str());
+		SetDlgItemText(hDlg, IDC_WD, xscope.front()->pEnv->AppPath.c_str());
+		return 1;
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDOK:
+			res = GetDlgItemText(hDlg, IDC_PATH, strbuf, sizeof(strbuf));
+			str = xscope.front()->pEnv->path_delimited_semicolon();
+			if (str != strbuf)
+				xscope.front()->pEnv->SetPath(strbuf);
+		case IDCANCEL:
+			EndDialog(hDlg, 0);
+			break;
+		}
+		return 1;
+	}
+	return 0;
+}

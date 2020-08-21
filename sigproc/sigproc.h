@@ -141,18 +141,19 @@ public:
 	map<string, UDF> udf;
 	int Fs;
 	int curLine; // used for control F10
-	string AuxPath;
+	vector<string> AuxPath;
 	bool shutdown;
 	void InitBuiltInFunctions(HWND h);
 	void InitErrorCodes();
+	string path_delimited_semicolon();
 	void InitBuiltInFunctionsExt(const char *dllname);
 	map<string, Cfunction> builtin;
 
 	CAstSigEnv(const int fs = 1);
 	virtual ~CAstSigEnv();
 	CAstSigEnv& operator=(const CAstSigEnv& rhs);
-	CAstSigEnv &SetPath(const char *path);
-	CAstSigEnv &AddPath(const char *path);
+	int SetPath(const char *path);
+	void AddPath(string path);
 };
 
 class CDebugStatus
@@ -361,11 +362,10 @@ public:
 	CVar * TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
 	CVar * Eval(AstNode *pnode);
 	void Transpose(const AstNode *pnode, AstNode *p);
-	CAstSig &Reset(const int fs = 0, const char* path=NULL);
+	CAstSig &Reset(const int fs = 0);// , const char* path = NULL);
 	CAstSig &SetVar(const char *name, CVar *psig, CVar *pBase = NULL);
 	CAstSig * SetVarwithIndex(const CSignal& indices, CVar *psig, CVar *pBase);
 	CAstSig &SetGloVar(const char *name, CVar *psig, CVar *pBase = NULL);
-	const char *GetPath() {return pEnv->AuxPath.c_str();}
 	int GetFs(void) {return pEnv->Fs;}
 	string ComputeString(const AstNode *p) ;
 	string GetScript() {return Script;}
@@ -377,13 +377,13 @@ public:
 
 	int isthislocaludf(void);
 
-	vector<string> ClearVar(const char *var, CVar *psigBase=NULL);
+	vector<string> ClearVar(const char *var, CVar *psigBase = NULL);
 	void EnumVar(vector<string> &var);
 	CVar *GetSig(const char *var);
 
-	string MakeFilename(string fname, const string ext);
+	string makefullfile(const string &fname, char *extension = NULL);
 	FILE *OpenFileInPath(string fname, string ext, string &fullfilename);
-	AstNode *ReadUDF(string &emsg, const char *udf_filename, const char *internaltransport=NULL);
+	AstNode *ReadUDF(string &emsg, const char *udf_filename, const char *internaltransport = NULL);
 	multimap<CVar, AstNode *> register_switch_cvars(const AstNode *pnode, vector<int> &undefined);
 	AstNode *RegisterUDF(const AstNode *pnode, const char *udf_filename, string &filecontent);
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int minArgs, int maxArgs);

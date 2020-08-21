@@ -279,7 +279,8 @@ CVar & CVar::operator/=(const CVar & sec)
 
 bool CVar::operator==(const CVar & rhs)
 {
-	if (!cell.empty() || !strut.empty() || !struts.empty())
+	bool singleItem = type() & 1;
+	if (!singleItem && (!cell.empty() || !strut.empty() || !struts.empty()))
 		throw "For now no cell, strut or GO objects.";
 	return CSignals::operator==(rhs);
 }
