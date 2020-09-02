@@ -376,7 +376,7 @@ void CAxes::setxticks(double * const fullrange)
 	nSamples = (int)(percentShown * m_ln.front()->sig.nSamples+.5);
 	splitevenindices(out, nSamples, nTicks);
 	vxdata.reserve(nSamples);
-	if (m_ln.front()->xdata.nSamples==0)
+	if (m_ln.front()->xdata.empty())
 	{
 		beginID = (int)ceil(xlim[0]*fs);
 		for (int k=beginID; k<beginID+nSamples; k++) vxdata.push_back((double)(k)/fs); // no need to check whether it is an audio signal 
@@ -384,10 +384,10 @@ void CAxes::setxticks(double * const fullrange)
 	else
 	{
 		for (beginID=0; beginID<(int)m_ln.front()->sig.nSamples; beginID++)
-			if (m_ln.front()->xdata.buf[beginID]>=xlim[0]) 
+			if (m_ln.front()->xdata[beginID]>=xlim[0]) 
 				break;
 		for (int k=beginID; k<beginID+nSamples; k++) 
-			vxdata.push_back(m_ln.front()->xdata.buf[k]);
+			vxdata.push_back(m_ln.front()->xdata[k]);
 	}
 	xtick.set(out, vxdata, nSamples);
 }
@@ -423,10 +423,10 @@ GRAPHY_EXPORT void CAxes::setxlim()
 	xlim[1] = -std::numeric_limits<double>::infinity();
 	for (auto line : m_ln)
 	{
-		if (line->xdata.nSamples) // case of no chain.
+		if (!line->xdata.empty()) // case of no chain.
 		{
-			xlim[0] = min(line->xdata._min().front(), xlim[0]) - 1;
-			xlim[1] = max(line->xdata._max().front(), xlim[1]) + 1;
+			xlim[0] = min(*min_element(line->xdata.begin(), line->xdata.end()), xlim[0]) - 1;
+			xlim[1] = max(*max_element(line->xdata.begin(), line->xdata.end()), xlim[1]) + 1;
 		}
 		else
 		{
@@ -479,19 +479,19 @@ GRAPHY_EXPORT void CAxes::setylim()
 	ylimFull[0] = ylim[0]; ylimFull[1] = ylim[1];
 }
 
-GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col, char cymbol, LineStyle ls)
+GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, DWORD col, char cymbol, LineStyle ls)
 {
 	WORD colorcode = HIWORD(col);
 	BYTE lo = LOBYTE(colorcode);
 	BYTE hi = HIBYTE(colorcode);
 	char buf[64] = {};
-	bool complex = pydata->bufBlockSize == 16;
+	bool complex = ydata.bufBlockSize == 16;
 	CLine *in2, *in = new CLine(m_dlg, this);
 	if (complex)
 	{
-		int fs = pydata->GetFs();
+		int fs = ydata.GetFs();
 		in2 = new CLine(m_dlg, this);
-		for (CTimeSeries *p = pydata; p; p = p->chain)
+		for (const CTimeSeries *p = &ydata; p; p = p->chain)
 		{
 			CTimeSeries tp1(fs), tp2(fs);
 			tp1.UpdateBuffer(p->nSamples);
@@ -508,7 +508,7 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	}
 	else
 	{
-		in->strut["ydata"] = in->sig = *pydata;
+		in->strut["ydata"] = in->sig = ydata;
 	}
 	in->symbol = cymbol;
 	if (!hi) // color specified
@@ -518,15 +518,15 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	in->lineStyle = ls;
 	m_ln.push_back(in);
 	if (xdata)
-		in->xdata = CSignal(xdata, pydata->nSamples);
+		in->xdata = vector<double>(xdata, xdata + ydata.nSamples);
 	setxlim();
-	in->strut["xdata"] = CVar(CSignals(in->xdata));
+	in->strut["xdata"] = CVar(CSignals(CSignal(in->xdata)));
 	buf[0] = cymbol;
 	in->strut["marker"] = std::string(buf);
 	CSignals sig_color;
 	vector<DWORD> cmap;
 	if (hi) // color not specified, L or R specified.
-		cmap = Colormap(hi, hi, 'r', pydata->nGroups);
+		cmap = Colormap(hi, hi, 'r', ydata.nGroups);
 	else
 		cmap.push_back(col);
 	in->strut["color"] = COLORREF2CSignals(cmap, sig_color);

@@ -880,17 +880,57 @@ GRAPHY_EXPORT void ShowStatusBar(HANDLE _fig)
 }
 // if (data.GetType() == CSIG_VECTOR) strcpy(ax->xtick.format, "%.0f"); // for non-audio, plot(x) call, don't bother to show any decimal point on x-axis.
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CTimeSeries *pdata, COLORREF col, char cymbol, LineStyle ls)
+static CTimeSeries Real(const CTimeSeries &x)
 {
-	//ptdata is treated as non-stereo
-	CSignals *tp = ((CVar*)pdata)->next;
-	((CVar*)pdata)->next = NULL;
-	vector<HANDLE> out = PlotCSignals(_ax, x, (CSignals*)pdata, col, cymbol, ls);
-	((CVar*)pdata)->next = tp;
+	CTimeSeries out(x.GetFs(), x.nSamples);
+	if (x.IsComplex())
+	{
+		out.bufBlockSize = sizeof(double);
+		for (unsigned int k = 0; k < x.nSamples; k++) out.buf[k] = x.buf[2 * k];
+	}
+	else
+	{
+		out = x;
+	}
 	return out;
 }
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata, COLORREF col, char cymbol, LineStyle ls)
+static CTimeSeries Imag(const CTimeSeries &x)
+{
+	CTimeSeries out(x.GetFs(), (int)x.nSamples);
+	if (x.IsComplex())
+	{
+		out.bufBlockSize = sizeof(double);
+		for (unsigned int k = 0; k < x.nSamples; k++) out.buf[k] = x.buf[2 * k + 1];
+	}
+	else
+	{
+		out.UpdateBuffer(x.nSamples);
+	}
+	return out;
+}
+
+GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CTimeSeries &data, COLORREF col, char cymbol, LineStyle ls)
+{
+	// mono
+	vector<HANDLE> out;
+	CLine *lyne;
+	CAxes *ax = static_cast<CAxes *>(_ax);
+	if (data.IsComplex())
+	{
+		CTimeSeries real(data);
+		real.SetReal();
+		out.push_back(ax->plot(x, real, col, cymbol, ls));
+		CTimeSeries imag = Imag(data);
+		if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'l'; // real part in complex input, left channel
+		out.push_back(ax->plot(x, imag, col, cymbol, ls));
+	}
+	else
+		out.push_back(lyne = ax->plot(x, data, col, cymbol, ls));
+	return out;
+}
+
+GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals &data, COLORREF col, char cymbol, LineStyle ls)
 {
 	CLine *lyne;
 	CAxes *ax = static_cast<CAxes *>(_ax);
@@ -899,31 +939,12 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata
 	{
 		col = 0;		*((char*)&col + 3) = 'L';
 	} // left channel
-	if (pdata->IsComplex())
-	{
-		CSignals copy(*pdata);
-		copy.SetReal();
-		out.push_back(ax->plot(x, &copy, col, cymbol, ls));
-		pdata->Imag();
-		if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'l'; // real part in complex input, left channel
-		out.push_back(ax->plot(x, pdata, col, cymbol, ls));
-	}
-	else
-		out.push_back(lyne = ax->plot(x, pdata, col, cymbol, ls));
-	if (pdata->next)
+	out = PlotCSignals(_ax, x, (const CTimeSeries)data, col, cymbol, ls);
+	if (data.next)
 	{
 		*((char*)&col + 3) = 'R';
-		if (pdata->next->IsComplex())
-		{
-			CSignals copy(*pdata->next);
-			copy.SetReal();
-			out.push_back(ax->plot(x, &copy, col, cymbol, ls));
-			pdata->next->Imag();
-			if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'r'; // real part in complex input, left channel
-			out.push_back(ax->plot(x, pdata->next, col, cymbol, ls));
-		}
-		else
-			out.push_back(ax->plot(x, pdata->next, col, cymbol, ls)); // Right channel
+		vector<HANDLE> out2 = PlotCSignals(_ax, x, (const CTimeSeries)*data.next, col, cymbol, ls);
+		out.push_back(out2.front());
 	}
 	CAxes * hAx = (CAxes *)ax;
 	CGobj * hPar = ((CGobj *)ax)->hPar;
@@ -1260,14 +1281,14 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		}
 		else if (!strcmp(proptype, "visible"))
 			cline->visible = (int)RHS.value();
-		else if (!strcmp(proptype, "xdata"))
-		{
-			if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
-				throw CAstException(USAGE, pctx, NULL).proc("RHS elements must be equal to existing points", "");
-			cline->xdata = RHS;
-			cax->setxlim();
-			cax->xtick.tics1.clear();
-		}
+		//else if (!strcmp(proptype, "xdata"))
+		//{
+		//	if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
+		//		throw CAstException(USAGE, pctx, NULL).proc("RHS elements must be equal to existing points", "");
+		//	cline->xdata = RHS;
+		//	cax->setxlim();
+		//	cax->xtick.tics1.clear();
+		//}
 		else if (!strcmp(proptype, "ydata"))
 			cline->sig = RHS;
 		rt.UnionRect(cax->rct, cax->xtick.rt);

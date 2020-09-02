@@ -37,8 +37,6 @@ extern mutex mtx4PlotDlg;
 
 mutex mtx_OnPaint;
 
-FILE *fpp;
-
 static inline int iabs(int x)
 {
 	if (x<0)		return -x;
@@ -275,7 +273,7 @@ POINT CPlotDlg::GetIndDisplayed(CAxes *pax)
 	}
 	else
 	{
-		if (pax->m_ln.front()->xdata.nSamples == 0) // xdata is just the sample index.
+		if (pax->m_ln.front()->xdata.empty()) // xdata is just the sample index.
 		{
 			out.x = (int)ceil(pax->xlim[0])-1; // zero-based index
 			out.y = (int)pax->xlim[1];
@@ -285,10 +283,10 @@ POINT CPlotDlg::GetIndDisplayed(CAxes *pax)
 			float fxlim0((float)pax->xlim[0]);
 			float fxlim1((float)pax->xlim[1]); // why float? the last point was missing (id was less than one than should have been) because xlim[1] was 3.9999999999999991 and xdata was 4
 			for (unsigned int id=0; id<p->nSamples; id++)
-				if (pax->m_ln.front()->xdata.buf[id]>=fxlim0)
+				if (pax->m_ln.front()->xdata[id]>=fxlim0)
 				{ out.x = id; break;}
 			for (int id=(int)p->nSamples-1; id>=0; id--)
-				if (pax->m_ln.front()->xdata.buf[id]<=fxlim1) 
+				if (pax->m_ln.front()->xdata[id]<=fxlim1) 
 				{ out.y = id; break;}
 		}
 	}
@@ -375,9 +373,7 @@ void CPlotDlg::OnPaint()
 				for (auto lyne : pax->m_ln)
 				{
 					if (lyne->visible)
-						for (CTimeSeries *p = &(lyne->sig); p; p = p->chain)
-							if (lyne->sig.nSamples>0)
-								drawvector = OnPaint_drawblock(pax, dc, &ps, lyne, p);
+						drawvector = drawCLine(pax, dc, lyne);
 				}
 			}
 			if (hDlg == hwnd_AudioCapture)
@@ -485,7 +481,7 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 		//find the first point in tics1 in the range and update loc
 		for (it=pax->xtick.tics1.begin(); it !=pax->xtick.tics1.end(); it++)
 		{
-			if (pax->m_ln[0]->sig.GetType()==CSIG_VECTOR && pax->m_ln[0]->xdata.nSamples==0) 
+			if (pax->m_ln[0]->sig.GetType()==CSIG_VECTOR && pax->m_ln[0]->xdata.empty()) 
 				loc = pax->double2pixel((int)(*it+.5), xy);
 			else																	
 				loc = pax->double2pixel(*it, xy);
@@ -495,7 +491,7 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 		for (; it !=pax->xtick.tics1.end() && LRrange(&pax->rct, loc, xy)==0 ; it++)
 		{
 			nextpt = *it;
-			if (pax->m_ln[0]->sig.GetType()==CSIG_VECTOR && pax->m_ln[0]->xdata.nSamples == 0)
+			if (pax->m_ln[0]->sig.GetType()==CSIG_VECTOR && pax->m_ln[0]->xdata.empty())
 				loc = pax->double2pixel((int)(nextpt+.5), xy); 
 			else											
 				loc = pax->double2pixel(nextpt, xy); 
@@ -1055,8 +1051,6 @@ void CSBAR::dBRMS(SHOWSTATUS st)
 	::SendMessage(hStatusbar, SB_SETTEXT, 6, (LPARAM)buf);
 }
 
-#define LOG(X) fprintf(fpp,(X));
-
 void CPlotDlg::setpbprogln()
 {
 	for (auto ax : gcf.ax)
@@ -1338,13 +1332,14 @@ void CPlotDlg::OnMenu(UINT nID)
 		for (auto pax : gcf.ax)
 			if (pax->m_ln.front()->sig.GetType() == CSIG_VECTOR)
 			{
-				double percentShown = 1. - ((pax->xlim[0] - xlim[0]) + (xlim[1] - pax->xlim[1])) / (xlim[1] - xlim[0]);
-				if ((len = (int)(percentShown * pax->m_ln.front()->sig.nSamples + .5)) <= 3)
+				int count;
+				rangepair range = get_inside_xlim(count, pax->m_ln.front()->xdata, xlim);
+				if (count < 2)
 					return; 
 			}
 			else
 			{
-				if (cax->xlim[1] - cax->xlim[0] < 0.009)
+				if (cax->xlim[1] - cax->xlim[0] < 0.005)
 					return; 
 			}
 	case IDM_ZOOM_OUT:
@@ -1747,7 +1742,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 		mag.next = new CSignals; // this will be deleted during the cleanup of mag... really?
 		getFFTdata(*mag.next, fft);
 	}
-	PlotCSignals(pax, freq.data(), &mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
+	PlotCSignals(pax, freq.data(), mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
 	strcpy(pax->xtick.format,"%.2gk"); // pax->xtick.format is called in anticipation of drawticks. i.e., format is used in drawticks
 	if (lastxlim[0]>lastxlim[1])
 	{

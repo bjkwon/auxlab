@@ -526,25 +526,6 @@ void body::SetReal()
 	}
 }
 
-void body::Real()
-{
-	SetReal();
-}
-
-void body::Imag()
-{
-	if (IsComplex())
-	{
-		bufBlockSize = sizeof(double);
-		for (unsigned int k = 0; k < nSamples; k++) buf[k] = buf[2 * k + 1];
-	}
-	else
-	{
-		Reset();
-		UpdateBuffer(nSamples);
-	}
-}
-
 void body::SetComplex()
 {
 	if (bufBlockSize != sizeof(double) * 2)
@@ -1121,6 +1102,16 @@ CTimeSeries::CTimeSeries(int sampleRate)
 	tmark = 0.;
 	if (fs == 2) bufBlockSize = 1;
 }
+
+CTimeSeries::CTimeSeries(int sampleRate, unsigned int len)
+	: chain(NULL)
+{
+	fs = max(sampleRate, 0);
+	tmark = 0.;
+	if (fs == 2) bufBlockSize = 1;
+	UpdateBuffer(len);
+}
+
 
 CSignal::CSignal(double value)
 	:fs(1), tmark(0.), snap(0)
