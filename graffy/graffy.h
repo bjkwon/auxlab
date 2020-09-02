@@ -156,7 +156,7 @@ class CLine : public CGobj
 public:
 //	list<map<double,double>> chain; // this is the same meaning as chain in CSignals
 	CTimeSeries sig;
-	CSignal xdata;
+	vector<double> xdata;
 	double t1, t2;
 	char symbol; // marker symbol
 	unsigned _int8 lineWidth;
@@ -175,7 +175,7 @@ public:
 	POINT initial; // client coordinate for the first point (assuming that the line is not reversing)
 	POINT final; // client coordinate for the first point (assuming that the line is not reversing)
 	RECT rti, rtf;
-	unsigned int orglength() {return xdata.nSamples;};
+	size_t orglength() {return xdata.size();};
 };
 
 class CText : public CGobj
@@ -353,7 +353,7 @@ GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, 
 GRAPHY_EXPORT HANDLE	AddAxes(HANDLE fig, double x0, double y0, double wid, double hei);
 GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, CPosition pos);
 GRAPHY_EXPORT HANDLE	AddText (HANDLE fig, const char* text, double x, double y, double wid, double hei);
-GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CSignals *pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
+GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CSignals & pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
 GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CTimeSeries *pdata, COLORREF col=0xff0000, char cymbol=0, LineStyle ls=LineStyle_solid);
 GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);

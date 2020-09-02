@@ -34,14 +34,14 @@ if ax.length==1
 		endt1 = data1.endt
 		if endt1.length>1
 			begint1 = begint1.tsq_gettimes
-			endt1 = endt1.tsq_getvalues'
+			endt1 = endt1.tsq_getvalues
 		end
 		data2=axch(id4line(2)).ydata;
 		begint2 = data2.begint
 		endt2 = data2.endt
 		if endt2.length>1
 			begint2 = begint2.tsq_gettimes
-			endt2 = endt2.tsq_getvalues'
+			endt2 = endt2.tsq_getvalues
 		end
 		begints = [begint1 begint2]
 		endts = [endt1 endt2]

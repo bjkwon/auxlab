@@ -376,7 +376,7 @@ void CAxes::setxticks(double * const fullrange)
 	nSamples = (int)(percentShown * m_ln.front()->sig.nSamples+.5);
 	splitevenindices(out, nSamples, nTicks);
 	vxdata.reserve(nSamples);
-	if (m_ln.front()->xdata.nSamples==0)
+	if (m_ln.front()->xdata.empty())
 	{
 		beginID = (int)ceil(xlim[0]*fs);
 		for (int k=beginID; k<beginID+nSamples; k++) vxdata.push_back((double)(k)/fs); // no need to check whether it is an audio signal 
@@ -384,10 +384,10 @@ void CAxes::setxticks(double * const fullrange)
 	else
 	{
 		for (beginID=0; beginID<(int)m_ln.front()->sig.nSamples; beginID++)
-			if (m_ln.front()->xdata.buf[beginID]>=xlim[0]) 
+			if (m_ln.front()->xdata[beginID]>=xlim[0]) 
 				break;
 		for (int k=beginID; k<beginID+nSamples; k++) 
-			vxdata.push_back(m_ln.front()->xdata.buf[k]);
+			vxdata.push_back(m_ln.front()->xdata[k]);
 	}
 	xtick.set(out, vxdata, nSamples);
 }
@@ -423,10 +423,10 @@ GRAPHY_EXPORT void CAxes::setxlim()
 	xlim[1] = -std::numeric_limits<double>::infinity();
 	for (auto line : m_ln)
 	{
-		if (line->xdata.nSamples) // case of no chain.
+		if (!line->xdata.empty()) // case of no chain.
 		{
-			xlim[0] = min(line->xdata._min().front(), xlim[0]) - 1;
-			xlim[1] = max(line->xdata._max().front(), xlim[1]) + 1;
+			xlim[0] = min(*min_element(line->xdata.begin(), line->xdata.end()), xlim[0]) - 1;
+			xlim[1] = max(*max_element(line->xdata.begin(), line->xdata.end()), xlim[1]) + 1;
 		}
 		else
 		{
@@ -518,9 +518,9 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	in->lineStyle = ls;
 	m_ln.push_back(in);
 	if (xdata)
-		in->xdata = CSignal(xdata, pydata->nSamples);
+		in->xdata = vector<double>(xdata, xdata + pydata->nSamples);
 	setxlim();
-	in->strut["xdata"] = CVar(CSignals(in->xdata));
+	in->strut["xdata"] = CVar(CSignals(CSignal(in->xdata)));
 	buf[0] = cymbol;
 	in->strut["marker"] = std::string(buf);
 	CSignals sig_color;

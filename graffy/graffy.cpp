@@ -1260,14 +1260,14 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		}
 		else if (!strcmp(proptype, "visible"))
 			cline->visible = (int)RHS.value();
-		else if (!strcmp(proptype, "xdata"))
-		{
-			if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
-				throw CAstException(USAGE, pctx, NULL).proc("RHS elements must be equal to existing points", "");
-			cline->xdata = RHS;
-			cax->setxlim();
-			cax->xtick.tics1.clear();
-		}
+		//else if (!strcmp(proptype, "xdata"))
+		//{
+		//	if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
+		//		throw CAstException(USAGE, pctx, NULL).proc("RHS elements must be equal to existing points", "");
+		//	cline->xdata = RHS;
+		//	cax->setxlim();
+		//	cax->xtick.tics1.clear();
+		//}
 		else if (!strcmp(proptype, "ydata"))
 			cline->sig = RHS;
 		rt.UnionRect(cax->rct, cax->xtick.rt);

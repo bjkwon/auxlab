@@ -629,65 +629,28 @@ GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
 	return 0;
 }
 
-void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, string plotOptions, int nArgs)
+#define BLOCKCELLSTRING(AST,SIG) \
+{ \
+AST->blockCell(pnode, SIG);\
+AST->blockString(pnode, SIG);\
+}
+
+void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const CVar &arg1, const CVar &arg2, const string &plotOptions)
 {
 	int marker;
 	LineStyle linestyle;
 	DWORD col(-1);
 	getLineSpecifier(past, pnode, plotOptions, linestyle, marker, col); // check if the format is valid and get the plot options if all are good.
 	double *xdata = NULL;
-	int xdataLen=-1;
-	int count = 1;
-	bool ignoreLast = false;
-	for (const AstNode *pp = p; ; count++)
+	if (arg2.type()) // arg2 not empty; x-y plot
 	{
-		if (count == 1)
-		{
-			if (past->pgo)		continue;
-		}
-		else
-		{
-			if (p)
-			{
-				CAstSig tp(past);
-				if (!tp.Compute(pp)->IsString())
-					past->Compute(pp);
-				pp = p->next;
-			}
-		}
-		past->blockCell(pnode, past->Sig);
-		past->blockString(pnode, past->Sig);
-		past->blockScalar(pnode, past->Sig); // this should be gone to plot time series 7/2/2020
-		if (pp)
-		{//check whether pp is processed into a string...We need to know whether this is x-ploy or xy-plot
-		 //it should have survived error handling in _plot_line
-			CAstSig tp(past);
-			if (tp.Compute(pp)->IsString())
-				ignoreLast = true;
-		}
-		if ((!pp || ignoreLast) && !xdata) // NULL p: the last; NULL xdata: not xy plot
-		{
-			plotlines = PlotCSignals(pax, NULL, &past->Sig, col, marker, linestyle);
-			break;
-		}
-		else
-		{
-			if (xdata)
-			{ //xy-plot
-				if (past->Sig.nSamples != xdataLen)
-					throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
-				plotlines = PlotCSignals(pax, xdata, &past->Sig, col, marker, linestyle);
-				delete[] xdata;
-				break;
-			}
-			else
-			{
-				xdata = new double[xdataLen = past->Sig.nSamples];
-				memcpy(xdata, past->Sig.buf, past->Sig.nSamples*past->Sig.bufBlockSize);
-			}
-			pax->xTimeScale = past->Sig.IsTimeSignal();
-		}
+		if (arg1.nSamples != arg2.nSamples)
+			throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
+		plotlines = PlotCSignals(pax, arg1.buf, (CSignals*)&arg2, col, marker, linestyle);
 	}
+	else
+		plotlines = PlotCSignals(pax, NULL, (CSignals*)&arg1, col, marker, linestyle);
+	pax->xTimeScale = past->Sig.IsTimeSignal();
 }
 
 #include <mutex>
@@ -710,131 +673,139 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 
 	The line function is the same except it always adds the line object.
 	*/
-	//First, check whether a graphic handle is given as the first param
-	CVar *pgo = past->pgo;
-	if (!past->Sig.IsGO())	pgo = NULL; // first param is not a graphic handle
-	static vector<CVar> args;
-	static GRAFWNDDLGSTRUCT in;
-	//args is the argument list not including the graphic handle.
-	mainast = past;
-	CAxes *cax = NULL;
+	bool newFig = false;
+	CAxes *pax;
 	CFigure *cfig = NULL;
-	try {
-		CAstSig tp(past);
-		//Find gcf if pgo is NULL; if no gcf. create a figure
-		string plotOptions;
-		int nArgs = 1;
-		for (const AstNode *pp(p); pp; pp = pp->next)
-		{
-			nArgs++;
-			if (!pp->next) // the last one
+	string plotOptions;
+	CVar arg1; // x in plot(x,y) or plot(h,x,y), cannot be NULL
+	CVar arg2; // y in plot(x,y) or plot(h,x,y)
+	CVar arg3; // "o" in plot(x,y,"o") or plot(h,x,y,"o")
+	//First, check whether a graphic handle is given as the first param
+	if (past->Sig.IsGO()) // update 8/23/2020
+	{
+		CVar *pgo = past->pgo; // pgo is the actual go, past->Sig is only the mirroring one.
+		if (pgo->strut["type"].string() == "figure")
+		{ // pgo is figure; check if it is named plot, if so mark it and go down; otherwise, set cax
+			if (pgo->GetFs() == 2)
+				newFig = true;
+			else
 			{
-				tp.Compute(pp);
-				if (tp.Sig.GetType() == CSIG_STRING)
-					plotOptions = tp.Sig.string();
+				auto itgca = pgo->struts.find("gca");
+				if (itgca == pgo->struts.end() || itgca->second.empty())
+				{
+					pax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
+					RegisterAx((CVar*)FindFigure(pgo), pax, true);
+				}
+				else
+					pax = (CAxes *)pgo->struts["gca"].front();
 			}
 		}
-		bool newFig = false;
-		if (!pgo)
+		else if (pgo->strut["type"].string() == "axes")
+			pax = (CAxes *)pgo;
+		else
+			throw CAstException(USAGE, *past, p).proc(fnsigs, "A non-graphic object nor a data array is given as the first argument.");
+		// p should be the CVar object to plot, in plot(h,x,...) and subsequently next'ed.
+		// past->Sig has been stored as pgo; no need to shield it with try and CAstSig tp(past)
+		if (p) arg1 = past->Compute(p);
+		BLOCKCELLSTRING(past, arg1);
+		if (p->next)
 		{
-			cfig = (CFigure *)past->GetVariable("gcf");
-			if (cfig)
-			{ 
-				// gcf should not be a named plot
-				if (cfig->struts["gca"].empty()) // no axes present; create one.
-				{
-					cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-					RegisterAx((CVar*)cfig, cax, true);
-				}
-				else // use existing axes 
-					cax = (CAxes *)cfig->struts["gca"].front();
+			if (p->next->next)	{
+				arg3 = past->Compute(p->next->next);
+				past->checkString(pnode, arg3, "last arg in plot()");
+				plotOptions = arg3.string();
 			}
-			else
-				newFig = true;
+			arg2 = past->Compute(p->next);
+			BLOCKCELLSTRING(past, arg2);
+		}
+	}
+	else
+	{
+		CVar *pgo = NULL;
+		cfig = (CFigure *)past->GetVariable("gcf");
+		if (cfig)
+		{
+			// gcf should not be a named plot
+			if (cfig->struts["gca"].empty()) // no axes present; create one.
+			{
+				pax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+				RegisterAx((CVar*)cfig, pax, true);
+			}
+			else // use existing axes 
+				pax = (CAxes *)cfig->struts["gca"].front();
 		}
 		else
-		{
-			if (pgo->strut["type"].string() == "figure")
-			{ // pgo is figure; check if it is named plot, if so mark it and go down; otherwise, set cax
-				if (pgo->GetFs() == 2)
-					newFig = true;
-				else
-				{
-					auto itgca = pgo->struts.find("gca");
-					if (itgca == pgo->struts.end() || itgca->second.empty())
-					{
-						cax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
-						RegisterAx((CVar*)FindFigure(pgo), cax, true);
-					}
-					else
-						cax = (CAxes *)pgo->struts["gca"].front();
+			newFig = true;
+		// past->Sig should be the CVar object to plot, in plot(x,...) and p is the rest of arguments and next'ed.
+		try {
+			BLOCKCELLSTRING(past, past->Sig);
+			arg1 = past->Sig;
+			if (p) {
+				CAstSig tp(past);
+				if (p->next) {
+					arg3 = tp.Compute(p->next);
+					tp.checkString(pnode, arg3, "last arg in plot()");
+					plotOptions = arg3.string();
 				}
+				arg2 = tp.Compute(p);
+				BLOCKCELLSTRING(past, arg2);
 			}
-			else if (pgo->strut["type"].string() == "axes")
-				cax = (CAxes *)pgo;
-			else
-				throw CAstException(USAGE, *past, p).proc(fnsigs, "A non-graphic object nor a data array is given as the first argument.");
 		}
-		if (newFig)
-		{
-			CVar temp = past->Sig;
-			_figure(past, pnode, NULL, fnsigs);
-			cfig = (CFigure *)past->pgo;
-			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			sendtoEventLogger("(_plot_line) AddAxes called.");
-			past->Sig = temp;
-			past->pgo = NULL;
-			RegisterAx((CVar*)cfig, cax, true);
+		catch (const CAstException &e) {
+			throw e;
+			//			CAstException(USAGE, *past, pnode).proc(e.getErrMsg().c_str()); 
 		}
-		//Finally cax and cfig ready. Time to inspect input data
-		if (tp.Sig.GetType() == CSIG_STRING)
-			nArgs = -1;
-		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
-		if (!cfig) cfig = (CFigure*)((CVar*)cax)->struts["parent"].front();
-		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, true);
-		unique_lock<mutex> locker(mtx_OnPaint);
-		sendtoEventLogger("(_plot_line) mtx_OnPaint locked = %d", locker.owns_lock());
-		if (isPlot)
+	}
+	if (newFig)
+	{
+		CVar temp = past->Sig;
+		_figure(past, pnode, NULL, fnsigs);
+		cfig = (CFigure *)past->pgo;
+		pax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+		sendtoEventLogger("(_plot_line) AddAxes called.");
+		past->Sig = temp;
+		past->pgo = NULL;
+		RegisterAx((CVar*)cfig, pax, true);
+	}
+	if (!cfig) cfig = (CFigure*)((CVar*)pax)->struts["parent"].front();
+	if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, true);
+	// Finally pax and cfig ready. Time to inspect input data
+	unique_lock<mutex> locker(mtx_OnPaint);
+	sendtoEventLogger("(_plot_line) mtx_OnPaint locked = %d", locker.owns_lock());
+	if (isPlot)
+	{
+		//if there's existing line in the specified axes
+		if (!newFig && pax->strut["nextplot"] == string("replace"))
 		{
-			//if there's existing line in the specified axes
-			if (!newFig && cax->strut["nextplot"] == string("replace"))
+			pax->xlim[0] = 1; pax->xlim[1] = -1; pax->setxlim();
+			pax->ylim[0] = 1; pax->ylim[1] = -1; pax->setylim();
+			pax->xtick.tics1.clear();
+			pax->ytick.tics1.clear();
+			// line object in pax->child should be removed
+			for (auto obj = pax->child.begin(); obj != pax->child.end(); )
 			{
-				cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
-				cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
-				cax->xtick.tics1.clear();
-				cax->ytick.tics1.clear();
-				// line object in cax->child should be removed
-				for (auto obj = cax->child.begin(); obj != cax->child.end(); )
+				if ((*obj)->strut["type"].string() == "line")
+					obj = pax->child.erase(obj);
+				else
+					obj++;
+			}
+			for (auto ch = ((CVar*)pax)->struts["children"].begin(); ch != ((CVar*)pax)->struts["children"].end(); )
+			{
+				if ((*ch)->strut["type"].string() == "line")
 				{
-					if ((*obj)->strut["type"].string() == "line")
-						obj = cax->child.erase(obj);
-					else
-						obj++;
+					deleteObj(*ch);
+					ch = ((CVar*)pax)->struts["children"].erase(ch);
+					sendtoEventLogger("deleteObj called.");
 				}
-				for (auto ch = ((CVar*)cax)->struts["children"].begin(); ch != ((CVar*)cax)->struts["children"].end(); )
-				{
-					if ((*ch)->strut["type"].string() == "line")
-					{
-						deleteObj(*ch);
-						ch = ((CVar*)cax)->struts["children"].erase(ch);
-						sendtoEventLogger("deleteObj called.");
-					}
-					else
-						ch++;
-				}
+				else
+					ch++;
 			}
 		}
-		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
-
-		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
-		if (!newFig)
-			cfig = (CFigure*)cax->struts["parent"].front();
-		sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked.");
 	}
-	catch (const CAstException &e) { 
-		throw e;
-//			CAstException(USAGE, *past, pnode).proc(e.getErrMsg().c_str()); 
-	}
+	if (plotOptions.empty()) plotOptions = "-";
+	__plot(pax, past, pnode, arg1, arg2, plotOptions);
+	if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
+	sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked.");
 
 	//past->pgo carries the pointer, past->Sig is sent only for console display
 	switch (plotlines.size())

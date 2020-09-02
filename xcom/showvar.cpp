@@ -323,7 +323,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			CFigure * cfig = newFigure(title.c_str(), varname, &in);
 			cfig->visible = 1;
 			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			plotlines = PlotCSignals(cax, NULL, psig, -1);
+			plotlines = PlotCSignals(cax, NULL, *psig, -1);
 			RegisterAx((CVar*)cfig, cax, true);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 			//For the global variable $gcf, updated whether or not this is named plot.
@@ -359,7 +359,7 @@ double CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig)
 	while (!pax->m_ln.empty())
 		deleteObj(pax->m_ln.front());
 	((CVar*)pax)->struts["children"].clear();
-	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
+	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, -1);
 	double lower = 1.e100;
 	for (auto lnObj : plotlines)
 	{
@@ -375,7 +375,7 @@ double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 	while (!pax->m_ln.empty())
 		deleteObj(pax->m_ln.front());
 	((CVar*)pax)->struts["children"].clear();
-	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
+	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, -1);
 	double lower = 1.e100;
 	for (auto lnObj : plotlines)
 	{

@@ -191,7 +191,7 @@ void CAstSig::checkScalar(const AstNode *pnode, CVar &checkthis, string addmsg)
 	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
 }
 
-void CAstSig::checkString(const AstNode *pnode, CVar &checkthis, string addmsg)
+void CAstSig::checkString(const AstNode *pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.GetType()==CSIG_STRING) return;
 	string msg("requires a string argument.");
@@ -199,7 +199,7 @@ void CAstSig::checkString(const AstNode *pnode, CVar &checkthis, string addmsg)
 	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
 }
 
-void CAstSig::blockCell(const AstNode *pnode, CVar &checkthis)
+void CAstSig::blockCell(const AstNode *pnode, const CVar &checkthis)
 {
 	string msg("Not valid with a cell, struct, or point-array variable ");
 	if (checkthis.GetFs()==3)

@@ -14,7 +14,6 @@
 #include <mutex>
 #include <thread>
 #include <iterator>
-
 #include "wavplay.h"
 
 void CPlotDlg::OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc)
@@ -89,44 +88,20 @@ get_inside_xlim(int &count, const map<double, double> &data, double xlim[])
 	return out;
 }
 
-static pair<vector<double>::const_iterator, vector<double>::const_iterator>
-get_inside_xlim(int& count, const vector<double> &buf, double xlim[])
+// Assumption: buf and xlim are monotonically increasing
+rangepair get_inside_xlim(int& count, const vector<double> &buf, double xlim[])
 {
-	pair<vector<double>::const_iterator, vector<double>::const_iterator> out;
-	//Assumption: xlim is monotonically increasing
-	auto it = buf.begin();
-	for (; it != buf.end() && *it <= xlim[1]; it++)
-	{
-		if (*it < xlim[0]) continue;
-		else
-		{
-			out.first = it;
-			break;
-		}
-	}
-	count = 0;
-	for (; it != buf.end(); it++)
-	{
-		if (*it <= xlim[1])
-		{
-			count++;
-			continue;
-		}
-		else
-		{
-			out.second = it;
-			break;
-		}
-	}
-	if (it == buf.end())
-		out.second = --it;
+	rangepair out;
+	//xlim is monotonically increasing
+	out.first = lower_bound(buf.begin(), buf.end(), xlim[0]);
+	out.second = lower_bound(buf.begin(), buf.end(), xlim[1]);
+	count = (int)(out.second - out.first);
 	return out;
 }
 
-
-
-static vector<POINT> data2points(const vector<double>& xbuf, const vector<double> &buf, const CRect& rcArea, double xlim[], double ylim[])
+static vector<POINT> data2points(double &xSpacingPP, const vector<double>& xbuf, double *buf, const CRect& rcArea, double xlim[], double ylim[])
 {
+	// xSpacingPP: [output] the x spacing between data points in pixel
 	// grab data in the range of xlim
 	// plot them in the coordinate of rcArea
 	vector<POINT> out;
@@ -134,15 +109,15 @@ static vector<POINT> data2points(const vector<double>& xbuf, const vector<double
 	// Inspect data and find out where the key is within xlim
 	// Assume the key of data is ordered.--> Isn't it what map is about?
 	int count;
-	pair<vector<double>::const_iterator, vector<double>::const_iterator>
-		range = get_inside_xlim(count, xbuf, xlim);
+	rangepair range = get_inside_xlim(count, xbuf, xlim);
 	// if xbuf is out of xlim, return empty
 	if (count == 0) return out;
 	// calculate how many data points one pixel represents 
 	LONG px1 = getpointx(*range.first, rcArea, xlim);
-	LONG px2 = getpointx(*range.second, rcArea, xlim);
+	LONG px2 = getpointx(*(range.second-1), rcArea, xlim);
 	LONG pxdiff = px2 - px1;
 	double dataCount_per_pixel = (double)count / pxdiff;
+	xSpacingPP = 1. / dataCount_per_pixel;
 	int idataCount_per_pixel = (int)dataCount_per_pixel;
 	const double remainder = dataCount_per_pixel - idataCount_per_pixel;
 	double leftover = remainder;
@@ -150,8 +125,7 @@ static vector<POINT> data2points(const vector<double>& xbuf, const vector<double
 	{
 		int cnt = 0;
 		auto it = range.first;
-		auto it2 = buf.begin();
-		advance(it2, distance(xbuf.begin(), it));
+		double *buf_pos = buf + distance(xbuf.begin(), range.first);
 		size_t cum = 0;
 		bool loop = true;
 		pt.x = px1;
@@ -164,15 +138,17 @@ static vector<POINT> data2points(const vector<double>& xbuf, const vector<double
 				leftover--;
 			}
 			if (cum + advance_count > count) advance_count = count - cum;
-			pair<vector<double>::const_iterator, vector<double>::const_iterator>
-				ul = minmax_element(it2, it2 + advance_count);
-			LONG temp = pt.y = getpointy(*ul.first, rcArea, ylim);
+			auto minmax = minmax_element(buf_pos, buf_pos + advance_count);
+			LONG temp = pt.y = getpointy(*minmax.first, rcArea, ylim);
+			if (pt.y > rcArea.bottom)
+				temp = pt.y = rcArea.bottom;
 			out.push_back(pt);
-			pt.y = getpointy(*ul.second, rcArea, ylim);
+			pt.y = getpointy(*minmax.second, rcArea, ylim);
+			pt.y = max(pt.y, rcArea.top);
 			if (pt.y!=temp)
 				out.push_back(pt);
 			advance(it, advance_count);
-			advance(it2, advance_count);
+			buf_pos += advance_count;
 			cum += advance_count;
 			if (pt.x >= px2 || cum >= count)
 				loop = false;
@@ -182,14 +158,13 @@ static vector<POINT> data2points(const vector<double>& xbuf, const vector<double
 	}
 	else
 	{
-		auto it2 = buf.begin();
-		advance(it2, distance(xbuf.begin(), range.first));
+		double *buf_pos = buf + distance(xbuf.begin(), range.first);
 		double ratiox = rcArea.Width() / (xlim[1] - xlim[0]);
 		double ratioy = rcArea.Height() / (ylim[1] - ylim[0]);
-		for (auto it = range.first; it != range.second; it++, it2++)
+		for (auto it = range.first; it != range.second; it++, buf_pos++)
 		{
 			// Map data point into point in RECT
-			pt = getpoint(*it, *it2, rcArea, ratiox, ratioy, xlim, ylim);
+			pt = getpoint(*it, *buf_pos, rcArea, ratiox, ratioy, xlim, ylim);
 			out.push_back(pt);
 		}
 	}
@@ -229,10 +204,10 @@ static vector<POINT> data2points(const map<double, double> &data, const CRect & 
 }
 
 // if it is audio, or null-x, plot, forget about map. Use this.
-vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
+vector<POINT> CPlotDlg::plotpoints(double &xSpacingPP, CAxes *pax, const vector<double> &xbuf, const CSignal &p, unsigned int begin)
 {
 	vector<POINT> out;
-	int fs = p->GetFs();
+	int fs = p.GetFs();
 	//map<double, double> in;
 	//for (unsigned int k = 0; k < p->nSamples; k++)
 	//{
@@ -240,94 +215,125 @@ vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CR
 	//	in[t] = p->buf[k];
 	//}
 	//out = data2points(in, pax->rct, pax->xlim, pax->ylim);
-	vector<double> xbuf;
-	vector<double> buf(p->buf, p->buf + p->nSamples);
-	for (unsigned int k = 0; k < p->nSamples; k++)
+	;
+//	vector<double> buf(p->buf + begin, p->buf + end);
+	vector<double> _xbuf;
+	if (xbuf.empty())
 	{
-		double t = (double)k / fs + p->tmark / 1000.;
-		xbuf.push_back(t);
+		int offset = 1;
+		if (p.type() & TYPEBIT_TEMPORAL) offset--;
+		for (unsigned int k = offset; k < p.nSamples + offset; k++)
+		{
+			double t = (double)k / fs + p.tmark / 1000.;
+			_xbuf.push_back(t);
+		}
+		out = data2points(xSpacingPP, _xbuf, p.buf + begin, pax->rct, pax->xlim, pax->ylim);
 	}
-	out = data2points(xbuf, buf, pax->rct, pax->xlim, pax->ylim);
+	else
+		out = data2points(xSpacingPP, xbuf, p.buf + begin, pax->rct, pax->xlim, pax->ylim);
 	return out;
 }
 
-vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pline, CTimeSeries* block)
+vector<DWORD> color_scheme(COLORREF linecolor, const CVar &linecolorProp, unsigned int nGroups)
 {
-	// For tseq, if you want to streamline, you can bypass estimateDrawCounts assuming that individual nSample for the block is 1
-	// but it may require re-writing code blocks more than you desire... something to think about 5/20/2020
+	vector<DWORD> out;
+	BYTE clcode = HIBYTE(HIWORD(linecolor));
+	if (clcode == 'L' || clcode == 'R')
+		out = Colormap(clcode, clcode, 'r', nGroups);
+	if (clcode == 'l' || clcode == 'r')
+		out = Colormap(clcode, clcode + 'R' - 'r', 'c', nGroups);
+	else if (clcode == 'M')
+	{
+		for (unsigned int k = 0; k < linecolorProp.nSamples; k += 3)
+		{
+			DWORD dw = RGB((int)(linecolorProp.buf[k] * 255.), (int)(linecolorProp.buf[k + 1] * 255.), (int)(linecolorProp.buf[k + 2] * 255.));
+			out.push_back(dw);
+		}
+	}
+	else
+		out.push_back(linecolor);
+	return out;
+}
+
+vector<POINT> CPlotDlg::drawCLine(CAxes* pax, CDC &dc, CLine *pline)
+{
+	// For tseq, if you want to streamline, you can bypass estimateDrawCounts assuming that individual nSample for the p is 1
+	// but it may require re-writing code ps more than you desire... something to think about 5/20/2020
 
 	vector<POINT> drawvector;
 	CPoint pt;
 	CPen* pPenOld = NULL;
 	int nDraws = 0, estCount = 1;
-	CPen* ppen = NULL;
-	auto anSamples = block->nSamples;
-	auto atuck = block->nGroups;
-	auto atmark = block->tmark;
-	BYTE clcode;
-	vector<DWORD> kolor;
-	clcode = HIBYTE(HIWORD(pline->color));
-	if (clcode == 'L' || clcode == 'R')
-		kolor = Colormap(clcode, clcode, 'r', atuck);
-	if (clcode == 'l' || clcode == 'r')
-		kolor = Colormap(clcode, clcode + 'R' - 'r', 'c', atuck);
-	else if (clcode == 'M')
+	double xSpacingPP = (double)pax->rct.Width();
+	for (CTimeSeries *p = &(pline->sig); p; p = p->chain)
 	{
-		CVar cmap = pline->strut["color"];
-		for (unsigned int k = 0; k < cmap.nSamples; k += 3)
+		// A chain may have multiple groups
+		auto nGroups = p->nGroups;
+		auto nSamples = p->nSamples;
+		auto tmark = p->tmark;
+		p->nSamples = p->Len();
+		p->nGroups = 1;
+		vector<DWORD> kolor = color_scheme(pline->color, pline->strut["color"], nGroups);
+		auto colorIt = kolor.begin();
+		for (unsigned int m = 0; m < nGroups; m++)
 		{
-			DWORD dw = RGB((int)(cmap.buf[k] * 255.), (int)(cmap.buf[k + 1] * 255.), (int)(cmap.buf[k + 2] * 255.));
-			kolor.push_back(dw);
-		}
-	}
-	else
-		kolor.push_back(pline->color);
-	auto colorIt = kolor.begin();
-	for (unsigned int m = 0; m < atuck; m++)
-	{
-		pline->color = *colorIt;
-		block->nSamples = block->Len();
-		block->nGroups = 1;
-		memcpy(block->buf, block->buf + m * block->nSamples, block->bufBlockSize * block->nSamples);
-		if (block->IsTimeSignal())
-			block->tmark += 1000. * m * block->nSamples / block->GetFs();
-		if (pline->lineWidth > 0 || pline->symbol != 0)
-		{
-			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
-		}
-		if (pline->symbol != 0)
-		{
-			LineStyle org = pline->lineStyle;
-			pline->lineStyle = LineStyle_solid;
-			if (pline->lineWidth == 0)
-				pline->lineWidth = 1;
-			OnPaint_createpen_with_linestyle(pline, dc, &pPenOld);
-			DrawMarker(dc, pline, drawvector);
-			pline->lineStyle = org;
-		}
-		ppen = OnPaint_createpen_with_linestyle(pline, dc, &pPenOld);
-		if (pline->lineWidth > 0)
-		{
-			if (block->IsTimeSignal()) {
-				if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
-				if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
+			pline->color = *colorIt;
+			if (p->type() & TYPEBIT_TEMPORAL && m > 0) // tmark incremental per Group
+				p->tmark += 1000. * p->nSamples / p->GetFs();
+			if(pline->sig.nSamples > 0 && (pline->lineWidth > 0 || pline->symbol != 0) )
+				drawvector = plotpoints(xSpacingPP, pax, pline->xdata, *p, m * p->nSamples);
+			if (drawvector.empty()) {
+				if (!kolor.empty()) colorIt++;  
+				continue;
 			}
-			if (pline->lineStyle != LineStyle_noline)
-				dc.Polyline(drawvector.data(), (int)drawvector.size());
-			if (kolor.size() > 1)
+			if (pline->symbol != 0 || xSpacingPP > 2.)
 			{
-				colorIt++;
-				if (colorIt == kolor.end())		colorIt = kolor.begin();
+				bool tempchange = false;
+				auto org_markersize = pline->markersize;
+				if (xSpacingPP > 2. && !pline->symbol)
+				{ // If zoomed in enough, show symbol always (filled circle)
+					pline->symbol = 'o';
+					pline->filled = true;
+					tempchange = true;
+					pline->markersize = 2;
+				}
+				LineStyle org = pline->lineStyle;
+				pline->lineStyle = LineStyle_solid;
+				if (pline->lineWidth == 0)
+					pline->lineWidth = 1;
+				OnPaint_createpen_with_linestyle(pline, dc, &pPenOld);
+				DrawMarker(dc, pline, drawvector);
+				pline->lineStyle = org;
+				if (tempchange)
+				{
+					pline->symbol = pline->filled = 0;
+					pline->markersize = org_markersize;
+				}
 			}
-			block->nGroups = atuck;
-			block->tmark = atmark;
-			block->nSamples = anSamples;
-			if (ppen)
+			CPen * ppen = OnPaint_createpen_with_linestyle(pline, dc, &pPenOld);
+			if (pline->lineWidth > 0 && !drawvector.empty())
 			{
-				dc.SelectObject(pPenOld);
-				delete ppen;
+				if (p->type() & TYPEBIT_TEMPORAL) {
+					if (pt.y < pax->rct.top)  pt.y = pax->rct.top;
+					if (pt.y > pax->rct.bottom) pt.y = pax->rct.bottom;
+				}
+				if (pline->lineStyle != LineStyle_noline)
+					dc.Polyline(drawvector.data(), (int)drawvector.size());
+				if (kolor.size() > 1)
+				{
+					colorIt++;
+					if (colorIt == kolor.end())		colorIt = kolor.begin();
+				}
+				if (ppen)
+				{
+					dc.SelectObject(pPenOld);
+					delete ppen;
+				}
 			}
 		}
+		p->nGroups = nGroups;
+		p->tmark = tmark;
+		p->nSamples = nSamples;
 	}
 	return drawvector;
 }
@@ -386,7 +392,7 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 		{
 			if (first)
 				memcpy(xlim, pax->xlim, sizeof(xlim));
-			if (psig && psig->IsTimeSignal())
+			if (psig && psig->type() & TYPEBIT_TEMPORAL)
 			{
 				pax->xtick.tics1 = pax->gengrids('x', -3);
 			}
@@ -428,9 +434,9 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 				dc.TextOut(pax->rct.right - 3, pax->rct.bottom, "Hz");
 				dc.TextOut(pax->rct.left - 3, pax->rct.top + 1, "dB");
 			}
-			else if (pax->m_ln.front()->sig.IsTimeSignal())
+			else if (pax->m_ln.front()->sig.type() & TYPEBIT_TEMPORAL)
 				dc.SetBkMode(TRANSPARENT), dc.TextOut(pax->rct.right - 3, pax->rct.bottom, "sec");
-		}
+		} 
 	}
 	vector<double> out;
 	out.push_back(pax->xlim[0]);
