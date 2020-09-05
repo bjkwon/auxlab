@@ -1,19 +1,19 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
-// 
-// 
+//
+//
 // Version: 1.7
 // Date: 5/24/2020
 
 #include <math.h>
-#include "graffy.h"	
+#include "graffy.h"
 
-#include "PlotDlg.h"	
+#include "PlotDlg.h"
 
 using namespace Win32xx;
 #include <iterator>
@@ -198,7 +198,7 @@ GRAPHY_EXPORT CAxes *CAxes::create_child_axis(CPosition pos)
 	newax->hPar = this;
 	newax->color = ColorFFTAx;
 	return newax;
-} 
+}
 
 void CAxes::GetCoordinate(POINT* pt, double& x, double& y)
 {
@@ -231,11 +231,11 @@ int CAxes::double2pixel(double a, char xy)
 	switch(xy)
 	{
 	case 'x':
-		relativeVal = qut(xlim, a); 
+		relativeVal = qut(xlim, a);
 		extent = rct.Width();
 		return rct.left + (int)((double)extent*relativeVal+.5);
 	case 'y':
-		relativeVal = qut(ylim, a); 
+		relativeVal = qut(ylim, a);
 		extent = rct.Height();
 		return rct.bottom - (int)((double)extent*relativeVal+.5);
 	default:
@@ -244,7 +244,7 @@ int CAxes::double2pixel(double a, char xy)
 }
 
 vector<POINT> CAxes::CSignal2pixelPOINT(CSignal* px, const CSignal& y, unsigned int idBegin, unsigned int nSamples2Display)
-{ 
+{
 	vector<POINT> out;
 	double yval;
 	for (unsigned int k = idBegin; k < idBegin + nSamples2Display; k++)
@@ -265,7 +265,7 @@ vector<POINT> CAxes::CSignal2pixelPOINT(CSignal* px, const CSignal& y, unsigned 
 
 POINT CAxes::double2pixelpt(double x, double y, double *newxlim)
 {
-	// Returns pixel POINT from (x, y) coordinate in double. 
+	// Returns pixel POINT from (x, y) coordinate in double.
 	// calculates how many pixels the point advances rct.left and rct.top based on xlim, ylim
 	// newxlim is used for audio signal chains (the one with null-signal(s) in the middle)
 	POINT pt;
@@ -331,7 +331,7 @@ int CAxes::GetDivCount(char xy, int dimens)
 	case 'x':
 		if (dimens<0) dimens = (int) (width*pos.width+.5);
 		it = rpix.begin();	it++;
-		if (dimens > rpix.rbegin()->first) 
+		if (dimens > rpix.rbegin()->first)
 			nTicks = rpix.rbegin()->second + (dimens-rpix.rbegin()->first)/110;
 		else if (dimens <= (*it).first)
 			nTicks = (*it).second;
@@ -346,7 +346,7 @@ int CAxes::GetDivCount(char xy, int dimens)
 	case 'y':
 		if (dimens<0) dimens = (int) (height*pos.height+.5); // rct is not updated yet (it is updated inside OnPaint)
 		it = rpix2.begin();	it++;
-		if (dimens > rpix2.rbegin()->first) 
+		if (dimens > rpix2.rbegin()->first)
 			nTicks = rpix2.rbegin()->second + (dimens-rpix2.rbegin()->first)/70;
 		else if (dimens <= (*it).first)
 			nTicks = (*it).second;
@@ -356,7 +356,7 @@ int CAxes::GetDivCount(char xy, int dimens)
 			for (it = rpix2.begin(); comp((*it).first, dimens); it++)
 				;
 			it--, nTicks = (*it).second;
-		}	
+		}
 	}
 	return nTicks;
 }
@@ -379,14 +379,14 @@ void CAxes::setxticks(double * const fullrange)
 	if (m_ln.front()->xdata.empty())
 	{
 		beginID = (int)ceil(xlim[0]*fs);
-		for (int k=beginID; k<beginID+nSamples; k++) vxdata.push_back((double)(k)/fs); // no need to check whether it is an audio signal 
+		for (int k=beginID; k<beginID+nSamples; k++) vxdata.push_back((double)(k)/fs); // no need to check whether it is an audio signal
 	}
 	else
 	{
 		for (beginID=0; beginID<(int)m_ln.front()->sig.nSamples; beginID++)
-			if (m_ln.front()->xdata[beginID]>=xlim[0]) 
+			if (m_ln.front()->xdata[beginID]>=xlim[0])
 				break;
-		for (int k=beginID; k<beginID+nSamples; k++) 
+		for (int k=beginID; k<beginID+nSamples; k++)
 			vxdata.push_back(m_ln.front()->xdata[k]);
 	}
 	xtick.set(out, vxdata, nSamples);
@@ -479,19 +479,19 @@ GRAPHY_EXPORT void CAxes::setylim()
 	ylimFull[0] = ylim[0]; ylimFull[1] = ylim[1];
 }
 
-GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col, char cymbol, LineStyle ls)
+GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, DWORD col, char cymbol, LineStyle ls)
 {
 	WORD colorcode = HIWORD(col);
 	BYTE lo = LOBYTE(colorcode);
 	BYTE hi = HIBYTE(colorcode);
 	char buf[64] = {};
-	bool complex = pydata->bufBlockSize == 16;
+	bool complex = ydata.bufBlockSize == 16;
 	CLine *in2, *in = new CLine(m_dlg, this);
 	if (complex)
 	{
-		int fs = pydata->GetFs();
+		int fs = ydata.GetFs();
 		in2 = new CLine(m_dlg, this);
-		for (CTimeSeries *p = pydata; p; p = p->chain)
+		for (const CTimeSeries *p = &ydata; p; p = p->chain)
 		{
 			CTimeSeries tp1(fs), tp2(fs);
 			tp1.UpdateBuffer(p->nSamples);
@@ -508,7 +508,7 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	}
 	else
 	{
-		in->strut["ydata"] = in->sig = *pydata;
+		in->strut["ydata"] = in->sig = ydata;
 	}
 	in->symbol = cymbol;
 	if (!hi) // color specified
@@ -518,7 +518,7 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	in->lineStyle = ls;
 	m_ln.push_back(in);
 	if (xdata)
-		in->xdata = vector<double>(xdata, xdata + pydata->nSamples);
+		in->xdata = vector<double>(xdata, xdata + ydata.nSamples);
 	setxlim();
 	in->strut["xdata"] = CVar(CSignals(CSignal(in->xdata)));
 	buf[0] = cymbol;
@@ -526,7 +526,7 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, CTimeSeries *pydata, DWORD col,
 	CSignals sig_color;
 	vector<DWORD> cmap;
 	if (hi) // color not specified, L or R specified.
-		cmap = Colormap(hi, hi, 'r', pydata->nGroups);
+		cmap = Colormap(hi, hi, 'r', ydata.nGroups);
 	else
 		cmap.push_back(col);
 	in->strut["color"] = COLORREF2CSignals(cmap, sig_color);
@@ -577,7 +577,7 @@ double CAxes::pix2timepoint(int pix)
 {
 	double proportion; // time proportion re the displayed duration
 	int ss=rct.left;
-	int ss2=rct.Width();		
+	int ss2=rct.Width();
 	proportion = (double) (pix-rct.left) / (double)rct.Width();
 	return xlim[0] + (xlim[1]-xlim[0])*proportion;
 }
@@ -598,7 +598,7 @@ vector<double> CAxes::gengrids(char xy, int pprecision)
 
 vector<double> CAxes::gengrids(char xy, int *pnDv, int *pdigh)
 {	// nDv positive means strict division count; tenpow and width ignored
-	// nDv negative means loose division count; based on the grid edges from MakeGridEdges(), it tries to divide into nDv segments, 
+	// nDv negative means loose division count; based on the grid edges from MakeGridEdges(), it tries to divide into nDv segments,
 	// but the priority is given that the step size is granularized by 10%, 20%, 25% or 50% of grid edge width; therefore,
 	// it may not end up exactly nDv segments, but it should be close enough with one of those available steps
 	std::vector<double> out, grids;

@@ -1742,7 +1742,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 		mag.next = new CSignals; // this will be deleted during the cleanup of mag... really?
 		getFFTdata(*mag.next, fft);
 	}
-	PlotCSignals(pax, freq.data(), &mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
+	PlotCSignals(pax, freq.data(), mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
 	strcpy(pax->xtick.format,"%.2gk"); // pax->xtick.format is called in anticipation of drawticks. i.e., format is used in drawticks
 	if (lastxlim[0]>lastxlim[1])
 	{

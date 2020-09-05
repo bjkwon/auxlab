@@ -1,12 +1,12 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
-// 
-// 
+//
+//
 // Version: 1.497
 // Date: 12/26/2018
 //
@@ -39,8 +39,8 @@
 #define FONT_STYLE_NORMAL	0
 #define FONT_STYLE_ITALIC	1
 #define FONT_STYLE_BOLD		2
-#define FONT_STYLE_UNDERLINE	4	
-#define FONT_STYLE_STRIKEOUT	8	
+#define FONT_STYLE_UNDERLINE	4
+#define FONT_STYLE_STRIKEOUT	8
 
 
 #define WM_GCF_UPDATED		WM_APP+752
@@ -60,7 +60,7 @@
 //#include "winutils.h"  // OLD WIN32+
 
 // CFigure objects are instantiated ("new'ed") during instantiation of CPlotDlg
-// CAxes objects are instantiated by CFigure::axes() 
+// CAxes objects are instantiated by CFigure::axes()
 
 // CFigure, CAxes objects have the proper m_dlg member variable during their instantiation.
 
@@ -82,7 +82,7 @@ public:
 };
 
 enum graffytype: char
-{ 
+{
 	GRAFFY_root='r',
 	GRAFFY_figure='f',
 	GRAFFY_axes = 'a',
@@ -95,12 +95,12 @@ enum graffytype: char
 
 
 enum LineStyle: unsigned _int8
-{ 
+{
 	LineStyle_err = 255,
 	LineStyle_noline = 0,
-	LineStyle_solid, 
-	LineStyle_dash, 
-	LineStyle_dot, 
+	LineStyle_solid,
+	LineStyle_dash,
+	LineStyle_dot,
 	LineStyle_dashdot,
 	LineStyle_dashdotdot,
 };
@@ -132,7 +132,7 @@ public:
 class CTick : public CGobj
 {
 public:
-	bool automatic; 
+	bool automatic;
 	POINT gap4next;
 	int size; // in pixel
 	int labelPos; // in pixel
@@ -199,7 +199,7 @@ public:
 	void initGO(void * _hpar);
 	GRAPHY_EXPORT CText& operator=(const CText& rhs);
 	GRAPHY_EXPORT CText(CWndDlg * base, CGobj* pParent = NULL, const char* strInit=NULL, CPosition posInit=CPosition(0,0,0,0));   // standard constructor
-	~CText();   
+	~CText();
 };
 
 class CAxis : public CGobj
@@ -227,7 +227,7 @@ public:
 
 	GRAPHY_EXPORT CAxes *create_child_axis(CPosition pos);
 	void GetCoordinate(POINT* pt, double& x, double& y);
-	GRAPHY_EXPORT CLine * plot(double *xdata, CTimeSeries *pydata, DWORD colorCode, char cymbol=0, LineStyle ls=LineStyle_solid);
+	GRAPHY_EXPORT CLine * plot(double *xdata, const CTimeSeries &ydata, DWORD colorCode, char cymbol=0, LineStyle ls=LineStyle_solid);
 	GRAPHY_EXPORT void setxlim();
 	GRAPHY_EXPORT void setylim();
 	GRAPHY_EXPORT void DeleteLine(int index);
@@ -346,15 +346,15 @@ GRAPHY_EXPORT void showvar2graffy(void *p);
 
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon=NULL);
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon = NULL);
-#endif 
+#endif
 
 
 
 GRAPHY_EXPORT HANDLE	AddAxes(HANDLE fig, double x0, double y0, double wid, double hei);
 GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, CPosition pos);
 GRAPHY_EXPORT HANDLE	AddText (HANDLE fig, const char* text, double x, double y, double wid, double hei);
-GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CSignals & pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
-GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CTimeSeries *pdata, COLORREF col=0xff0000, char cymbol=0, LineStyle ls=LineStyle_solid);
+GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CSignals & pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
+GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CTimeSeries & data, COLORREF col=0xff0000, char cymbol=0, LineStyle ls=LineStyle_solid);
 GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);

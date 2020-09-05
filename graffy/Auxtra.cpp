@@ -1,11 +1,11 @@
-/// AUXLAB 
+/// AUXLAB
 //
 // Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
-// 
+//
 // Version: 1.7
 // Date: 5/21/2020
 
@@ -207,7 +207,7 @@ void initLineList()
 	linecolorlist['g'] = RGB(0,255,0); // green
 	linecolorlist['b'] = RGB(0,0,255); // blue
 	linecolorlist['k'] = RGB(0,0,0); // black
-	linecolorlist['w'] = RGB(255,255,255); // white 
+	linecolorlist['w'] = RGB(255,255,255); // white
 }
 //DO THIS-----if an option is not specified, the default should come in... Now the default seems a bit off. For example, "r" defaults to red, no marker, no line. 8/2/2018
 void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineStyle &ls, int &mk, DWORD &col)
@@ -221,7 +221,7 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	id = input.find_first_of(COLORSTR);
 	if (id!=string::npos) col = linecolorlist[input[id]], input.erase(id,1);
 	while ((id=input.find_first_of(COLORSTR))!=string::npos) {
-		// what's this? 1/17/2020 
+		// what's this? 1/17/2020
 		throw CAstException(USAGE, *past, pnode).proc("more than two characters for line color");
 		input.erase(id,1);
 		// Do something 1/17/2020
@@ -230,7 +230,7 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	if (id!=string::npos) mk = linemarkerlist[input[id]], input.erase(id,1);
 	else				markerspecified = false, mk = 0;
 	while ((id=input.find_first_of(MARKERSTR))!=string::npos) {
-		// what's this? 1/17/2020 
+		// what's this? 1/17/2020
 		throw CAstException(USAGE, *past, pnode).proc("more than two characters for marker");
 		input.erase(id,1);
 		// Do something 1/17/2020
@@ -246,8 +246,8 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	else
 		throw CAstException(USAGE, *past, pnode).proc((input + string(" Invalid line style specifier")).c_str());
 	if (input2.find_first_of(MARKERSTR)==string::npos) //marker is not specified but
-		if (input.empty()) // linestyle is not 
-			ls = linestylelist["-"]; // set it solid 
+		if (input.empty()) // linestyle is not
+			ls = linestylelist["-"]; // set it solid
 }
 
 #define LOADPF(OUT, DEFTYPE, FUNCSIGNATURE) if ((OUT = (DEFTYPE)GetProcAddress((HMODULE)hLib, FUNCSIGNATURE))==NULL) {char buf[256]; sprintf(buf, "cannot find %s", FUNCSIGNATURE); MessageBox(NULL, "LOADPF error", buf, 0); return 0;}
@@ -263,7 +263,7 @@ DWORD double2RGB(double color[3])
 	return out;
 }
 
-/*From now on, Make sure to update this function whenever functions are added/removed in graffy.cpp 
+/*From now on, Make sure to update this function whenever functions are added/removed in graffy.cpp
 7/15/2016 bjk
 */
 
@@ -333,7 +333,7 @@ GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *
 
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
-// 
+//
 	if (!past->pgo) // if argument is scalar or vector with integer, delete(1:5), figure windows are deleted
 	{ // this is not in compliance with AUX syntax philosophy but recognized for the sake of convenience. 10/24/2019
 		CVar tsig = past->Sig;
@@ -512,7 +512,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["pos"].buf[1] = rt.top;
 	cfig->strut["pos"].buf[2] = rt.Width();
 	cfig->strut["pos"].buf[3] = rt.Height();
-	past->Sig = *(past->pgo = cfig); 
+	past->Sig = *(past->pgo = cfig);
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	//if called by a callback
 	if (strlen(past->callbackIdentifer)>0) SetInProg(cfig, true);
@@ -538,7 +538,7 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	if ((**rit).GetType() != CSIG_STRING) throw CAstException(USAGE, *past, pnode).proc("The last argument must be string.");
 	for (rit++; count<2; rit++, count++)
 	{
-		if ((**rit).GetType() != CSIG_SCALAR) 
+		if ((**rit).GetType() != CSIG_SCALAR)
 			throw CAstException(USAGE, *past, pnode).proc("X- and Y- positions must be scalar.");
 	}
 	CSignals *pgcf = past->GetVariable("gcf");
@@ -553,11 +553,11 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	else
 		pgcf = pGO;
 	CFigure *cfig = (CFigure *)pgcf;
-	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back()->string().c_str(), 
+	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back()->string().c_str(),
 		(*(args.end()-3))->value(), (*(args.end() - 2))->value(), 0, 0));
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
-	past->Sig = *(past->pgo = ctxt); 
+	past->Sig = *(past->pgo = ctxt);
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 }
 
@@ -591,7 +591,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	{
 		if (pGO->strut["type"].string() == "figure")
 			pgcf = pGO;
-		else 
+		else
 			throw CAstException(USAGE, *past, pnode).proc("Only figure handle can create axes or handle axes");
 	}
 	CFigure *cfig = (CFigure *)FindFigure(pgcf);
@@ -615,7 +615,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 
 GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
 {
-	//CSignals *pgcf = past->GetVariable("gcf"); 
+	//CSignals *pgcf = past->GetVariable("gcf");
 	//if (!pgcf) return -1;
 	//out->Reset();
 	//out->UpdateBuffer(2);
@@ -646,10 +646,10 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const CVar &arg1, c
 	{
 		if (arg1.nSamples != arg2.nSamples)
 			throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
-		plotlines = PlotCSignals(pax, arg1.buf, (CSignals*)&arg2, col, marker, linestyle);
+		plotlines = PlotCSignals(pax, arg1.buf, arg2, col, marker, linestyle);
 	}
 	else
-		plotlines = PlotCSignals(pax, NULL, (CSignals*)&arg1, col, marker, linestyle);
+		plotlines = PlotCSignals(pax, NULL, arg1, col, marker, linestyle);
 	pax->xTimeScale = past->Sig.IsTimeSignal();
 }
 
@@ -731,7 +731,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				pax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 				RegisterAx((CVar*)cfig, pax, true);
 			}
-			else // use existing axes 
+			else // use existing axes
 				pax = (CAxes *)cfig->struts["gca"].front();
 		}
 		else
@@ -753,7 +753,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		}
 		catch (const CAstException &e) {
 			throw e;
-			//			CAstException(USAGE, *past, pnode).proc(e.getErrMsg().c_str()); 
+			//			CAstException(USAGE, *past, pnode).proc(e.getErrMsg().c_str());
 		}
 	}
 	if (newFig)
@@ -831,7 +831,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 
 
 //	if (mutex==NULL) mutex = CreateMutex(0, 0, 0);
-//	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent")); 
+//	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent"));
 }
 
 GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
