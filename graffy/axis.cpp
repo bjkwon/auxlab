@@ -129,7 +129,7 @@ CAxes::CAxes()
 }
 
 GRAPHY_EXPORT CAxes::CAxes(CWndDlg * base, CGobj* pParent /*=NULL*/)
-:colorAxis(0), xlimfixed(false), ylimfixed(false), belowMouse(false)
+:colorAxis(0), xlimfixed(false), ylimfixed(false), belowMouse(false), limReady(false)
 {
 	type = GRAFFY_axes;
 	initGO(pParent);

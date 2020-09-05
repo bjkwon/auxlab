@@ -215,6 +215,7 @@ class CAxes : public CGobj
 {
 public:
 	COLORREF colorAxis;
+	bool limReady;
 	double xlim[2], ylim[2];
 	double xlimFull[2], ylimFull[2];
 	CTick xtick; // How do I pass the argument for instantiation of these objects?

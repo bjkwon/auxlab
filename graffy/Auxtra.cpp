@@ -38,6 +38,18 @@ double blocksize;
 
 bool isWin7();
 
+static void _delete_ans(CAstSig *past)
+{
+	// Delete the "ans" variable from the main scope if it is a GO.
+	// Without this, auxlab may crash if showvar refreshes the variable list and fillup the showvarDlg
+	// while plot or line call is in progress (so the new ans variable is not yet ready).
+	// Currently used only in plot or line, but may be needed in other Graffy calls. 9/5/2020
+	auto ansIt = past->GOvars.find("ans");
+	if (ansIt != past->GOvars.end())
+		if ((*ansIt).second.front()->IsGO())
+			past->GOvars.erase(ansIt);
+}
+
 int IsNamedPlot(HWND hwnd)
 { // returns 1 if it is named plot
   // 0 if it is not
@@ -535,7 +547,7 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		args.push_back(past->Compute(pp));
 	int count = 0;
 	vector<CVar *>::reverse_iterator rit = args.rbegin();
-	if ((**rit).GetType() != CSIG_STRING) throw CAstException(USAGE, *past, pnode).proc("The last argument must be string.");
+	if (!((**rit).type() & TYPEBIT_STRING)) throw CAstException(USAGE, *past, pnode).proc("The last argument must be string.");
 	for (rit++; count<2; rit++, count++)
 	{
 		if ((**rit).GetType() != CSIG_SCALAR) 
@@ -651,6 +663,7 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const CVar &arg1, c
 	else
 		plotlines = PlotCSignals(pax, NULL, arg1, col, marker, linestyle);
 	pax->xTimeScale = past->Sig.IsTimeSignal();
+	pax->limReady = false;
 }
 
 #include <mutex>
@@ -716,7 +729,11 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				plotOptions = arg3.string();
 			}
 			arg2 = past->Compute(p->next);
-			BLOCKCELLSTRING(past, arg2);
+			if (arg2.type() & TYPEBIT_STRING)
+			{
+				plotOptions = arg2.string();
+				arg2.Reset();
+			}
 		}
 	}
 	else
@@ -748,7 +765,11 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 					plotOptions = arg3.string();
 				}
 				arg2 = tp.Compute(p);
-				BLOCKCELLSTRING(past, arg2);
+				if (arg2.type() & TYPEBIT_STRING)
+				{
+					plotOptions = arg2.string();
+					arg2.Reset();
+				}
 			}
 		}
 		catch (const CAstException &e) {
@@ -821,6 +842,8 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		break;
 	}
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
+
+	_delete_ans(past);
 
 	//x.plot(___) ==> x needs updating here (a break from the convention where aux calls don't update the variable when applied to it) 3/13/2018
 	//Update gcf if it is not showvar-enter figure handle

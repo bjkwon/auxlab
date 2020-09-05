@@ -385,7 +385,7 @@ void CPlotDlg::OnPaint()
 				dc.SetBkColor(gcf.color);
 				// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
 				// also when InvalidateRect(NULL) is called, always remake ticks
-				vector<double> _xlim = OnPaint_make_tics(dc, pax, drawvector, firstdrawing);
+				vector<double> _xlim = OnPaint_make_tics(dc, pax, drawvector);
 				if (firstdrawing)
 				{
 //					xlim[0] = min(xlim[0], _xlim.front());
