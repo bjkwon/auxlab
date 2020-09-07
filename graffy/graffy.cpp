@@ -45,6 +45,7 @@ class CGraffyEnv : public CWinApp
 public:
 	CGobj GraffyRoot;
 	CAstSig *pctx;
+	unsigned int cumulative;
 	vector<CPlotDlg *> fig;
 	vector<HWND> hDlg_fig;
 	vector<HANDLE> figures();
@@ -52,6 +53,7 @@ public:
 	HANDLE  findAxes(HANDLE ax);
 	HANDLE findGObj(CSignals *xGO, CGobj *hGOParent = NULL);
 	CFigure *findFigure(CSignals *xFig);
+	HWND GetFigure(HANDLE h);
 	HANDLE  openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, const char * callbackID, HANDLE hIcon = NULL);
 	HANDLE  openFigure(CRect *rt, HWND hWndAppl, int devID, double blocksize, const char * callbackID, HANDLE hIcon = NULL);
 	HANDLE  openChildFigure(CRect *rt, HWND hWndAppl);
@@ -122,6 +124,21 @@ vector<CVar*> FindFigurebyvalue(const CVar &vals)
 	//reject if it's a time sequence
 	if (vals.IsTimeSignal())
 		return out;
+	for (unsigned int k = 0; k < vals.nSamples; k++)
+	{
+		double val = vals.buf[k];
+		auto fit = theApp.fig.begin();
+		for (; fit != theApp.fig.end(); fit++)
+		{
+			if ((*fit)->gcf.value() == val)
+			{
+				out.push_back((CVar*)&(*fit)->gcf);
+				break;
+			}
+		}
+	}
+
+
 	CVar _vals = vals;
 	{
 		auto f = theApp.fig.begin();
@@ -248,6 +265,7 @@ GRAPHY_EXPORT void initGraffy(CAstSig *base)
 
 CGraffyEnv::CGraffyEnv()
 {
+	cumulative = 0;
 	//	if (!mutexPlot) mutexPlot = CreateMutex(0, 0, 0);
 	hEvent1 = CreateEvent(NULL, FALSE, FALSE, TEXT("graffy"));
 
@@ -338,6 +356,24 @@ HANDLE CGraffyEnv::findGObj(CSignals *xGO, CGobj *hGOParent)
 }
 
 
+GRAPHY_EXPORT HWND GetFigure(HANDLE h)
+{
+	return theApp.GetFigure(h);
+}
+
+HWND CGraffyEnv::GetFigure(HANDLE h)
+{
+	CFigure *cfig = (CFigure *)h;
+	CVar *pgo = (CVar*)cfig;
+	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
+	{
+		if (*cfig == (*it)->gcf)
+			return (*it)->hDlg;
+		return NULL;
+	}
+	return NULL;
+}
+
 CFigure *CGraffyEnv::findFigure(CSignals *xFig)
 {
 	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
@@ -413,7 +449,6 @@ HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 	GetWindowRect(hWndAppl, RectApplication);
 	int screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
 	int screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
-	HWND hConsole = GetParent(hWndAppl);
 	GetWindowRect(GetConsoleWindow(), rcCon);
 
 	newFig->pctx = pctx;
@@ -429,7 +464,7 @@ HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 	newFig->gcf.setPos(rt->left, rt->top, rt->Width(), rt->Height());
 	if (strlen(caption) == 0) // if (caption=="")    NOT THE SAME  in WIN64
 	{
-		s.Format("Figure %d", countFigures());
+		s.Format("Figure %d", ++cumulative);
 		newFig->SetWindowText(s);
 		newFig->title = (char*)(INT_PTR)countFigures();
 	}
@@ -1145,6 +1180,27 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 		invalidateRedrawCue();
 		sendtoEventLogger("(RepaintGO) mtx_OnPaint unlocked.");
 	}
+}
+
+GRAPHY_EXPORT graffytype GOtype(const CVar & obj)
+{
+	graffytype out;
+	auto vv = obj.strut.find("type");
+	if (vv == obj.strut.end()) return GRAFFY_no_graffy;
+	if ((*vv).second.type() & TYPEBIT_STRING)
+	{
+		string typestr = (*vv).second.string();
+		if (typestr == "figure") return GRAFFY_figure;
+		if (typestr == "axes") return GRAFFY_axes;
+		if (typestr == "line") return GRAFFY_line;
+		if (typestr == "tick") return GRAFFY_tick;
+		if (typestr == "axis") return GRAFFY_axis;
+		if (typestr == "text") return GRAFFY_text;
+		if (typestr == "patch") return GRAFFY_patch;
+		else return GRAFFY_others;
+	}
+	else
+		return GRAFFY_no_graffy;
 }
 
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CVar & RHS)

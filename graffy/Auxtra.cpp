@@ -333,7 +333,7 @@ GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *
 {
 	if (!past->Sig.IsGO())
 		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
-	if (past->Sig.strut["type"].string() == "figure")
+	if (GOtype(past->Sig) == GRAFFY_figure)
 	{
 		HANDLE h = FindFigure(&past->Sig);
 		HWND hh = GetHWND_PlotDlg(h);
@@ -343,9 +343,35 @@ GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *
 		throw CAstException(USAGE, *past, p).proc("Only figure handle is supported now.");
 }
 
+static void _delete_figure(CVar *pgo)
+{
+	HWND h = GetFigure(pgo);
+// 	StopPlay(hAudio, true);
+	PostMessage(h, WM_QUIT, 0, 0);
+}
+
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
 // 
+// if past->Sig is GO, do it; otherwise, check if it is an integer vector
+	if ((past->pgo && GOtype(past->pgo) == GRAFFY_figure) || /* figure handle*/
+		past->Sig.type() <= 2) // or a vector
+	{
+		if (past->Sig.type() <= 2)
+		{
+			vector<CVar*> figs = FindFigurebyvalue(past->Sig);
+			_delete_ans(past);
+			for (auto v : figs)
+				_delete_figure(v);
+		}
+		else
+		{ // need to get hWND of the figure window
+		}
+		past->Sig.Reset(1);
+		return;
+	}
+
+
 	if (!past->pgo) // if argument is scalar or vector with integer, delete(1:5), figure windows are deleted
 	{ // this is not in compliance with AUX syntax philosophy but recognized for the sake of convenience. 10/24/2019
 		CVar tsig = past->Sig;
@@ -697,8 +723,10 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	if (past->Sig.IsGO()) // update 8/23/2020
 	{
 		CVar *pgo = past->pgo; // pgo is the actual go, past->Sig is only the mirroring one.
-		if (pgo->strut["type"].string() == "figure")
-		{ // pgo is figure; check if it is named plot, if so mark it and go down; otherwise, set cax
+		switch (GOtype(*pgo))
+		{
+		case GRAFFY_figure:
+			// check if it is named plot, if so mark it and go down; otherwise, set cax
 			if (pgo->GetFs() == 2)
 				newFig = true;
 			else
@@ -712,11 +740,14 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 				else
 					pax = (CAxes *)pgo->struts["gca"].front();
 			}
-		}
-		else if (pgo->strut["type"].string() == "axes")
+			break;
+		case GRAFFY_axes:
 			pax = (CAxes *)pgo;
-		else
+			break;
+		default:
 			throw CAstException(USAGE, *past, p).proc(fnsigs, "A non-graphic object nor a data array is given as the first argument.");
+		}
+			
 		// p should be the CVar object to plot, in plot(h,x,...) and subsequently next'ed.
 		// past->Sig has been stored as pgo; no need to shield it with try and CAstSig tp(past)
 		if (p) arg1 = past->Compute(p);

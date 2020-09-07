@@ -94,7 +94,6 @@ CFileDlg fileOpenSaveDlg;
 char axlfullfname[_MAX_PATH], axlfname[_MAX_FNAME + _MAX_EXT];
 
 HWND CreateTT(HINSTANCE hInst, HWND hParent, RECT rt, char *string, int maxwidth=400);
-void closeXcom();
 size_t ReadThisLine(string &linebuf, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO coninfo0, SHORT thisline, size_t promptoffset);
 
 BOOL CALLBACK vectorsheetDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);

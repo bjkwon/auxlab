@@ -20,6 +20,7 @@
 #include "audstr.h"
 #include "showvar.h"
 #include "histDlg.h"
+#include "utils.h"
 #include "xcom.h"
 
 extern double block;
@@ -28,8 +29,6 @@ extern CShowvarDlg mShowDlg;
 extern CHistDlg mHistDlg;
 extern xcom mainSpace;
 extern HANDLE hEventLastKeyStroke2Base;
-
-void closeXcom();
 
 BOOL CtrlHandler( DWORD fdwCtrlType ) 
 { 

@@ -81,16 +81,18 @@ public:
 	void AdjustPos2FixLocation(CRect oldrt, CRect newrt);
 };
 
-enum graffytype: char
+enum graffytype : char
 { 
-	GRAFFY_root='r',
-	GRAFFY_figure='f',
+	GRAFFY_no_graffy = '\0',
+	GRAFFY_root = 'r',
+	GRAFFY_figure = 'f',
 	GRAFFY_axes = 'a',
-	GRAFFY_axis='x',
-	GRAFFY_text='t',
-	GRAFFY_patch='p',
-	GRAFFY_line='l',
-	GRAFFY_tick='k',
+	GRAFFY_axis = 'x',
+	GRAFFY_text = 't',
+	GRAFFY_patch = 'p',
+	GRAFFY_line = 'l',
+	GRAFFY_tick = 'k',
+	GRAFFY_others = 'o',
 };
 
 
@@ -327,6 +329,7 @@ GRAPHY_EXPORT bool GetInProg(CVar *xGO);
 GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b);
 
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
+GRAPHY_EXPORT HWND GetFigure(HANDLE h);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
 
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures();
@@ -370,6 +373,7 @@ GRAPHY_EXPORT void SetHWND_GRAFFY(HWND hAppl);
 GRAPHY_EXPORT HWND GetHWND_GRAFFY ();
 GRAPHY_EXPORT void deleteObj (HANDLE h);
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CVar & RHS);
+GRAPHY_EXPORT graffytype GOtype(const CVar & obj);
 GRAPHY_EXPORT void RepaintGO(CAstSig *pctx);
 GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B);
 GRAPHY_EXPORT DWORD CSignals2COLORREF(CSignals col);
