@@ -280,6 +280,13 @@ CVar & CVar::operator/=(const CVar & sec)
 bool CVar::operator==(const CVar & rhs)
 {
 	bool singleItem = type() & 1;
+	if (IsGO())
+	{ // For GO's, check only the ID's
+		if (nSamples != rhs.nSamples) return false;
+		if (type() & TYPEBIT_STRING ^ rhs.type() & TYPEBIT_STRING) return false;
+		if (type() & TYPEBIT_STRING) return string() == rhs.string();
+		return value() == rhs.value();
+	}
 	if (!singleItem && (!cell.empty() || !strut.empty() || !struts.empty()))
 		throw "For now no cell, strut or GO objects.";
 	return CSignals::operator==(rhs);

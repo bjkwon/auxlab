@@ -249,7 +249,7 @@ public:
 	map<string, vector<CVar *>> GOvars;
 	AstNode *pAst;
 	CVar Sig;
-	CVar *pgo;
+	CVar *pgo; // pointer, not a copy, of the last computed object; used for graffy functions
 	string Script;
 	CAstSigEnv *pEnv;
 	CUDF u;

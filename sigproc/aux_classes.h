@@ -617,6 +617,7 @@ public:
 		else if (fs == 3)		out += TYPEBIT_STRUT + TYPEBIT_STRUTS;
 		// fs zero means tseq with relative time, treat it as TYPEBIT_AUDIO
 		else if (out == 1 && fs == 0)	out += TYPEBIT_AUDIO;
+		if (IsGO()) out += TYPEBIT_GO;
 		return out;
 	}
 };

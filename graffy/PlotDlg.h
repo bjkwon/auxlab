@@ -191,7 +191,7 @@ private:
 	void OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc);
 	vector<POINT> OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT *pps, CLine* pline, CSignal * block);
 	CPen * OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen);
-	vector<double> OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv, bool first);
+	vector<double> OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv);
 	void OnPaint_fill_sbinfo(CAxes* pax);
 	double xlim[2];
 public:

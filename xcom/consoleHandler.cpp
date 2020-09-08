@@ -20,6 +20,7 @@
 #include "audstr.h"
 #include "showvar.h"
 #include "histDlg.h"
+#include "utils.h"
 #include "xcom.h"
 
 extern double block;
@@ -28,8 +29,6 @@ extern CShowvarDlg mShowDlg;
 extern CHistDlg mHistDlg;
 extern xcom mainSpace;
 extern HANDLE hEventLastKeyStroke2Base;
-
-void closeXcom();
 
 BOOL CtrlHandler( DWORD fdwCtrlType ) 
 { 
@@ -497,7 +496,6 @@ try {
 		sendtoEventLogger("Enter pressed. Trying to logging %s", tar.front().c_str());
 		LogHistory(tar);
 		mHistDlg.AppendHist(tar);
-		sendtoEventLogger("mHistDlg.AppendHist done.");
 		for (size_t k = 0; k < tar.size(); k++)
 		{
 			history.push_back(tar[k].c_str());

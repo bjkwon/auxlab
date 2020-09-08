@@ -816,6 +816,8 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		break;
 	case TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
 	case TYPEBIT_STRUT + TYPEBIT_STRUTS + TYPEBIT_STRING + 2:
+	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
+	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + TYPEBIT_STRING + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		temp.UpdateBuffer(1);
 		memcpy(temp.buf, pvar->buf, pvar->bufBlockSize);
@@ -839,6 +841,9 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		{
 			ostringstream var0;
 			var0 << '.' << it->first;
+			if ((*it).second.empty())
+				echo(var0.str().c_str(), &CVar());
+			else
 			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end() && j < 10; jt++)
 			{
 				if (!CAstSig::HandleSig(&temp, *jt)) temp.SetString("(internal error)");

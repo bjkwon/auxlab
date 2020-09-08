@@ -372,7 +372,7 @@ CPen * CPlotDlg::OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pO
 	return newPen;
 }
 
-vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & draw, bool first)
+vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & draw)
 {
 	if (pax->m_ln.size() > 0)
 	{
@@ -390,8 +390,8 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 		}
 		if (pax->xtick.tics1.empty() && pax->xtick.automatic)
 		{
-			if (first)
-				memcpy(xlim, pax->xlim, sizeof(xlim));
+			if (!pax->limReady)
+				pax->limReady=true, memcpy(xlim, pax->xlim, sizeof(xlim));
 			if (psig && psig->type() & TYPEBIT_TEMPORAL)
 			{
 				pax->xtick.tics1 = pax->gengrids('x', -3);
