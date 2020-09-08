@@ -325,6 +325,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			plotlines = PlotCSignals(cax, NULL, *psig, -1);
 			RegisterAx((CVar*)cfig, cax, true);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
+			cfig->strut["name"] = string(buf);
 			//For the global variable $gcf, updated whether or not this is named plot.
 			xscope.at(res)->SetVar("?foc", cfig);
 			if (!IsNamedPlot(hPlot))

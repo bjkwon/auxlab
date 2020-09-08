@@ -31,7 +31,6 @@
 
 #endif               //====================== STATIC LIBRARY
 
-
 #define GRAPHY_REPLACE_SAME_KEY		(DWORD)0x0000
 #define GRAPHY_REPLACE_NO_KEY		(DWORD)0x0001
 #define GRAPHY_RETURN_ERR_SAME_KEY	(DWORD)0x0002
@@ -41,7 +40,6 @@
 #define FONT_STYLE_BOLD		2
 #define FONT_STYLE_UNDERLINE	4	
 #define FONT_STYLE_STRIKEOUT	8	
-
 
 #define WM_GCF_UPDATED		WM_APP+752
 #define WM_PARENT_THREAD	WM_APP+753
@@ -53,6 +51,7 @@
 #define GRAFFY
 #include "bjcommon_win.h"
 #include "bjcommon.h"
+#include "graffy2.h"
 #ifndef SIGPROC
 #include "sigproc.h"
 #endif
@@ -79,32 +78,6 @@ public:
 	CRect GetRect(int width, int height);
 	void Set(CRect windRect, CRect axRect);
 	void AdjustPos2FixLocation(CRect oldrt, CRect newrt);
-};
-
-enum graffytype : char
-{ 
-	GRAFFY_no_graffy = '\0',
-	GRAFFY_root = 'r',
-	GRAFFY_figure = 'f',
-	GRAFFY_axes = 'a',
-	GRAFFY_axis = 'x',
-	GRAFFY_text = 't',
-	GRAFFY_patch = 'p',
-	GRAFFY_line = 'l',
-	GRAFFY_tick = 'k',
-	GRAFFY_others = 'o',
-};
-
-
-enum LineStyle: unsigned _int8
-{ 
-	LineStyle_err = 255,
-	LineStyle_noline = 0,
-	LineStyle_solid, 
-	LineStyle_dash, 
-	LineStyle_dot, 
-	LineStyle_dashdot,
-	LineStyle_dashdotdot,
 };
 
 class CGobj : public CVar
@@ -277,10 +250,7 @@ public:
 	POINT GetRef();
 };
 
-
-
 #endif //GRAFFY
-
 
 #define WM__VAR_CHANGED			WM_APP+811
 #define WM__PLOTDLG_CREATED		WM_APP+823
@@ -328,19 +298,20 @@ GRAPHY_EXPORT bool GetInProg(CVar *xGO);
 
 GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b);
 
-GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HWND GetFigure(HANDLE h);
+GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
+GRAPHY_EXPORT HANDLE FindFigure(INT_PTR figID);
+GRAPHY_EXPORT vector<HANDLE> FindFigures(const CVar &sig); // figures
+
+GRAPHY_EXPORT vector<HANDLE> GetGraffyHandles(const CVar &sig); // non-figures
+
 
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures();
 GRAPHY_EXPORT vector<CGobj*> graffy_CFigs();
 GRAPHY_EXPORT void graffy_remove_CFigs(CGobj* h);
-GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID);
-GRAPHY_EXPORT HANDLE GCA(HANDLE _fig);
-GRAPHY_EXPORT CVar *GetFigGO(HWND h);
 GRAPHY_EXPORT int CloseFigure(HANDLE h);
 GRAPHY_EXPORT HANDLE FindWithCallbackID(const char *callbackid);
-GRAPHY_EXPORT vector<CVar*> FindFigurebyvalue(const CVar &vals);
 
 #ifdef _WIN32XX_WINCORE_H_
 #define NO_USING_NAMESPACE
@@ -373,7 +344,6 @@ GRAPHY_EXPORT void SetHWND_GRAFFY(HWND hAppl);
 GRAPHY_EXPORT HWND GetHWND_GRAFFY ();
 GRAPHY_EXPORT void deleteObj (HANDLE h);
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CVar & RHS);
-GRAPHY_EXPORT graffytype GOtype(const CVar & obj);
 GRAPHY_EXPORT void RepaintGO(CAstSig *pctx);
 GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B);
 GRAPHY_EXPORT DWORD CSignals2COLORREF(CSignals col);

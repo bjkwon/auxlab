@@ -215,18 +215,19 @@
     <ClCompile Include="$(SrcPath)Figure.cpp" />
     <ClCompile Include="$(SrcPath)graffy.cpp" />
     <ClCompile Include="$(SrcPath)Line.cpp" />
+    <ClCompile Include="$(SrcPath)OnPaint_subs.cpp" />
     <ClCompile Include="$(SrcPath)PlotDlg.cpp" />
     <ClCompile Include="$(SrcPath)PlotDlg_drawmarker.cpp" />
     <ClCompile Include="$(SrcPath)Text.cpp" />
     <ClCompile Include="$(SrcPath)Tick.cpp" />
     <ClCompile Include="$(SrcPath)gengrids.cpp" />
-    <ClCompile Include="$(SrcPath)OnPaint_subs.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)graffy.h" />
     <ClInclude Include="$(SrcPath)msgCrack.h" />
     <ClInclude Include="$(SrcPath)PlotDlg.h" />
     <ClInclude Include="$(SrcPath)resource.h" />
+    <ClInclude Include="$(SrcPath)graffy2.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="$(SrcPath)graffy.rc" />

@@ -118,6 +118,7 @@
     </Lib>
     <PreBuildEvent>
       <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
@@ -148,6 +149,7 @@
     </Lib>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
@@ -177,6 +179,7 @@
     </Link>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
@@ -211,6 +214,7 @@
     </Lib>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\

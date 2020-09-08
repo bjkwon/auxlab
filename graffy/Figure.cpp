@@ -248,9 +248,7 @@ GRAPHY_EXPORT CFigure& CFigure::operator=(const CFigure& rhs)
 		CGobj::operator=(rhs);
 		int index = 0;
 		auto rvax = ((CVar)rhs).struts["children"];
-		map<std::string, vector<CVar*>> aa = ((CVar)rhs).struts;
-		bool bb = aa.find("gca") != aa.end();
-		if (bb && !((CVar)rhs).struts["gca"].empty())
+		if ( !((CVar)rhs).struts["gca"].empty())
 			for (auto ch : rvax)
 			{
 				if (((CVar)rhs).struts["gca"].front() == ch)
@@ -277,7 +275,7 @@ GRAPHY_EXPORT CFigure& CFigure::operator=(const CFigure& rhs)
 			else
 				throw "internal error.";
 		}
-		if (bb && !((CVar)rhs).struts["gca"].empty())
+		if (!((CVar)rhs).struts["gca"].empty())
 			struts["gca"].push_back(struts["children"][index]);
 	}
 	return *this;
