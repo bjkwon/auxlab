@@ -24,11 +24,16 @@
 #include <thread>
 #include <queue>
 #include <mutex>
+#include <condition_variable>
 
 #include <cstdlib>
 
 #include "wavplay.h"
 #include "utils.h"
+
+condition_variable cv_closeFig;
+mutex mtx_closeFig;
+extern condition_variable cv_delay_closingfig;
 
 HWND hLog;
 
@@ -920,8 +925,8 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 
 void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
-	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
-	string vam;
+//		LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
+	//string vam;
 	// do I need to update gcf for all xcope members?
 //	SetGlovar(xscope.at(res)->GetVariable("gcf",vam));
 	// do I need to update gcf for all xcope members?
@@ -945,6 +950,9 @@ void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 
 void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 {
+//	unique_lock<mutex> lck(mtx_closeFig);
+//	cv_closeFig.wait(lck);
+
 	vector<string> varname2del;
 	CVar *p = (CVar *)FindFigure(hDlgPlot);
 	vector<string> varname2delete;
@@ -1000,6 +1008,7 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 		if (dlg && dlg->dwUser == 1010)
 			dlg->DestroyWindow();
 	}
+	cv_delay_closingfig.notify_one();
 }
 
 void CShowvarDlg::InitVarShow(int type, const char *name)

@@ -265,6 +265,7 @@ public:
 	unsigned long Tick0, Tick1;
 	bool fBreak, fAllocatedAst;
 	bool FsFixed;
+	bool wait4cv;
 	CFuncPointers fpmsg; // function pointer "messenger"
 	void init();
 	static const int DefaultFs = 22050;

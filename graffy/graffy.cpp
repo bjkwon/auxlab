@@ -36,7 +36,9 @@ DWORD threadID; // delete this after 7/25/2019
 
 #include <mutex>
 #include <thread>
+#include <condition_variable>
 extern mutex mtx_OnPaint;
+extern condition_variable cv_closeFig;
 
 void initLineList(); // from Auxtra.cpp
 
@@ -662,6 +664,7 @@ void thread4Plot(PVOID var)
 	CFigure *fg = (CFigure*)in->fig;
 	CloseFigure(in->fig);
 	delete in;
+	cv_closeFig.notify_one();
 }
 
 GRAPHY_EXPORT HANDLE OpenChildFigure(CRect *rt, HWND hWndAppl)

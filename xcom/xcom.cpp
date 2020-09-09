@@ -25,8 +25,14 @@
 #include "xcom.h"
 #include "utils.h"
 #include "wavplay.h"
-
 #include "qlparse.h"
+
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
+mutex mtx_delay_closingfig;
+condition_variable cv_delay_closingfig;
 
 double playbackblock(100.);
 uintptr_t hShowvarThread(NULL);
@@ -883,6 +889,13 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			if (!pvar) return; // this filters out a null statement in a block such as a=1; b=100; 500 
 		}
 		if (CAstSig::IsLooping(pnode)) return; // T_IF, T_FOR, T_WHILE
+		// if the command required waiting, lock a mutex here
+		if (pctx->wait4cv)
+		{
+			unique_lock<mutex> lck(mtx_delay_closingfig);
+			cv_delay_closingfig.wait(lck);
+			pctx->wait4cv = false;
+		}
 		if (!pctx->lhs && depth==1)
 		{
 			pctx->SetVar("ans", pvar);

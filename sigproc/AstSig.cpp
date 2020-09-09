@@ -262,6 +262,7 @@ void CAstSig::init()
 	fAllocatedAst = false;
 	fBreak = false;
 	fExit = false;
+	wait4cv = false;
 	memset(callbackIdentifer, 0, LEN_CALLBACKIDENTIFIER);
 	pLast = NULL;
 	son = NULL;

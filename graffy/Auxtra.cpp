@@ -447,6 +447,7 @@ then the rest (if it's still around)
 Do this tomorrow 9/7/2020
 |
 */
+	past->wait4cv = true;
 
 	// First delete figure objects; then do the rest.
 	if (	past->Sig.type() <= 2 || past->Sig.IsGO()) // or a vector
