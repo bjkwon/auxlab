@@ -147,6 +147,29 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 }
 
 template<typename T>
+size_t fwrite_general_floating(T var, CVar& sig, string prec, FILE* file)
+{
+	if (sig.IsAudio())
+		sig.MakeChainless();
+	int k = 0;
+	T* pvar = &var;
+	if (sig.next)
+	{
+		double* buf2 = sig.next->buf;
+		for_each(sig.buf, sig.buf + sig.nSamples,
+			[buf2, pvar, file, &k](double v) {
+				*pvar = (T)v; fwrite(pvar, sizeof(T), 1, file);
+				*pvar = (T)buf2[k++]; fwrite(pvar, sizeof(T), 1, file); });
+	}
+	else
+	{
+		for_each(sig.buf, sig.buf + sig.nSamples,
+			[pvar, file](double v) { *pvar = (T)v; fwrite(pvar, sizeof(T), 1, file); });
+	}
+	return sig.nSamples;
+}
+
+template<typename T>
 size_t fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uint64_t factor)
 {
 	if (sig.IsAudio())
@@ -239,11 +262,13 @@ void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	else if (prec == "float")
 	{ // No automatic scaling
 		float temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 1);
+		res = fwrite_general_floating(temp, past->Sig, prec, file);
 	}
 	else if (prec == "double")
 	{ // No automatic scaling
-		res = fwrite(past->Sig.buf, bytes, past->Sig.nSamples, file);
+		double temp = 0;
+		res = fwrite_general_floating(temp, past->Sig, prec, file);
+//		res = fwrite(past->Sig.buf, bytes, past->Sig.nSamples, file);
 	}
 	past->Sig.SetValue((double)res);
 }
