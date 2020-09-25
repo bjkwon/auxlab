@@ -4358,7 +4358,11 @@ bool CVar::IsGO() const
 
 CVar&  CVar::length()
 {
-	if (IsGO() && fs == 3) SetValue((double)nSamples);
+	if (IsGO())
+	{
+		if (fs == 3) SetValue((double)nSamples);
+		else SetValue(1.);
+	}
 	else // checkcheckcheck
 		runFct2getvals(&CSignal::length);
 	return *this;
