@@ -349,6 +349,7 @@ static void _delete_figure(CVar *pgo)
 	PostMessage(h, WM_QUIT, 0, 0);
 }
 
+
 static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDLE obj)
 {
 	CGobj *hobj = (CGobj *)obj;
@@ -375,6 +376,10 @@ static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDL
 		tp = tp->dad;
 	}
 
+
+	//9/28/2020 2:26 AM
+	//Don't know why this is crashing intermittently.
+
 	// Clear the content of the corresponding variable from GOvar
 	for (map<string, vector<CVar*>>::iterator it = past->GOvars.begin(); it != past->GOvars.end(); )
 	{
@@ -382,24 +387,52 @@ static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDL
 		{
 			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end(); )
 			{
+				if (!*jt) { // already deleted object
+					jt++;  
+					continue;
+				}
 				if (Is_A_Ancestor_of_B(pgo, (*jt)))
 					jt = (*it).second.erase(jt);
 				else
 					jt++;
 			}
-			it++;
+			if ((*it).second.size() == 1)
+			{
+				if (!(*it).second.front())
+				{
+					auto name = (*it).first;
+					past->GOvars.erase(it);
+					past->Vars[name] = CVar();
+					break;
+				}
+			}
+			else
+				it++;
 		}
 		else
 		{
 			if (Is_A_Ancestor_of_B(pgo, (*it).second.front()))
 			{
-				past->Vars[(*it).first] = CVar(); // do not call SetVars--it doesn't make a new item in Vars because of the item in GOvars with the name (*it).first
+				auto name = (*it).first;
+				CVar tp;
 				it = past->GOvars.erase(it);
+				past->Vars[name] = tp; // do not call SetVars--it doesn't make a new item in Vars because of the item in GOvars with the name (*it).first
 			}
 			else
 				it++;
 		}
 	}
+
+	//9/28/2020 2:26 AM
+	//Don't know why this is crashing intermittently.
+	//especially here...
+/*
+	y = noise(800).hann@-15
+		ly = y.plot
+		list = [figure(1) ly]
+		list.delete
+*/
+
 	// Clean the other way
 	for (auto it = past->GOvars.begin(); it != past->GOvars.end(); it++)
 	{
@@ -434,12 +467,19 @@ static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDL
 GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 { // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
 //
-	// One of the following:
-//	delete(1:3)
+// The following are OK:
+// delete(1:3) --- equivalent to delete(figure(1:3))
 // delete(figure(2))
+// delete("x") -- instead of delete(figure("x")) ?? Probably better to keep the original form. Just skipping figure call won't do a lot of saving 9/28/2020
 // delete(ax)
-// delete([gcf 3:4])
 // delete([gcf figure(3).children])
+// delete([gcf figure(3:4)])
+
+// The following are NOT OK:
+// delete([gcf 3])
+// delete([gcf 3:4])
+
+
 
 /* First delete figure windows, gcf and ?foc from GOvars
 then the rest (if it's still around)
@@ -453,34 +493,48 @@ Do this tomorrow 9/7/2020
 	if (	past->Sig.type() <= 2 || past->Sig.IsGO()) // or a vector
 	{
 		//figures first
-		vector<HANDLE> requested = FindFigures(past->Sig);
-//		if (requested.empty())
-//			throw CAstException(USAGE, *past, pnode).proc("Not a valid graphic object identifier.");
+		vector<unsigned int> fids;
+		vector<HANDLE> figs2delete = FindFigures(past->Sig, fids);
+		vector<CVar*> nonfigs2delete = FindNonFigures(past->Sig);
 		_delete_ans(past);
 		CVar *pgcf = past->GetVariable("gcf");
 		CVar *foc = past->GetVariable("?foc");
-		for (auto fig : requested)
+		for (auto fig : figs2delete)
 		{
 			//if fig is gcf or ?foc, remove it from GOvars
 			if (fig == pgcf)
 				past->GOvars.erase(past->GOvars.find("gcf"));
 			if (fig == foc)
 				past->GOvars.erase(past->GOvars.find("?foc"));
-			CGobj *fg = (CGobj *)fig;
-			if (fg->type == GRAFFY_figure)
+			CGobj *fobj = (CGobj *)fig;
+			if (fobj->type == GRAFFY_figure)
 			{
 				// 	StopPlay(hAudio, true);
-				PostMessage(fg->m_dlg->hDlg, WM_QUIT, 0, 0);
+				PostMessage(fobj->m_dlg->hDlg, WM_QUIT, 0, 0);
 			}
 		}
+		// At this point, any GO array variable including the figure object deleted above must be set to zero.
+		for (auto v = past->GOvars.begin(); v != past->GOvars.end(); v++)
+		{
+			if (v->second.size() > 1) // Go array. What about a GO array with one element? Let's decide to prohobit it. 9/28/2020
+			{
+				for (auto & obj : v->second)
+				{ // for each item, check if it is the same as one of figs2delete
+					for (auto del : figs2delete)
+					{
+						HANDLE h = FindFigure(obj);
+						if (h == del) obj = NULL;
+					}
+				}
+			}
+		}
+		
 
 		// non-figures
-//		_delete_graffy_non_figure(past, pnode, past->pgo);
-//		vector<HANDLE> requested2 = GetGraffyHandles(past->Sig);
-//		for (auto obj : requested2)
-//		{
-//			_delete_graffy_non_figure(past, pnode, obj);
-//		}
+		for (auto obj : nonfigs2delete)
+		{
+			_delete_graffy_non_figure(past, pnode, obj);
+		}
 		past->Sig.Reset(1);
 		return;
 	}

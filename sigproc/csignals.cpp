@@ -4353,6 +4353,8 @@ bool CVar::IsGO() const
 	if (strut.find("visible") == strut.end()) return false;
 	//if (strut.find("parent") == strut.end()) return false;
 	//if (strut.find("children") == strut.end()) return false;
+
+	// Add rejection for other handles (e.g., audio handle)
 	return true;
 }
 

@@ -2370,14 +2370,10 @@ void CShowvarDlg::showtype(CVar *pvar, char *buf)
 	uint16_t type = pvar->type();
 	if (type == 0)
 		strcpy(buf, "NUL");
-	else if (type == 1)
-		strcpy(buf, "CONS");
-	else if (type == 2)
-		strcpy(buf, "VECT");
-	else if (type & TYPEBIT_LOGICAL)
-		strcpy(buf, "BOOL");
-	else if (type & TYPEBIT_STRING)
+	else if (pvar->IsString())
 		strcpy(buf, "TEXT");
+//	else if (type & TYPEBIT_LOGICAL)
+//		strcpy(buf, "BOOL");
 	else if (type & TYPEBIT_CELL)
 		strcpy(buf, "CELL");
 	else if (type > (TYPEBIT_STRUT + TYPEBIT_STRUTS))
@@ -2397,6 +2393,10 @@ void CShowvarDlg::showtype(CVar *pvar, char *buf)
 		strcpy(buf, "TSQ");
 	else if (type == TYPEBIT_TSEQ + 2)
 		strcpy(buf, "TSQS");
+	else if (type & 1)
+		strcpy(buf, "CONS");
+	else if (type & 2)
+		strcpy(buf, "VECT");
 	else
 		strcpy(buf, "???");
 }
@@ -2467,77 +2467,75 @@ void CShowvarDlg::showsize(CVar *pvar, char *outbuf)
 void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 {
 	string arrout;
-	switch (pvar->GetType())
+	uint16_t type = pvar->type();
+	if (!(type & 0x000F))
 	{
-	case CSIG_STRING:
+		if (!type)
+			sprintf(outbuf, "----");
+		else // CSIG_NULL...set temporal but empty data
+			sprintf(outbuf, "NULL(0~%g)", pvar->tmark);
+	}
+	else if (pvar->IsString())
 		sprintf(outbuf, "\"%s\"", pvar->string().c_str());
-		break;
-	case CSIG_EMPTY:
-		sprintf(outbuf, "----");
-		break;
-	case CSIG_NULL:
-		sprintf(outbuf, "NULL(0~%g)", pvar->tmark);
-		break;
-	case CSIG_VECTOR:
+	//else if ((type & 0x000F) == 1) // CSIG_SCALAR
+	//{
+	//	if (pvar->IsLogical())
+	//		sprintf(outbuf, "%d", pvar->logbuf[0]);
+	//	else if (pvar->IsComplex())
+	//		showcomplex(outbuf, pvar->cbuf[0]);
+	//	else
+	//		sprintf(outbuf, "%s", pvar->valuestr(digits).c_str());
+	//}
+	else if ((type & 0x000F) < TYPEBIT_TEMPORAL) // vector or constant
+	{
 		arrout = "[";
 		if (pvar->IsLogical())
 		{
-			for (unsigned int k = 0; k<min(pvar->nSamples, 10); k++)
+			for (unsigned int k = 0; k < min(pvar->nSamples, 10); k++)
 			{
 				sprintf(outbuf, "%d ", pvar->logbuf[k]); arrout += outbuf;
 			}
-			if (pvar->nSamples>10) arrout += "...";
+			if (pvar->nSamples > 10) arrout += "...";
 		}
 		else
 		{
 			if (pvar->IsComplex())
-				for (unsigned int k = 0; k<min(pvar->nSamples, 10); k++)
+				for (unsigned int k = 0; k < min(pvar->nSamples, 10); k++)
 				{
 					showcomplex(outbuf, pvar->cbuf[k]); arrout += outbuf;
 				}
 			else
-				for (unsigned int k = 0; k<min(pvar->nSamples, 10); k++)
+				for (unsigned int k = 0; k < min(pvar->nSamples, 10); k++)
 				{
 					sprintf(outbuf, "%g ", pvar->buf[k]); arrout += outbuf;
 				}
-			if (pvar->nSamples>10) arrout += "...";
+			if (pvar->nSamples > 10) arrout += "...";
 			if (pvar->next)
 			{
 				arrout += " ; ";
-				for (unsigned int k = 0; k<min(pvar->next->nSamples, 10); k++)
+				for (unsigned int k = 0; k < min(pvar->next->nSamples, 10); k++)
 				{
 					sprintf(outbuf, "%g ", pvar->next->buf[k]); arrout += outbuf;
 				}
-				if (pvar->next->nSamples>10) arrout += "...";
+				if (pvar->next->nSamples > 10) arrout += "...";
 			}
 		}
 		strcpy(outbuf, arrout.c_str());
 		if (pvar->nSamples <= 10)
 			outbuf[strlen(outbuf) - 1] = ']';
-		break;
-	case CSIG_SCALAR:
-		if (pvar->IsLogical())
-			sprintf(outbuf, "%d", pvar->logbuf[0]);
-		else if (pvar->IsComplex())
-			showcomplex(outbuf, pvar->cbuf[0]);
+	}
+	else if (type & TYPEBIT_CELL || type & TYPEBIT_TEMPORAL)
+		sprintf(outbuf, "----");
+	else if (type & TYPEBIT_GO)
+	{
+		if (pvar->IsString())
+			sprintf(outbuf, "\"%s\" [Graphic]", pvar->string().c_str());
 		else
-			sprintf(outbuf, "%s", pvar->valuestr(digits).c_str());
-		break;
-	case CSIG_HANDLE:
-		if (pvar->IsGO())
-		{
-			if (pvar->IsString())
-				sprintf(outbuf, "\"%s\" [Graphic]", pvar->string().c_str());
-			else
-				sprintf(outbuf, "[%s] [Graphic]", pvar->valuestr().c_str()); // this should be %s ... check 7/28/2019
-		}
-		else if (pvar->IsAudioObj())
-			sprintf(outbuf, "%s [Audio handle]", pvar->valuestr().c_str());
-		else
-			sprintf(outbuf, "Handle");
-		break;
-	case CSIG_STRUCT:
-		if (pvar->nSamples==0)
+			sprintf(outbuf, "[%s] [Graphic]", pvar->valuestr().c_str()); // this should be %s ... check 7/28/2019
+	}
+	else if (type & TYPEBIT_STRUT)
+	{
+		if (pvar->nSamples == 0)
 			sprintf(outbuf, "----");
 		else
 		{
@@ -2545,13 +2543,13 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 			CVar tp2 = tp;
 			showcontent(&tp2, outbuf, digits);
 		}
-		break;
-	case CSIG_CELL:
-		sprintf(outbuf, "----");
-		break;
-	case CSIG_TSERIES:
-		sprintf(outbuf, "----");
-		break;
+	}
+	else if (type & TYPEBIT_STRUTS) // other handle....Update later
+	{
+		if (pvar->IsAudioObj())
+			sprintf(outbuf, "%s [Audio handle]", pvar->valuestr().c_str());
+		else
+			sprintf(outbuf, "Handle");
 	}
 }
 
@@ -2578,9 +2576,11 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	pvar->IsAudio() ? hList = GetDlgItem(IDC_LIST1) : hList = GetDlgItem(IDC_LIST2);
 	LvItem.iSubItem = 0; //First item (InsertITEM)
 	LvItem.pszText = buf;
-	if (pvar->IsStruct()) strcpy(buf, "C");
+	if (pvar->IsStruct()) strcpy(buf, "S");
 	else if (pvar->IsGO()) strcpy(buf, "G");
 	else if (pvar->IsAudioObj()) strcpy(buf, "P");
+	else if (pvar->IsComplex()) strcpy(buf, "C");
+	else if (pvar->IsBool()) strcpy(buf, "B");
 	else strcpy(buf, "");
 	LvItem.iItem = ListView_GetItemCount(hList);
 	::SendMessage(hList, LVM_INSERTITEM, 0, (LPARAM)&LvItem);
@@ -2695,7 +2695,7 @@ void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)
 		{
 			for (auto psig : gos)
 			{
-				CAstSig::showGraffyHandle(buf, psig);
+				sprintf(buf, "%lu ", (INT_PTR)psig);
 				strout += buf;
 				if (k == 10) break;
 			}
@@ -2720,11 +2720,12 @@ void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)
 				strout += buf;
 			}
 		}
-		if (gos.front()->nSamples>10) strout += "...";
+		if (gos.size() > 10)
+			strout += "...";
 		else {
 			trim(strout, ' ');
 			{
-				if (gos.front()->IsGO()) 
+				if (gos.size() > 1 || gos.front()->IsGO()) 
 					strout += '}';
 				else
 					strout += ']';

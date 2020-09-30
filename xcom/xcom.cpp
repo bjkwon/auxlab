@@ -738,6 +738,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		printf_vector(pvar, offset, postscript);
 		break;
 	case 1: //CSIG_SCALAR:
+	case TYPEBIT_COMPLEX + 1:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = ";
 		if (strstr(postscript, "[Handle]"))
@@ -775,6 +776,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		}
 		break;
 	case 2: //CSIG_VECTOR:
+	case TYPEBIT_COMPLEX + 2:
 		for (int p = 0; p < offset; p++) cout << " ";
 		cout << varname << " = ";
 		printf_vector(pvar, offset, postscript);
@@ -827,16 +829,17 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		for (int k = 0; k < offset; k++) cout << " ";
 		temp.UpdateBuffer(1);
 		memcpy(temp.buf, pvar->buf, pvar->bufBlockSize);
-		if (pvar->bufBlockSize == 1) 	temp.SetFs(2);
+		if (pvar->bufBlockSize == 1) { temp.SetFs(2); temp.bufBlockSize = 1; }
 		echo(varname, &temp, offset-1, " [Handle]");
 		passingdown = true;
 	case TYPEBIT_STRUT:
 	{
-		CSignals tp = *pvar;
-		CVar tp2 = tp;
-		if (pvar->nSamples > 0)
-			echo(varname, &tp2, offset, postscript);
-		if (!passingdown)		cout << varname << " [Structure]" << endl;
+		if (!passingdown)
+		{
+			if (pvar->nSamples > 0)
+				echo(varname, pvar, offset, postscript);
+			cout << varname << " [Structure]" << endl;
+		}
 		for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
 		{
 			ostringstream var0;
@@ -857,6 +860,14 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			}
 		}
 	}
+		break;
+	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
+		for (unsigned int k = 0; k < pvar->nSamples; k++)
+		{
+			ostringstream _varname;
+			_varname << varname << '(' << j++ << ')';
+			echo(_varname.str().c_str(), (CVar*)(INT_PTR)pvar->buf[k]);
+		}
 		break;
 	default:
 		break;
@@ -1019,7 +1030,12 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 				echo(dt, pContext, pp);
 		}
 		else // see if lhs makes more sense than pAst 
-			echo(dt, pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
+		{
+			CVar *psig;
+			if (pContext->Sig.IsGO() && pContext->Sig.GetFs() != 3) psig = pContext->pgo;
+			else psig = &pContext->Sig;
+			echo(dt, pContext, pContext->pAst, psig );
+		}
 	}
 	catch (const char *errmsg) {
 		if (strncmp(errmsg, "Invalid", strlen("Invalid")))

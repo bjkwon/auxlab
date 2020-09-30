@@ -302,10 +302,8 @@ GRAPHY_EXPORT HWND GetFigure(HANDLE h);
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
 GRAPHY_EXPORT HANDLE FindFigure(INT_PTR figID);
-GRAPHY_EXPORT vector<HANDLE> FindFigures(const CVar &sig); // figures
-
-GRAPHY_EXPORT vector<HANDLE> GetGraffyHandles(const CVar &sig); // non-figures
-
+GRAPHY_EXPORT vector<HANDLE> FindFigures(const CVar &sig, vector<unsigned int> &idxFig); // figures
+GRAPHY_EXPORT vector<CVar*> FindNonFigures(const CVar &sig); // non-figures
 
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures();
 GRAPHY_EXPORT vector<CGobj*> graffy_CFigs();

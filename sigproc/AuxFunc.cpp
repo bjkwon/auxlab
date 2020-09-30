@@ -199,6 +199,13 @@ void CAstSig::checkString(const AstNode *pnode, const CVar &checkthis, string ad
 	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
 }
 
+bool CAstSig::blockCell_allowGO(const AstNode *pnode, const CVar &checkthis)
+{
+	if (checkthis.type() & TYPEBIT_GO) return true;
+	blockCell(pnode, checkthis);
+	return false;
+}
+
 void CAstSig::blockCell(const AstNode *pnode, const CVar &checkthis)
 {
 	string msg("Not valid with a cell, struct, or point-array variable ");
@@ -230,6 +237,14 @@ void CAstSig::blockString(const AstNode *pnode, CVar &checkthis)
 {
 	if (checkthis.GetType() == CSIG_STRING) {
 		string msg("Not valid with a string variable ");
+		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+	}
+}
+
+void CAstSig::blockTemporal(const AstNode *pnode, CVar &checkthis)
+{
+	if (checkthis.type() & TYPEBIT_TEMPORAL) {
+		string msg("Not valid with a temporal object ");
 		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
 	}
 }

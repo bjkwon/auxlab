@@ -324,7 +324,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 			{	//top-level: SetVar
 				if (p->suppress != -1) // for the case of (recorder).start--we should keep RHS from affecting the LHS
 				{
-					if (psigRHS->IsGO())
+					if (psigRHS->IsGO() && psigRHS->GetFs()!=3)
 						pbase->SetVar(p->str, pbase->pgo);
 					else
 						pbase->SetVar(p->str, psigRHS);
@@ -354,8 +354,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 					if (psigRHS->IsGO()) // If the base sig already has corresponding struts, it is a matter of replacing the content, but if the existing member is strut, it is complicated... 9/6/2018
 						throw CAstException(USAGE, *pbase, p).proc("You are trying to update a GO member variable. This cannot be done due to a known bug. Clear the member variable and try again. Will be fixed someday. bj kwon 9/6/2018.");
 					else
-						//if psigBase is not strut yet, make it now
-					{
+					{	//if psigBase is not strut yet, make it now
 						psigBase->strut[p->str] = psigRHS;
 						varname += string(".") + p->str;
 					}
@@ -454,6 +453,8 @@ bool CAstSig::builtin_func_call(CNodeProbe &diggy, AstNode *p)
 	}
 	return false;
 }
+
+// To Do.....
 
 char *CAstSig::showGraffyHandle(char *outbuf, CVar *psig)
 { // psig must be a single GO
