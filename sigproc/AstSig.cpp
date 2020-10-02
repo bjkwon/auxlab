@@ -1797,133 +1797,27 @@ CVar * CAstSig::NodeVector(const AstNode *pn)
 	CVar out;
 	if (!bbuf.empty())
 	{
-		out.UpdateBuffer(bbuf.size());
+		out.UpdateBuffer((unsigned)bbuf.size());
 		out.MakeLogical();
 		int k = 0;
 		for (auto v : bbuf) out.logbuf[k++] = v;
 	}
 	else if (!cbuf.empty())
 	{
-		out.UpdateBuffer(cbuf.size());
+		out.UpdateBuffer((unsigned)cbuf.size());
 		out.SetComplex();
 		int k = 0;
 		for (auto v : cbuf) out.cbuf[k++] = v;
 	}
 	else
 	{
-		out.UpdateBuffer(dbuf.size());
+		out.UpdateBuffer((unsigned)dbuf.size());
 		int k = 0;
 		for (auto v : dbuf) out.buf[k++] = v;
 	}
 	//Do something about nColumn
 	if (GO) out.SetFs(3);
 	return &(Sig = out);
-
-
-	//}
-
-
-
-	//// First element
-	//CVar *psig0 = Compute(p->alt);
-
-	//vector<bool> bbuf;
-	//vector<double> dbuf;
-	//vector<complex<double>> cbuf;
-	// {
-	//}
-	//for (p = p->alt->next; p; p = p->next)
-	//{
-	//	CVar *psig = Compute(p);
-
-
-	//	if (nElements == 1)
-	//	{
-
-	//	}
-
-
-	//}
-
-
-
-
-
-
-	//unsigned int len;
-	//vector<double> databuf;
-	//vector<complex<double>> cdatabuf;
-	////First it checks whether every item has the same nGroups
-	////Also checks if it's complex
-	////for vector, p is not NULL; p->alt should be non-null (check)
-	//// Compute the first item--if it's a GO
-	//CVar *psig = Compute(p->alt);
-	//if (psig->IsGO()) return NodeVectorGO(psig, pn);
-	//CVar tsig = *psig;
-	//if (tsig.IsAudio()) return &(Sig = tsig);
-	//bool thisisGO = false;
-	//bool beginswithempty = tsig.IsEmpty();
-	//thisisGO = tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO();
-	//unsigned int ngroups = tsig.nGroups; // final number of rows 
-	//unsigned int totalLen = tsig.Len(); // final number of cols
-	//bool compl=tsig.IsComplex();
-	//int audiofs = 0;
-	//for (p = p->alt->next; p; p = p->next)
-	//{
-	//	tsig = Compute(p);
-	//	if (thisisGO && (tsig.GetType() != CSIG_HDLARRAY && !tsig.IsGO()))
-	//		throw CAstException(USAGE, *this, pn).proc("Graphic Handle and non-Graphic handle cannot be in an array");
-	//	if ((!thisisGO && !beginswithempty) && (tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO()))
-	//		throw CAstException(USAGE, *this, pn).proc("Graphic Handle and non-Graphic handle cannot be in an array");
-	//	if (ngroups != tsig.nGroups)
-	//		throw CAstException(USAGE, *this, pn).proc("Every item in the brackets must have the same nGroups.");
-	//	totalLen += Sig.Len();
-	//	if (!compl) compl = tsig.IsComplex();
-	//	thisisGO = tsig.GetType() == CSIG_HDLARRAY || tsig.IsGO();
-	//	if (!audiofs && tsig.GetType() == CSIG_AUDIO)
-	//		audiofs = tsig.GetFs();
-	//}
-	//CVar out;
-	//if (thisisGO)
-	//{
-	//	out.SetFs(3);
-	//	for (p = pn->child; p; p = p->next)
-	//	{
-	//		tsig = Compute(p);
-	//		if (tsig.GetType() == CSIG_HDLARRAY)
-	//		{
-	//			unsigned int beginID = out.nSamples;
-	//			out.UpdateBuffer(out.nSamples + tsig.nSamples);
-	//			for (unsigned int k = 0; k < tsig.nSamples; k++)
-	//				out.buf[beginID+k] = (double)(INT_PTR)tsig.buf[k];
-	//		}
-	//		else
-	//		{ // tsig must be a copy of single GO--> get it from pgo
-	//			out.UpdateBuffer(out.nSamples + 1);
-	//			out.buf[out.nSamples-1] = (double)(INT_PTR)pgo;
-	//		}
-	//	}
-	//	return &(Sig = out);
-	//}
-	//out.UpdateBuffer(ngroups*totalLen);
-	//out.nGroups = ngroups;
-	//if (audiofs) out.SetFs(audiofs);
-	//if (compl) out.SetComplex();
-	//int col; // column locator
-	//p = pn->str ? (AstNode *)pn->str : (AstNode *)pn;
-	//for (col = 0, p = p->alt; p; p=p->next)
-	//{
-	//	Compute(p);
-	//	out.tmark = Sig.tmark; // is this right? 3/8/2019
-	//	if (compl && !Sig.IsComplex()) Sig.SetComplex();
-	//	len = Sig.Len();
-	//	unsigned int bufsize = Sig.bufBlockSize;
-	//	for (unsigned int k = 0; k < ngroups; k++)
-	//		memcpy(out.logbuf+(k*totalLen+col)*bufsize, Sig.logbuf+(k*len)*bufsize, bufsize*len);
-	//	col += len;
-	//}
-	//out.bufBlockSize = Sig.bufBlockSize;
-//	return &(Sig = psig);
 }
 
 vector<double> CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)

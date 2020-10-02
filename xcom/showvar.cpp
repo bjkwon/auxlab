@@ -991,7 +991,6 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 				it++;
 		}
 	}
-	Fillup();
 	for (auto figdlg=plots.begin(); figdlg!=plots.end(); figdlg++)
 	{
 		if ((*figdlg)->hDlg == hDlgPlot)
@@ -1009,6 +1008,7 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 			dlg->DestroyWindow();
 	}
 	cv_delay_closingfig.notify_one();
+	Fillup();
 }
 
 void CShowvarDlg::InitVarShow(int type, const char *name)
@@ -2702,6 +2702,7 @@ void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)
 		}
 		else
 		{
+			if (!gos.front()) return; // gos.front() can be NULL if it is a leftover from deletion of a multi-GO object
 			if (gos.front()->IsGO())
 				strout = '{';
 			if (gos.front()->GetType() == CSIG_HDLARRAY)

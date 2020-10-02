@@ -350,8 +350,9 @@ static void _delete_figure(CVar *pgo)
 }
 
 
-static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDLE obj)
+static int _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDLE obj)
 {
+	if (!obj) return 0; // can be NULL while deleting a multi-figure obj.
 	CGobj *hobj = (CGobj *)obj;
 	CVar *pgo = (CVar*)obj;
 	CVar *hPar = ((CFigure*)hobj)->hPar;
@@ -448,7 +449,6 @@ static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDL
 		}
 	}
 	deleteObj(hobj);
-	past->Sig = CVar();
 	past->pgo = NULL;
 	tp = past->dad;
 	while (tp)
@@ -461,6 +461,7 @@ static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDL
 		past->u.rt2validate[GetHWND_PlotDlg(hobj)] = CRect(0, 0, 0, 0);
 	else
 		InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
+	return 1;
 }
 
 
@@ -487,7 +488,6 @@ then the rest (if it's still around)
 Do this tomorrow 9/7/2020
 |
 */
-	past->wait4cv = true;
 
 	// First delete figure objects; then do the rest.
 	if (	past->Sig.type() <= 2 || past->Sig.IsGO()) // or a vector
@@ -496,6 +496,7 @@ Do this tomorrow 9/7/2020
 		vector<unsigned int> fids;
 		vector<HANDLE> figs2delete = FindFigures(past->Sig, fids);
 		vector<CVar*> nonfigs2delete = FindNonFigures(past->Sig);
+		if (!figs2delete.empty()) past->wait4cv = true;
 		_delete_ans(past);
 		CVar *pgcf = past->GetVariable("gcf");
 		CVar *foc = past->GetVariable("?foc");
@@ -528,27 +529,14 @@ Do this tomorrow 9/7/2020
 				}
 			}
 		}
-		
-
+		auto count = figs2delete.size();
 		// non-figures
 		for (auto obj : nonfigs2delete)
-		{
-			_delete_graffy_non_figure(past, pnode, obj);
-		}
-		past->Sig.Reset(1);
-		return;
-	}
-
-	// To delete multiple GO's, delete one by one
-	if (past->pgo->GetType() == CSIG_HDLARRAY)
-	{
-		CVar temp = *past->pgo;
-		for (unsigned int k = 0; k < temp.nSamples; k++)
-		{
-			past->pgo = (CVar*)(INT_PTR)temp.buf[k];
-			_delete_graffy(past, pnode, p, fnsigs);
-		}
-		return;
+			count += _delete_graffy_non_figure(past, pnode, obj);
+		// if Reset() resets a GO into a NULL, the next two lines are not necessary 10/1/2020
+		past->Sig.strut.clear();
+		past->Sig.struts.clear();
+		past->Sig.SetValue((double)count);
 	}
 }
 

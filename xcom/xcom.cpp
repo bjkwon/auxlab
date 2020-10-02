@@ -1138,10 +1138,12 @@ int xcom::SAVE_axl(CAstSig *past, const char* filename, vector<string> varlist, 
 	return savedCount;
 }
 
+using std::setw;
+
 int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 {
 	string emsg;
-	char errstr[1024], buf[MAX_PATH], drive[MAX_PATH], dir[MAX_PATH], filename[MAX_PATH], ext[MAX_PATH], buffer[MAX_PATH];
+	char errstr[1024], buf[MAX_PATH], drive[MAX_PATH], dir[MAX_PATH], filename[MAX_PATH], ext[MAX_PATH], buffer[MAX_PATH] = {};
 	string name, fname;
 	size_t k(0), nItems;
 	vector<string> varlist, tar;
@@ -1167,7 +1169,9 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		else
 		{
 			WIN32_FIND_DATA ls;
-			strcpy(buffer, AppPath);
+			// see argstr is an absolute path
+			if (!strchr(argstr,':') && argstr[0] != '\\')
+				strcpy(buffer, AppPath);
 			strcat(buffer, argstr);
 			HANDLE hFind = FindFirstFile(buffer, &ls);
 			if (hFind == INVALID_HANDLE_VALUE)
@@ -1186,6 +1190,26 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 				else
 					printf("invalid directory %s\n", argstr);
 			}
+		}
+	}
+	else if (HookName == "dir" || HookName == "ls")
+	{
+		WIN32_FIND_DATA ls;
+		if (!strchr(argstr, ':') && argstr[0] != '\\')
+			strcpy(buffer, AppPath);
+		strcat(buffer, argstr);
+		if (buffer[strlen(buffer)-1]== '\\')
+			strcat(buffer, "*.*");
+		HANDLE hFind = FindFirstFile(buffer, &ls);
+		bool b = hFind != INVALID_HANDLE_VALUE;
+		while (b)
+		{
+			cout << setw(25) << ls.cFileName;
+			if (ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				cout << setw(8) << "<DIR>" << endl;
+			else
+				cout << setw(25) << ls.nFileSizeLow << " bytes" << endl;
+			b = FindNextFile(hFind, &ls);
 		}
 	}
 	else if (HookName == "pwd")

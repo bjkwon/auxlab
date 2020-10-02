@@ -792,6 +792,7 @@ GRAPHY_EXPORT void graffy_remove_CFigs(CGobj* hRemove)
 /*New 1*/
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *pfigsig)
 {
+	if (!pfigsig) return NULL; // can be NULL while deleting a multi-figure obj.
 	// If pfigsig is CGobj, don't call this; Just cast.
 	// (It won't be bad even if you call this, but you may just get confused what this is doing. 9/7/2020
 	for (auto fig : theApp.fig)
@@ -1104,6 +1105,7 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals 
 
 bool Is_A_Ancestor_of_B(vector<INT_PTR> &A, vector<INT_PTR> &B)
 {
+	if (A.empty() || B.empty()) return false;
 	vector<INT_PTR>::iterator it, jt;
 	for (it = A.begin(), jt = B.begin(); it != A.end() && jt != B.end(); it++, jt++)
 	{
@@ -1115,6 +1117,7 @@ bool Is_A_Ancestor_of_B(vector<INT_PTR> &A, vector<INT_PTR> &B)
 
 GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B)
 {
+	if (!A || !B) return false;
 	if (A == B) return true;
 	CGobj* a = (CGobj*)A;
 	CGobj* b = (CGobj*)B;

@@ -537,9 +537,18 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 			if (isig.nSamples == 1)
 			{
 				size_t did = (size_t)isig.value() - 1;
-				CVar *tp = (CVar*)(INT_PTR)(psigBase)->buf[did];
-				pbase->pgo = psigBase = tp;
-				pbase->Sig = *psigBase;
+				if (!psigBase->buf[did]) {
+					// if Reset() resets a GO into a NULL, the next two lines are not necessary 10/1/2020
+					psigBase->strut.clear();
+					psigBase->struts.clear();
+					psigBase->Reset(1);
+				}
+				else
+				{
+					CVar* tp = (CVar*)(INT_PTR)(psigBase)->buf[did];
+					pbase->pgo = psigBase = tp;
+					pbase->Sig = *psigBase;
+				}
 				return psigBase;
 			}
 			else
