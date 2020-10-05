@@ -339,6 +339,9 @@ public:
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase);
 	void outputbinding(const AstNode *plhs);
 	void bind_psig(AstNode *pn, CVar *tsig);
+	vector<string> erase_GO(const char* varname);
+	vector<string> erase_GO(CVar* obj);
+	vector<CVar*> get_GO_children(const vector<CVar*>& obj);
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);
 #endif

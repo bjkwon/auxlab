@@ -953,9 +953,11 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 //	unique_lock<mutex> lck(mtx_closeFig);
 //	cv_closeFig.wait(lck);
 
-	vector<string> varname2del;
+	vector<string> varname2delete = pcast->erase_GO(varname);
+
+
+
 	CVar *p = (CVar *)FindFigure(hDlgPlot);
-	vector<string> varname2delete;
 	//scan pVars and pGOvars and delete p if found
 	CVar dummy;
 	for (map<string, vector<CVar*>>::iterator it = pGOvars->begin(); it != pGOvars->end(); )
@@ -2695,7 +2697,7 @@ void CShowvarDlg::fillrowvar(vector<CVar *>gos, string varname)
 		{
 			for (auto psig : gos)
 			{
-				sprintf(buf, "%lu ", (INT_PTR)psig);
+				sprintf(buf, "%s ", psig->valuestr().c_str());
 				strout += buf;
 				if (k == 10) break;
 			}

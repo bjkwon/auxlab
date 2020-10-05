@@ -3616,6 +3616,70 @@ CVar *CAstSig::GetSig(const char *var)
 		return &(what->second);
 }
 
+vector<CVar*> CAstSig::get_GO_children(const vector<CVar*> & obj)
+{	// If obj is a figure, add its axes's
+	// Add 
+	vector<CVar*> out;
+	for (auto jt : obj)
+		for (auto it = jt->struts.begin(); it != jt->struts.end(); it++)
+		{
+			if ((*it).first == "children")
+				for (auto mvt : (*it).second)
+					out.push_back(mvt);
+		}
+	return out;
+}
+
+vector<string> CAstSig::erase_GO(CVar * obj)
+{
+	vector<string> out;
+	if (!obj->IsGO()) return out;
+	vector<CVar*> obj_deleting = get_GO_children(vector<CVar*>(1, obj));
+	obj_deleting.push_back(obj);
+	for (auto del : obj_deleting)
+	{
+		for (auto v = GOvars.begin(); v != GOvars.end(); v++)
+		{
+			if ((*v).second.size() == 1)
+			{
+				if ((*v).second.front() == del)
+				{
+					out.push_back((*v).first);
+					GOvars.erase(v);
+					break;
+				}
+			}
+			else
+			{ // multi
+				for (auto kt = (*v).second.begin(); kt!= (*v).second.end();)
+				{
+					if (*kt == del)
+						kt = (*v).second.erase(kt);
+					else
+						kt++;
+				}
+				if ((*v).second.empty())
+				{
+					Vars[v->first] = CVar();
+					GOvars.erase(v);
+					break;
+				}
+			}
+		}
+	}
+	return out;
+}
+
+vector<string> CAstSig::erase_GO(const char * varname)
+{
+	vector<string> out;
+	auto fd = GOvars.find(varname);
+	if (fd != GOvars.end())
+		out = erase_GO((*fd).second.front());
+	return out;
+}
+
+
 UDF& UDF::operator=(const UDF& rhs)
 {
 	if (this != &rhs)
