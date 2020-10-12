@@ -1173,6 +1173,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 			if (!strchr(argstr,':') && argstr[0] != '\\')
 				strcpy(buffer, AppPath);
 			strcat(buffer, argstr);
+			if (buffer[strlen(buffer) - 1] == '\\') buffer[strlen(buffer) - 1] = 0;
 			HANDLE hFind = FindFirstFile(buffer, &ls);
 			if (hFind == INVALID_HANDLE_VALUE)
 			{
@@ -1194,13 +1195,15 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	}
 	else if (HookName == "dir" || HookName == "ls")
 	{
+		_splitpath(argstr, drive, dir, filename, ext);
+
 		WIN32_FIND_DATA ls;
 		if (!strchr(argstr, ':') && argstr[0] != '\\')
 			strcpy(buffer, AppPath);
 		strcat(buffer, argstr);
 		if (buffer[strlen(buffer)-1]== '\\')
 			strcat(buffer, "*.*");
-		HANDLE hFind = FindFirstFile(buffer, &ls);
+		HANDLE hFind = FindFirstFile(argstr, &ls);
 		bool b = hFind != INVALID_HANDLE_VALUE;
 		while (b)
 		{
