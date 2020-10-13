@@ -3265,7 +3265,7 @@ string CAstSig::makefullfile(const string &fname, char *extension)
 	if (drive[0] == 0 && dir[0] == 0) // no directory info
 		fullfilename = pEnv->AppPath;
 	fullfilename += fname;
-	if (ext[0] && strcmp(extension, ext))
+	if (extension && ext[0] && strcmp(extension, ext))
 		fullfilename += extension;
 	return fullfilename;
 }

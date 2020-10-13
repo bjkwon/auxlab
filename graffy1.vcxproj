@@ -119,6 +119,7 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
+		call copy_header.bat graffy2 graffy\
 	  call copy_header.bat aux_classes sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
@@ -148,6 +149,7 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
+	call copy_header.bat graffy2 graffy\
 	  call copy_header.bat aux_classes sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
@@ -174,6 +176,7 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
+ 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat aux_classes sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
@@ -205,7 +208,8 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay sigproc
-	  call copy_header.bat aux_classes sigproc\
+  	  call copy_header.bat graffy2 graffy\
+      call copy_header.bat aux_classes sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
