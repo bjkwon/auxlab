@@ -327,7 +327,6 @@ GRAPHY_EXPORT HANDLE	AddAxes(HANDLE fig, double x0, double y0, double wid, doubl
 GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, CPosition pos);
 GRAPHY_EXPORT HANDLE	AddText (HANDLE fig, const char* text, double x, double y, double wid, double hei);
 GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CSignals & pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
-GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CTimeSeries & data, COLORREF col=0xff0000, char cymbol=0, LineStyle ls=LineStyle_solid);
 GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);

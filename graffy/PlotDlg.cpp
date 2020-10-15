@@ -752,7 +752,7 @@ void CPlotDlg::OnLButtonUp(UINT nFlags, CPoint point)
 		curRange.reset();
 	CSignals _sig;
 	clickedPt.x = -999; clickedPt.y = -999;
-	if (cax && curRange.px1 > 0 && curRange.px2 > 0)
+//	if (cax && curRange.px1 > 0 && curRange.px2 > 0)
 	{
 		switch (ClickOn)
 		{
@@ -1383,7 +1383,7 @@ void CPlotDlg::OnMenu(UINT nID)
 			newlimit2 = pax->xlim[1] + shift*iMul; // only effective for IDM_RIGHT_STEP
 			if (newlimit2>xlim[1]) 
 				shift = fabs(pax->xlim[1] - xlim[1]);
-			if (shift<0.001) return;
+//			if (shift<0.001) return;
 			if (pax->xtick.tics1.size() == 1)
 			{ // if there's only one tick, make sure it has at least two, so that step valid in line+25
 				double newxlim[2];

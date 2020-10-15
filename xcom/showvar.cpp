@@ -358,21 +358,6 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 	}
 }
 
-double CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig)
-{
-	//Update sig
-	while (!pax->m_ln.empty())
-		deleteObj(pax->m_ln.front());
-	((CVar*)pax)->struts["children"].clear();
-	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, -1);
-	double lower = 1.e100;
-	for (auto lnObj : plotlines)
-	{
-		CLine *pp = (CLine *)lnObj;
-		lower = min(lower, pp->sig.tmark);
-	}
-	return lower;
-}
 
 double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 {
@@ -397,11 +382,11 @@ void CShowvarDlg::plotvar_update(CFigure *cfig, CVar *psig)
 	// keep xlim
 	// otherwise
 
-	CTimeSeries *pChan = psig;
+	CSignals *pChan = psig;
 	CSignals *pChan2 = psig->next;
 	if (pChan2) psig->next = NULL;
 	double  lowestTmark = 1.e100;
-	vector<CTimeSeries *> input;
+	vector<CSignals*> input;
 	input.push_back(pChan);
 	input.push_back(pChan2);
 	double xlimOld[2];
