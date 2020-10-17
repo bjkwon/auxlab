@@ -222,6 +222,7 @@ void CPlotDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	case IDM_LEFT_STEP:
 	case IDM_RIGHT_STEP:
 	case IDM_TRANSPARENCY:
+	case IDM_CLOSE_FIG:
 #ifndef NO_PLAYSND
 	case IDM_PLAY:
 	case IDM_STOP:
@@ -1306,6 +1307,9 @@ void CPlotDlg::OnMenu(UINT nID)
 				}
 			}
 		}
+		break;
+	case IDM_CLOSE_FIG:
+		OnClose();
 		break;
 
 	case IDM_FULLVIEW:
