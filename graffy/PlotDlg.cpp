@@ -374,7 +374,7 @@ void CPlotDlg::OnPaint()
 				for (auto lyne : pax->m_ln)
 				{
 					if (lyne->visible)
-						drawvector = drawCLine(pax, dc, lyne);
+						drawCLine(dc, lyne, drawvector);
 				}
 			}
 			if (hDlg == hwnd_AudioCapture)
@@ -387,11 +387,6 @@ void CPlotDlg::OnPaint()
 				// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
 				// also when InvalidateRect(NULL) is called, always remake ticks
 				vector<double> _xlim = OnPaint_make_tics(dc, pax, drawvector);
-				if (firstdrawing)
-				{
-//					xlim[0] = min(xlim[0], _xlim.front());
-//					xlim[1] = max(xlim[1], _xlim.back());
-				}
 			}
 			if (pax->hChild)
 			{
@@ -461,73 +456,67 @@ void CPlotDlg::OnPaint()
 	// find out why sometimes gcf.ax[k] is pointing something already deleted and causing a crash here. 8/216/2017 bjk
 }
 
+int estimate_prec(const vector<double>& tics)
+{ // DO THIS .... 10/30/2020
+	return 0;
+}
+
 void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 {
 	LOGFONT fnt;
 	int loc;
 	double value;
-	int lastpt2Draw(-32767), cum(0);
+	int lastpt2Draw(-32767);
 	double nextpt;
 	CSize sz;
-	char label[256], tempformat[8];
+	char label[128], label2[128], tempformat[8];
 	HDC hdc = HDC(*pDC);
 	vector<double>::iterator it;
 	CRect out;
 	double step, scale, scalemant;
+	int prec = estimate_prec(pax->xtick.tics1);
 	strcpy(tempformat,"%d");
 	switch(xy)
 	{
 	case 'x':
 		pDC->SetTextAlign (TA_CENTER);
-		//find the first point in tics1 in the range and update loc
-		for (it=pax->xtick.tics1.begin(); it !=pax->xtick.tics1.end(); it++)
+		//Begin with the second one (which is not xlim[0])
+		prec = pax->get_prec_xtick();
+		for (auto xt = pax->xtick.tics1.begin() + 1; xt != pax->xtick.tics1.end(); xt++)
 		{
-			if (pax->m_ln[0]->sig.GetType()==CSIG_VECTOR && pax->m_ln[0]->xdata.empty()) 
-				loc = pax->double2pixel((int)(*it+.5), xy);
-			else																	
-				loc = pax->double2pixel(*it, xy);
-			if (LRrange(&pax->rct, loc, xy)==0) break;
-		}
-		//iterate within the range
-		for (; it !=pax->xtick.tics1.end() && LRrange(&pax->rct, loc, xy)==0 ; it++)
-		{
-			nextpt = *it;
-			if (pax->m_ln[0]->sig.GetType()==CSIG_VECTOR && pax->m_ln[0]->xdata.empty())
-				loc = pax->double2pixel((int)(nextpt+.5), xy); 
-			else											
-				loc = pax->double2pixel(nextpt, xy); 
-			if (LRrange(&pax->rct, loc, xy)>0) // if the current point is right side of axis
-			{
-				loc = pax->rct.right;
-				value = pax->xtick.mult*pax->GetRangePixel(loc)+pax->xtick.offset;
-			}
-			else if (LRrange(&pax->rct, loc, xy)<0)  // if the current point is left side of axis, make it forcefully inside.
-			{
-				loc = pax->rct.left+1;
-				value = pax->xtick.mult*pax->GetRangePixel(loc)+pax->xtick.offset;
-				//further adjust tics1 according to the adjusted loc
-			}
-			else
-				value = pax->xtick.mult*nextpt+pax->xtick.offset;
-			loc = min(pax->rct.right-1, loc);  //loc should not be the same as pax->rct.right (then the ticks would protrude right from the axis rectangle)
-			pDC->MoveTo(loc, pax->rct.bottom-1);
-			pDC->LineTo(loc, pax->rct.bottom-1 - pax->xtick.size); 
+			loc = pax->double2pixel(*xt, xy);
+			loc = min(pax->rct.right - 1, loc);  //loc should not be the same as pax->rct.right (then the ticks would protrude right from the axis rectangle)
+			value = pax->xtick.mult * *xt + pax->xtick.offset;
+			pDC->MoveTo(loc, pax->rct.bottom - 1);
+			pDC->LineTo(loc, pax->rct.bottom - 1 - pax->xtick.size);
 			if (pax->m_ln.front()->sig.IsTimeSignal() && !pax->xtick.format)
 				strcpy(pax->xtick.format, "%4.2f"); // This is where two digits under decimal are drawn on the time axis.
-			if (pax->xtick.format[0]!=0)
+			if (pax->xtick.format[0] != 0)
 			{
-				if (value>=1. || pax->xtick.mult==1.)	sprintf(label, pax->xtick.format, value);
-				else			sprintf(label, tempformat, (int)(value/pax->xtick.mult+.5)); // needed for Spectrum axis, when freq is below 1k.
+				if (value >= 1. || pax->xtick.mult == 1.)	sprintf(label, pax->xtick.format, value);
+				else			sprintf(label, tempformat, (int)(value / pax->xtick.mult + .5)); // needed for Spectrum axis, when freq is below 1k.
 			}
 			else
-				sprintfFloat(value, 3, label, 256);
+			{
+				double width = pax->xtick.tics1.back() - pax->xtick.tics1.front();
+				if (xt == pax->xtick.tics1.end() - 1) prec++;
+				prec = max(prec, sprintfFloat(value, prec, label, 256));
+			}
+			if (xt == pax->xtick.tics1.begin() + 1)
+			{
+				int loc2 = pax->double2pixel(*(xt-1), xy);
+				value = pax->xtick.mult * *(xt - 1) + pax->xtick.offset;
+				sprintfFloat(value, prec+1, label2, 256);
+				GetTextExtentPoint32(hdc, label2, (int)strlen(label2), &sz);
+				if (iabs(loc - loc2) > sz.cx + pax->xtick.gap4next.x) // only if there's enough gap, Textout
+					pDC->TextOut(loc2, pax->rct.bottom + pax->xtick.labelPos, label2);
+			}
 			GetTextExtentPoint32(hdc, label, (int)strlen(label), &sz);
-			if (iabs(loc-lastpt2Draw)> sz.cx + pax->xtick.gap4next.x) // only if there's enough gap, Textout
+			if (iabs(loc - lastpt2Draw) > sz.cx + pax->xtick.gap4next.x) // only if there's enough gap, Textout
 			{
 				pDC->TextOut(loc, pax->rct.bottom + pax->xtick.labelPos, label);
 				lastpt2Draw = loc;
 			}
-			cum++;
 		}
 		break;
 	case 'y':
@@ -569,7 +558,6 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 				pDC->TextOut(pax->rct.left - pax->ytick.labelPos, loc-fnt.lfHeight/2, label);
 				lastpt2Draw = loc;
 			}
-			cum++;
 		}		
 		break;
 	default:
@@ -1276,7 +1264,7 @@ void CPlotDlg::OnMenu(UINT nID)
 	CSize sz;
 	CFont editFont;
 	CPosition pos;
-	int  len, iMul(1);
+	int  iMul(1);
 	char errstr[256];
 	CSignals _sig;
 	CSignal dummy;
@@ -1332,18 +1320,33 @@ void CPlotDlg::OnMenu(UINT nID)
 		return;
 
 	case IDM_ZOOM_IN:
-		// no zoom for 5ms of less for audio, _____ for non-audio
+		// no zoom when viewing range is 1 ms or less for audio, 2 points or less for non-audio
 		for (auto pax : gcf.ax)
 			if (pax->m_ln.front()->sig.GetType() == CSIG_VECTOR)
 			{
-				int count;
-				rangepair range = get_inside_xlim(count, pax->m_ln.front()->xdata, xlim);
-				if (count < 2)
-					return; 
+				bool no_more_zoom = false;
+				for (auto ln : pax->m_ln)
+				{
+					int count;
+					if (ln->xyplot)
+					{
+						auto mm = get_inside_xlim_general(count, ln->xdata, pax->xlim);
+						if (count==0) no_more_zoom = false;
+						else if (mm.second - mm.first< 1.e-2 ) no_more_zoom = true;
+						else							  no_more_zoom = false;
+					}
+					else
+					{
+						rangepair range = get_inside_xlim_monotonic(count, ln->xdata, pax->xlim);
+						if (count < 3) no_more_zoom = true;
+						else			no_more_zoom = false;
+					}
+				}
+				if (no_more_zoom) return;
 			}
 			else
 			{
-				if (cax->xlim[1] - cax->xlim[0] < 0.005)
+				if (pax->xlim[1] - pax->xlim[0] < 0.001)
 					return; 
 			}
 	case IDM_ZOOM_OUT:
@@ -1387,7 +1390,7 @@ void CPlotDlg::OnMenu(UINT nID)
 			newlimit2 = pax->xlim[1] + shift*iMul; // only effective for IDM_RIGHT_STEP
 			if (newlimit2>xlim[1]) 
 				shift = fabs(pax->xlim[1] - xlim[1]);
-//			if (shift<0.001) return;
+			if (shift==0.0) return;
 			if (pax->xtick.tics1.size() == 1)
 			{ // if there's only one tick, make sure it has at least two, so that step valid in line+25
 				double newxlim[2];
@@ -1411,34 +1414,63 @@ void CPlotDlg::OnMenu(UINT nID)
 			if ((pax->xlim[0]-xlim[0])<1.e-6) 	pax->xlim[0] = xlim[0];
 			if ((xlim[1]-pax->xlim[1])<1.e-6) 	pax->xlim[1] = xlim[1]; // this one may not be necessary.
 			//Assuming that the range is determined by the first line
-			vector<double>::iterator it = pax->xtick.tics1.begin();
-			double p, step = *(it + 1) - *it;
 			pax->xtick.automatic = true;
 			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
 			pax->struts["y"].front()->strut["auto"] = CSignals(double(true));
 			// tick step size is not changed during left/right stepping
-			if (nID == IDM_RIGHT_STEP)
+			if (pax->xtick.tics1.size() < 10)
 			{
-				p = pax->xtick.tics1.front();
 				pax->xtick.tics1.clear();
-				for (; p - pax->xlim[1] < 1.e-6; p += step)
-					if (p >= pax->xlim[0])	pax->xtick.tics1.push_back(p);
+				pax->setxticks();
 			}
 			else
 			{
-				p = pax->xtick.tics1.back();
-				pax->xtick.tics1.clear();
-				vector<double> tp;
-				for (; p- pax->xlim[0] > -1.e-6 ; p -= step)
-					if (p <= pax->xlim[1])	tp.push_back(p);
-				for (vector<double>::reverse_iterator rit = tp.rbegin(); rit != tp.rend(); rit++)
-					pax->xtick.tics1.push_back(*rit);
+				if (nID == IDM_RIGHT_STEP)
+				{
+					auto tickgap = pax->xtick.tics1[2] - pax->xtick.tics1[1];
+					double val = *(pax->xtick.tics1.end() - 2);
+					pax->xtick.tics1.erase(pax->xtick.tics1.end() - 1);
+					for (; val <= pax->xlim[1]; )
+					{
+						val += tickgap;
+						if (val <= pax->xlim[1])
+							pax->xtick.tics1.push_back(val);
+						else
+						{
+							pax->xtick.tics1.push_back(pax->xlim[1]);
+							break;
+						}
+					}
+					auto range2remove = upper_bound(pax->xtick.tics1.begin(), pax->xtick.tics1.end(), pax->xlim[0]);
+					pax->xtick.tics1.erase(pax->xtick.tics1.begin(), range2remove);
+					pax->xtick.tics1.insert(pax->xtick.tics1.begin(), pax->xlim[0]);
+				}
+				else
+				{
+					auto tickgap = pax->xtick.tics1[2] - pax->xtick.tics1[1];
+					double val = pax->xtick.tics1[1];
+					pax->xtick.tics1.erase(pax->xtick.tics1.begin());
+					for (; val >= pax->xlim[0]; )
+					{
+						val -= tickgap;
+						if (val >= pax->xlim[0])
+							pax->xtick.tics1.insert(pax->xtick.tics1.begin(), val);
+						else
+						{
+							pax->xtick.tics1.insert(pax->xtick.tics1.begin(), pax->xlim[0]);
+							break;
+						}
+					}
+					auto range2remove = upper_bound(pax->xtick.tics1.begin(), pax->xtick.tics1.end(), pax->xlim[1]);
+					pax->xtick.tics1.erase(range2remove, pax->xtick.tics1.end());
+					pax->xtick.tics1.insert(pax->xtick.tics1.end(), pax->xlim[1]);
+				}
 			}
 			pax->struts["x"].front()->strut["tick"] = (CSignals)CSignal(pax->xtick.tics1);
 			sbinfo.xBegin = pax->xlim[0];
 			sbinfo.xEnd = pax->xlim[1];
 			rt = pax->rct;
-			rt.InflateRect(10, 10, 10, 30);
+			rt.InflateRect(30, 10, 15, 30); // Improve it by enlarging the rect based on actual rect occupied by the present ticks 11/2/2020
 			InvalidateRect(&rt, FALSE);
 			if (paxFFT = (CAxes*)pax->hChild) ShowSpectrum(paxFFT, pax);
 			pax->struts["x"].front()->strut["lim"] = (CSignals)CSignal(pax->xlim, 2);

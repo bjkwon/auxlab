@@ -89,6 +89,7 @@ public:
 	CGobj *hPar;
 	CGobj *hChild; // this is a linked list, different from vector child, used only for special purpose (for example, to keep a direct genealogy line)
 	CWndDlg *m_dlg;
+	std::string varname;
 	int visible;
 	graffytype type;
 	vector<CGobj *> child;
@@ -118,7 +119,7 @@ public:
 	CRect rt; // the region where ticks are drawn
 	vector<double> tics1;
 	//set() generates tic vector and fills tics1
-	void set(vector<unsigned int> val, vector<double> xydata, int len); // val.size() is the number of division (i.e., 2 means split by half)
+	void set(const vector<unsigned int>& val, const vector<double>& xydata); // val.size() is the number of division (i.e., 2 means split by half)
 	void extend(bool direction, double xlim);
 	void initGO(void * _hpar);
 	GRAPHY_EXPORT CTick& operator=(const CTick& rhs);
@@ -134,11 +135,12 @@ public:
 	vector<double> xdata;
 	double t1, t2;
 	char symbol; // marker symbol
+	bool filled;
+	bool xyplot;
 	unsigned _int8 lineWidth;
 	unsigned _int8 markersize;
 	COLORREF markerColor;
 	LineStyle lineStyle;
-	bool filled;
 
 	void initGO(void * _hpar);
 	LineStyle GetLineStyle();
@@ -203,13 +205,13 @@ public:
 
 	GRAPHY_EXPORT CAxes *create_child_axis(CPosition pos);
 	void GetCoordinate(POINT* pt, double& x, double& y);
-	GRAPHY_EXPORT CLine * plot(double *xdata, const CTimeSeries &ydata, DWORD colorCode, char cymbol=0, LineStyle ls=LineStyle_solid);
+	GRAPHY_EXPORT CLine * plot(double *xdata, const CTimeSeries &ydata, const std::string& vname, DWORD colorCode, char cymbol=0, LineStyle ls=LineStyle_solid);
 	GRAPHY_EXPORT void setxlim();
 	GRAPHY_EXPORT void setylim();
 	GRAPHY_EXPORT void DeleteLine(int index);
 //	GRAPHY_EXPORT void DeletePatch(int index);
 	GRAPHY_EXPORT CRect GetWholeRect(); // Retrieve the whole area including xtick, ytick
-	void setxticks(double * const fullrange);
+	void setxticks();
 	POINT GetRef();
 	void setRangeFromLines(char xy);
 	int GetDivCount(char xy, int dimens);
@@ -226,9 +228,17 @@ public:
 	GRAPHY_EXPORT CAxes(CWndDlg * base, CGobj* pParent = NULL);   // standard constructor
 	void initGO(void * _hpar);
 	GRAPHY_EXPORT CAxes& operator=(const CAxes& rhs);
+	vector<POINT> chain_in_CLine_to_POINTs(bool xyplot, const CSignal& p, unsigned int begin, vector<double>& xbuf, double& xSpacingPP, vector<POINT>& out);
+	int get_prec_xtick();
+
 	CAxes();
 	~CAxes();
 	CRect rct;
+
+private:
+	vector<POINT> data2points(bool xyplot, const vector<double>& xbuf, double* const buf, double& xSpacingPP, vector<POINT>& out);
+	vector<POINT> plot_points_compact(int count, LONG px1, LONG px2, vector<double>::const_iterator it, const vector<double>& xbuf, double* const buf, double nData_p_pixel);
+	vector<POINT> plot_points_xyplot_beyond_range(const vector<double>& xbuf, double* const buf, double ratiox, double ratioy);
 };
 
 class CFigure : public CGobj
@@ -321,12 +331,11 @@ GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, HWND hWndAppl, int devID, double blo
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon = NULL);
 #endif
 
-
-
 GRAPHY_EXPORT HANDLE	AddAxes(HANDLE fig, double x0, double y0, double wid, double hei);
 GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, CPosition pos);
 GRAPHY_EXPORT HANDLE	AddText (HANDLE fig, const char* text, double x, double y, double wid, double hei);
-GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CSignals & pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
+GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CSignals & pdata, const std::string& vname, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
+GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeSeries*> line, vector<string> vnames, vector<COLORREF> cols, vector<char> cymbol, vector<LineStyle> ls);
 GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);

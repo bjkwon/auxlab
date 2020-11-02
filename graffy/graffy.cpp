@@ -1050,7 +1050,7 @@ static CTimeSeries Imag(const CTimeSeries &x)
 	return out;
 }
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CTimeSeries &data, COLORREF col, char cymbol, LineStyle ls)
+GRAPHY_EXPORT vector<HANDLE> PlotCTimeSeries(HANDLE _ax, double *x, const CTimeSeries &data, const std::string& vname, COLORREF col, char cymbol, LineStyle ls)
 {
 	// mono
 	vector<HANDLE> out;
@@ -1060,17 +1060,65 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CTimeSeri
 	{
 		CTimeSeries real(data);
 		real.SetReal();
-		out.push_back(ax->plot(x, real, col, cymbol, ls));
+		out.push_back(ax->plot(x, real, vname, col, cymbol, ls));
 		CTimeSeries imag = Imag(data);
 		if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'l'; // real part in complex input, left channel
-		out.push_back(ax->plot(x, imag, col, cymbol, ls));
+		out.push_back(ax->plot(x, imag, vname, col, cymbol, ls));
 	}
 	else
-		out.push_back(lyne = ax->plot(x, data, col, cymbol, ls));
+		out.push_back(lyne = ax->plot(x, data, vname, col, cymbol, ls));
 	return out;
 }
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals &data, COLORREF col, char cymbol, LineStyle ls)
+GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeSeries*> line, vector<string> vnames, vector<COLORREF> cols, vector<char> cymbol, vector<LineStyle> ls)
+{ // assume line is non-audio
+	// if color is not specified, go this way-- b r g y c m
+	vector<HANDLE> out;
+	auto itcol = cols.begin();
+	auto itls = ls.begin();
+	auto itsym = cymbol.begin();
+	auto itvname = vnames.begin();
+	CAxes* ax = static_cast<CAxes*>(_ax);
+	vector<COLORREF> def_cols;
+	if (itcol == cols.end())
+	{
+		def_cols.push_back(RGB(0, 0, 255));
+		def_cols.push_back(RGB(255, 0, 0));
+		def_cols.push_back(RGB(0, 255, 0));
+		def_cols.push_back(RGB(255, 255, 0));
+		def_cols.push_back(RGB(0, 255, 255));
+		def_cols.push_back(RGB(255, 0, 255));
+		cols = def_cols;
+		itcol = cols.begin();
+	}
+	for (auto ln : line)
+	{
+		COLORREF col = 0;
+		LineStyle style = LineStyle_solid;
+		char symb = 0;
+		if (itcol != cols.end()) col = *itcol, itcol++;
+		if (itls != ls.end()) style = *itls, itls++;
+		if (itsym != cymbol.end()) symb = *itsym, itsym++;
+		out.push_back(ax->plot(x, *ln, (*itvname++), col, symb, style));
+	}
+	CAxes* hAx = (CAxes*)ax;
+	CGobj* hPar = ((CGobj*)ax)->hPar;
+	bool existing = false;
+	for (auto it = hPar->struts["children"].begin(); it != hPar->struts["children"].end(); it++)
+		if ((*it) == hAx) { existing = true; break; }
+	if (!existing)
+		hPar->struts["children"].push_back(hAx);
+	hPar->struts.erase("gca");
+	hPar->struts["gca"].push_back(hAx);
+
+	CAxes* paxFFT;
+	if (paxFFT = (CAxes*)ax->hChild)
+		ViewSpectrum(paxFFT);
+	addRedrawCue(hPar->m_dlg->hDlg, CRect(0, 0, 0, 0));
+	return out;
+}
+
+GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals &data, const std::string& vname, COLORREF col, char cymbol, LineStyle ls)
 {
 	CLine *lyne;
 	CAxes *ax = static_cast<CAxes *>(_ax);
@@ -1079,11 +1127,11 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals 
 	{
 		col = 0;		*((char*)&col + 3) = 'L';
 	} // left channel
-	out = PlotCSignals(_ax, x, (const CTimeSeries)data, col, cymbol, ls);
+	out = PlotCTimeSeries(_ax, x, (const CTimeSeries)data, vname, col, cymbol, ls);
 	if (data.next)
 	{
 		*((char*)&col + 3) = 'R';
-		vector<HANDLE> out2 = PlotCSignals(_ax, x, (const CTimeSeries)*data.next, col, cymbol, ls);
+		vector<HANDLE> out2 = PlotCTimeSeries(_ax, x, (const CTimeSeries)*data.next, vname, col, cymbol, ls);
 		out.push_back(out2.front());
 	}
 	CAxes * hAx = (CAxes *)ax;

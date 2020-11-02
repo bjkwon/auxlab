@@ -783,10 +783,10 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const CVar &arg1, c
 	{
 		if (arg1.nSamples != arg2.nSamples)
 			throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
-		plotlines = PlotCSignals(pax, arg1.buf, arg2, col, marker, linestyle);
+		plotlines = PlotCSignals(pax, arg1.buf, arg2, "", col, marker, linestyle);
 	}
 	else
-		plotlines = PlotCSignals(pax, NULL, arg1, col, marker, linestyle);
+		plotlines = PlotCSignals(pax, NULL, arg1, "", col, marker, linestyle);
 	pax->xTimeScale = past->Sig.IsTimeSignal();
 	pax->limReady = false;
 }
@@ -887,6 +887,8 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	// Finally pax and cfig ready. Time to inspect input data
 	unique_lock<mutex> locker(mtx_OnPaint);
 	sendtoEventLogger("(_plot_line) mtx_OnPaint locked = %d", locker.owns_lock());
+	pax->xtick.tics1.clear();
+	pax->ytick.tics1.clear();
 	if (isPlot)
 	{
 		//if there's existing line in the specified axes
@@ -895,8 +897,6 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		{
 			pax->xlim[0] = 1; pax->xlim[1] = -1; pax->setxlim();
 			pax->ylim[0] = 1; pax->ylim[1] = -1; pax->setylim();
-			pax->xtick.tics1.clear();
-			pax->ytick.tics1.clear();
 			// line object in pax->child should be removed
 			for (auto obj = pax->child.begin(); obj != pax->child.end(); )
 			{

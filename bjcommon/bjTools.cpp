@@ -67,22 +67,21 @@ int countchar(const char *str, char c)
 }
 
 
-void sprintfFloat(char *strOut, double f, int max_fp)
+int sprintfFloat(char *strOut, double f, int max_fp)
 {
 	int fp;
 	char *temp, format[64];
 
 	if (f<0)
 	{
-		sprintfFloat(strOut, -f, max_fp);
+		fp = sprintfFloat(strOut, -f, max_fp);
 		temp = (char*)calloc(strlen(strOut)+2,1);
 		strcpy(temp,"-");
 		strcat(temp+1, strOut);
 		strcpy(strOut, temp);
 		free(temp);
-		return;
+		return -fp;
 	}
-
 	if ((fp=countFloatingPoints(f, max_fp))==0)
 		sprintf (strOut, "%d", (int)f);
 	else
@@ -91,13 +90,14 @@ void sprintfFloat(char *strOut, double f, int max_fp)
 		sprintf (strOut, format, f);
 	}
 	trimLeft(strOut, " ");
+	return fp;
 }
 
 int sprintfFloat(double f, int max_fp, char *strOut, size_t sizeStrOut)
 {
-	char buffer[128];
+	char buffer[256];
 	if (f>1.e10 || f<-1.e10) {	memset((void*)strOut,'*', sizeStrOut-2); strOut[sizeStrOut-1]=0; return 0;}
-	sprintfFloat (buffer, f, max_fp);
+	int res = sprintfFloat (buffer, f, max_fp);
 	if (strlen(buffer)>sizeStrOut-1)
 	{
 		if (sizeStrOut>1) 
@@ -106,8 +106,17 @@ int sprintfFloat(double f, int max_fp, char *strOut, size_t sizeStrOut)
 			strOut[sizeStrOut-1]=0;
 		return 0;
 	}
+	if (strchr(buffer, '.'))
+	{
+		char* pt = buffer + strlen(buffer) - 1; // last character position
+		for (; ; pt--)
+		{
+			if (*pt == '0') *pt = '\0';
+			else break;
+		}
+	}
 	strcpy(strOut, buffer);
-	return 1;
+	return res;
 }
 
 char *trimLeft (char* string, const char *chars2Trimmed)

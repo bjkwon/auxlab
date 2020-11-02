@@ -125,6 +125,19 @@ int MoveDlgItem(HWND hDlg, int id, CRect rt, BOOL repaint)
 	return ::MoveWindow(h, rt.left, rt.top, rt.Width(), rt.Height(), repaint);
 }
 
+vector<int> GetSelectedItems(HWND hLV)
+{
+	vector<int> out;
+//	int count = ListView_GetSelectedCount(hLV);
+	int count = ListView_GetItemCount(hLV);
+	for (int k = 0; k < count; k++)
+	{
+		if (LVIS_SELECTED == ListView_GetItemState(hLV, k, LVIS_SELECTED))
+			out.push_back(k);
+	}
+	return out;
+}
+
 BOOL CALLBACK logProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
 	static int lid(0);
@@ -307,8 +320,62 @@ void On_F2(HWND hDlg, CAstSig f2sig, CSignals * psig)
 	}
 }
 
-void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
+void CShowvarDlg::plotvar(vector< CTimeSeries *> psigs, vector <string> _title, vector<string> varnames)
 {
+	static char buf[256];
+	vector<HANDLE> plotlines;
+	CTimeSeries* psig = psigs.front();
+	int type = psig->GetType();
+	auto varname = varnames.front();
+	HWND hPlot = varname2HWND(varname.c_str());
+	CGobj* hobj = (CGobj*)FindFigure(hPlot);
+	string title = _title.front();
+	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
+	if (!hobj)
+	{
+	//	if (psig->IsGO()) // do something
+		//{
+
+		//}
+		//else 
+		if (psig->IsAudio() || psig->IsTimeSignal() || psig->IsVector())
+		{
+			static GRAFWNDDLGSTRUCT in;
+			CFigure* cfig = newFigure(title.c_str(), varname.c_str(), &in);
+			cfig->visible = 1;
+			CAxes* cax = (CAxes*)AddAxes(cfig, .08, .18, .86, .72);
+			vector<DWORD> temp1;
+			vector<char> temp2;
+			vector<LineStyle> temp3;
+			plotlines = PlotMultiLines(cax, NULL, psigs, varnames, temp1, temp2, temp3);
+			RegisterAx((CVar*)cfig, cax, true);
+			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
+			cfig->strut["name"] = string(buf);
+			//For the global variable $gcf, updated whether or not this is named plot.
+			xscope.at(res)->SetVar("?foc", cfig);
+			if (!IsNamedPlot(hPlot))
+				xscope.at(res)->SetVar("gcf", cfig);
+			{
+				CRect rt;
+				plotDlgList.push_back(cfig->m_dlg->hDlg);
+				// Setting the position of a named plot
+				//::GetWindowRect(cfig->m_dlg->hDlg, rt);
+				//rt.MoveToXY(10, 40);
+				//::MoveWindow(cfig->m_dlg->hDlg, rt.left, rt.top, rt.Width(), rt.Height(), 1);
+			}
+			cfig->m_dlg->ShowWindow(SW_SHOW);
+		}
+	}
+	else
+	{ //essentially the same as CPlotDlg::SetGCF()
+		if (hobj->m_dlg->hDlg != GetForegroundWindow())
+			SetForegroundWindow(hobj->m_dlg->hDlg);
+	}
+}
+
+
+void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
+{ // making a named plot
 	static char buf[256];
 	vector<HANDLE> plotlines;
 	int type = psig->GetType();
@@ -327,7 +394,7 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			CFigure * cfig = newFigure(title.c_str(), varname, &in);
 			cfig->visible = 1;
 			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			plotlines = PlotCSignals(cax, NULL, *psig, -1);
+			plotlines = PlotCSignals(cax, NULL, *psig, "", -1);  // check--this might be obsolete..
 			RegisterAx((CVar*)cfig, cax, true);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 			cfig->strut["name"] = string(buf);
@@ -365,7 +432,7 @@ double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 	while (!pax->m_ln.empty())
 		deleteObj(pax->m_ln.front());
 	((CVar*)pax)->struts["children"].clear();
-	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, -1);
+	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, "", -1); // check--this might be obsolete..
 	double lower = 1.e100;
 	for (auto lnObj : plotlines)
 	{
@@ -1500,6 +1567,85 @@ HWND CShowvarDlg::varname2HWND(const char *varname)
 	return nullptr;
 }
 
+void CShowvarDlg::deleteVar_closeFig(const char* varname)
+{
+	CGobj* hobj = NULL;
+	CVar* psig = NULL;
+	HWND hWndPlot = NULL;
+	CWndDlg* dlg;
+	if (!strcmp(varname, "gcf"))
+		CAstSigEnv::glovar.erase(CAstSigEnv::glovar.find("gcf"));
+	else
+	{
+		if (strcmp(varname, "gcf"))
+		{
+			psig = &(*pVars)[varname];
+			hWndPlot = varname2HWND(varname);
+			hobj = (CGobj*)FindFigure(hWndPlot);
+		}
+
+		OnPlotDlgDestroyed(varname, hWndPlot);
+		deleteObj(hobj);
+	}
+	if (this == &mShowDlg)
+		ClearVar(varname);
+	else
+	{
+		map<string, CVar>::iterator it = pVars->find(varname);
+		pVars->erase(it);
+	}
+	dlg = Find_cellviewdlg(varname);
+	if (dlg)
+	{
+		if (dlg->dwUser == 8383)
+			((CVectorsheetDlg*)dlg)->OnClose();
+		else if (dlg->dwUser == 1010)
+			((CShowvarDlg*)dlg)->OnClose();
+	}
+	Fillup();
+}
+
+CVar* CShowvarDlg::pre_plot_var(const char* varname, string & title)
+{
+	CGobj* hobj = NULL;
+	CVar* psig = NULL;
+	HWND hWndPlot = NULL;
+	if (strcmp(varname, "gcf"))
+	{
+		psig = &(*pVars)[varname];
+		hWndPlot = varname2HWND(varname);
+		hobj = (CGobj*)FindFigure(hWndPlot);
+	}
+	if (hobj)
+		::SetFocus(hobj->m_dlg->hDlg);
+	else
+	{
+		char _varname[256];
+		title += varname;
+		strcpy(_varname, title.c_str());
+		title += ":";
+		if (pcast->u.title.empty())
+			title += "base workspace";
+		else
+			title += pcast->u.title.c_str();
+		if (psig->IsAudio())
+		{
+			plotvar(psig, title, _varname);
+			return NULL;
+		}
+		else
+		{
+			return psig;
+		}
+	}
+	return NULL;
+}
+
+void CShowvarDlg::plot_var_multi(const vector<CTimeSeries*>& objs, const vector <string> & title, const vector<string> & varnames)
+{
+	plotvar(objs, title, varnames);
+}
+
 void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 {
 	int res(0);
@@ -1527,6 +1673,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	map<string, CVar> *pvars(NULL);
 	map<string, vector<CVar*>> *pgovars(NULL);
 	CGobj * hobj=NULL;
+	vector<string> varnames;
 
 	switch(code)
 	{
@@ -1670,57 +1817,63 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	case LVN_KEYDOWN:
 		lvnkeydown = (LPNMLVKEYDOWN)lParam;
 		varname[0] = 0;
-		ListView_GetItemText(lvnkeydown->hdr.hwndFrom, ListView_GetSelectionMark(lvnkeydown->hdr.hwndFrom), 1, varname, 256);
+		if (type > 0)
+		{
+			char buf[256], buf2[256];
+			int jj = ListView_GetSelectionMark(lvnkeydown->hdr.hwndFrom);
+			sprintf(buf, "selected from %d", jj);
+			sprintf(buf2, "Sel=%d", type);
+			MessageBox(buf, buf2);
+			for (int k = 0; k < ListView_GetItemCount(lvnkeydown->hdr.hwndFrom); k++)
+			{
+				auto sel = ListView_GetItemState(lvnkeydown->hdr.hwndFrom, k, LVIS_SELECTED);
+				printf("id %d selected=%d\n", k, sel);
+			}
+		}
 		if (this != &mShowDlg)
 			GetWindowText(title);
-		if (strlen(varname)>0)
+		if (ListView_GetSelectedCount(lvnkeydown->hdr.hwndFrom) > 0)
 		{	
-			if (varname[0] == '.') pvarname = varname + 1;
-			else pvarname = varname;
-			if (pVars->find(pvarname) == pVars->end() && strcmp(varname,"gcf"))
+			vector<int> selected = GetSelectedItems(lvnkeydown->hdr.hwndFrom);
+			vector<CTimeSeries*> lines;
+			vector<string> titles;
+			switch (lvnkeydown->wVKey)
 			{
-				ClearVar(pvarname);
-//				Fillup(); // why is this needed? 11/23/2018. probably it is 8/15/2019
+			case VK_DELETE:
+				for (auto iSel : selected)
+				{
+					ListView_GetItemText(lvnkeydown->hdr.hwndFrom, iSel, 1, varname, 256);
+					if (varname[0] == '.') pvarname = varname + 1;
+					else pvarname = varname;
+					if (pVars->find(pvarname) == pVars->end() && strcmp(varname, "gcf"))
+					{
+						ClearVar(pvarname);
+						//				Fillup(); // CHECK if this is necessary. 
+					}
+					else
+						deleteVar_closeFig(pvarname);
+				}
 				break;
-			}
-			if (strcmp(varname, "gcf"))
-			{
-				psig = &(*pVars)[pvarname];
-				type = psig->GetType();
-				hWndPlot = varname2HWND(varname);
-				hobj = (CGobj *)FindFigure(hWndPlot);
-			}
-			switch(lvnkeydown->wVKey)
-			{
-				CWndDlg *dlg;
-			case VK_DELETE: // $$231109 4/25/2017
-				if (!strcmp(varname, "gcf"))
-					CAstSigEnv::glovar.erase(CAstSigEnv::glovar.find("gcf"));
-				else if (hobj)
+			case VK_RETURN:
+				for (auto iSel : selected)
 				{
-					OnPlotDlgDestroyed(varname, hWndPlot);
-					deleteObj(hobj);
+					ListView_GetItemText(lvnkeydown->hdr.hwndFrom, iSel, 1, varname, 256);
+					varnames.push_back(varname);
+					title.clear();
+					CVar* temp = pre_plot_var(varname, title);
+					titles.push_back(title);
+						if (temp)
+						lines.push_back(temp);
+					else
+						break;
 				}
-				if (this == &mShowDlg)
-					ClearVar(pvarname);
-				else
-				{
-					map<string, CVar>::iterator it = pVars->find(pvarname);
-					pVars->erase(it);
-				}
-				dlg = Find_cellviewdlg(pvarname);
-				if (dlg)
-				{
-					if (dlg->dwUser==8383)
-						((CVectorsheetDlg*)dlg)->OnClose();
-					else if (dlg->dwUser == 1010)
-						((CShowvarDlg*)dlg)->OnClose();
-				}
-				Fillup();
+				if (!lines.empty())
+					plot_var_multi(lines, titles, varnames);
+				//				Fillup();
 				break;
 			case VK_SPACE:
 				selectState.resize(ListView_GetItemCount(lvnkeydown->hdr.hwndFrom));
-				for (int k(0); k<ListView_GetItemCount(lvnkeydown->hdr.hwndFrom); k++)
+				for (int k(0); k < ListView_GetItemCount(lvnkeydown->hdr.hwndFrom); k++)
 				{
 					if (ListView_GetItemState(lvnkeydown->hdr.hwndFrom, k, LVIS_SELECTED))
 					{
@@ -1735,7 +1888,7 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 						}
 						else
 						{
-							AUD_PLAYBACK * p = (AUD_PLAYBACK*)h;
+							AUD_PLAYBACK* p = (AUD_PLAYBACK*)h;
 							p->sig.SetValue((double)(INT_PTR)h);
 							p->sig.strut["data"] = *psig;
 							p->sig.strut["type"] = string("audio_playback");
@@ -1746,24 +1899,6 @@ void CShowvarDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 						}
 					}
 				}
-				break;
-			case VK_RETURN:
-				if (hobj)
-				{
-					::SetFocus(hobj->m_dlg->hDlg);
-				}
-				else
-				{
-					title += varname;
-					strcpy(varname, title.c_str());
-					title += ":";
-					if (pcast->u.title.empty())
-						title += "base workspace";
-					else
-						title += pcast->u.title.c_str();
-					plotvar(psig, title, varname);
-				}
-//				Fillup();
 				break;
 			}
 		}

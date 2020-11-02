@@ -157,4 +157,8 @@ private:
 	int listHeight[2]; // heights of listview controls (audio, non-audio)
 	POINT titlebarDim;
 	RECT recordingButtonRT;
+	void deleteVar_closeFig(const char* varname);
+	CVar* pre_plot_var(const char* varname, string& title);
+	void plot_var_multi(const vector<CTimeSeries*>& objs, const vector <string>& title, const vector<string>&varnames);
+	void plotvar(vector< CTimeSeries*> psigs, vector <string> title, vector<string> varnames);
 };
