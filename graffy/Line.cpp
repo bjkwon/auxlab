@@ -45,6 +45,7 @@ GRAPHY_EXPORT CLine& CLine::operator=(const CLine& rhs)
 	if (this != &rhs)
 	{
 		CGobj::operator=(rhs);
+		strut.erase("pos");
 		t1 = rhs.t1;
 		t2 = rhs.t2;
 		lineStyle = rhs.lineStyle;
@@ -56,8 +57,9 @@ GRAPHY_EXPORT CLine& CLine::operator=(const CLine& rhs)
 		sig = rhs.sig;
 		xdata = rhs.xdata;
 		//copy all strut from RHS
-		strut["linewidth"] = ((CVar)rhs).strut["linewidth"];
 		strut["linestyle"] = ((CVar)rhs).strut["linestyle"];
+		strut["width"] = ((CVar)rhs).strut["width"];
+		strut["xdata"] = ((CVar)rhs).strut["xdata"];
 		strut["ydata"] = ((CVar)rhs).strut["ydata"];
 	}
 	return *this;

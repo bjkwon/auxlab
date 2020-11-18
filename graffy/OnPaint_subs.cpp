@@ -54,7 +54,7 @@ vector<DWORD> color_scheme(COLORREF linecolor, const CVar &linecolorProp, unsign
 }
 
 vector<POINT> CPlotDlg::drawCLine(CDC &dc, CLine * const pline, vector<POINT> & out)
-{
+{ 
 	// For tseq, if you want to streamline, you can bypass estimateDrawCounts assuming that individual nSample for the p is 1
 	// but it may require re-writing code ps more than you desire... something to think about 5/20/2020
 
@@ -194,7 +194,7 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 		{
 			if (!pax->limReady)
 				pax->limReady=true, memcpy(xlim, pax->xlim, sizeof(xlim));
-			if (draw.size() > 2)
+			if (psig->type() & TYPEBIT_TEMPORAL || draw.size() > 2)
 				pax->setxticks();
 			else
 			{

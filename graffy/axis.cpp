@@ -376,7 +376,10 @@ GRAPHY_EXPORT void CAxes::setRange(const char xy, double x1, double x2)
 }
 
 GRAPHY_EXPORT void CAxes::setxlim()
-{//to be called after CLine objects are prepared
+{
+	// This is effective only if xlim has not been set: i.e., xlim is [1 -1]
+	if (xlim[0] <=  xlim[1]) return;
+	//to be called after CLine objects are prepared
 	if (m_ln.empty()) return;
 	CTimeSeries *psig = NULL;
 	for (auto lyne : m_ln)
@@ -643,20 +646,19 @@ CAxes& CAxes::operator=(const CAxes& rhs)
 		{
 			CLine *tp = new CLine(m_dlg, this);
 			*tp = *ln;
+			tp->struts["parent"].push_back(this);
 			m_ln.push_back(tp);
 			struts["children"].push_back(tp);
 		}
 		strut["box"] = ((CVar)rhs).strut["box"];
 		strut["linewidth"] = ((CVar)rhs).strut["linewidth"];
 		strut["nextplot"] = ((CVar)rhs).strut["nextplot"];
-		CAxis *mor = new CAxis(m_dlg, this);
-		*mor = *(CAxis*)((CVar)rhs).struts["x"].front();
-		struts["x"].push_back(mor);
-		mor->SetValue((double)(INT_PTR)(void*)mor);
-		CAxis *mor2 = new CAxis(m_dlg, this);
-		*mor2 = *(CAxis*)((CVar)rhs).struts["y"].front();
-		struts["y"].push_back(mor2);
-		mor2->SetValue((double)(INT_PTR)(void*)mor2);
+		auto * axObj = struts["x"].front();
+		*axObj = *(CAxis*)((CVar)rhs).struts["x"].front();
+		axObj->SetValue((double)(INT_PTR)(void*)axObj);
+		axObj = struts["y"].front();
+		*axObj = *(CAxis*)((CVar)rhs).struts["y"].front();
+		axObj->SetValue((double)(INT_PTR)(void*)axObj);
 	}
 	return *this;
 }
@@ -687,7 +689,7 @@ static inline POINT getpoint(double x, double y, const CRect& rcAx, double ratio
 }
 
 // Assumption: buf and xlim are monotonically increasing
-rangepair get_inside_xlim_monotonic(int &count, const vector<double>& buf, double xlim[])
+rangepair get_inside_xlim_monotonic(int &count, const vector<double>& buf, const double xlim[])
 {
 	rangepair out;
 	// if buf is not monotonic, the output is not meaningful, but count is important
@@ -697,7 +699,7 @@ rangepair get_inside_xlim_monotonic(int &count, const vector<double>& buf, doubl
 	return out;
 }
 
-pair<double, double> get_inside_xlim_general(int& count, const vector<double>& buf, double xlim[])
+pair<double, double> get_inside_xlim_general(int& count, const vector<double>& buf, const double xlim[])
 {
 	vector<double> temp;
 	double miny(1.e100), maxy(-1.e100);
@@ -718,17 +720,24 @@ pair<double, double> get_inside_xlim_general(int& count, const vector<double>& b
 // if it is audio, or null-x, plot, forget about map. Use this.
 vector<POINT> CAxes::chain_in_CLine_to_POINTs(bool xyplot, const CSignal& p, unsigned int begin, vector<double>& xbuf, double& xSpacingPP, vector<POINT>& out)
 {
-	if (xbuf.empty())
+	if (p.type() & TYPEBIT_TEMPORAL)
 	{
-		int offset = 1;
-		if (p.type() & TYPEBIT_TEMPORAL) offset--;
-		for (unsigned int k = offset; k < p.nSamples + offset; k++)
-		{
-			double t = (double)k / p.GetFs() + p.tmark / 1000.;
-			xbuf.push_back(t);
-		}
+		return data2points2(p, begin, xSpacingPP, out);
 	}
-	return data2points(xyplot, xbuf, p.buf + begin, xSpacingPP, out);
+	else
+	{
+		if (xbuf.empty())
+		{
+			int offset = 1;
+			if (p.type() & TYPEBIT_TEMPORAL) offset--;
+			for (unsigned int k = offset; k < p.nSamples + offset; k++)
+			{
+				double t = (double)k / p.GetFs() + p.tmark / 1000.;
+				xbuf.push_back(t);
+			}
+		}
+		return data2points1(xyplot, xbuf, p.buf + begin, xSpacingPP, out);
+	}
 }
 
 vector<POINT> CAxes::plot_points_compact(int count, LONG px1, LONG px2, vector<double>::const_iterator itx, const vector<double>& xbuf, double* const buf, double nData_p_pixel)
@@ -772,6 +781,47 @@ vector<POINT> CAxes::plot_points_compact(int count, LONG px1, LONG px2, vector<d
 	return out;
 }
 
+static vector<POINT> plot_points_compact2(int count, LONG px1, LONG px2, int ibegin, double tbegin, const CRect &rct, double * ylim, double* const buf, double nData_p_pixel)
+{ // temporal 
+	vector<POINT> out;
+	POINT pt;
+	int idataCount_per_pixel = (int)nData_p_pixel;
+	const double remainder = nData_p_pixel - idataCount_per_pixel;
+	double leftover = remainder;
+	int cnt = 0;
+	double* buf_pos = buf + ibegin;
+	size_t cum = 0;
+	bool loop = true;
+	pt.x = px1;
+	while (loop)
+	{
+		size_t advance_count = idataCount_per_pixel;
+		if (leftover > 1)
+		{
+			advance_count++;
+			leftover--;
+		}
+		if (cum + advance_count > count) advance_count = count - cum;
+		auto minmax = minmax_element(buf_pos, buf_pos + advance_count);
+		LONG temp = pt.y = getpointy(*minmax.first, rct, ylim);
+		if (pt.y > rct.bottom)
+			temp = pt.y = rct.bottom;
+		out.push_back(pt);
+		pt.y = getpointy(*minmax.second, rct, ylim);
+		pt.y = max(pt.y, rct.top);
+		if (pt.y != temp)
+			out.push_back(pt);
+		buf_pos += advance_count;
+		cum += advance_count;
+		if (pt.x >= px2 || cum >= count)
+			loop = false;
+		leftover += remainder;
+		pt.x++;
+	}
+	return out;
+}
+
+
 vector<POINT> CAxes::plot_points_xyplot_beyond_range(const vector<double>& xbuf, double* const buf, double ratiox, double ratioy)
 {
 	vector<POINT> out;
@@ -811,8 +861,58 @@ vector<POINT> CAxes::plot_points_xyplot_beyond_range(const vector<double>& xbuf,
 	}
 	return out;
 }
+int get_plot_range_from_tmark(const CSignal& p, const double xlim[], double& xlim1, double& xlim2, int& id1, int& id2)
+{ 
+	int count = 0;
+	if (p.tmark > xlim[1] * 1000.) return 0;
+	double lastTimePt = (p.tmark + p.dur().front()) / 1000.;
+	if (lastTimePt < xlim[0]) return 0;
+	if (xlim[0] > p.tmark / 1000.)
+	{
+		id1 = (int)((xlim[0] - p.tmark / 1000.) * p.GetFs() + .5);
+		xlim1 = xlim[0];
+	}
+	else
+	{
+		id1 = 0;
+		xlim1 = p.tmark / 1000.;
+	}
+	if (xlim[1] > lastTimePt)
+	{
+		id2 = p.nSamples;
+		xlim2 = lastTimePt;
+	}
+	else
+	{
+		id2 = (int)((xlim[1] - p.tmark / 1000.) * p.GetFs() + .5);
+		xlim2 = xlim[1];
+	}
+	id2 = min((int)p.nSamples, id2);
+	return count = id2 - id1;
+}
 
-vector<POINT> CAxes::data2points(bool xyplot, const vector<double>& xbuf, double* const buf, double& xSpacingPP, vector<POINT> &out_cumular)
+rangepair get_plot_range_from_xbuf(bool xyplot, const vector<double>& xbuf, double const *xlim, double &xlim1, double &xlim2, int &count)
+{
+	rangepair range;
+	if (xyplot)
+	{
+		auto minmax = get_inside_xlim_general(count, xbuf, xlim);
+		xlim1 = minmax.first;
+		xlim2 = minmax.second;
+	}
+	else
+	{
+		range = get_inside_xlim_monotonic(count, xbuf, xlim);
+		xlim1 = *range.first;
+		if (range.first == range.second)
+			xlim2 = xlim1;
+		else
+			xlim2 = *(range.second - 1);
+	}
+	return range;
+}
+
+vector<POINT> CAxes::data2points1(bool xyplot, const vector<double>& xbuf, double* const buf, double& xSpacingPP, vector<POINT> &out_cumular)
 {
 	// xSpacingPP: [output] the x spacing between data points in pixel
 	// grab data in the range of xlim
@@ -823,23 +923,10 @@ vector<POINT> CAxes::data2points(bool xyplot, const vector<double>& xbuf, double
 	double xlim1, xlim2;
 	double dataCount_per_pixel = 1;
 	LONG px1 = 0, px2 = 0;
-	rangepair range;
-	if (xyplot)
+	rangepair range = get_plot_range_from_xbuf(xyplot, xbuf, xlim, xlim1, xlim2, count);
+	if (count == 0) return out; // if xbuf is out of xlim, return empty
+	if (!xyplot)
 	{
-		auto minmax = get_inside_xlim_general(count, xbuf, xlim);
-		xlim1 = minmax.first;
-		xlim2 = minmax.second;
-		if (count == 0) return out; // if xbuf is out of xlim, return empty
-	}
-	else
-	{
-		range = get_inside_xlim_monotonic(count, xbuf, xlim);
-		xlim1 = *range.first;
-		if (range.first == range.second)
-			xlim2 = xlim1;
-		else
-			xlim2 = *(range.second-1);
-		if (count == 0) return out; // if xbuf is out of xlim, return empty
 	// calculate how many data points one pixel represents 
 		px1 = getpointx(xlim1, rct, xlim);
 		px2 = getpointx(xlim2, rct, xlim);
@@ -867,6 +954,48 @@ vector<POINT> CAxes::data2points(bool xyplot, const vector<double>& xbuf, double
 	}
 	for (auto p : out)
 		out_cumular.push_back(p);
+	return out;
+}
+
+vector<POINT> CAxes::data2points2(const CSignal& p, int begin, double& xSpacingPP, vector<POINT>& out_cumular)
+{
+	// xSpacingPP: [output] the x spacing between data points in pixel
+	// grab data in the range of xlim
+	// plot them in the coordinate of rcArea
+	double* const buf = p.buf + begin;
+	vector<POINT> out;
+	// Inspect data and find out where the key is within xlim
+	int count;
+	double xlim1, xlim2;
+	LONG px1 = 0, px2 = 0;
+	int id1, id2;
+	count = get_plot_range_from_tmark(p, xlim, xlim1, xlim2, id1, id2);
+	if (count <= 0) return out; // if data to plot is out of xlim, return empty
+	double t1 = p.tmark / 1000. + (double)id1 / p.GetFs();
+	double t2 = p.tmark / 1000. + (double)id2 / p.GetFs();
+	double dataCount_per_pixel = 1;
+	px1 = getpointx(t1, rct, xlim);
+	px2 = getpointx(t2, rct, xlim);
+	dataCount_per_pixel = (px1 == px2) ? .001 : (double)count / (px2 - px1);
+	xSpacingPP = 1. / dataCount_per_pixel;
+	if (dataCount_per_pixel > 4)
+	{// points are closed to each other enough to treat them as a chunk
+		out = plot_points_compact2(count, px1, px2, id1, t1, rct, ylim, buf, dataCount_per_pixel);
+		for (auto p : out)
+			out_cumular.push_back(p);
+		return out;
+	}
+	else
+	{
+		double ratiox = rct.Width() / (xlim[1] - xlim[0]);
+		double ratioy = rct.Height() / (ylim[1] - ylim[0]);
+		double xpoint = t1;
+		double advance = 1. / p.GetFs();
+		for (int id = id1; id < id2; id++, xpoint += advance)
+			out.push_back(getpoint(xpoint, buf[id], rct, ratiox, ratioy, xlim, ylim));
+		for (auto p : out)
+			out_cumular.push_back(p);
+	}
 	return out;
 }
 

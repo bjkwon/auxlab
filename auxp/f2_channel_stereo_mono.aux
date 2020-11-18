@@ -18,25 +18,25 @@ if ax.length==1
 	ax.pos(4) *= .53
 	// as of now, this is not automatically registered to gcf. 
 	// Needs to send via output arg for On_F2 in showvar.cpp 9/15/2019
-	ax2 = fig.axes(ax.pos) 
+	ax2 = ax.replicate
 	ax.pos(2) += .4
-	axch = ax.children
+	lyne = ax.children
 	id4line = []
-	for k = 1:axch.length
+	for k = 1:lyne.length
 		booleval = ax.children(k).type=="line"
 		if booleval.and
 			id4line ++= k
 		end
 	end
 	if id4line.length==2
-		data1=axch(id4line(1)).ydata;
+		data1=lyne(id4line(1)).ydata;
 		begint1 = data1.begint
 		endt1 = data1.endt
 		if endt1.length>1
 			begint1 = begint1.tsq_gettimes
 			endt1 = endt1.tsq_getvalues
 		end
-		data2=axch(id4line(2)).ydata;
+		data2=lyne(id4line(2)).ydata;
 		begint2 = data2.begint
 		endt2 = data2.endt
 		if endt2.length>1
@@ -45,10 +45,9 @@ if ax.length==1
 		end
 		begints = [begint1 begint2]
 		endts = [endt1 endt2]
-		delete(axch(id4line(2)))
-		if data2.length>0
-			ax2.plot(data2)
-		end
+		delete(lyne(id4line(2)))
+        lynew = ax2.children
+        delete(lynew(id4line(1)))
 		// Add error check --- if x.lim is updated, it crashes 2/5/2019
 		if ax.x.lim(2)>ax2.x.lim(2)
 			ax2.x.tick = ax.x.tick

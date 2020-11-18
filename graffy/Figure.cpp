@@ -77,7 +77,7 @@ void CGobj::initGO(void * hpar)
 	if (hpar)
 	{ // hpar is non-NULL except for CFigure, for which SetValue is done differently (either string or integer value)
 		geneal = ((CGobj *)hpar)->geneal;
-		SetValue((double)(INT_PTR)hpar);
+		SetValue((double)(INT_PTR)this);
 	}
 	geneal.push_back((INT_PTR)this);
 }

@@ -236,7 +236,8 @@ public:
 	CRect rct;
 
 private:
-	vector<POINT> data2points(bool xyplot, const vector<double>& xbuf, double* const buf, double& xSpacingPP, vector<POINT>& out);
+	vector<POINT> data2points1(bool xyplot, const vector<double>& xbuf, double* const buf, double& xSpacingPP, vector<POINT>& out);
+	vector<POINT> data2points2(const CSignal& p, int begin, double& xSpacingPP, vector<POINT>& out);
 	vector<POINT> plot_points_compact(int count, LONG px1, LONG px2, vector<double>::const_iterator it, const vector<double>& xbuf, double* const buf, double nData_p_pixel);
 	vector<POINT> plot_points_xyplot_beyond_range(const vector<double>& xbuf, double* const buf, double ratiox, double ratioy);
 };

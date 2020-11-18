@@ -1024,6 +1024,7 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		*pax = *(CAxes*)past->pgo;
 		((CVar*)cfig)->struts["children"].push_back(pax);
 		cfig->ax.push_back(pax);
+		pax->SetValue((double)(INT_PTR)(void*)pax);
 		past->Sig = *(past->pgo = pax);
 	}
 	break;
