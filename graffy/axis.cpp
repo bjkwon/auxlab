@@ -375,10 +375,8 @@ GRAPHY_EXPORT void CAxes::setRange(const char xy, double x1, double x2)
 	}
 }
 
-GRAPHY_EXPORT void CAxes::setxlim()
+GRAPHY_EXPORT void CAxes::set_xlim_xrange()
 {
-	// This is effective only if xlim has not been set: i.e., xlim is [1 -1]
-	if (xlim[0] <=  xlim[1]) return;
 	//to be called after CLine objects are prepared
 	if (m_ln.empty()) return;
 	CTimeSeries *psig = NULL;
@@ -417,7 +415,7 @@ GRAPHY_EXPORT void CAxes::setxlim()
 		}
 	}
 	if (xlim[0] == xlim[1]) { xlim[0] -= .005;	xlim[1] += .005; }
-//	memcpy(xlimFull, xlim, sizeof(xlim));
+	memcpy((void*)xrange, xlim, sizeof(xlim));
 }
 
 GRAPHY_EXPORT void CAxes::setylim()
@@ -448,7 +446,6 @@ GRAPHY_EXPORT void CAxes::setylim()
 		ylim[0] -= yRange / 10;
 		ylim[1] += yRange / 10;
 	}
-	ylimFull[0] = ylim[0]; ylimFull[1] = ylim[1];
 }
 
 GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, const std::string & vname, DWORD col, char cymbol, LineStyle ls)
@@ -492,7 +489,6 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, const
 	m_ln.push_back(in);
 	if (xdata)
 		in->xdata = vector<double>(xdata, xdata + ydata.nSamples);
-	setxlim();
 	in->strut["xdata"] = CVar(CSignals(CSignal(in->xdata)));
 	buf[0] = cymbol;
 	in->strut["marker"] = std::string(buf);

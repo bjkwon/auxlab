@@ -384,17 +384,14 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 	if (!hobj)
 	{
-		if (psig->IsGO())
-		{
-
-		}
-		else if (psig->IsAudio() || psig->IsTimeSignal() || psig->IsVector())
+		if (psig->IsAudio() || psig->IsTimeSignal() || psig->IsVector())
 		{
 			static GRAFWNDDLGSTRUCT in;
 			CFigure * cfig = newFigure(title.c_str(), varname, &in);
 			cfig->visible = 1;
 			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			plotlines = PlotCSignals(cax, NULL, *psig, "", -1);  // check--this might be obsolete..
+			plotlines = PlotCSignals(cax, NULL, *psig, "", -1);  
+			cax->set_xlim_xrange();
 			RegisterAx((CVar*)cfig, cax, true);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 			cfig->strut["name"] = string(buf);
@@ -432,7 +429,7 @@ double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 	while (!pax->m_ln.empty())
 		deleteObj(pax->m_ln.front());
 	((CVar*)pax)->struts["children"].clear();
-	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, "", -1); // check--this might be obsolete..
+	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, "", -1); 
 	double lower = 1.e100;
 	for (auto lnObj : plotlines)
 	{

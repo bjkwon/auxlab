@@ -230,7 +230,6 @@ void CFigure::SetXLIM()
 	for (vector<CAxes*>::iterator px = ax.begin(); px != ax.end(); px++)
 	{
 		memcpy((*px)->xlim, xlim, 2 * sizeof(double));
-		memcpy((*px)->xlimFull, xlim, 2 * sizeof(double));
 	}
 	//3) Invalidate each axis
 	for (vector<CAxes*>::iterator px = ax.begin(); px != ax.end(); px++)

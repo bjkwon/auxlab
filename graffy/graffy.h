@@ -194,7 +194,6 @@ public:
 	COLORREF colorAxis;
 	bool limReady;
 	double xlim[2], ylim[2];
-	double xlimFull[2], ylimFull[2];
 	CTick xtick; // How do I pass the argument for instantiation of these objects?
 	CTick ytick; // CTick xtick(this) didn't work..... Maybe during instantiation of CAxes set xtick.m_dlg = this...
 	vector<CLine*> m_ln;
@@ -206,7 +205,7 @@ public:
 	GRAPHY_EXPORT CAxes *create_child_axis(CPosition pos);
 	void GetCoordinate(POINT* pt, double& x, double& y);
 	GRAPHY_EXPORT CLine * plot(double *xdata, const CTimeSeries &ydata, const std::string& vname, DWORD colorCode, char cymbol=0, LineStyle ls=LineStyle_solid);
-	GRAPHY_EXPORT void setxlim();
+	GRAPHY_EXPORT void set_xlim_xrange();
 	GRAPHY_EXPORT void setylim();
 	GRAPHY_EXPORT void DeleteLine(int index);
 //	GRAPHY_EXPORT void DeletePatch(int index);
@@ -234,6 +233,7 @@ public:
 	CAxes();
 	~CAxes();
 	CRect rct;
+	const double xrange[2] = { 1, -1 }; // Set when plot is called. Used as a reference for F5 (fullrange), left/right, or unzoom
 
 private:
 	vector<POINT> data2points1(bool xyplot, const vector<double>& xbuf, double* const buf, double& xSpacingPP, vector<POINT>& out);

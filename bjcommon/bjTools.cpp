@@ -7,15 +7,14 @@
 // Miscellaneous Support Library
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.73
+// Date: 11/22/2022
 // 
 #include <math.h>
 #include "audfret.h"
 
 #define MAX_HEADING_LENGTH		128
 #define MAX_CHAR 29998
-
 
 int countFloatingPoints(double f, int max_fp)
 {
@@ -28,7 +27,12 @@ int countFloatingPoints(double f, int max_fp)
 	for (i=0; i<max_fp; i++)
 	{
 		err = (f*tens - (double)(__int64)(f*tens)) / tens;
-		if (err<errCrit)
+		double diff = errCrit - err;
+		// Why is this not a simple inequality errCrit > err?
+		// with double, err is like 0.09999999999947, whereas errCrit is 0.1
+		// There must be a better way than this, but just keep this way for now. 
+		// 11/22/2020
+		if (diff > 1.e-10) // max_fp capped at 10
 			return i;
 		tens *= 10;
 	}
@@ -66,7 +70,6 @@ int countchar(const char *str, char c)
 	return count;
 }
 
-
 int sprintfFloat(char *strOut, double f, int max_fp)
 {
 	int fp;
@@ -93,8 +96,15 @@ int sprintfFloat(char *strOut, double f, int max_fp)
 	return fp;
 }
 
+// Important---as of Nov 2020, max_fp should be capped at 9.
+// Look inside countFloatingPoints.
 int sprintfFloat(double f, int max_fp, char *strOut, size_t sizeStrOut)
 {
+	if (max_fp > 9) {
+		memset(strOut, 'X', sizeStrOut-1);
+		strOut[sizeStrOut - 1] = 0;
+		return -1;
+	}
 	char buffer[256];
 	if (f>1.e10 || f<-1.e10) {	memset((void*)strOut,'*', sizeStrOut-2); strOut[sizeStrOut-1]=0; return 0;}
 	int res = sprintfFloat (buffer, f, max_fp);

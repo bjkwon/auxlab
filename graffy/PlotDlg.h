@@ -193,7 +193,6 @@ private:
 	CPen * OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen);
 	vector<double> OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv);
 	void OnPaint_fill_sbinfo(CAxes* pax);
-	double xlim[2];
 public:
 	CPlotDlg(HINSTANCE hInstance, CGobj *hPar = NULL);   // standard constructor
 	~CPlotDlg();

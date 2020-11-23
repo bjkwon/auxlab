@@ -192,8 +192,8 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 		}
 		if (pax->xtick.tics1.empty() && pax->xtick.automatic)
 		{
-			if (!pax->limReady)
-				pax->limReady=true, memcpy(xlim, pax->xlim, sizeof(xlim));
+//			if (!pax->limReady)
+//				pax->limReady=true, memcpy(xrangeDlg, pax->xlim, sizeof(xlim));
 			if (psig->type() & TYPEBIT_TEMPORAL || draw.size() > 2)
 				pax->setxticks();
 			else

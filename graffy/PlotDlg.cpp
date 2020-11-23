@@ -104,8 +104,6 @@ CPlotDlg::CPlotDlg(HINSTANCE hInstance, CGobj *hPar)
 	ttstat.push_back("dBRMS");
 	sbinfo.initialshow = false;
 	sbinfo.xSelBegin = sbinfo.xSelEnd = 0.;
-	xlim[0] = std::numeric_limits<double>::infinity();
-	xlim[1] = -std::numeric_limits<double>::infinity();
 }
 
 CPlotDlg::~CPlotDlg()
@@ -346,7 +344,7 @@ void CPlotDlg::OnPaint()
 
 		for (; k < gcf.ax.size(); temp++)
 		{
-			sendtoEventLogger("(OnPaint) 0x%x ax %d", (INT_PTR)gcf.ax[k], k);
+			//sendtoEventLogger("(OnPaint) 0x%x ax %d", (INT_PTR)gcf.ax[k], k);
 			// drawing lines
 			if (!paxready)
 				pax = gcf.ax[k];
@@ -450,15 +448,10 @@ void CPlotDlg::OnPaint()
 		str2vect(tp, title, ':');
 		dc.TextOut(pax->rct.left, pax->rct.top, tp[1].c_str());
 	}
-	sendtoEventLogger("(OnPaint) after mtx_OnPaint unlocked.");
+//	sendtoEventLogger("(OnPaint) after mtx_OnPaint unlocked.");
 	EndPaint(hDlg, &ps);
 	// vector gcf.ax is pushed in AddAxis() called in showvar.cpp 
 	// find out why sometimes gcf.ax[k] is pointing something already deleted and causing a crash here. 8/216/2017 bjk
-}
-
-int estimate_prec(const vector<double>& tics)
-{ // DO THIS .... 10/30/2020
-	return 0;
 }
 
 void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
@@ -474,11 +467,14 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 	vector<double>::iterator it;
 	CRect out;
 	double step, scale, scalemant;
-	int prec = estimate_prec(pax->xtick.tics1);
+	int prec = 0;
 	strcpy(tempformat,"%d");
 	switch(xy)
 	{
 	case 'x':
+		// To do---there should be way to reduce calling get_prec_xtick 
+		// for example, when left/right is called, definitely not necessary to call
+		// 11/22/2020
 		pDC->SetTextAlign (TA_CENTER);
 		//Begin with the second one (which is not xlim[0])
 		prec = pax->get_prec_xtick();
@@ -1194,7 +1190,7 @@ int CPlotDlg::IsSpectrumAxis(CAxes* pax)
 { // return true when xtick.tics1 is empty or its full x axis right edge.px1 is half the sample rate of the front signal
 	if (pax == gcf.ax.front())	return 0;
 	int fs = gcf.ax.front()->m_ln.front()->sig.GetFs();
-	if ( abs((int)(xlim[1] - fs/2)) <= 2 ) return 1;
+	if ( abs((int)(pax->xrange[1] - fs/2)) <= 2 ) return 1;
 	else return 0;
 }
 
@@ -1301,10 +1297,12 @@ void CPlotDlg::OnMenu(UINT nID)
 		break;
 
 	case IDM_FULLVIEW:
+		// Revert to the xrange set in plot
 		zoom=0;
 		for (auto pax : gcf.ax)
 		{
-			memcpy(pax->xlim, xlim, sizeof(double) * 2);
+			memcpy(pax->xlim, pax->xrange, sizeof(double) * 2);
+//			sendtoEventLogger("ax%d: pax->xlim(%.2f %.2f) xrangeDlg(%.2f %.2f)", k++, pax->xlim[0], pax->xlim[1], pax->xlim, xrangeDlg[0], xrangeDlg[1]);
 			pax->xtick.tics1.clear(); pax->xtick.automatic = true;
 			pax->ytick.tics1.clear(); pax->ytick.automatic = true;
 			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
@@ -1350,21 +1348,21 @@ void CPlotDlg::OnMenu(UINT nID)
 					return; 
 			}
 	case IDM_ZOOM_OUT:
+		k = 0;
 		for (auto pax : gcf.ax)
 		{
-			if (nID == IDM_ZOOM_OUT && fabs(pax->xlim[1]-xlim[1])<1.e-5 && fabs(pax->xlim[0]-xlim[0])<1.e-5)
-				return; // no unzoom if full length
 			deltaxlim = pax->xlim[1]-pax->xlim[0];
 			if (nID == IDM_ZOOM_IN)
 				pax->xlim[0] += deltaxlim/4, 	pax->xlim[1] -= deltaxlim/4;
 			else
 			{
 				pax->xlim[0] -= deltaxlim/2;
-				pax->xlim[0] = MAX(xlim[0], pax->xlim[0]);
+				pax->xlim[0] = MAX(pax->xrange[0], pax->xlim[0]);
 				pax->xlim[1] += deltaxlim/2;
-				pax->xlim[1] = MIN(xlim[1], pax->xlim[1]);
+				pax->xlim[1] = MIN(pax->xrange[1], pax->xlim[1]);
 			}
-			if (!pax->m_ln.size()) break;
+			char buf[256];
+			if (pax->m_ln.empty()) break;
 			pax->xtick.tics1.clear(); pax->xtick.automatic = true;
 			pax->ytick.tics1.clear(); pax->ytick.automatic = true;
 			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
@@ -1385,11 +1383,11 @@ void CPlotDlg::OnMenu(UINT nID)
 		{
 			shift = (pax->xlim[1]-pax->xlim[0]) / 4;
 			newlimit1 = pax->xlim[0] + shift*iMul; // only effective for IDM_LEFT_STEP
-			if (newlimit1<xlim[0]) 
-				shift = pax->xlim[0] - xlim[0];
+			if (newlimit1< pax->xrange[0])
+				shift = pax->xlim[0] - pax->xrange[0];
 			newlimit2 = pax->xlim[1] + shift*iMul; // only effective for IDM_RIGHT_STEP
-			if (newlimit2>xlim[1]) 
-				shift = fabs(pax->xlim[1] - xlim[1]);
+			if (newlimit2> pax->xrange[1])
+				shift = fabs(pax->xlim[1] - pax->xrange[1]);
 			if (shift==0.0) return;
 			if (pax->xtick.tics1.size() == 1)
 			{ // if there's only one tick, make sure it has at least two, so that step valid in line+25
@@ -1410,9 +1408,8 @@ void CPlotDlg::OnMenu(UINT nID)
 			}
 			pax->xlim[0] += shift*iMul;
 			pax->xlim[1] += shift*iMul;
-			// further adjusting lim[0] to xlimFull[0] (i.e., 0 for audio signals) is necessary to avoid in gengrids when re-generating xticks
-			if ((pax->xlim[0]-xlim[0])<1.e-6) 	pax->xlim[0] = xlim[0];
-			if ((xlim[1]-pax->xlim[1])<1.e-6) 	pax->xlim[1] = xlim[1]; // this one may not be necessary.
+			if ((pax->xlim[0]- pax->xrange[0])<1.e-6) 	pax->xlim[0] = pax->xrange[0];
+			if ((pax->xrange[1]-pax->xlim[1])<1.e-6) 	pax->xlim[1] = pax->xrange[1]; // this one may not be necessary.
 			//Assuming that the range is determined by the first line
 			pax->xtick.automatic = true;
 			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
@@ -1607,7 +1604,6 @@ void CPlotDlg::OnMenu(UINT nID)
 		}
 #endif
 		return;
-		
 	}
 	InvalidateRect(NULL);
 }

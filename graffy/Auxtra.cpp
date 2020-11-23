@@ -895,7 +895,6 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 		_delete_ans(past);
 		if (!newFig && pax->strut["nextplot"] == string("replace"))
 		{
-			pax->xlim[0] = 1; pax->xlim[1] = -1; pax->setxlim();
 			pax->ylim[0] = 1; pax->ylim[1] = -1; pax->setylim();
 			// line object in pax->child should be removed
 			for (auto obj = pax->child.begin(); obj != pax->child.end(); )
@@ -920,6 +919,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	}
 	if (plotOptions.empty()) plotOptions = "-";
 	__plot(pax, past, pnode, arg1, arg2, plotOptions);
+	if (isPlot) pax->set_xlim_xrange(); // must be called after PlotCSignals (i.e., line is created)
 	if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
 	sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked.");
 	if (past->GetVariable("gcf") != cfig)
@@ -1025,6 +1025,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		((CVar*)cfig)->struts["children"].push_back(pax);
 		cfig->ax.push_back(pax);
 		pax->SetValue((double)(INT_PTR)(void*)pax);
+		// xrange must be copied as well (otherwise, it will hang due to uninitialized xrange).
+		memcpy((void*)pax->xrange, ((CAxes*)past->pgo)->xrange, sizeof(double) * 2);
 		past->Sig = *(past->pgo = pax);
 	}
 	break;

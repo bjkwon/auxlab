@@ -16,9 +16,9 @@ end
 ax=fig.children
 if ax.length==1
 	ax.pos(4) *= .53
-	// as of now, this is not automatically registered to gcf. 
+	// as of now, this is not automatically registered to gcf.
 	// Needs to send via output arg for On_F2 in showvar.cpp 9/15/2019
-	ax2 = ax.replicate
+	ax2 = ax.replicate // replicate also copies xrange of ax to ax2
 	ax.pos(2) += .4
 	lyne = ax.children
 	id4line = []
@@ -54,17 +54,12 @@ if ax.length==1
 		elseif ax2.x.lim(2)>ax.x.lim(2)
 			ax.x.tick = ax2.x.tick
 		end
-		ax.x.lim = [begints.min endts.max]/1000
-		ax2.x.lim = [begints.min endts.max]/1000
-
-	axnew = ax2
+        axnew = ax2
 	end
 elseif ax.length==2
 	ax(1).pos(4) /= .53
 	ax(1).pos(2)=.18
-	xtic=[]
 	if nargin==1 && !arg.isclass
-		xtic = ax(1).x.tick;
 		z = arg
 	else
 		if ax(1).children.length>0 && ax(2).children.length>0
@@ -76,16 +71,10 @@ elseif ax.length==2
 		else
 			z =[[0 0].audio; [0 0].audio]
 		end
-		if ax(2).x.lim(2)>=ax(1).x.lim(2)
-			xtic = ax(2).x.tick;
-		else
-			xtic = ax(1).x.tick;
-		end
-	end	
+	end
 	ax(2).delete
 	ax.children.delete
 	ax.line(z)
-	ax.x.tick = xtic
 else
     msgbox("Error--Figure window has multiple axes");
 	return;
