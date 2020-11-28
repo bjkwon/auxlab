@@ -272,7 +272,7 @@ BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 2-2) audio mono -> audio stereo or vice versa: delete axes and make new plot(s), but keep the old xlim
 */
 
-CFigure * CShowvarDlg::newFigure(string title, const char *varname, GRAFWNDDLGSTRUCT *pin)
+CFigure * CShowvarDlg::newFigure(const string &title, const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
 	pin->hIcon = LoadImage(hInst, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0);
 	pin->hWndAppl = hDlg;
@@ -294,10 +294,10 @@ void On_F2(HWND hDlg, CAstSig f2sig, CSignals * psig)
 		if (psig)
 		{
 			f2sig.Vars["arg"] = *psig;
-			f2sig.SetNewScript(emsg, "axnew = ?f2_channel_stereo_mono(arg)");
+			f2sig.SetNewScript(emsg, "axnew = f2_channel_stereo_mono_(arg)");
 		}
 		else
-			f2sig.SetNewScript(emsg, "axnew = ?f2_channel_stereo_mono");
+			f2sig.SetNewScript(emsg, "axnew = f2_channel_stereo_mono_");
 		f2sig.Compute();
 		CVar *cfig = f2sig.GetGOVariable("?foc");
 		if (f2sig.GOvars.find("axnew") != f2sig.GOvars.end())
@@ -374,52 +374,63 @@ void CShowvarDlg::plotvar(vector< CTimeSeries *> psigs, vector <string> _title, 
 }
 
 
-void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
+void CShowvarDlg::plotvar(CVar *psig, const string& title, const char *varname)
 { // making a named plot
 	static char buf[256];
 	vector<HANDLE> plotlines;
 	int type = psig->GetType();
 	HWND hPlot = varname2HWND(varname);
 	CGobj * hobj = (CGobj *)FindFigure(hPlot);
+	CFigure* cfig = (CFigure*)hobj;
+	CAxes* cax;
+	static GRAFWNDDLGSTRUCT in;
 	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
-	if (!hobj)
+	if (!hobj) // no figure window exists
 	{
 		if (psig->IsAudio() || psig->IsTimeSignal() || psig->IsVector())
 		{
-			static GRAFWNDDLGSTRUCT in;
-			CFigure * cfig = newFigure(title.c_str(), varname, &in);
+			cfig = newFigure(title.c_str(), varname, &in);
 			cfig->visible = 1;
-			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			plotlines = PlotCSignals(cax, NULL, *psig, "", -1);  
-			cax->set_xlim_xrange();
-			RegisterAx((CVar*)cfig, cax, true);
-			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
-			cfig->strut["name"] = string(buf);
-			//For the global variable $gcf, updated whether or not this is named plot.
-			xscope.at(res)->SetVar("?foc", cfig);
-			if (!IsNamedPlot(hPlot))
-				xscope.at(res)->SetVar("gcf", cfig);
-			if (psig->next)
-			{
-				On_F2(hDlg, pcast);
-			}
-			else
-			{
-				CRect rt;
-				plotDlgList.push_back(cfig->m_dlg->hDlg);
-				// Setting the position of a named plot
-				//::GetWindowRect(cfig->m_dlg->hDlg, rt);
-				//rt.MoveToXY(10, 40);
-				//::MoveWindow(cfig->m_dlg->hDlg, rt.left, rt.top, rt.Width(), rt.Height(), 1);
-			}
-			cfig->m_dlg->ShowWindow(SW_SHOW);
 		}
 	}
+	if (cfig->ax.empty())
+		cax = (CAxes*)AddAxes(cfig, .08, .18, .86, .72);
 	else
-	{ //essentially the same as CPlotDlg::SetGCF()
-		if (hobj->m_dlg->hDlg != GetForegroundWindow())
-			SetForegroundWindow(hobj->m_dlg->hDlg);
+		cax = cfig->ax.front();
+	plotlines = PlotCSignals(cax, NULL, *psig, "", -1);
+	cax->set_xlim_xrange();
+	RegisterAx((CVar*)cfig, cax, true);
+	cfig->m_dlg->GetWindowText(buf, sizeof(buf));
+	cfig->strut["name"] = string(buf);
+	//For the global variable $gcf, updated whether or not this is named plot.
+	xscope.at(res)->SetVar("?foc", cfig);
+	if (!IsNamedPlot(hPlot))
+		xscope.at(res)->SetVar("gcf", cfig);
+	if (psig->next)
+	{
+		On_F2(hDlg, pcast);
 	}
+	else
+	{
+		CRect rt;
+		plotDlgList.push_back(cfig->m_dlg->hDlg);
+		// Setting the position of a named plot
+		//::GetWindowRect(cfig->m_dlg->hDlg, rt);
+		//rt.MoveToXY(10, 40);
+		//::MoveWindow(cfig->m_dlg->hDlg, rt.left, rt.top, rt.Width(), rt.Height(), 1);
+	}
+	cfig->m_dlg->ShowWindow(SW_SHOW);
+
+
+
+	//{ 
+	//	// if an axes exists
+	//	//essentially the same as CPlotDlg::SetGCF()
+	//	if (hobj->m_dlg->hDlg != GetForegroundWindow())
+	//		SetForegroundWindow(hobj->m_dlg->hDlg);
+	//	// else 
+
+	//}
 }
 
 
@@ -557,14 +568,6 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 					{
 						LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
 						On_F2(pmsg->hwnd, xscope.front());
-						// if ans is GO, during f2_channel_stereo_mono, ans may be altered and it crash during Fillup.
-						// Let's clear ans if it is GO here. 8/17/2019
-						//CVar *pp = xscope.at(res)->GetVariable("ans");
-						//if (pp && pp->IsGO())
-						//{
-						//	xscope.at(res)->SetVar("ans", new CVar);
-						//	mShowDlg.Fillup();
-						//}
 					}
 				}
 			}
@@ -582,56 +585,17 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 			else
 			{
 				psig = &thisDlg->pcast->Vars[thisDlg->var];
+				CFigure* cfig = (CFigure*)FindFigure(thisDlg->hDlg);
+				while (!cfig->ax.empty())
+					deleteGObj(thisDlg->pcast, cfig->ax.front());
 				int type = psig->GetType();
 				if (type == CSIG_AUDIO || type == CSIG_TSERIES || type == CSIG_VECTOR)
 				{
 					CFigure *cfig = (CFigure *)FindFigure(thisDlg->hDlg);
-					CTimeSeries *poldsig = &(cfig->ax.front()->m_ln.front()->sig);
-					// cfig->ax must have one or two elements (no zero element)
-					if (cfig->ax.size() > 1)
-					{ // the old sig is audio, stereo
-						if (type == CSIG_TSERIES)
-						{
-							//delete both axes and plot afresh
-						}
-						else if (psig->next)
-						{ // new sig is audio, stereo. Update sig in each axes and keep xlim
-							mShowDlg.plotvar_update(cfig, psig);
+					char title[256];
+					GetWindowText(thisDlg->hDlg, title, 256);
+					mShowDlg.plotvar(psig, "", title); // figure already exists. No need to specify caption
 
-						}
-						else
-						{ //new sig is audio mono. Delete one axes. Update sig in the remaining axes and keep xlim
-							On_F2(thisDlg->hDlg, mShowDlg.pcast, psig);
-							showRMS(cfig, 0);
-						}
-					}
-					else // previously one axes
-					{
-						switch (type)
-						{
-						case CSIG_AUDIO:
-							if (psig->next)
-							{ // previously one, now two axes needed
-							  //Update the line objects and call OnF2
-								mShowDlg.plotvar_update2(cfig->ax.front(), psig);
-								On_F2(thisDlg->hDlg, mShowDlg.pcast);
-							}
-							else
-							{
-								mShowDlg.plotvar_update(cfig, psig);
-							}
-							showRMS(cfig, 0);
-							break;
-						case CSIG_VECTOR:
-							//Update sig
-							mShowDlg.plotvar_update(cfig, psig);
-							//update 
-							break;
-						case CSIG_TSERIES:
-							break;
-						}
-						// if poldsig->type is the same as type, keep xlim. Otherwise, re-establish xlim.
-					}
 				}
 				else // if the variable is no longer unavable, audio or vector, exit the thread (and delete the fig window)
 					PostThreadMessage(GetCurrentThreadId(), WM_QUIT, 0, 0);

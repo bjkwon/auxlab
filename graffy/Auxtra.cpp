@@ -533,6 +533,15 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 			for (auto v : varname)
 				var2deleted.push_back(v);
 		}
+
+		// NEED TO CALL THIS BLOCK FROM WITHIN CODE (NOT delete AUX command)
+		// want to delete children objects of cfig like this... but not directly calling deleteObj()
+		//		while (!cfig->ax.empty())
+		//			deleteObj(cfig->ax.front());
+		// DO IT on 11/26/2020!!!!!!
+
+
+
 		// non-figures
 		for (auto del : nonfigs2delete)
 		{
@@ -542,6 +551,9 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 				var2deleted.push_back(v);
 			_delete_graffy_non_figure(past, pnode, del);
 		}
+
+
+
 		// if Reset() resets a GO into a NULL, the next two lines are not necessary 10/1/2020
 		past->Sig.strut.clear();
 		past->Sig.struts.clear();

@@ -136,11 +136,11 @@ public:
 	void debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry);
 	void AdjustWidths(int redraw=0);
 	int ClearVar(const char *var);
-	void plotvar(CVar *psig, string title, const char *varname);
+	void plotvar(CVar *psig, const string& title, const char *varname);
 	void plotvar_update(CFigure *cfig, CVar *psig);
 	double plotvar_update2(CAxes *pax, CSignals *psig);
 	double plotvar_update2(CAxes *pax, CTimeSeries *psig);
-	CFigure * newFigure(string title, const char *varname, GRAFWNDDLGSTRUCT *pin);
+	CFigure * newFigure(const string& title, const char *varname, GRAFWNDDLGSTRUCT *pin);
 	HWND varname2HWND(const char *varname);
 
 	HACCEL hAccel;

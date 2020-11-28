@@ -349,6 +349,7 @@ GRAPHY_EXPORT HWND GetHWND_PlotDlg(HANDLE hFig);
 GRAPHY_EXPORT HWND GetHWND_PlotDlg2(HANDLE hFig);
 GRAPHY_EXPORT void SetHWND_GRAFFY(HWND hAppl);
 GRAPHY_EXPORT HWND GetHWND_GRAFFY ();
+GRAPHY_EXPORT void deleteGObj(CAstSig* past, const CVar& sig);
 GRAPHY_EXPORT void deleteObj (HANDLE h);
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CVar & RHS);
 GRAPHY_EXPORT void RepaintGO(CAstSig *pctx);

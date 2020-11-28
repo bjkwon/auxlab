@@ -1190,6 +1190,93 @@ void _deleteObj(CFigure *hFig)
 	theApp.hDlg_fig.erase(jt); 
 }
 
+static void deep_erase(CVar* Govar, CVar* const del)
+{
+	if (Govar->struts.find("children") == Govar->struts.end() ||
+		Govar->struts["children"].empty()) return;
+	//See if there's del found at the current layer
+	for (auto ch = Govar->struts["children"].begin(); ch != Govar->struts["children"].end(); )
+	{
+		if (*ch == del)
+			ch = Govar->struts["children"].erase(ch);
+		else
+			ch++;
+	}
+	//deeper layer
+	for (auto ch : Govar->struts["children"])
+		deep_erase(ch, del);
+}
+
+
+// Go through every GOvar and its derivatives. If it is same as del, erase from it
+// derivatives: children (all types), x or y (axes), userdata
+// 
+static void deep_erase(CAstSig* past, CVar* const del)
+{
+	for (auto gov = past->GOvars.begin(); gov != past->GOvars.end(); gov++)
+	{ // gov is either single (you can/should use .front() or multiGO 
+		if ((*gov).second.size() == 1)
+			deep_erase((*gov).second.front(), del);
+		else
+		{
+			// Taken care of by CAstSig::erase_GO(CVar * obj)
+		}
+	}
+}
+
+static int _delete_graffy_non_figure(CAstSig* past, HANDLE obj)
+{
+	if (!obj) return 0; // can be NULL while deleting a multi-figure obj.
+	CGobj* hobj = (CGobj*)obj;
+	CVar* pgo = (CVar*)obj;
+	CVar* hPar = ((CFigure*)hobj)->hPar;
+	switch (hobj->type)
+	{
+	case GRAFFY_axes:
+		RegisterAx(hPar, (CAxes*)hobj, false);
+		hPar->struts["gca"].clear();
+		break;
+	case GRAFFY_text:
+		break;
+	case GRAFFY_line:
+		break;
+	}
+	deleteObj(hobj);
+	past->pgo = NULL;
+	InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
+	return 1;
+}
+
+GRAPHY_EXPORT void deleteGObj(CAstSig* past, const CVar& sig)
+{
+	vector<unsigned int> fids;
+	vector<HANDLE> figs2delete = FindFigures(sig, fids);
+	vector<CVar*> nonfigs2delete = FindNonFigures(sig);
+	vector<string> var2deleted;
+	for (auto fig : figs2delete)
+	{
+		vector<string> varname = past->erase_GO((CVar*)fig);
+		CGobj* fobj = (CGobj*)fig;
+		// 	StopPlay(hAudio, true);
+		PostMessage(fobj->m_dlg->hDlg, WM_QUIT, 0, 0);
+		CGobj* hobj = (CGobj*)fig;
+		CVar* pgo = (CVar*)fig;
+		CVar* hPar = ((CFigure*)hobj)->hPar;
+		RegisterAx(hPar, (CAxes*)hobj, false);
+		for (auto v : varname)
+			var2deleted.push_back(v);
+	}
+	// non-figures
+	for (auto del : nonfigs2delete)
+	{
+		deep_erase(past, del);
+		vector<string> varname = past->erase_GO(del);
+		for (auto v : varname)
+			var2deleted.push_back(v);
+		_delete_graffy_non_figure(past, del);
+	}
+}
+
 GRAPHY_EXPORT void deleteObj(HANDLE h)
 {
 	if (!h) return;
