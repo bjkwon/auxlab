@@ -1509,6 +1509,15 @@ void _conv(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	past->Sig = sig.runFct2modify(&CSignal::conv, &array2);
 }
 
+//needed to handle a statment with a function with multiple output vars
+static const AstNode* get_line_astnode(const AstNode* root, const AstNode* pnode)
+{
+	for (auto p = root; p; p = p->next)
+	{
+		if (p->line == pnode->line) return p;
+	}
+}
+
 void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
@@ -1556,7 +1565,8 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
 	}
 	past->Sig = sig;
-	if (countVectorItems(past->pAst) > 1)
+	auto linehead = get_line_astnode(past->pAst, pnode);
+	if (countVectorItems(linehead) > 1)
 	{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 		past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
 		CVar *newpointer = new CVar(sig.GetFs());

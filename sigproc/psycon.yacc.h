@@ -21,24 +21,16 @@ extern "C" {
 #define N_HOOK		10016
 #define N_TSEQ		10017
 
-
-#define N_USEC		10101
-#define N_MSEC		10102
-#define N_CIPULSE3	10103
-#define N_CIPULSE4	10104
-#define N_CIPULSE5	10105
-#define N_CIPULSE6	10106
-
 typedef struct AstNode_t {
-  int line, type;
-  unsigned col;
-  double dval;
-  char *str;
-  int suppress;
-  struct AstNode_t *child;
-  struct AstNode_t *alt;
-  struct AstNode_t *tail;
-  struct AstNode_t *next;
+	int line, type;
+	unsigned col;
+	double dval;
+	char *str;
+	int suppress;
+	struct AstNode_t* child;
+	struct AstNode_t* alt;
+	struct AstNode_t* tail;
+	struct AstNode_t* next;
 } AstNode;
 
 extern int yydebug;

@@ -125,6 +125,8 @@ public:
 	body& MakeLogical();
 	body& LogOp(body &rhs, int type);
 	body &insert(body &sec, int id);
+	body& replacebyindex(const vector<unsigned int>& ind, const body& RHS);
+	body& replacebyindex(unsigned int id0, unsigned int len, const body& RHS);
 
 	body & interp1(body &that, body &qp);
 	vector<double> _max(unsigned int id0 = 0, unsigned int len = 0) const;

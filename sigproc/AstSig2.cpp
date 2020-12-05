@@ -66,38 +66,6 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 		indsig = trueID;
 	}
 	if (!indsig.nSamples) return;
-	else if (indsig.IsScalar())
-	{
-		if (psigBase->GetType() == CSIG_AUDIO)
-		{
-			if (sec.IsTimeSignal())		// s(repl_RHS) = sound; //insert
-				psigBase->Insert(indsig.value(), sec);
-			else
-			{
-				unsigned int id = (unsigned int)round(indsig.value());
-				pbase->checkindexrange(pnode, psigBase, id, "LHS##vsdba2");
-				if (sec.IsComplex())
-				{
-					psigBase->SetComplex();
-					psigBase->cbuf[id - 1] = sec.cvalue();
-				}
-				else
-					psigBase->buf[id - 1] = sec.value();
-			}
-		}
-		else
-		{
-			unsigned int id = (unsigned int)round(indsig.value());
-			pbase->checkindexrange(pnode, psigBase, id, "LHS");
-			if (sec.IsComplex())
-			{
-				psigBase->SetComplex();
-				psigBase->cbuf[id - 1] = sec.cvalue();
-			}
-			else
-				replace(pnode, psigBase, sec, id - 1, id - 1);
-		}
-	}
 	else // not done yet if sec is complex
 	{
 		//		pnode->type is either N_IXASSIGN (for non-cell LHS)
@@ -129,18 +97,20 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 				{ // x(1200:1201) = zeros(111) FAILED HERE	on memcpy line.... that's wrong. 1/20/2018
 					// this must be contiguous
 					if (!pbase->isContiguous(indsig, id1, id2))
-						replace(pnode, psigBase, sec, indsig); // if sec is a scalar, just assignment call by index 
+					{
+						if (sec.IsEmpty())
+							throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, RHS cannot be empty.");
+						if (sec.nSamples != 1 && sec.nSamples != indsig.nSamples)
+							throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, the length of RHS and LHS must match.");
+						vector<unsigned int> ids;
+						ids.resize(indsig.nSamples);
+						unsigned int k = 0;
+						for_each(ids.begin(), ids.end(), [indsig, &k](unsigned int& v) { v = (unsigned int)indsig.buf[k++] - 1; });
+						psigBase->replacebyindex(ids, sec);
+					}
 					else
 					{
-						pbase->checkindexrange(pnode, psigBase, id1, "LHS");
-						pbase->checkindexrange(pnode, psigBase, id2, "LHS");
-						if (sec.nSamples != id2 - id1 + 1)
-						{
-							if (!sec.IsScalar())
-								throw CAstException(USAGE, *pbase, pnode).proc("to manipulate an audio signal by indices, LHS and RHS must be the same length or RHS is a scalar");
-						}
-						if (sec.IsComplex() && !psigBase->IsComplex()) psigBase->SetComplex();
-						replace(pnode, psigBase, sec, id1 - 1, id2 - 1);
+						psigBase->replacebyindex(id1 - 1, id2 - id1 + 1, sec);
 					}
 				}
 			}
@@ -198,8 +168,6 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 			// v(1:5) or v([contiguous]) = (any array) to replace
 			// v(1:2:5) or v([non-contiguous]) = RHS; //LHS and RHS must match length.
 			bool contig = pbase->isContiguous(indsig, id1, id2);
-			if (!sec.IsEmpty() && !contig && sec.nSamples != 1 && sec.nSamples != indsig.nSamples) 
-				throw CAstException(USAGE, *pbase, pnode).proc("the number of replaced items must be the same as that of replacing items.");
 			if (repl_RHS) //direct update of buf
 			{
 				if (contig)
@@ -215,9 +183,26 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 			else
 			{
 				if (contig)
-					replace(pnode, psigBase, sec, id1 - 1, id2 - 1);
+				{
+					auto _id1 = (unsigned int)indsig.buf[0];
+					if (_id1 > psigBase->nSamples+1)
+						throw CAstException(RANGE, *pbase, pnode).proc("LHS invalid indexing", "", _id1, -1);
+//					pbase->checkindexrange(pnode, psigBase, _id1, );
+					auto _id2 = min(_id1, (unsigned int)indsig.buf[indsig.nSamples - 1]);
+					psigBase->replacebyindex(_id1 - 1, _id2 - _id1 + 1, sec);
+				}
 				else
-					replace(pnode, psigBase, sec, indsig);
+				{
+					if (sec.IsEmpty())
+						throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, RHS cannot be empty.");
+					if (sec.nSamples != 1 && sec.nSamples != indsig.nSamples)
+						throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, the length of RHS and LHS must match.");
+					vector<unsigned int> ids;
+					ids.resize(indsig.nSamples);
+					unsigned int k = 0;
+					for_each(ids.begin(), ids.end(), [indsig, &k](unsigned int& v) { v = (unsigned int)indsig.buf[k++] - 1; });
+					psigBase->replacebyindex(ids, sec);
+				}
 			}
 		}
 	}
@@ -238,15 +223,18 @@ CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
 			*lhsref = tsig->value();
 			return psigBase;
 		}
-		//This is where elements of an existing array are changed, upated or replaced by indices.
-		//if tsig is chainged, call insertreplace for each chain with a moving ghost of isig
-		isigGhost <= isig;
-		for (CVar *p = tsig; p; p = (CVar*)p->chain)
-		{
-			int lastIndex = isigGhost.nSamples = p->nSamples;
-			insertreplace(pLHS, *p, isigGhost);
-			isigGhost.buf += lastIndex;
-		}
+		insertreplace(pLHS, *tsig, isig);
+
+
+		//This is where elements of an existing array are changed, updated or replaced by indices.
+		//if tsig is chained, call insertreplace for each chain with a moving ghost of isig
+		//isigGhost <= isig;
+		//for (CVar *p = tsig; p; p = (CVar*)p->chain)
+		//{
+		//	int lastIndex = isigGhost.nSamples = p->nSamples;
+		//	insertreplace(pLHS, *p, isigGhost);
+		//	isigGhost.buf += lastIndex;
+		//}
 	}
 	else
 		insertreplace(pLHS, *psig, isig);
@@ -483,8 +471,8 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	eval_indexing(p->child, isig);
 	if (!(isig.type() & 1)) // has more than one element. 
 		lhsref_single = false;
-	if (isig._max().front() > pbase->Sig.nSamples)
-		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max().front());
+//	if (isig._max().front() > pbase->Sig.nSamples)
+//		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max().front(),-1);
 	pbase->Sig = extract(pnode, isig);
 	return pbase->Sig;
 }
