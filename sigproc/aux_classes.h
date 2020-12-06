@@ -1,12 +1,12 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
-// Platform-independent (hopefully) 
-// 
+// Platform-independent (hopefully)
+//
 // Version: 1.7
 // Date: 5/24/2020
 
@@ -23,7 +23,7 @@ using namespace std;
 #define TYPEBIT_NULL		0x0000
 #define TYPEBIT_SNAP		0x0004
 #define TYPEBIT_TEMPORAL	0x0008
-// The difference between TYPEBIT_AUDIO and TYPEBIT_TSEQ: 
+// The difference between TYPEBIT_AUDIO and TYPEBIT_TSEQ:
 // data in TYPEBIT_AUDIO aligned with time points in grid of 1/fs,
 // data in TYPEBIT_TSEQ are stacked on the same tmark.
 #define TYPEBIT_AUDIO		(TYPEBIT_TEMPORAL + TYPEBIT_NULL)
@@ -31,10 +31,10 @@ using namespace std;
 #define TYPEBIT_SIZE8		0x0000 // 8 bytes -- sizeof(double)
 #define TYPEBIT_SIZE1		0x0010
 #define TYPEBIT_FS2			0x0020
-#define TYPEBIT_SIZE16		0x0040 // 16 bytes -- 8 bytes times 2 
+#define TYPEBIT_SIZE16		0x0040 // 16 bytes -- 8 bytes times 2
 #define TYPEBIT_LOGICAL		(TYPEBIT_SIZE1 + TYPEBIT_NULL) // 0x0080
 // DO NOT MASK THIS WITH type() to detect string; Use IsString() instead.
-#define TYPEBIT_STRING		(TYPEBIT_SIZE1 + TYPEBIT_FS2) 
+#define TYPEBIT_STRING		(TYPEBIT_SIZE1 + TYPEBIT_FS2)
 #define TYPEBIT_COMPLEX		TYPEBIT_SIZE16
 #define TYPEBIT_GO			0x0800
 #define TYPEBIT_CELL		0x1000
@@ -112,7 +112,7 @@ public:
 	body &each(double (*fn)(complex<double>));
 	body &each(complex<double>(*fn)(double));
 	body &each(complex<double> (*fn)(complex<double>));
-	body &each(double (*fn)(double, double), const body &arg2); 
+	body &each(double (*fn)(double, double), const body &arg2);
 	body &each(complex<double> (*fn)(complex<double>, complex<double>), const body &arg2);
 
 	double* begin() { return nSamples>0 ? &buf[0] : nullptr; }
@@ -148,7 +148,7 @@ protected:
 	int fs;
 public:
 	double tmark;
-	short snap; // 0 for regular; 1 for time seq or an object where data stack up on the same tmark (vertically), like FFT 
+	short snap; // 0 for regular; 1 for time seq or an object where data stack up on the same tmark (vertically), like FFT
 	unsigned int Len() { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }
 	bool operator < (const CSignal &rhs) const;
 
@@ -202,7 +202,7 @@ public:
 	CSignal & operator-(void);	// Unary minus
 
 	// Retrieve signal characteristics (single channel ONLY)
-	int GetType() const; 
+	int GetType() const;
 	int GetFs() const {return fs;};
 	void SetFs(int  newfs);
 	double* GetBuffer() {return buf;}
@@ -222,15 +222,15 @@ public:
 	CSignal & filtfilt(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal & resample(unsigned int id0 = 0, unsigned int len = 0);
 #ifndef NO_IIR
-	CSignal & IIR(unsigned int id0 = 0, unsigned int len = 0); 
+	CSignal & IIR(unsigned int id0 = 0, unsigned int len = 0);
 #endif // NO_IIR
 
 	inline bool IsEmpty() const { return nSamples == 0 && tmark == 0.; }
 	inline bool IsScalar() const { return nSamples == 1; }
 	inline bool IsVector() const { return nSamples > 1; }
-	inline bool IsAudio() const { 
-		uint16_t tp = type() & 0x000F; 
-		return tp & TYPEBIT_AUDIO  && !(tp & TYPEBIT_SNAP); 
+	inline bool IsAudio() const {
+		uint16_t tp = type() & 0x000F;
+		return tp & TYPEBIT_AUDIO  && !(tp & TYPEBIT_SNAP);
 	}
 	bool IsString() const { return bufBlockSize == 1 && fs == 2; }
 
@@ -244,10 +244,10 @@ public:
 	CSignal(double value); // construct a scala with the specified value
 	CSignal(const CSignal & src); // copy constructor
 	CSignal(double *y, int  len);
-	CSignal(vector<double> vv); 
+	CSignal(vector<double> vv);
 	CSignal(string str); // make a string CSignal
 
-	virtual ~CSignal();	
+	virtual ~CSignal();
 
 	string string() const;
 	char *getString(char *str, const int size);
@@ -383,13 +383,13 @@ public:
 	CSignal TSeries2CSignal();
 
 	double MakeChainless();
-	
+
 	// Constructors
 	CTimeSeries();
 	CTimeSeries(int sampleRate); // construct with a specified sample rate.
 	CTimeSeries(int sampleRate, unsigned int len); // construct with a specified sample rate and buffer size
 	CTimeSeries(double value); // construct a scalar with the specified value ---is it necessary? 5/19/2018
-	CTimeSeries(const CSignal & src); 
+	CTimeSeries(const CSignal & src);
 	CTimeSeries(const CTimeSeries & src);
 	virtual ~CTimeSeries();
 
@@ -432,6 +432,7 @@ public:
 	CSignals(int sampleRate);
 	CSignals(double value);
 	CSignals(double *y, int len);
+	CSignals(complex<double> *y, int len);
 	CSignals(const CTimeSeries & src);
 	CSignals(const CSignals & src);
 	CSignals(std::string str); // make a string CSignals
@@ -468,7 +469,7 @@ public:
 
 	double MakeChainless();
 	void SetValue(double v);
-	void SetValue(complex<double> v);	
+	void SetValue(complex<double> v);
 
 	int ReadAXL(FILE* fp, bool logical, char *errstr);
 	int WriteAXL(FILE* fp);

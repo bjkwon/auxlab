@@ -1520,7 +1520,9 @@ static const AstNode* get_line_astnode(const AstNode* root, const AstNode* pnode
 
 void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	past->checkAudioSig(pnode, past->Sig);
+	// CSignal::filter and CSignal::filtfilt
+	// pargs 
+	past->checkSignal(pnode, past->Sig);
 	CVar sig = past->Sig;
 	string fname = pnode->str;
 	CVar fourth, third, second = past->Compute(p);
@@ -1541,39 +1543,79 @@ void _filt(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	else if (third.IsScalar())
 		third.UpdateBuffer(len);
 
-	vector<double> initial;
-	vector<double> num(second.buf, second.buf + second.nSamples);
-	vector<double> den(third.buf, third.buf + third.nSamples);
-	vector<vector<double>> coeffs;
-	if (!second.chain && !third.chain && second.tmark==0 && third.tmark==0)
+	if (sig.IsComplex() || second.IsComplex() || third.IsComplex() || fourth.IsComplex())
 	{
-		coeffs.push_back(num);
-		coeffs.push_back(den);
-		if (fourth.nSamples > 0)
+		vector<complex<double>> initial;
+		vector<complex<double>> num(second.cbuf, second.cbuf + second.nSamples);
+		vector<complex<double>> den(third.cbuf, third.cbuf + third.nSamples);
+		vector<vector<complex<double>>> coeffs;
+		if (!second.chain && !third.chain && second.tmark == 0 && third.tmark == 0)
 		{
-			for (unsigned int k = 0; k < fourth.nSamples; k++) initial.push_back(fourth.buf[k]);
-			coeffs.push_back(initial);
+			coeffs.push_back(num);
+			coeffs.push_back(den);
+			if (fourth.nSamples > 0)
+			{
+				for (unsigned int k = 0; k < fourth.nSamples; k++) initial.push_back(fourth.buf[k]);
+				coeffs.push_back(initial);
+			}
+			if (fname == "filt")
+				sig.runFct2modify(&CSignal::filter, &coeffs);
+			else if (fname == "filtfilt")
+				sig.runFct2modify(&CSignal::filtfilt, &coeffs);
+			//at this point, coeffs is not the same as before (updated with the final condition)
 		}
-		if (fname == "filt")
-			sig.runFct2modify(&CSignal::filter, &coeffs);
-		else if (fname == "filtfilt")
-			sig.runFct2modify(&CSignal::filtfilt, &coeffs);
-		//at this point, coeffs is not the same as before (updated with the final condition)
+		else
+		{
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
+		}
+		past->Sig = sig;
+		auto linehead = get_line_astnode(past->pAst, pnode);
+		if (countVectorItems(linehead) > 1)
+		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
+			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
+			CVar* newpointer = new CVar(sig.GetFs());
+			CSignals finalcondition(coeffs.back().data(), (int)coeffs.back().size()); // final condnition is stored at the last position
+			*newpointer = finalcondition;
+			unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
+			past->Sigs.push_back(move(pt));
+		}
 	}
 	else
 	{
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
-	}
-	past->Sig = sig;
-	auto linehead = get_line_astnode(past->pAst, pnode);
-	if (countVectorItems(linehead) > 1)
-	{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
-		past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
-		CVar *newpointer = new CVar(sig.GetFs());
-		CSignals finalcondition(coeffs.back().data(), (int)coeffs.back().size()); // final condnition is stored at the last position
-		*newpointer = finalcondition;
-		unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
-		past->Sigs.push_back(move(pt));
+		vector<double> initial;
+		vector<double> num(second.buf, second.buf + second.nSamples);
+		vector<double> den(third.buf, third.buf + third.nSamples);
+		vector<vector<double>> coeffs;
+		if (!second.chain && !third.chain && second.tmark == 0 && third.tmark == 0)
+		{
+			coeffs.push_back(num);
+			coeffs.push_back(den);
+			if (fourth.nSamples > 0)
+			{
+				for (unsigned int k = 0; k < fourth.nSamples; k++) initial.push_back(fourth.buf[k]);
+				coeffs.push_back(initial);
+			}
+			if (fname == "filt")
+				sig.runFct2modify(&CSignal::filter, &coeffs);
+			else if (fname == "filtfilt")
+				sig.runFct2modify(&CSignal::filtfilt, &coeffs);
+			//at this point, coeffs is not the same as before (updated with the final condition)
+		}
+		else
+		{
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
+		}
+		past->Sig = sig;
+		auto linehead = get_line_astnode(past->pAst, pnode);
+		if (countVectorItems(linehead) > 1)
+		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
+			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
+			CVar* newpointer = new CVar(sig.GetFs());
+			CSignals finalcondition(coeffs.back().data(), (int)coeffs.back().size()); // final condnition is stored at the last position
+			*newpointer = finalcondition;
+			unique_ptr<CVar*> pt = make_unique<CVar*>(newpointer);
+			past->Sigs.push_back(move(pt));
+		}
 	}
 }
 

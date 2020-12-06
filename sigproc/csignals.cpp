@@ -3610,12 +3610,21 @@ CSignals::CSignals(const CTimeSeries& src)
 	*this = src;
 }
 
-CSignals::CSignals(double *y, int len)
+CSignals::CSignals(double* y, int len)
 	: next(NULL)
 {
 	SetFs(1);
 	UpdateBuffer(len);
-	memcpy(buf, y, sizeof(double)*len);
+	memcpy(buf, y, sizeof(double) * len);
+}
+
+CSignals::CSignals(complex<double> *y, int len)
+	: next(NULL)
+{
+	SetFs(1);
+	SetComplex();
+	UpdateBuffer(len);
+	memcpy(buf, y, sizeof(double) * len);
 }
 
 CSignals::~CSignals()
