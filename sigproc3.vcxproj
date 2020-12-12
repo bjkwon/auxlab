@@ -236,6 +236,36 @@
     <ClCompile Include="$(SrcPath)Built_in_Funcs.cpp" />
     <ClCompile Include="$(SrcPath)operators.cpp" />
     <ClCompile Include="$(SrcPath)vartypes.cpp" />
+    <ClCompile Include="$(SrcPath)support.cpp" />
+    <ClCompile Include="$(SrcPath)_func\filt.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_iir.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_minmax.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_tparamonly.cpp" />
+    <ClCompile Include="$(SrcPath)_func\and_or_sort.cpp" />
+    <ClCompile Include="$(SrcPath)_func\cell_func.cpp" />
+    <ClCompile Include="$(SrcPath)_func\err_warning_throw.cpp" />
+    <ClCompile Include="$(SrcPath)_func\eval_include.cpp" />
+    <ClCompile Include="$(SrcPath)_func\fft.cpp" />
+    <ClCompile Include="$(SrcPath)_func\getsetfs.cpp" />
+    <ClCompile Include="$(SrcPath)_func\hilb_env.cpp" />
+    <ClCompile Include="$(SrcPath)_func\interp.cpp" />
+    <ClCompile Include="$(SrcPath)_func\isfuncs.cpp" />
+    <ClCompile Include="$(SrcPath)_func\lr_aud_vec.cpp" />
+    <ClCompile Include="$(SrcPath)_func\ones_z.cpp" />
+    <ClCompile Include="$(SrcPath)_func\play_record.cpp" />
+    <ClCompile Include="$(SrcPath)_func\printf.cpp" />
+    <ClCompile Include="$(SrcPath)_func\rand.cpp" />
+    <ClCompile Include="$(SrcPath)_func\sharps.cpp" />
+    <ClCompile Include="$(SrcPath)_func\tone_fm.cpp" />
+    <ClCompile Include="$(SrcPath)_func\tsq.cpp" />
+    <ClCompile Include="$(SrcPath)_func\type_same.cpp" />
+    <ClCompile Include="$(SrcPath)_func\windowing.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_arraybasic.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_dir.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_fdelete.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_matrix.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_setnextchan.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_str2num.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)caux.h" />

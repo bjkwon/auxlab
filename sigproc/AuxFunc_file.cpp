@@ -359,56 +359,6 @@ void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		past->Sig.SetFs(past->pEnv->Fs);
 }
 
-void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	CVar firstarg = past->Sig;
-	_sprintf(past, pnode, p, fnsigs);
-	string buffer;
-	buffer = past->Sig.string();
-	bool openclosehere(1);
-	FILE *file = nullptr;
-	//is first argument string?
-//	past->Compute(p);
-	if (firstarg.IsString())
-	{
-		string filename = past->makefullfile(firstarg.string());
-		file = fopen(filename.c_str(), "at");
-	}
-	else
-	{
-		if (!firstarg.IsScalar())
-		{
-			past->Sig.SetValue(-2.);
-			return;
-		}
-		if (firstarg.value() == 0.)
-		{
-			printf(buffer.c_str());
-			return;
-		}
-		file = file_ids[firstarg.value()];
-		openclosehere = false;
-	}
-	if (!file)
-	{
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be either a file identifider, filename or 0 (for console)");
-	}
-	if (fprintf(file, buffer.c_str()) < 0)
-		past->Sig.SetValue(-3.);
-	else
-	{
-		if (openclosehere)
-		{
-			if (fclose(file) == EOF)
-			{
-				past->Sig.SetValue(-4.);
-				return;
-			}
-		}
-		past->Sig.SetValue((double)buffer.length());
-	}
-}
-
 static void write2textfile(FILE * fid, CVar *psig)
 {
 	if (psig->bufBlockSize == 1)

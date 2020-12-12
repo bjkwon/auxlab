@@ -1933,8 +1933,6 @@ vector<CVar *> CAstSig::Compute(void)
 	Sig.cell.clear();
 	Sig.strut.clear();
 	Sig.struts.clear();
-	Sig.outarg.clear();
-	Sig.outarg2.clear();
 	Sig.SetNextChan(NULL);
 	Sig.functionEvalRes = false;
 	inTryCatch = 0;

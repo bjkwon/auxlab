@@ -93,6 +93,7 @@ typedef int INT_PTR;
 #include <vector>
 #include <set>
 #include <complex>
+#include <algorithm>
 
 #ifndef PSYCONYACC
 #include "psycon.yacc.h"

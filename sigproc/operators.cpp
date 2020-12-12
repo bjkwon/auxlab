@@ -694,17 +694,10 @@ bool CVar::operator < (const CVar & rhs) const
 {
 	if (cell.size() < rhs.cell.size()) return true;
 	if (cell.size() > rhs.cell.size()) return false;
-	if (ptarray.size() < rhs.ptarray.size()) return true;
-	if (ptarray.size() > rhs.ptarray.size()) return false;
 	auto rm = rhs.cell.begin();
 	for (auto m : cell)
 	{
 		if (m < *rm) return true;
-	}
-	auto rn = rhs.ptarray.begin();
-	for (auto n : ptarray)
-	{
-		if (n < *rn) return true;
 	}
 	auto rs = rhs.strut.begin();
 	for (auto it = strut.begin(); it != strut.end(); it++, rs++)

@@ -131,7 +131,7 @@ public:
 	body & interp1(body &that, body &qp);
 	vector<double> _max(unsigned int id0 = 0, unsigned int len = 0) const;
 	vector<double> _min(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> sum(unsigned int id0=0, unsigned int len = 0) const;
+	vector<double> sum(unsigned int id0 = 0, unsigned int len = 0) const;
 	vector<double> mean(unsigned int id0 = 0, unsigned int len = 0) const;
 	vector<double> stdev(unsigned int id0 = 0, unsigned int len = 0) const;
 	bool operator < (const body &rhs) const;
@@ -153,19 +153,6 @@ public:
 	bool operator < (const CSignal &rhs) const;
 
 	// Signal generation (no stereo handling)
-	double * fm(double midFreq, double fmWidth, double fmRate, int  nsamples, double beginFMPhase=0.);
-	double * fm(double midFreq, double fmWidth, double fmRate, double dur_ms, double beginFMPhase=0.);
-	double * Silence(unsigned int nsamples);
-	double * Silence(double dur_ms);
-	double * DC(double dur_ms);
-	double * DC(unsigned int nsamples);
-	double * Tone(vector<double> freqs, unsigned int nsamples);
-	double * Tone(vector<double> freqs, double dur_ms);
-	double * Tone(double freq, unsigned int nsamples, double beginPhase=0.);
-	double * Noise(double dur_ms);
-	double * Noise(unsigned int nsamples);
-	double * Noise2(double dur_ms);
-	double * Noise2(unsigned int  nsamples);
 	double * Truncate(double time_ms1, double time_ms2);
 	double * Truncate(int id1, int id2, int code=0);
 	CSignal & Modulate(vector<double> &tpoints, vector<double> &tvals);
@@ -179,8 +166,9 @@ public:
 
 	// Signal alteration (stereo handling with a clean, inarguable convention)
 	virtual void Filter(unsigned int nTabs, double *num, double *den);
-	int DecFir(const CSignal & coeff, int offset, int nChan);
 #ifndef NO_FFTW
+	CSignal FFT(unsigned int id0 = 0, unsigned int len = 0) const;
+	CSignal iFFT(unsigned int id0 = 0, unsigned int len = 0) const;
 	CSignal & Hilbert(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal & HilbertEnv(unsigned int id0 = 0, unsigned int len = 0);
 	CSignal & movespec(unsigned int id0 = 0, unsigned int len = 0);
@@ -253,8 +241,6 @@ public:
 	char *getString(char *str, const int size);
 	CSignal &SetString(const char *str);
 	CSignal &SetString(const char c);
-	CSignal FFT(unsigned int id0 = 0, unsigned int len = 0) const;
-	CSignal iFFT(unsigned int id0 = 0, unsigned int len = 0) const;
 
 	bool IsSingle() const;
 	bool IsLogical() const { return bufBlockSize == 1 && fs != 2; } // this doesn't differentiate "logical" audio
@@ -297,7 +283,6 @@ private:
 	CSignal & _filter(const vector<double> & num, const vector<double> & den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
 	int operator_prep(const CSignal & sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset);
 
-	friend class CSignalExt;
 };
 
 class CTimeSeries : public CSignal
@@ -439,9 +424,9 @@ public:
 	CSignals(bool *b, unsigned int len);
 	~CSignals();
 
-	bool operator== (const CSignals & rhs);
-	bool operator == (double rhs);
-	bool operator == (std::string rhstr);
+	bool operator==(const CSignals & rhs);
+	bool operator==(double rhs);
+	bool operator==(std::string rhstr);
 	CSignals & operator=(const CTimeSeries & rhs);
 	CSignals & operator=(const CSignals & rhs);
 	CSignals & operator+=(double con);
@@ -451,7 +436,6 @@ public:
 	CSignals & operator%(double v);
 	CSignals & operator|(double v);
 	CSignals & operator|(const CSignals & RMS2adjust);
-
 
 	int IsTimeSignal() const;
 	int IsStereo() { return 0 + (next!=NULL); }
@@ -552,7 +536,6 @@ public:
 		nextCSignals(lasttp, lasttp_with_silence, ghcopy);
 		return length;
 	}
-	vector<CSignals> outarg2;
 
 #if defined(_WINDOWS) || defined(_WINDLL)
 
@@ -572,7 +555,6 @@ class CVar : public CSignals
 {
 public:
 	vector<CVar> cell;
-	vector<CVar *> ptarray;
 	map<std::string, CVar> strut;
 	map<std::string, vector<CVar *>> struts;
 
