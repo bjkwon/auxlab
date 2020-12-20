@@ -2519,7 +2519,7 @@ void CShowvarDlg::showsize(CVar *pvar, char *outbuf)
 	case CSIG_STRING:
 	case CSIG_VECTOR:
 		if (pvar->nGroups == 1)
-			sprintf(outbuf, "%d", (int)pvar->CSignal::length().front());
+			sprintf(outbuf, "%d", (int)pvar->CSignal::length());
 		else
 			sprintf(outbuf, "%dx%d", pvar->nGroups, pvar->Len());
 		break;
@@ -2571,7 +2571,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 	//}
 	else if ((type & 0x000F) < TYPEBIT_TEMPORAL) // vector or constant
 	{
-		arrout = "[";
+		if (pvar->nSamples>1)		arrout = "[";
 		if (pvar->IsLogical())
 		{
 			for (unsigned int k = 0; k < min(pvar->nSamples, 10); k++)
@@ -2604,7 +2604,7 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 			}
 		}
 		strcpy(outbuf, arrout.c_str());
-		if (pvar->nSamples <= 10)
+		if (pvar->nSamples > 1 && pvar->nSamples <= 10)
 			outbuf[strlen(outbuf) - 1] = ']';
 	}
 	else if (type & TYPEBIT_CELL || type & TYPEBIT_TEMPORAL)

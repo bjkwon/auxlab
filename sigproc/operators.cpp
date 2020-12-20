@@ -449,7 +449,7 @@ CSignal & CSignal::operator*(pair<vector<double>, vector<double>> coef)
 	auto itval = vals.begin();
 	for (auto it = tpoints.begin(); it != tpoints.end() - 1; it++)
 	{
-		if (*it > endt().front()) continue;
+		if (*it > endt()) continue;
 		double t1 = *it + tmark;
 		double t2 = *(it + 1) + tmark;
 		double slope = (*(itval + 1) - *itval) / (t2 - t1);
@@ -465,7 +465,7 @@ CSignal & CSignal::operator*(pair<vector<double>, vector<double>> coef)
 
 CSignal & CSignal::operator%(double v)
 { // "at" operator; set the RMS at ____
-	double rms = RMS().front();
+	double rms = RMS();
 	double factor = v - rms;
 	*this *= pow(10, factor / 20.);
 	return *this;
@@ -722,3 +722,105 @@ bool CVar::operator < (const CVar & rhs) const
 	if (*p < *q) return true;
 	return false;
 }
+
+body& body::operator<=(const body& rhs)
+{ // Ghost assignment--reset existing and ghost copy from the RHS 
+	Reset();
+	ghost = true;
+	buf = rhs.buf;
+	nSamples = rhs.nSamples;
+	nGroups = rhs.nGroups;
+	bufBlockSize = rhs.bufBlockSize;
+	//parg = rhs.parg;
+//	resOutput = move(rhs.resOutput); // Cannot move because it is const... Then how? 11/29/2019
+	return *this;
+}
+body& body::operator<=(body* rhs)
+{ // Ghost assignment--reset existing and ghost copy from the RHS 
+	Reset();
+	ghost = true;
+	buf = rhs->buf;
+	nSamples = rhs->nSamples;
+	nGroups = rhs->nGroups;
+	bufBlockSize = rhs->bufBlockSize;
+	//parg = rhs->parg;
+	return *this;
+}
+
+CSignal& CSignal::operator<=(const CSignal& rhs)
+{
+	body::operator<=(rhs);
+	tmark = rhs.tmark;
+	fs = rhs.fs;
+	snap = rhs.snap;
+	return *this;
+}
+CSignal& CSignal::operator<=(CSignal* rhs)
+{
+	body::operator<=(rhs);
+	tmark = rhs->tmark;
+	fs = rhs->fs;
+	snap = rhs->snap;
+	return *this;
+}
+
+CTimeSeries& CTimeSeries::operator<=(const CTimeSeries& rhs)
+{
+	CSignal::operator<=(rhs);
+	outarg = rhs.outarg;
+	if (rhs.chain)
+	{
+		chain = new CTimeSeries;
+		*chain <= *rhs.chain;
+	}
+	else
+	{
+		if (!ghost) delete chain;
+		chain = NULL;
+	}
+	return *this;
+}
+CTimeSeries& CTimeSeries::operator<=(CTimeSeries* rhs)
+{
+	CSignal::operator<=(rhs);
+	outarg = rhs->outarg;
+	if (rhs->chain)
+	{
+		chain = new CTimeSeries;
+		*chain <= *rhs->chain;
+	}
+	else
+	{
+		if (!ghost) delete chain;
+		chain = NULL;
+	}
+	return *this;
+}
+
+CSignals& CSignals::operator<=(const CSignals& rhs)
+{
+	CTimeSeries::operator<=(rhs);
+	if (rhs.next)
+	{
+		if (next)
+			delete next;
+		else
+			next = new CSignals;
+		*next <= rhs.next;
+	}
+	return *this;
+}
+CSignals& CSignals::operator<=(CSignals* rhs)
+{
+	CTimeSeries::operator<=(rhs);
+	if (rhs->next)
+	{
+		if (next)
+			delete next;
+		else
+			next = new CSignals;
+		*next <= rhs->next;
+	}
+	return *this;
+}
+

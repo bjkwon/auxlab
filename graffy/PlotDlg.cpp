@@ -1706,7 +1706,7 @@ void CPlotDlg::getFFTdata(CTimeSeries & mag, const vector<double> & fft)
 		mag.buf[fft.size() / 2] = 10.*log10(fft[fft.size() / 2] * fft[fft.size() / 2]);  // Nyquist freq. 
 	*/
 	if (fft.size() % 2 == 0) mag.nSamples--; // Nyquist component excluded
-	double maxmag = mag._max().front();
+	double maxmag = mag._max();
 	for (unsigned int k = 0; k < mag.nSamples; k++)
 		mag.buf[k] -= maxmag;
 }

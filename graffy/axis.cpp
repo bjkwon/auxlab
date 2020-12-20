@@ -433,8 +433,8 @@ GRAPHY_EXPORT void CAxes::setylim()
 			{
 				for (CTimeSeries *p = &m_ln[k]->sig; p; p = p->chain)
 				{
-					ylim[0] = min(ylim[0], p->_min().front());
-					ylim[1] = max(ylim[1], p->_max().front());
+					ylim[0] = min(ylim[0], p->_min());
+					ylim[1] = max(ylim[1], p->_max());
 				}
 				ylim_adjustmore = m_ln[k]->sig.IsTimeSignal();
 			}
@@ -861,7 +861,7 @@ int get_plot_range_from_tmark(const CSignal& p, const double xlim[], double& xli
 { 
 	int count = 0;
 	if (p.tmark > xlim[1] * 1000.) return 0;
-	double lastTimePt = (p.tmark + p.dur().front()) / 1000.;
+	double lastTimePt = (p.tmark + p.dur()) / 1000.;
 	if (lastTimePt < xlim[0]) return 0;
 	if (xlim[0] > p.tmark / 1000.)
 	{

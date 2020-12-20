@@ -665,7 +665,9 @@ void CAstSig::outputbinding(const AstNode *plhs)
 		vector<unique_ptr<CVar*>>::iterator it = Sigs.begin();
 		for (AstNode *p = ((AstNode *)plhs->str)->alt; p; p = p->next)
 		{
-			bind_psig(p, *it->release());
+			auto pp = *it->release();
+			bind_psig(p, pp);
+			if (it != Sigs.begin()) delete pp; // most likely pp was created in _func() in _functions
 			it++;
 			if (it==Sigs.end() && p->next)
 				throw CAstException(USAGE, *this, p).proc("Too many output arguments.");
@@ -1428,7 +1430,7 @@ CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 		//Being fixed.... but need further checking
 		//6/17/2020
 		if (dB.chain || (dB.next && dB.next->chain))
-			sigRMS = sigRMS.runFct2getvals(&CSignal::RMS);
+			sigRMS = sigRMS.fp_getval(&CSignal::RMS);
 		else
 			sigRMS.RMS(); // this should be called before another Compute is called (then, refRMS.buf won't be valid)
 	}
@@ -1575,7 +1577,7 @@ string CAstSig::adjustfs(int newfs)
 			gcopy <= it.second;
 			level1 = gcopy.RMS();
 			ratio.SetValue( (double) pEnv->Fs / newfs);
-			it.second.runFct2modify(&CSignal::resample, &ratio);
+			it.second.fp_mod(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
 			{
 				sformat(out, "Error while resampling the variable %s\n[from libsamplerate]%s", it.first.c_str(), ratio.string().c_str());
@@ -2808,7 +2810,6 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		Compute(p);
 		checkAudioSig(pnode,  Sig);
 		Sig >>= tsig.value();
-		Sig.nGroups = tsig.nGroups;
 		return TID((AstNode*)pnode, NULL, &Sig);
 		break;
 	case T_OP_CONCAT:

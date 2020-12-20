@@ -205,7 +205,7 @@ bool CAstSig::IsValidBuiltin(string funcname)
 	return pEnv->builtin.find(funcname) != pEnv->builtin.end();
 }
 
-void CAstSig::checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg)
+void CAstSig::checkAudioSig(const AstNode *pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.type() & TYPEBIT_AUDIO) return;
 	if (checkthis.GetType()==CSIG_CELL && ((CSignal)checkthis).GetType()==CSIG_AUDIO) return; // Why is this here? Maybe there is a data type of cell with audio data? 6/29/2020
@@ -213,7 +213,7 @@ void CAstSig::checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg
 	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
 }
 
-void CAstSig::checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg)
+void CAstSig::checkTSeq(const AstNode *pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.IsTimeSignal()) return;
 	string msg("requires a time_sequence as the base.");
@@ -227,7 +227,7 @@ void CAstSig::checkComplex (const AstNode *pnode, CVar &checkthis)
 	throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
 }
 
-void CAstSig::checkSignal(const AstNode *pnode, CVar &checkthis, string addmsg)
+void CAstSig::checkSignal(const AstNode *pnode, const CVar &checkthis, string addmsg)
 { // if it is audio or vector --> OK
   // if not (including scalar) --> not OK
 	if (checkthis.GetType() == CSIG_VECTOR) return;
@@ -236,7 +236,7 @@ void CAstSig::checkSignal(const AstNode *pnode, CVar &checkthis, string addmsg)
 	throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 }
 
-void CAstSig::checkVector(const AstNode *pnode, CVar &checkthis, string addmsg)
+void CAstSig::checkVector(const AstNode *pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.GetType() == CSIG_SCALAR) return;
 	if (checkthis.GetType() == CSIG_VECTOR) return;
@@ -244,7 +244,7 @@ void CAstSig::checkVector(const AstNode *pnode, CVar &checkthis, string addmsg)
 	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
 }
 
-void CAstSig::checkScalar(const AstNode *pnode, CVar &checkthis, string addmsg)
+void CAstSig::checkScalar(const AstNode *pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.IsScalar()) return;
 	string msg("requires a scalar argument.");
@@ -259,61 +259,73 @@ void CAstSig::checkString(const AstNode *pnode, const CVar &checkthis, string ad
 	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
 }
 
-bool CAstSig::blockCell_allowGO(const AstNode *pnode, const CVar &checkthis)
+bool CAstSig::blockCell_allowGO(const AstNode* pnode, const CVar& checkthis, string addmsg)
 {
 	if (checkthis.type() & TYPEBIT_GO) return true;
-	blockCell(pnode, checkthis);
+	blockCell(pnode, checkthis, addmsg);
 	return false;
 }
 
-void CAstSig::blockCell(const AstNode *pnode, const CVar &checkthis)
+void CAstSig::blockCell(const AstNode* pnode, const CVar& checkthis, string addmsg)
 {
-	string msg("Not valid with a cell, struct, or point-array variable ");
-	if (checkthis.GetFs()==3)
+	string msg("Not valid with a cell, struct, or point-array variable; ");
+	if (checkthis.GetFs() == 3)
 		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
 	if (checkthis.GetType() == CSIG_CELL)
 		if (((CSignal)checkthis).GetType() == CSIG_EMPTY)
-			throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+			throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 	if (checkthis.GetType() == CSIG_STRUCT)
-			throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 }
 
-void CAstSig::blockEmpty(const AstNode *pnode, CVar &checkthis)
+void CAstSig::blockEmpty(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
 	if (!checkthis.IsString() && !checkthis.IsEmpty()) return;
-	if (checkthis.IsString() && checkthis.nSamples>1) return;
-	string msg("Not valid with an empty variable ");
-	throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+	if (checkthis.IsString() && checkthis.nSamples > 1) return;
+	string msg("Not valid with an empty variable; ");
+	throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 }
 
-void CAstSig::blockScalar(const AstNode *pnode, CVar &checkthis)
+void CAstSig::blockScalar(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
 	if (!(checkthis.type() & 1)) return;
-	string msg("Not valid with a scalar variable ");
-	throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+	string msg("Not valid with a scalar variable; ");
+	throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 }
 
-void CAstSig::blockString(const AstNode *pnode, CVar &checkthis)
+void CAstSig::blockString(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
-	if (checkthis.GetType() == CSIG_STRING) {
-		string msg("Not valid with a string variable ");
-		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+	auto aa = checkthis.type();
+	auto bb = TYPEBIT_STRING;
+	size_t x = sizeof(aa), y = sizeof(bb);
+	bool b = aa == bb;
+	if (checkthis.type() == TYPEBIT_STRING) {
+		string msg("Not valid with a string variable; ");
+		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 	}
 }
 
-void CAstSig::blockTemporal(const AstNode *pnode, CVar &checkthis)
+void CAstSig::blockLogical(const AstNode* pnode, const CVar &checkthis, string addmsg)
+{
+	if (checkthis.type() == TYPEBIT_LOGICAL) {
+		string msg("Not valid with a logical variable; ");
+		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
+	}
+}
+
+void CAstSig::blockTemporal(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.type() & TYPEBIT_TEMPORAL) {
-		string msg("Not valid with a temporal object ");
-		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+		string msg("Not valid with a temporal object; ");
+		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 	}
 }
 
-void CAstSig::blockComplex(const AstNode *pnode, CVar &checkthis)
+void CAstSig::blockComplex(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.IsComplex()) {
 		string msg("Not valid with a complex variable ");
-		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 	}
 }
 
@@ -365,7 +377,7 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "parameter must be either a scalar or a time sequence.");
 		if (param.GetType() == CSIG_TSERIES)
 		{
-			double audioDur = past->Sig.dur().front();
+			double audioDur = past->Sig.dur();
 			if (param.GetFs() == 0) // relative
 				for (CTimeSeries *p = &param; p; p = p->chain)
 				{
@@ -387,10 +399,10 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 			for (CTimeSeries *p = &param; p; p = p->chain)
 				if (!p->chain) 
 					pLast = p;
-			if (pLast->tmark != past->Sig.dur().front())
+			if (pLast->tmark != past->Sig.dur())
 			{
 				CTimeSeries newParam(past->Sig.GetFs());
-				newParam.tmark = past->Sig.dur().front();
+				newParam.tmark = past->Sig.dur();
 				newParam.SetValue(pLast->value());
 				pLast->chain = new CTimeSeries;
 				*pLast->chain = newParam; // this way the copied version goes to chain
@@ -407,9 +419,9 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 		for (auto it = paramopt.strut.begin(); it != paramopt.strut.end(); it++)
 			param.strut[(*it).first] = (*it).second;
 		if (fname == "respeed")
-			past->Sig.runFct2modify(&CSignal::resample, &param);
+			past->Sig.fp_mod(&CSignal::resample, &param);
 		else if (fname == "movespec")
-			past->Sig.runFct2modify(&CSignal::movespec, &param);
+			past->Sig.fp_mod(&CSignal::movespec, &param);
 		if (param.IsString())
 			throw CAstException(USAGE, *past, pnode).proc(("Error in respeed:" + param.string()).c_str());
 	}

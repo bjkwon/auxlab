@@ -501,7 +501,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			int oldFs = past->GetFs();
 			CVar ratio(1);
 			ratio.SetValue(past->Sig.GetFs() / (double)oldFs);
-			past->Sig.runFct2modify(&CSignal::resample, &ratio);
+			past->Sig.fp_mod(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
 				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, ratio.string().c_str());
 			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), oldFs);

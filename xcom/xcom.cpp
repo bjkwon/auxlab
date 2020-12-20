@@ -1912,6 +1912,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	CAstSig cast(pglobalEnv);
 	initializeAUXLAB3(&cast, auxextdllname);
 
+	int _fs = cast.Sig.GetFs();
 	DWORD dw;
 	WriteConsole(hStdout, mainSpace.comPrompt.c_str(), (DWORD)mainSpace.comPrompt.size(), &dw, NULL);
 
