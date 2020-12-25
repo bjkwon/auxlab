@@ -46,6 +46,7 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
+	auto ss = CAstSigEnv::AppPath;
 	string filename = past->makefullfile(past->ComputeString(p));
 	char mode[8];
 	strcpy(mode, past->ComputeString(p->next).c_str());
@@ -525,7 +526,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	FILE *fp(NULL);
 	int res;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
-	fp = past->OpenFileInPath(past->ComputeString(p), "", fullpath);
+	fp = past->fopen_from_path(past->ComputeString(p), "", fullpath);
 	_splitpath(past->ComputeString(p).c_str(), NULL, NULL, fname, ext);
 	if (fp)
 	{

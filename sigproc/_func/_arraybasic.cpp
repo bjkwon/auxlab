@@ -11,8 +11,8 @@ void _arraybasic(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 {
 	CVar additionalArg(past->Sig.GetFs());
 	string fname = pnode->str;
-	if (fname == "sum")	past->Sig = past->Sig.runFct2getvals(&CSignal::sum);
-	else if (fname == "mean") past->Sig = past->Sig.runFct2getvals(&CSignal::mean);
+	if (fname == "sum")	past->Sig = past->Sig.fp_getval(&CSignal::sum);
+	else if (fname == "mean") past->Sig = past->Sig.fp_getval(&CSignal::mean);
 	else if (fname == "length")
 	{
 		if (past->Sig.next)
@@ -32,7 +32,7 @@ void _arraybasic(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 			if (!past->Sig.cell.empty())
 				past->Sig.SetValue((double)past->Sig.cell.size());
 			else if (!past->Sig.chain)
-				past->Sig = past->Sig.runFct2getvals(&CSignal::length);
+				past->Sig = past->Sig.fp_getval(&CSignal::length);
 			else if (past->Sig.IsTimeSignal())
 			{
 				past->Sig.SetValue((double)(past->Sig.CountChains()));
@@ -54,10 +54,10 @@ void _arraybasic(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 			return;
 		}
 		past->checkAudioSig(pnode, past->Sig);
-		if (fname == "begint") past->Sig = past->Sig.runFct2getvals(&CSignal::begint);
-		else if (fname == "endt") past->Sig = past->Sig.runFct2getvals(&CSignal::endt);
-		else if (fname == "dur") past->Sig = past->Sig.runFct2getvals(&CSignal::dur);
-		else if (fname == "rms") past->Sig = past->Sig.runFct2getvals(&CSignal::RMS);
+		if (fname == "begint") past->Sig = past->Sig.fp_getval(&CSignal::begint);
+		else if (fname == "endt") past->Sig = past->Sig.fp_getval(&CSignal::endt);
+		else if (fname == "dur") past->Sig = past->Sig.fp_getval(&CSignal::dur);
+		else if (fname == "rms") past->Sig = past->Sig.fp_getval(&CSignal::RMS);
 		else if (fname == "rmsall") past->Sig = past->Sig.RMS(); // overall RMS from artificially concatenated chain's 
 	}
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
@@ -78,7 +78,7 @@ void _std(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 		}
 		catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
 	}
-	past->Sig = past->Sig.runFct2getvals(&CSignal::stdev, &arg);
+	past->Sig = past->Sig.fp_getval(&CSignal::stdev, &arg);
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
@@ -114,9 +114,8 @@ void _size(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
-vector<double> body::sum(unsigned int id0, unsigned int len) const
+double body::sum(unsigned int id0, unsigned int len, void *p) const
 {
-	vector<double> out;
 	if (len == 0) len = nSamples;
 	double _sum = 0.;
 	int isum(0);
@@ -127,122 +126,98 @@ vector<double> body::sum(unsigned int id0, unsigned int len) const
 	}
 	else
 		for (unsigned int k = id0; k < id0 + len; k++)		_sum += buf[k];
-	out.push_back(_sum);
-	return out;
+	return _sum;
 }
 
-vector<double> body::mean(unsigned int id0, unsigned int len) const
+double body::mean(unsigned int id0, unsigned int len, void *p) const
 {
 	if (len == 0) len = nSamples;
-	vector<double> out(1, sum(id0, len).front() / len);
-	return out;
+	return sum(id0, len) / len;
 }
-vector<double> body::stdev(unsigned int id0, unsigned int len) const
+double body::stdev(unsigned int id0, unsigned int len, void *p) const
 {
-	vector<double> out;
-	CVar param = *(CVar*)parg;
+	double out;
+	CVar param = *(CVar*)p;
 	double flag = param.value();
 	if (len == 0) len = nSamples;
 	if (!len) throw "Empty array";
 	double sqsum(0.);
 	for (unsigned int k = id0; k < id0 + len; k++)		sqsum += buf[k] * buf[k];
-	double mm = mean(id0, len).front();
+	double mm = mean(id0, len);
 	if (flag == 1.)
 	{
-		double var = sqsum / len - mm * mm;
-		out.push_back(sqrt(var));
-		return out;
+		out = sqsum / len - mm * mm;
 	}
 	else
 	{
-		double var = (sqsum + mm * mm * len - 2 * mm * sum(id0, len).front()) / (len - 1);
-		out.push_back(sqrt(var));
-		return out;
+		out = (sqsum + mm * mm * len - 2 * mm * sum(id0, len)) / (len - 1);
 	}
+	return sqrt(out);
 }
 
-vector<double> CSignal::begint(unsigned int id0, unsigned int len) const
+double CSignal::begint(unsigned int id0, unsigned int len, void *p) const
 {
-	vector<double> out(1, tmark + id0 * 1000. / fs);
-	return out;
+	return tmark + id0 * 1000. / fs;
 }
 
-vector<double> CSignal::endt(unsigned int id0, unsigned int len) const
+double CSignal::endt(unsigned int id0, unsigned int len, void *p) const
 {
-	vector<double> out(1, begint(id0, len).front() + durc(id0, len).front());
-	return out;
+	return begint(id0, len) + dur(id0, len);
 }
 
-vector<double> CSignal::length(unsigned int id0, unsigned int len) const
+double CSignal::length(unsigned int id0, unsigned int len, void *p) const
 {
-	vector<double> out;
 	if (len == 0) len = nSamples;
 	if (GetType() == CSIG_STRING)
-		out.push_back((double)strlen(strbuf));
+		return (double)strlen(strbuf);
 	else
-		out.push_back(len);
-	return out;
+		return (double)len;
 }
 
-vector<double> CSignal::dur(unsigned int id0, unsigned int len) const
+double CSignal::dur(unsigned int id0, unsigned int len, void *p) const
 {
 	if (len == 0) len = nSamples;
-	vector<double> out(1, 1000. / fs * len);
-	return out;
+	return 1000. / fs * len;
 }
 
-vector<double> CSignal::RMS(unsigned int id0, unsigned int len) const
+double CSignal::RMS(unsigned int id0, unsigned int len, void *p) const
 {
 	if (len == 0) len = nSamples;
-	if (len == 0) {
-		vector<double> out(1, std::numeric_limits<double>::infinity());
-		return out;
-	}
+	if (len == 0) return std::numeric_limits<double>::infinity();
 	double val(0);
 	for_each(buf + id0, buf + id0 + len, [&val](double& v) {val += v * v; });
-	//for (unsigned int k = id0; k < id0 + len; k++)
-	//	val += buf[k] * buf[k];
-	vector<double> out(1, _getdB(sqrt(val / len)));
-	return out;
+	return _getdB(sqrt(val / len));
+}
+
+static double RMS_concatenated(const CTimeSeries & sig)
+{
+	// Compute the "overall" RMS of entire chain as if all chains were concatenated.
+	// input sig represents RMS value of each chain (nSamples of each chain is 1)
+	// nGroups information is ignored.
+	auto cum = 0.;
+	unsigned int len = 0;
+	for (auto p = &sig; p; p = p->chain)
+	{
+		cum += pow(10, (p->value() - 3.0103) / 10.) * p->nSamples;
+		len += p->nSamples;
+	}
+	return 10. * log10(cum / len) + 3.0103;
 }
 
 CSignals& CSignals::RMS()
 { // calculating the RMS of the entire CSignals as if all chain's were concatenated.
 	// CAUTION--This function will replace the existing data with computed RMS.
-	CSignals rmsComputed = runFct2getvals(&CSignal::RMS);
+	CSignals rmsComputed = fp_getval(&CSignal::RMS);
 	// at this point rmsComputed is chain'ed with next (also possibly chain'ed) and nSamples = 1 for each of them 
 	CSignals out(1);
-	CSignals* q = &rmsComputed;
-	CTimeSeries* pout = &out, * psig = this;
-	for (int k = 0; q && k < 2; k++)
-	{  // psig is just a copy of the sig, used to get nSamples info
-		double cum = 0;
-		unsigned int len = 0;
-		if (psig->chain)
-		{
-			for (CTimeSeries* p = q; p; p = p->chain, psig = psig->chain)
-			{
-				double P = pow(10, (p->value() - 3.0103) / 10.);
-				if (psig->chain)
-					cum += P * psig->nSamples;
-				len += psig->nSamples;
-			}
-			if (len > 0)
-				pout->SetValue(10. * log10(cum / len) + 3.0103);
-			else
-				pout->SetValue(q->value());
-		}
-		else
-		{ // matrix'ed audio signal (not real chains, just separate rows)
-			pout->SetValue(q->value());
-		}
-		if (k == 0 && (q = (CSignals*)q->next) != nullptr)
-		{
-			out.SetNextChan(new CSignals(1));
-			pout = ((CSignals*)pout)->next;
-			psig = next;
-		}
+	double rmsnow, rmsnow2;
+	rmsnow = RMS_concatenated(rmsComputed);
+	out.SetValue(rmsnow);
+	if (rmsComputed.next)
+	{
+		rmsnow2 = RMS_concatenated(*rmsComputed.next);
+		CSignals* tp = new CSignals(rmsnow2);
+		out.SetNextChan(tp);
 	}
 	return *this = out;
 }
-

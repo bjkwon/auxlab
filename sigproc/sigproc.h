@@ -155,6 +155,8 @@ public:
 	CAstSigEnv& operator=(const CAstSigEnv& rhs);
 	int SetPath(const char *path);
 	void AddPath(string path);
+	AstNode* checkout_udf(const string& udf_filename, const string& filecontent);
+	AstNode* checkin_udf(const string& udf_filename, const string& filecontent);
 };
 
 class CDebugStatus
@@ -318,20 +320,21 @@ public:
 	bool isThisAllowedPropGO(CVar *psig, const char *type, const CVar &tsig);
 	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, const CVar &), void(*fp8)(CAstSig *));
 	bool IsThisBreakpoint(const AstNode *pnode);
-	void checkAudioSig(const AstNode *pnode, CVar &checkthis, string addmsg = "");
-	void checkTSeq(const AstNode *pnode, CVar &checkthis, string addmsg="");
+	void checkAudioSig(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	void checkTSeq(const AstNode *pnode, const CVar &checkthis, string addmsg="");
 	void checkComplex (const AstNode *pnode, CVar &checkthis);
-	void checkVector(const AstNode *pnode, CVar &checkthis, string addmsg = "");
-	void checkSignal(const AstNode *pnode, CVar &checkthis, string addmsg="");
-	void checkScalar(const AstNode *pnode, CVar &checkthis, string addmsg = "");
+	void checkVector(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	void checkSignal(const AstNode *pnode, const CVar &checkthis, string addmsg="");
+	void checkScalar(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
 	void checkString(const AstNode *pnode, const CVar &checkthis, string addmsg="");
-	void blockCell(const AstNode *pnode, const CVar &checkthis);
-	bool blockCell_allowGO(const AstNode *pnode, const CVar &checkthis);
-	void blockEmpty(const AstNode *pnode, CVar &checkthis);
-	void blockScalar(const AstNode *pnode, CVar &checkthis); 
-	void blockTemporal(const AstNode *pnode, CVar &checkthis);
-	void blockString(const AstNode *pnode, CVar &checkthis);
-	void blockComplex(const AstNode *pnode, CVar &checkthis);
+	void blockCell(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	bool blockCell_allowGO(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	void blockEmpty(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	void blockScalar(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	void blockTemporal(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	void blockString(const AstNode* pnode, const CVar& checkthis, string addmsg = "");
+	void blockLogical(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
+	void blockComplex(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
 	const AstNode *getparentnode(const AstNode *pnode, const AstNode *p);
 	bool need2repaintnow(const AstNode *pnode, AstNode *p = NULL);
 	bool GOpresent(const AstNode *pnode, AstNode *p = NULL);
@@ -358,22 +361,22 @@ public:
 	CAstSig(AstNode *pNode, CAstSigEnv *env);
 	~CAstSig();
 
-	AstNode *SetNewScript(string &emsg, const char *str, const char *premsg = NULL);
-	AstNode *SetNewScriptFromFile(string &emsg, const char *full_filename, const char *str, string &filecontent);
+	AstNode * parse_aux(const char* str, string& emsg);
+	AstNode * SetNewScriptFromFile(string &emsg, const char *full_filename, const char *str, string &filecontent);
 	vector<CVar*> Compute(void);
 	CVar * Compute(const AstNode *pnode);
 	CVar * InitCell(const AstNode *pnode, AstNode *p);
 	CVar * SetLevel(const AstNode *pnode, AstNode *p);
 	void define_new_variable(const AstNode *pnode, AstNode *pRHS, const char *fullvarname);
-	CVar *GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
-	CVar *GetVariable(const char *varname, CVar *pvar = NULL);
+	CVar * GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
+	CVar * GetVariable(const char *varname, CVar *pvar = NULL);
 	CVar * TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
 	CVar * Eval(AstNode *pnode);
 	void Transpose(const AstNode *pnode, AstNode *p);
-	CAstSig &Reset(const int fs = 0);// , const char* path = NULL);
-	CAstSig &SetVar(const char *name, CVar *psig, CVar *pBase = NULL);
+	CAstSig & Reset(const int fs = 0);// , const char* path = NULL);
+	CAstSig & SetVar(const char *name, CVar *psig, CVar *pBase = NULL);
 	CAstSig * SetVarwithIndex(const CSignal& indices, CVar *psig, CVar *pBase);
-	CAstSig &SetGloVar(const char *name, CVar *psig, CVar *pBase = NULL);
+	CAstSig & SetGloVar(const char *name, CVar *psig, CVar *pBase = NULL);
 	int GetFs(void) {return pEnv->Fs;}
 	string ComputeString(const AstNode *p) ;
 	string GetScript() {return Script;}
@@ -390,10 +393,10 @@ public:
 	CVar *GetSig(const char *var);
 
 	string makefullfile(const string &fname, char *extension = NULL);
-	FILE *OpenFileInPath(string fname, string ext, string &fullfilename);
-	AstNode *ReadUDF(string &emsg, const char *udf_filename, const char *internaltransport = NULL);
+	FILE * fopen_from_path(string fname, string ext, string &fullfilename);
+	AstNode * ReadUDF(string &emsg, const char *udf_filename);
 	multimap<CVar, AstNode *> register_switch_cvars(const AstNode *pnode, vector<int> &undefined);
-	AstNode *RegisterUDF(const AstNode *pnode, const char *udf_filename, string &filecontent);
+	AstNode * RegisterUDF(const AstNode *pnode, const char *udf_filename, const string &filecontent);
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int minArgs, int maxArgs);
 	int checkNumArgs(const AstNode *pnode, const AstNode *p, std::string &FuncSigs, int *args);
 };

@@ -20,26 +20,26 @@ using namespace std;
 #include <map>
 #include <functional>
 
-#define TYPEBIT_NULL		0x0000
-#define TYPEBIT_SNAP		0x0004
-#define TYPEBIT_TEMPORAL	0x0008
+#define TYPEBIT_NULL		(uint16_t)0x0000
+#define TYPEBIT_SNAP		(uint16_t)0x0004
+#define TYPEBIT_TEMPORAL	(uint16_t)0x0008
 // The difference between TYPEBIT_AUDIO and TYPEBIT_TSEQ:
 // data in TYPEBIT_AUDIO aligned with time points in grid of 1/fs,
 // data in TYPEBIT_TSEQ are stacked on the same tmark.
 #define TYPEBIT_AUDIO		(TYPEBIT_TEMPORAL + TYPEBIT_NULL)
 #define TYPEBIT_TSEQ		(TYPEBIT_TEMPORAL + TYPEBIT_SNAP)
-#define TYPEBIT_SIZE8		0x0000 // 8 bytes -- sizeof(double)
-#define TYPEBIT_SIZE1		0x0010
-#define TYPEBIT_FS2			0x0020
-#define TYPEBIT_SIZE16		0x0040 // 16 bytes -- 8 bytes times 2
+#define TYPEBIT_SIZE8		(uint16_t)0x0000 // 8 bytes -- sizeof(double)
+#define TYPEBIT_SIZE1		(uint16_t)0x0010
+#define TYPEBIT_FS2 		(uint16_t)0x0020
+#define TYPEBIT_SIZE16		(uint16_t)0x0040 // 16 bytes -- 8 bytes times 2
 #define TYPEBIT_LOGICAL		(TYPEBIT_SIZE1 + TYPEBIT_NULL) // 0x0080
 // DO NOT MASK THIS WITH type() to detect string; Use IsString() instead.
 #define TYPEBIT_STRING		(TYPEBIT_SIZE1 + TYPEBIT_FS2)
 #define TYPEBIT_COMPLEX		TYPEBIT_SIZE16
-#define TYPEBIT_GO			0x0800
-#define TYPEBIT_CELL		0x1000
-#define TYPEBIT_STRUT		0x2000
-#define TYPEBIT_STRUTS		0x4000
+#define TYPEBIT_GO	    	(uint16_t)0x0800
+#define TYPEBIT_CELL		(uint16_t)0x1000
+#define TYPEBIT_STRUT		(uint16_t)0x2000
+#define TYPEBIT_STRUTS		(uint16_t)0x4000
 
 #define CSIG_EMPTY		0
 #define CSIG_STRING		1
@@ -53,6 +53,8 @@ using namespace std;
 #define CSIG_MATRIX		19
 #define CSIG_AUDIO		65
 #define CSIG_TSERIES	81 // Think about this... improve it... 5/24/2018
+
+#define FARGS (unsigned int id0=0, unsigned int len=0, void *p = NULL)
 
 #ifndef AUX_CLASSES
 #define AUX_CLASSES
@@ -70,6 +72,7 @@ public:
 	};
 	unsigned char bufBlockSize;
 	bool ghost;
+	void *res;
 
 	// Constructors
 	body();
@@ -129,14 +132,12 @@ public:
 	body& replacebyindex(unsigned int id0, unsigned int len, const body& RHS);
 
 	body & interp1(body &that, body &qp);
-	vector<double> _max(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> _min(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> sum(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> mean(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> stdev(unsigned int id0 = 0, unsigned int len = 0) const;
+	double _max FARGS const;
+	double _min FARGS const;
+	double sum FARGS const;
+	double mean FARGS const;
+	double stdev FARGS const;
 	bool operator < (const body &rhs) const;
-
-	void* parg;
 
 protected:
 		body& operator<=(body * rhs);
@@ -161,17 +162,17 @@ public:
 	CSignal & Cumsum();
 
 	// Window functions -- signal generation function
-	CSignal & Hamming(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal & Blackman(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal & Hamming FARGS;
+	CSignal & Blackman FARGS;
 
 	// Signal alteration (stereo handling with a clean, inarguable convention)
 	virtual void Filter(unsigned int nTabs, double *num, double *den);
 #ifndef NO_FFTW
-	CSignal FFT(unsigned int id0 = 0, unsigned int len = 0) const;
-	CSignal iFFT(unsigned int id0 = 0, unsigned int len = 0) const;
-	CSignal & Hilbert(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal & HilbertEnv(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal & movespec(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal FFT FARGS const;
+	CSignal iFFT FARGS const;
+	CSignal & Hilbert FARGS;
+	CSignal & HilbertEnv FARGS;
+	CSignal & movespec FARGS;
 #endif
 	void DownSample(int q);
 	void UpSample(int p);
@@ -194,23 +195,23 @@ public:
 	int GetFs() const {return fs;};
 	void SetFs(int  newfs);
 	double* GetBuffer() {return buf;}
-	vector<double> length(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> dur(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> durc(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> begint(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> endt(unsigned int id0 = 0, unsigned int len = 0) const;
-	vector<double> RMS(unsigned int id0 = 0, unsigned int len = 0) const;
+	double length FARGS const;
+	double dur FARGS const;
+	double durc FARGS const;
+	double begint FARGS const;
+	double endt FARGS const;
+	double RMS FARGS const;
 
-	CSignal &_atmost(unsigned int id, int unsigned len);
-	CSignal &_atleast(unsigned int id, int unsigned len);
-	CSignal & sort(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal & conv(unsigned int id0, unsigned int len = 0);
-	CSignal & dramp(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal & filter(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal & filtfilt(unsigned int id0 = 0, unsigned int len = 0);
-	CSignal & resample(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal &_atmost FARGS;
+	CSignal &_atleast FARGS;
+	CSignal & sort FARGS;
+	CSignal& conv FARGS;
+	CSignal& dramp FARGS;
+	CSignal & filter FARGS;
+	CSignal & filtfilt FARGS;
+	CSignal & resample FARGS;
 #ifndef NO_IIR
-	CSignal & IIR(unsigned int id0 = 0, unsigned int len = 0);
+	CSignal & IIR FARGS;
 #endif // NO_IIR
 
 	inline bool IsEmpty() const { return nSamples == 0 && tmark == 0.; }
@@ -295,9 +296,9 @@ public:
 	int IsTimeSignal() const;
 	bool operator < (const CTimeSeries & rhs) const;
 
-	CTimeSeries runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
-	CTimeSeries & runFct2modify(CSignal & (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
-	CTimeSeries runFct2getsig(CSignal (CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
+	CTimeSeries fp_getval(double (CSignal::*)(unsigned int, unsigned int, void *) const, void *popt = NULL);
+	CTimeSeries & fp_mod(CSignal & (CSignal::*)(unsigned int, unsigned int, void* ), void *popt = NULL);
+	CTimeSeries fp_getsig(CSignal (CSignal::*)(unsigned int, unsigned int, void* ) const, void *popt = NULL);
 
 	CTimeSeries & Reset(int fs2set = 0);
 	void SetChain(CTimeSeries *unit, double time_shifted = 0.);
@@ -408,9 +409,9 @@ public:
 
 	bool operator < (const CSignals & rhs) const;
 
-	CSignals runFct2getvals(vector<double>(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL) ;
-	CSignals & runFct2modify(CSignal & (CSignal::*)(unsigned int, unsigned int), void *popt = NULL);
-	CSignals runFct2getsig(CSignal(CSignal::*)(unsigned int, unsigned int) const, void *popt = NULL);
+	CSignals fp_getval(double (CSignal::*)(unsigned int, unsigned int, void* p) const, void *popt = NULL) ;
+	CSignals & fp_mod(CSignal & (CSignal::*)(unsigned int, unsigned int, void* p), void *popt = NULL);
+	CSignals fp_getsig(CSignal(CSignal::*)(unsigned int, unsigned int, void* p) const, void *popt = NULL);
 
 	// Constructors
 	CSignals();

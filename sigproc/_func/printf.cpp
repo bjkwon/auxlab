@@ -75,11 +75,11 @@ void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 			sprintf(&outStr[0], fmt1str.c_str(), vstring.c_str());
 			break;
 		}
-		unsigned int n = (unsigned int)past->Sig.CSignal::length().front();
+		unsigned int n = (unsigned int)past->Sig.CSignal::length();
 		past->Sig.UpdateBuffer(n + (unsigned int)strlen(&outStr[0]) + 1);
 		strcpy(&past->Sig.strbuf[n], &outStr[0]);
 	}
-	unsigned int n = (unsigned int)past->Sig.CSignal::length().front();
+	unsigned int n = (unsigned int)past->Sig.CSignal::length();
 	past->Sig.UpdateBuffer(n + (unsigned int)strlen(fmtstr) + 1);
 	strcpy(&past->Sig.strbuf[n], &fmtstr[0]);
 	past->Sig.bufBlockSize = 1;

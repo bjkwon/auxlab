@@ -294,10 +294,10 @@ void On_F2(HWND hDlg, CAstSig f2sig, CSignals * psig)
 		if (psig)
 		{
 			f2sig.Vars["arg"] = *psig;
-			f2sig.SetNewScript(emsg, "axnew = f2_channel_stereo_mono_(arg)");
+			f2sig.parse_aux("axnew = f2_channel_stereo_mono_(arg)", emsg);
 		}
 		else
-			f2sig.SetNewScript(emsg, "axnew = f2_channel_stereo_mono_");
+			f2sig.parse_aux("axnew = f2_channel_stereo_mono_", emsg);
 		f2sig.Compute();
 		CVar *cfig = f2sig.GetGOVariable("?foc");
 		if (f2sig.GOvars.find("axnew") != f2sig.GOvars.end())
@@ -838,7 +838,7 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 				it = dbmap.find(basename); 
 				if (it == dbmap.end())
 				{
-					debugAstSig->OpenFileInPath(basename, "aux", fullname);
+					debugAstSig->fopen_from_path(basename, "aux", fullname);
 					::SendMessage(mTab.hTab, TCM_GETITEMCOUNT, 0, 0);
 					//Faking the "Debug" button
 					DWORD Thid = GetThreadId((HANDLE)hDebugThread2);
@@ -1456,7 +1456,7 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 		if (fileOpenSaveDlg.FileOpenDlg(axlfullfname, axlfname, "AUXLAB Data file (*.AXL)\0*.axl\0", "axl"))
 		{
 			string name;
-			fp = xscope.front()->OpenFileInPath(axlfullfname, "axl", name);
+			fp = xscope.front()->fopen_from_path(axlfullfname, "axl", name);
 			if (mainSpace.load_axl(fp, errstr) == 0)
 				printf("File %s reading error----%s.\n", axlfullfname, errstr);
 			else

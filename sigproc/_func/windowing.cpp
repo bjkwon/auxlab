@@ -1,10 +1,9 @@
 #include "sigproc.h"
 
-
 void _hamming(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
 	past->checkSignal(pnode, past->Sig);
-	past->Sig.runFct2modify(&CSignal::Hamming);
+	past->Sig.fp_mod(&CSignal::Hamming);
 }
 
 void _blackman(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
@@ -23,7 +22,7 @@ void _blackman(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fn
 		temp.checkScalar(pnode, temp.Sig);
 		alpha = temp.Sig.value();
 	}
-	past->Sig.runFct2modify(&CSignal::Blackman, &alpha);
+	past->Sig.fp_mod(&CSignal::Blackman, &alpha);
 }
 
 void _ramp(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
@@ -39,7 +38,7 @@ void _ramp(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& f
 	if (!param.IsScalar())
 		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Ramp_duration must be a scalar.");
 	double ramptime = param.value();
-	past->Sig.runFct2modify(&CSignal::dramp, &ramptime);
+	past->Sig.fp_mod(&CSignal::dramp, &ramptime);
 }
 
 void _sam(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
@@ -75,7 +74,7 @@ void _sam(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fn
 	past->Sig.SAM(modRate, amDepth, initPhase);
 }
 
-CSignal& CSignal::Hamming(unsigned int id0, unsigned int len)
+CSignal& CSignal::Hamming(unsigned int id0, unsigned int len, void *p)
 {
 	if (len == 0) len = nSamples;
 	for (unsigned int k = 0; k < len; k++)
@@ -83,7 +82,7 @@ CSignal& CSignal::Hamming(unsigned int id0, unsigned int len)
 	return *this;
 }
 
-CSignal& CSignal::Blackman(unsigned int id0, unsigned int len)
+CSignal& CSignal::Blackman(unsigned int id0, unsigned int len, void *parg)
 {
 	double alpha = *(double*)parg;
 	for (unsigned int k = 0; k < len; k++)
@@ -91,7 +90,7 @@ CSignal& CSignal::Blackman(unsigned int id0, unsigned int len)
 	return *this;
 }
 
-CSignal& CSignal::dramp(unsigned int id0, unsigned int len)
+CSignal& CSignal::dramp(unsigned int id0, unsigned int len, void *parg)
 {
 	if (len == 0) len = nSamples;
 	double dur_ms = *(double*)parg;

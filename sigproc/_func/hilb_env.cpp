@@ -5,16 +5,16 @@
 void _envelope(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	past->Sig.runFct2modify(&CSignal::HilbertEnv);
+	past->Sig.fp_mod(&CSignal::HilbertEnv);
 }
 
 void _hilbert(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	past->Sig.runFct2modify(&CSignal::Hilbert);
+	past->Sig.fp_mod(&CSignal::Hilbert);
 }
 
-CSignal& CSignal::Hilbert(unsigned int id0, unsigned int len)
+CSignal& CSignal::Hilbert(unsigned int id0, unsigned int len, void *p)
 {//This calculates the imaginary part of the analytic signal (Hilbert) transform and updates buf with it.
 //To get the envelope, get the sqrt of x*x (original signal) plus hilbertx*hilbertx
 	if (len == 0) len = nSamples;
@@ -64,7 +64,7 @@ CSignal& CSignal::Hilbert(unsigned int id0, unsigned int len)
 }
 
 
-CSignal& CSignal::HilbertEnv(unsigned int id0, unsigned int len)
+CSignal& CSignal::HilbertEnv(unsigned int id0, unsigned int len, void *p)
 {
 	CSignal copy(fs), out(fs);
 	copy.UpdateBuffer(len);

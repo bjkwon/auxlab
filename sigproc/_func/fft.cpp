@@ -21,7 +21,7 @@ void _fft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str());
 		}
 	}
-	past->Sig = past->Sig.runFct2getsig(&CSignal::FFT, (void*)&param);
+	past->Sig = past->Sig.fp_getsig(&CSignal::FFT, (void*)&param);
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
@@ -44,11 +44,11 @@ void _ifft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str());
 		}
 	}
-	past->Sig = past->Sig.runFct2getsig(&CSignal::iFFT, (void*)&param);
+	past->Sig = past->Sig.fp_getsig(&CSignal::iFFT, (void*)&param);
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap(0);
 }
 
-CSignal CSignal::FFT(unsigned int id0, unsigned int len) const
+CSignal CSignal::FFT(unsigned int id0, unsigned int len, void *parg) const
 {
 	CVar param = *(CVar*)parg;
 	if (len == 0) len = nSamples;
@@ -89,7 +89,7 @@ CSignal CSignal::FFT(unsigned int id0, unsigned int len) const
 	return res;
 }
 
-CSignal CSignal::iFFT(unsigned int id0, unsigned int len) const
+CSignal CSignal::iFFT(unsigned int id0, unsigned int len, void *parg) const
 {
 	CVar param = *(CVar*)parg;
 	if (len == 0) len = nSamples;

@@ -984,7 +984,7 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			ShowWS_CommandPrompt(pContext);
 			return pTemp ? 1 : 0;
 		}
-		if (!pContext->SetNewScript(emsg, input.c_str()))
+		if (!pContext->parse_aux(input.c_str(), emsg))
 		{
 			if (emsg.empty())
 				throw 1; // continue down to dummy and ShowWS_CommandPrompt
@@ -1228,7 +1228,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		if (!argstr[0]) return 0;
 		if (str2vect(tar, argstr, " ")>1)
 			throw "only one argument allowed";
-		if (!ast->SetNewScript(emsg, argstr))
+		if (!ast->parse_aux(argstr, emsg))
 			throw emsg.c_str();
 		ast->Compute();
 		if (!ast->Sig.IsScalar()) throw "only scalar argument allowed";
@@ -1306,7 +1306,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 				sprintf(buf, "%s requires one argument. %d arguments in %s\n(Did you forget double quotations?)", HookName.c_str(), tar.size(), argstr);
 			throw buf;
 		}
-		FILE *fp = ast->OpenFileInPath(tar[0], "axl", name);
+		FILE *fp = ast->fopen_from_path(tar[0], "axl", name);
 		if (fp)
 		{
 			if (load_axl(fp, errstr)==0)

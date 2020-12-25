@@ -72,7 +72,7 @@ void _iir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 		params.push_back(&rippledB);
 		params.push_back(&stopbandFreqORAttenDB);
 
-		sigX.runFct2modify(&CSignal::IIR, &params);
+		sigX.fp_mod(&CSignal::IIR, &params);
 		past->Sig = sigX;
 	}
 	catch (const char* estr)
@@ -83,13 +83,13 @@ void _iir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 }
 
 //void CSignal::IIR(int kind, int type, int order, double *freqs, double passRipple_dB, double stopFreqORAttenDB)
-CSignal& CSignal::IIR(unsigned int id0, unsigned int len)
+CSignal& CSignal::IIR(unsigned int id0, unsigned int len, void *p)
 {// kind: 1 butterworth, 2 Chebyshev, 3 Elliptic
 	// type: 1 lowpass, 2 bandpass, 3 highpass, 4 bandstop
 
 	if (len == 0) len = nSamples;
 
-	vector<double*> params = *(vector<double*>*)parg;
+	vector<double*> params = *(vector<double*>*)p;
 	vector<double*>::iterator it = params.begin();
 	int kind = (int)**it; it++;
 	int type = (int)**it; it++;

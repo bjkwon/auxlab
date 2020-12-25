@@ -34,7 +34,7 @@ public:
 	~AUD_PLAYBACK() {};
 };
 
-typedef struct
+typedef struct callback_transfer_recordtag
 {
 	short devID;
 	short nChans;

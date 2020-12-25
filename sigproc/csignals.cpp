@@ -1289,8 +1289,9 @@ CTimeSeries CTimeSeries::fp_getval(double (CSignal::*fp)(unsigned int, unsigned 
 		}
 		else
 		{
-			if (nGroups == nSamples) {
-				nGroups = 1; // computing a column vector should yield a scalar. 7/7/2020
+			if (nGroups == nSamples) 
+			{ // computing a column vector should yield a scalar. 7/7/2020
+				nGroups = 1; 
 				len = nSamples;
 			}
 			out.UpdateBuffer(nGroups);
@@ -1320,14 +1321,15 @@ CTimeSeries& CTimeSeries::fp_mod(CSignal& (CSignal::*fp)(unsigned int, unsigned 
 		//out.SetValue((tp.*fp)(0, 0));
 	}
 	else
-	{
-		unsigned int len = Len();
-		for (unsigned int k = 0; k < nGroups; k++)
-			(this->*fp)(k*len, len, popt);
-		for (CTimeSeries *p = chain; p; p = p->chain)
-		{
-			(p->*fp)(0, p->nSamples, popt);
-		}
+	{ 
+		// must re-work with popt to accommodate the output from *fp
+		// 12/20/2020
+		for (CTimeSeries* p = this; p; p = p->chain)
+			for (unsigned int k = 0; k < nGroups; k++)
+			{
+				auto len = p->Len();
+				(p->*fp)(k * len, len, popt);
+			}
 	}
 	return *this;
 }
@@ -2838,23 +2840,16 @@ CSignals& CSignals::Reset(int fs2set)	// Empty all data fields - sets nSamples t
 CSignals CSignals::fp_getval(double (CSignal::*fp)(unsigned int, unsigned int, void *) const, void *popt)
 {
 	CSignals newout = CTimeSeries::fp_getval(fp, popt);
-//	for (vector<CTimeSeries>::iterator it = newout.outarg.begin(); it != newout.outarg.end(); it++)
-	if (next != NULL)
-	{
-		CSignals nextout = next->fp_getval(fp, popt);
-		newout.SetNextChan(&nextout);
-	}
-//	parg = nullptr;																	   a
+	if (next)
+		newout.SetNextChan(&next->fp_getval(fp, popt));
 	return newout;
 }
 
 CSignals& CSignals::fp_mod(CSignal& (CSignal::*fp)(unsigned int, unsigned int, void*), void * popt)
 {
 	CTimeSeries::fp_mod(fp, popt);
-	if (next != NULL)
-	{
+	if (next)
 		next->fp_mod(fp, popt);
-	}
 	return *this;
 }
 

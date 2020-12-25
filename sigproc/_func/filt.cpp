@@ -46,9 +46,9 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 				coeffs.push_back(initial);
 			}
 			if (fname == "filt")
-				sig.runFct2modify(&CSignal::filter, &coeffs);
+				sig.fp_mod(&CSignal::filter, &coeffs);
 			else if (fname == "filtfilt")
-				sig.runFct2modify(&CSignal::filtfilt, &coeffs);
+				sig.fp_mod(&CSignal::filtfilt, &coeffs);
 			//at this point, coeffs is not the same as before (updated with the final condition)
 		}
 		else
@@ -83,9 +83,9 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 				coeffs.push_back(initial);
 			}
 			if (fname == "filt")
-				sig.runFct2modify(&CSignal::filter, &coeffs);
+				sig.fp_mod(&CSignal::filter, &coeffs);
 			else if (fname == "filtfilt")
-				sig.runFct2modify(&CSignal::filtfilt, &coeffs);
+				sig.fp_mod(&CSignal::filtfilt, &coeffs);
 			//at this point, coeffs is not the same as before (updated with the final condition)
 		}
 		else
@@ -112,7 +112,7 @@ void _conv(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	//p should be non NULL
 	CVar sig = past->Sig;
 	CVar array2 = past->Compute(p);
-	past->Sig = sig.runFct2modify(&CSignal::conv, &array2);
+	past->Sig = sig.fp_mod(&CSignal::conv, &array2);
 }
 
 CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, vector<double>& state, unsigned int id0, unsigned int len)
@@ -162,7 +162,7 @@ CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, 
 	return *this;
 }
 
-CSignal& CSignal::filter(unsigned int id0, unsigned int len)
+CSignal& CSignal::filter(unsigned int id0, unsigned int len, void *parg)
 {
 	if (len == 0) len = nSamples;
 	vector<double> num, den, initfin;
@@ -180,7 +180,7 @@ CSignal& CSignal::filter(unsigned int id0, unsigned int len)
 	return *this;
 }
 
-CSignal& CSignal::filtfilt(unsigned int id0, unsigned int len)
+CSignal& CSignal::filtfilt(unsigned int id0, unsigned int len, void *parg)
 {
 	//Transient edges not handled, only zero-padded edges 
 	if (len == 0) len = nSamples;
@@ -198,8 +198,7 @@ CSignal& CSignal::filtfilt(unsigned int id0, unsigned int len)
 	CSignal temp2(temp);
 	temp += this;
 	temp += &temp2;
-	temp.parg = parg;
-	temp.filter(id0, temp.nSamples);
+	temp.filter(id0, temp.nSamples, parg);
 	temp.ReverseTime();
 	temp.filter(id0, temp.nSamples);
 	temp.ReverseTime();

@@ -74,17 +74,17 @@ void _or(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 void _sort(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
 	CVar sig = past->Sig;
-	past->checkVector(pnode, sig);
+	past->checkVector(pnode, sig, "sort() ");
 	past->blockComplex(pnode, sig);
 	double order(1.);
 	if (p)
 	{
 		past->Compute(p);
-		if (!past->Sig.IsScalar())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "2nd argument must be a scalar.");
+		past->checkScalar(pnode, past->Sig, "sort() arg2 ");
+		past->blockComplex(pnode, past->Sig, "sort() arg2 ");
 		if (past->Sig.value() < 0) order = -1.;
 	}
-	past->Sig = sig.runFct2modify(&CSignal::sort, &order);
+	past->Sig = sig.fp_mod(&CSignal::sort, &order);
 }
 
 void _mostleast(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
@@ -94,8 +94,8 @@ void _mostleast(CAstSig* past, const AstNode* pnode, const AstNode* p, string& f
 	string func = pnode->str;
 	CVar sig = past->Sig;
 	CVar param = past->Compute(p);
-	if (func == "atmost") past->Sig = sig.runFct2modify(&CSignal::_atmost, &param);
-	else if (func == "atleast") past->Sig = sig.runFct2modify(&CSignal::_atleast, &param);
+	if (func == "atmost") past->Sig = sig.fp_mod(&CSignal::_atmost, &param);
+	else if (func == "atleast") past->Sig = sig.fp_mod(&CSignal::_atleast, &param);
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
@@ -115,7 +115,7 @@ int dcompR(const void* arg1, const void* arg2)
 	else	return -1;
 }
 
-CSignal& CSignal::sort(unsigned int id0, unsigned int len)
+CSignal& CSignal::sort(unsigned int id0, unsigned int len, void *parg)
 {
 	if (bufBlockSize == 8)
 	{
@@ -136,7 +136,7 @@ CSignal& CSignal::sort(unsigned int id0, unsigned int len)
 	return *this;
 }
 
-CSignal& CSignal::_atmost(unsigned int id, int unsigned len)
+CSignal& CSignal::_atmost(unsigned int id, int unsigned len, void *parg)
 {
 	double limit;
 	if (len == 0) len = nSamples;
@@ -150,7 +150,7 @@ CSignal& CSignal::_atmost(unsigned int id, int unsigned len)
 	return *this;
 }
 
-CSignal& CSignal::_atleast(unsigned int id, int unsigned len)
+CSignal& CSignal::_atleast(unsigned int id, int unsigned len, void *parg)
 {
 	double limit;
 	if (len == 0) len = nSamples;

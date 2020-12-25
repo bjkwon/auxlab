@@ -18,10 +18,10 @@ void _str2num(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be a text string.");
 	string emsg;
 	CAstSig tast(past->pEnv);
-	if (!tast.SetNewScript(emsg, (string("[") + past->Sig.string() + "]").c_str()))
-		tast.SetNewScript(emsg, "[]");
+	if (!tast.parse_aux((string("[") + past->Sig.string() + "]").c_str(), emsg))
+		tast.parse_aux("[]", emsg);
 	if (!isAllNodeT_NUM(tast.pAst->child))
-		tast.SetNewScript(emsg, "[]");
+		tast.parse_aux("[]", emsg);
 	vector<CVar*> res = tast.Compute();
 	past->Sig = res.back();
 }

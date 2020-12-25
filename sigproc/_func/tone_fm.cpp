@@ -41,7 +41,7 @@ void _tone(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	if (!past->Sig.IsScalar() && (!past->Sig.IsVector() || past->Sig.nSamples > 2))
 		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Frequency must be either a constant or two-element array.");
 	body freq = past->Sig; //should be same as tp.Compute(p);
-	if (freq._max().front() >= past->GetFs() / 2)
+	if (freq._max() >= past->GetFs() / 2)
 		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Frequency exceeds Nyquist frequency.");
 	CVar duration = past->Compute(p->next);
 	past->checkScalar(pnode, duration);

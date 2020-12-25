@@ -205,7 +205,7 @@ CDebugDlg::~CDebugDlg(void)
  OR
  the udf is called in the command window or called by another function during a udf call
 
- in CAstSig::SetNewScriptFromFile(), if the file content has been changed, 
+ in CAstSig::Read_UDFfile_Update(), if the file content has been changed, 
  sigproc sendmessage's to showvarDlg with an lParam of fullfilame -->so ShowFileContent is called inside CShowvarDlg::OnDebug()
 */
 

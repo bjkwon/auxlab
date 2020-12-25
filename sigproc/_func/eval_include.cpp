@@ -4,7 +4,7 @@ void _include(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 {
 	string dummy;
 	string filename = past->ComputeString(p);
-	if (FILE* auxfile = past->OpenFileInPath(filename, "", dummy)) {
+	if (FILE* auxfile = past->fopen_from_path(filename, "", dummy)) {
 		try {
 			fclose(auxfile);
 			CAstSig tast(past->pEnv);

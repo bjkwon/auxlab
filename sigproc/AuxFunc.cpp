@@ -237,18 +237,27 @@ void CAstSig::checkSignal(const AstNode *pnode, const CVar &checkthis, string ad
 }
 
 void CAstSig::checkVector(const AstNode *pnode, const CVar &checkthis, string addmsg)
-{
-	if (checkthis.GetType() == CSIG_SCALAR) return;
-	if (checkthis.GetType() == CSIG_VECTOR) return;
-	string msg("requires a non-audio array.");
-	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
+{ // Vector must not be temporal; must not be GO, cell, strut
+	if (checkthis.type() & TYPEBIT_TEMPORAL)
+	{
+		string msg("Audio or tseq object not allowed.");
+		throw CAstException(USAGE, *this, pnode).proc((addmsg + msg).c_str());
+	}
+	if (checkthis.type() & TYPEBIT_GO ||
+		checkthis.type() & TYPEBIT_CELL ||
+		checkthis.type() & TYPEBIT_STRUT ||
+		checkthis.type() & TYPEBIT_STRUTS)
+	{
+		string msg("GO, cell, or class objects not allowed.");
+		throw CAstException(USAGE, *this, pnode).proc((addmsg + msg).c_str());
+	}
 }
 
 void CAstSig::checkScalar(const AstNode *pnode, const CVar &checkthis, string addmsg)
 {
-	if (checkthis.IsScalar()) return;
+	if (checkthis.type() & 1) return;
 	string msg("requires a scalar argument.");
-	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
+	throw CAstException(USAGE, *this, pnode).proc((addmsg + msg).c_str());
 }
 
 void CAstSig::checkString(const AstNode *pnode, const CVar &checkthis, string addmsg)
@@ -289,7 +298,7 @@ void CAstSig::blockEmpty(const AstNode* pnode, const CVar &checkthis, string add
 void CAstSig::blockScalar(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
 	if (!(checkthis.type() & 1)) return;
-	string msg("Not valid with a scalar variable; ");
+	string msg("Not valid with a scalar object; ");
 	throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 }
 
@@ -300,7 +309,7 @@ void CAstSig::blockString(const AstNode* pnode, const CVar &checkthis, string ad
 	size_t x = sizeof(aa), y = sizeof(bb);
 	bool b = aa == bb;
 	if (checkthis.type() == TYPEBIT_STRING) {
-		string msg("Not valid with a string variable; ");
+		string msg("Not valid with a string object; ");
 		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 	}
 }
@@ -308,7 +317,7 @@ void CAstSig::blockString(const AstNode* pnode, const CVar &checkthis, string ad
 void CAstSig::blockLogical(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.type() == TYPEBIT_LOGICAL) {
-		string msg("Not valid with a logical variable; ");
+		string msg("Not valid with a logical object; ");
 		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 	}
 }
@@ -324,8 +333,8 @@ void CAstSig::blockTemporal(const AstNode* pnode, const CVar &checkthis, string 
 void CAstSig::blockComplex(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
 	if (checkthis.IsComplex()) {
-		string msg("Not valid with a complex variable ");
-		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
+		string msg("Not valid with a complex object ");
+		throw CAstException(USAGE, *this, pnode).proc((addmsg + msg ).c_str());
 	}
 }
 
