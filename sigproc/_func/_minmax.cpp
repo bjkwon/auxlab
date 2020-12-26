@@ -9,7 +9,7 @@ void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 	past->blockString(pnode, past->Sig, "max() or min()");
 	string fname = pnode->str;
 	CVar sig = past->Sig;
-	int nOutVars = countVectorItems(past->pAst);
+	int nOutVars = countVectorItems(past->xtree);
 	CVar* popt = NULL;
 	if (nOutVars > 1)
 		popt = new CVar(sig.GetFs());

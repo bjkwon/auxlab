@@ -1,26 +1,34 @@
 #include "sigproc.h"
+#include "bjcommon.h"
 
 void _include(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
-	string dummy;
+	string dummy, emsg;
 	string filename = past->ComputeString(p);
 	if (FILE* auxfile = past->fopen_from_path(filename, "", dummy)) {
 		try {
+			CAstSig qscope(past);
+			string filecontent;
+			if (GetFileText(auxfile, filecontent) <= 0)
+			{ // File reading error or empty file
+				past->statusMsg += "Cannot read specified file: " + filename;
+				fclose(auxfile);
+				return;
+			}
 			fclose(auxfile);
-			CAstSig tast(past->pEnv);
-			string body;
-			string emsg;
-			if (!tast.SetNewScriptFromFile(emsg, filename.c_str(), NULL, body))
-				if (!emsg.empty())
-					throw emsg.c_str();
-			vector<CVar*> res = tast.Compute();
+			qscope.xtree = qscope.parse_aux(filecontent.c_str(), emsg);
+			if (!qscope.xtree)
+				throw emsg.c_str();
+			vector<CVar*> res = qscope.Compute();
 			past->Sig = res.back();
-			for (map<string, CVar>::iterator it = tast.Vars.begin(); it != tast.Vars.end(); it++)
+			for (map<string, CVar>::iterator it = qscope.Vars.begin(); it != qscope.Vars.end(); it++)
 				past->Vars[it->first] = it->second;
+			for (auto it = qscope.GOvars.begin(); it != qscope.GOvars.end(); it++)
+				past->GOvars[it->first] = it->second;
 		}
 		catch (const char* errmsg) {
 			fclose(auxfile);
-			throw CAstException(USAGE, *past, pnode).proc(("Including " + filename + "\n\nIn the file: \n" + errmsg).c_str());
+			throw CAstException(USAGE, *past, pnode).proc((string(errmsg) + "while including " + filename + " in the file: ").c_str());
 		}
 	}
 	else
@@ -29,17 +37,17 @@ void _include(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 
 void _eval(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 { // eval() is one of the functions where echoing in the xcom command window doesn't make sense.
-  // but the new variables created or modified within the eval call should be transported back to ast
+  // but the new variables created or modified within the eval call should be transported back to the calling scope
 	// As of 5/17/2020, there is no return of eval (null returned if assigned) for when there's no error
 	// If there's an error, exception handling (not error handling) is done and it returns the error message
 	string str = past->ComputeString(p);
 	try {
-		CAstSig tast(str.c_str(), past);
-		tast.Compute(tast.pAst);
+		CAstSig qscope(str.c_str(), past);
+		qscope.Compute(qscope.xtree);
 		//transporting variables 
-		for (map<string, CVar>::iterator it = tast.Vars.begin(); it != tast.Vars.end(); it++)
+		for (map<string, CVar>::iterator it = qscope.Vars.begin(); it != qscope.Vars.end(); it++)
 			past->SetVar(it->first.c_str(), &it->second);
-		past->Sig = tast.Sig; // temp hack; just to port out the last result during the eval call
+		past->Sig = qscope.Sig; // temp hack; just to port out the last result during the eval call
 	}
 	catch (CAstException e) {
 		e.line = pnode->line;

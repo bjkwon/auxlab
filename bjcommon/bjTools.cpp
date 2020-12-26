@@ -202,14 +202,13 @@ int GetSurroundedBy(char c1, char c2, const char* in, char* out, int iStart)
 	return i-1;
 }
 
-int GetFileText(const char *fname, const char *mod, string &strOut)
-{ // mod is either "rb" or "rt"
-	FILE *fp = fopen(fname, mod);
+int GetFileText(FILE* fp, string& strOut)
+{
 	if (!fp) return -1;
 	fseek(fp, 0, SEEK_END);
 	int filesize = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	char *buf = new char[filesize + 1];
+	char* buf = new char[filesize + 1];
 	size_t ret = fread(buf, 1, filesize, fp);
 	fclose(fp);
 	if (ret < 0)
@@ -220,6 +219,13 @@ int GetFileText(const char *fname, const char *mod, string &strOut)
 		strOut = buf;
 	}
 	return (int)ret;
+}
+
+int GetFileText(const char *fname, const char *mod, string &strOut)
+{ // mod is either "rb" or "rt"
+	FILE *fp = fopen(fname, mod);
+	if (!fp) return -1;
+	return GetFileText(fp, strOut);
 }
 
 int mceil(double x)

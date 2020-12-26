@@ -123,7 +123,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 
 	// for a statement, y=h.start, y is not from the RHS directly, but is updated laster after the callback
 	// so we need to block the RHS from affecting the LHS.. Let's use -1 for suppress (to be used in CDeepProc::TID_tag in AstSig2.cpp)
-	past->pAst->suppress = -1;
+	past->xtree->suppress = -1;
 	if (newfs != past->pEnv->Fs)
 	{
 		past->pEnv->Fs = newfs;
@@ -223,9 +223,9 @@ void _stop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Argument must be a scalar.");
-	string fname = past->pAst->str;
+	string fname = past->xtree->str;
 	if (!p)
-		fname = past->pAst->alt->str;
+		fname = past->xtree->alt->str;
 	if (sig.strut["type"].string() == "audio_playback" && (fname == "qstop" || fname == "stop"))
 	{
 		if (!StopPlay((INT_PTR)sig.value(), fname == "qstop"))
@@ -247,9 +247,9 @@ void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Argument must be a scalar.");
-	string fname = past->pAst->str;
+	string fname = past->xtree->str;
 	if (!p)
-		fname = past->pAst->alt->str;
+		fname = past->xtree->alt->str;
 	if (sig.strut["type"].string() == "audio_playback")
 	{
 		if (!PauseResumePlay((INT_PTR)sig.value(), fname == "resume"))

@@ -984,7 +984,7 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			ShowWS_CommandPrompt(pContext);
 			return pTemp ? 1 : 0;
 		}
-		if (!pContext->parse_aux(input.c_str(), emsg))
+		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg)))
 		{
 			if (emsg.empty())
 				throw 1; // continue down to dummy and ShowWS_CommandPrompt
@@ -996,9 +996,8 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 
 		string line;
 		CONSOLE_SCREEN_BUFFER_INFO coninfo;
-		size_t res;
 		GetConsoleScreenBufferInfo(hStdout, &coninfo);
-		res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
+		size_t res = ReadThisLine(line, hStdout, coninfo, coninfo.dwCursorPosition.Y, 0);
 		if (line == DEBUG_PROMPT)
 		{
 			coninfo.dwCursorPosition.X = 0;
@@ -1011,9 +1010,9 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		if (pTemp == NULL)
 			CDebugDlg::pAstSig = NULL;
 		int dt = 1;
-		if (CAstSig::IsBLOCK(pContext->pAst))
+		if (CAstSig::IsBLOCK(pContext->xtree))
 		{
-			for (const AstNode *pp = pContext->pAst->next; pp; pp = pp->next, dt++)
+			for (const AstNode *pp = pContext->xtree->next; pp; pp = pp->next, dt++)
 			{
 				if (pp->next)
 				{// For a block statement, screen echoing applies only to the last item. The statements in the middle are not echoed regardless of suppress (;)
@@ -1024,17 +1023,17 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 					echo(dt, pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig);
 			}
 		}
-		else if (pContext->lhs && CAstSig::IsVECTOR(pContext->lhs))// && pContext->pAst->alt && pContext->pAst->alt->type!=N_STRUCT) // pContext->pAst->alt is necessary to ensure that there's a vector on the LHS
+		else if (pContext->lhs && CAstSig::IsVECTOR(pContext->lhs))// && pContext->xtree->alt && pContext->xtree->alt->type!=N_STRUCT) // pContext->xtree->alt is necessary to ensure that there's a vector on the LHS
 		{
-			for (AstNode *pp = ((AstNode *)pContext->pAst->str)->alt; !pContext->lhs->suppress && pp; pp = pp->next, dt++)
+			for (AstNode *pp = ((AstNode *)pContext->xtree->str)->alt; !pContext->lhs->suppress && pp; pp = pp->next, dt++)
 				echo(dt, pContext, pp);
 		}
-		else // see if lhs makes more sense than pAst
+		else // see if lhs makes more sense than xtree
 		{
 			CVar *psig;
 			if (pContext->Sig.IsGO() && pContext->Sig.GetFs() != 3) psig = pContext->pgo;
 			else psig = &pContext->Sig;
-			echo(dt, pContext, pContext->pAst, psig );
+			echo(dt, pContext, pContext->xtree, psig );
 		}
 	}
 	catch (const char *errmsg) {
@@ -1480,7 +1479,7 @@ void HoldAtBreakPoint(CAstSig *pastsig, const AstNode *pnode)
 	mainSpace.ShowWS_CommandPrompt(pastsig);
 	if (!pastsig->u.debug.inPurgatory)
 		debug_appl_manager(pastsig, stepping, pastsig->u.currentLine = pnode->line);
-	AstNode *p=pastsig->pAst;
+	AstNode *p=pastsig->xtree;
 	while (p)
 	{
 		buf[0] = 0;
@@ -1569,9 +1568,9 @@ static bool same_trimmed_string(const string &_s1, const string &_s2)
 
 void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 {
-	if (success && pcast && pcast->pAst)
+	if (success && pcast && pcast->xtree)
 	{
-		AstNode *p= pcast->pAst;
+		AstNode *p= pcast->xtree;
 		if (!pcast->u.base.empty()) // if this is for udf
 		{
 			//Also, do take care of display vec windows during debugging when debugging is done... what to do...
@@ -1584,7 +1583,7 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 			{// do this later. 10/21/2018
 				llnn = 2;
 			}
-			p = CAstSig::goto_line(pcast->pAst, llnn);
+			p = CAstSig::goto_line(pcast->xtree, llnn);
 		}
 		CWndDlg * dlg;
 		if (p && (dlg = Find_cellviewdlg(p->str)))
@@ -1597,7 +1596,7 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 			else if (dlg->dwUser == 1010)
 			{
 				((CShowvarDlg*)dlg)->Fillup(); // call with appropriate arguments.... then the auto-update might work
-				string rootname(pcast->pAst->str);
+				string rootname(pcast->xtree->str);
 				rootname += '.';
 				for (vector<CWndDlg*>::iterator it = cellviewdlg.begin(); it != cellviewdlg.end(); it++)
 				{
@@ -1619,13 +1618,13 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		//if during debugging, redraw all figure windows with the varname in the debugging scope
 		if (!pcast->u.title.empty()) // For debugging or N_BLOCK
 			mShowDlg.OnVarChanged();
-		else if (pcast->pAst->type == N_BLOCK)
+		else if (pcast->xtree->type == N_BLOCK)
 		{
 			mShowDlg.OnVarChanged();
 		}
 		else //if (pcast->u.title.empty()) // For non-debugging
 		{
-			AstNode *p = (pcast->pAst->type==N_BLOCK) ? pcast->pAst->next : pcast->pAst;
+			AstNode *p = (pcast->xtree->type==N_BLOCK) ? pcast->xtree->next : pcast->xtree;
 			for (; p; p = p->next)
 				if (!CAstSig::Var_never_updated(p))
 				{
@@ -1672,15 +1671,15 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		printf("%s", mainSpace.comPrompt.c_str());
 	}
 	RepaintGO(pcast);
-	if (pcast->pAst)
+	if (pcast->xtree)
 	{
 		char buffer[256];
-		sprintf(buffer, "Show..Prompt %d scope, pcast=0x%x, type=%d", xscope.size(), (INT_PTR)(void*)pcast, pcast->pAst->type);
+		sprintf(buffer, "Show..Prompt %d scope, pcast=0x%x, type=%d", xscope.size(), (INT_PTR)(void*)pcast, pcast->xtree->type);
 		string add;
-		if (CAstSig::IsTID(pcast->pAst))
-			add = pcast->pAst->str;
-		if (pcast->pAst->child && pcast->pAst->child->str)
-			add = pcast->pAst->child->str;
+		if (CAstSig::IsTID(pcast->xtree))
+			add = pcast->xtree->str;
+		if (pcast->xtree->child && pcast->xtree->child->str)
+			add = pcast->xtree->child->str;
 		sendtoEventLogger("%s %s\n", buffer, add.c_str());
 	}
 }
