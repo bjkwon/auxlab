@@ -2649,7 +2649,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_NEGATIVE:
 		-*Compute(p);
 		blockString(pnode,  Sig);
-		break;
+		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case T_OP_SHIFT:
 		tsig = Compute(p->next);
 		blockCell(pnode,  Sig);

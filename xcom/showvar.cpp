@@ -1123,7 +1123,7 @@ void CShowvarDlg::OnShowWindow(BOOL fShow, UINT status)
 	int res;
 	HMENU hMenu = ::GetSystemMenu(hDlg, FALSE);
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
-	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU3, "Set UDF &Path");
+	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU3, "Set AUX Path");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU2, "Adjust fs (Sampling &Rate)");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
