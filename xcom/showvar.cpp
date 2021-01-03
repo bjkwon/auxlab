@@ -2261,7 +2261,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			pmsg->cbp.closing = true;
 			PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 			CDebugDlg::pAstSig = NULL;
-			CAstSig::cleanup_nodes(ast);
 			Back2BaseScope(0);
 
 			string line;

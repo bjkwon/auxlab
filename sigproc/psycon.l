@@ -1,15 +1,15 @@
-/* AUXLAB 
+/* AUXLAB
 //
 // Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
-// Platform-independent (hopefully) 
-// 
+// Platform-independent (hopefully)
+//
 // Version: 1.7
 // Date: 7/4/2020
-*/ 
+*/
 
 /* scanner for Psycon syntax parser */
 %{
@@ -63,10 +63,6 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 	yylloc.last_column = 1;
 	yylval.dval = strtod(yytext, NULL);
 	return T_NUMBER;
-	}
-<BRACKET>end {
-	yylloc.last_column += yyleng;
-	return T_ENDPOINT;
 	}
 <BRACKET>\] {	/* closing bracket */
 	yylloc.last_column += yyleng;

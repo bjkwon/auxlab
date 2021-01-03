@@ -40,9 +40,10 @@ void _eval(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
   // but the new variables created or modified within the eval call should be transported back to the calling scope
 	// As of 5/17/2020, there is no return of eval (null returned if assigned) for when there's no error
 	// If there's an error, exception handling (not error handling) is done and it returns the error message
-	string str = past->ComputeString(p);
+	string emsg, str = past->ComputeString(p);
+	CAstSig qscope(str.c_str(), past);
 	try {
-		CAstSig qscope(str.c_str(), past);
+		qscope.xtree = qscope.parse_aux(str.c_str(), emsg);
 		qscope.Compute(qscope.xtree);
 		//transporting variables 
 		for (map<string, CVar>::iterator it = qscope.Vars.begin(); it != qscope.Vars.end(); it++)
@@ -53,6 +54,7 @@ void _eval(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 		e.line = pnode->line;
 		e.col = pnode->col;
 		e.pCtx = past;
+		e.pnode = pnode;
 		throw e;
 	}
 }

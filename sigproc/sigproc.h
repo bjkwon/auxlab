@@ -202,8 +202,8 @@ class CUDF
 public:
 	string title;
 	string base;
-	AstNode *pUDF; // T_FUNCTION node
-	AstNode *pUDF_base; // T_FUNCTION node for base udf
+	AstNode *t_func; // T_FUNCTION node
+	AstNode *t_func_base; // T_FUNCTION node for base udf
 	vector<string> argout; // formal output argument list; to be filled out in PrepareAndCallUDF()
 	int nextBreakPoint;
 	int currentLine;
@@ -227,13 +227,12 @@ class CAstSig
 	friend class CNodeProbe;
 public:
 #ifndef GRAFFY
-	static void cleanup_nodes(CAstSig *beginhere = NULL);
 	static double play_block_ms;
 	static double record_block_ms;
 	static short play_bytes; // waveform format 1, 2 or 3 bytes for 8, 16 or 24 bits
 	static short record_bytes; // waveform format 1, 2 or 3 bytes for 8, 16 or 24 bits
 	static bool IsStatement(const AstNode *p);
-	static bool IsCondition(const AstNode *p);
+	static bool IsConditional(const AstNode *p);
 	static bool IsLooping(const AstNode *p);
 	static bool IsTID(const AstNode *p);
 	static bool IsBLOCK(const AstNode *p);
@@ -243,7 +242,8 @@ public:
 	static bool Var_never_updated(const AstNode *p);
 	static AstNode *goto_line(const AstNode *pnode, int line);
 	static CVar *HandleSig(CVar *ptarget, CVar *pGraffyobj);
-	static AstNode *findParentNode(AstNode *p, AstNode *pME, bool altonly = false);
+	static const AstNode* findParentNode(const AstNode* p, const AstNode* pME, bool altonly = false);
+	static const AstNode* findDadNode(const AstNode *p, const AstNode *pME);
 	static char *showGraffyHandle(char *out, CVar *pvar);
 #endif //GRAFFY
 	int level;
@@ -293,7 +293,6 @@ private:
 	void prepare_endpoint(const AstNode *p, CVar *pvar);
 	bool builtin_func_call(CNodeProbe &diggy, AstNode *p);
 	void Concatenate(const AstNode *pnode, AstNode *p);
-	CVar *cell_indexing(CVar *pBase, AstNode *pn, CNodeProbe &np);
 	AstNode *read_node(CNodeProbe &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
 	AstNode *read_nodes(CNodeProbe &diggy, bool bRHS = false);
 	CVar * getchannel(CVar *pin, const AstNode *pnode);
@@ -308,6 +307,7 @@ private:
 	CVar * NodeMatrix(const AstNode *pnode);
 	CVar * Dot(AstNode *p);
 	void switch_case_handler(const AstNode *pnode);
+	size_t CAstSig::udfcompx(AstNode* pfirst);
 
 public:
 	string ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar*>> &inVars, vector<unique_ptr<CVar*>> &outVars, bool defaultcallback);
@@ -346,6 +346,8 @@ public:
 	vector<string> erase_GO(const char* varname);
 	vector<string> erase_GO(CVar* obj);
 	vector<CVar*> get_GO_children(const vector<CVar*>& obj);
+	CVar* CAstSig::Try_here(const AstNode* pnode, AstNode* p);
+
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);
 #endif
@@ -425,7 +427,6 @@ public:
 	int arrayindex, cellindex;
 	const AstNode *pTarget;
 protected:
-	void clean();
 	void addLineCol();
 };
 
@@ -459,6 +460,8 @@ public:
 	CTimeSeries &replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, body &index);
 	//CAstException ExceptionMsg(const AstNode *pnode, const string s1, const string s2);
 	//CAstException ExceptionMsg(const AstNode *pnode, const char *msg);
+	void tree_NARGS(const AstNode* pnode, AstNode* ppar);
+	CVar* cell_indexing(CVar* pBase, AstNode* pn);
 };
 
 

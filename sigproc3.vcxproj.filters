@@ -144,6 +144,12 @@
     <ClCompile Include="$(SrcPath)AuxFunc_file.cpp">
       <Filter>Source Files\_functions</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)AstSig_read_xtree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)AstSig_flow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)psycon.tab.h">
