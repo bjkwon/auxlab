@@ -18,7 +18,7 @@ void _audio(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& 
 		past->Sig.SetNextChan(&next);
 		past->Sig.nGroups = 1;
 	}
-	break;
+		break;
 	default:
 		CAstException(USAGE, *past, p).proc("Cannot apply to a matrix with rows > 2.");
 		break;
@@ -34,8 +34,8 @@ void _vector(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string&
 	if (past->Sig.next)
 	{
 		CSignal out = CSignal(1, past->Sig.nSamples * 2);
-		memcpy(out.logbuf, past->Sig.logbuf + past->Sig.nSamples * past->Sig.bufBlockSize, past->Sig.nSamples * past->Sig.bufBlockSize);
-		memcpy(out.logbuf + past->Sig.nSamples * past->Sig.bufBlockSize, past->Sig.next->logbuf + past->Sig.nSamples * past->Sig.bufBlockSize, past->Sig.nSamples * past->Sig.bufBlockSize);
+		memcpy(out.logbuf, past->Sig.logbuf, past->Sig.nSamples * past->Sig.bufBlockSize);
+		memcpy(out.logbuf + past->Sig.nSamples * past->Sig.bufBlockSize, past->Sig.next->logbuf, past->Sig.nSamples * past->Sig.bufBlockSize);
 		out.nGroups = 2;
 		past->Sig = (CVar)(CSignals)out;
 	}

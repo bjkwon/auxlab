@@ -634,7 +634,7 @@ ostringstream xcom::outstream_tmarks(CTimeSeries *psig, bool unit)
 ostringstream xcom::outstream_value(double val, int offset)
 {
 	ostringstream out;
-	if (val > .001 || val < -.001)
+	if (val == 0. || val > .001 || val < -.001)
 		out << val;
 	else
 	{
