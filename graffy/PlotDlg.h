@@ -262,4 +262,4 @@ public:
 typedef pair<vector<double>::const_iterator, vector<double>::const_iterator> rangepair;
 
 rangepair get_inside_xlim_monotonic(int& count, const vector<double>& buf, const double xlim[]);
-pair<double, double> get_inside_xlim_general(int& count, const vector<double> &buf, const double xlim[]);
+pair<double, double> get_inside_xlim_general(int& count, const vector<double> &buf, const double xlim[], bool& increasing);

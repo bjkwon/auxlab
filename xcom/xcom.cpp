@@ -822,6 +822,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			echo(varstr.str().c_str(), tp, offset);
 		}
 		break;
+	case TYPEBIT_STRUT + 1: // audio recording handle
 	case TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
 	case TYPEBIT_STRUT + TYPEBIT_STRUTS + TYPEBIT_STRING + 2:
 	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
@@ -833,6 +834,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		echo(varname, &temp, offset-1, " [Handle]");
 		passingdown = true;
 	case TYPEBIT_STRUT:
+	case TYPEBIT_STRUT + TYPEBIT_STRUTS:
 	{
 		if (!passingdown)
 		{

@@ -3042,6 +3042,10 @@ CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
 	{
 		if (psig->IsGO()) // name and psig should be fed to struts
 		{
+			// Previous one should be cleared.  
+			// I wonder if this clear() would cause an issue 
+			// What has the SetVar convention been for GO 1/3/2021
+			pBase->struts[name].clear();
 			pBase->struts[name].push_back(psig);
 			auto it = pBase->strut.find(name);
 			if (it != pBase->strut.end()) pBase->strut.clear();

@@ -1328,7 +1328,8 @@ void CPlotDlg::OnMenu(UINT nID)
 					int count;
 					if (ln->xyplot)
 					{
-						auto mm = get_inside_xlim_general(count, ln->xdata, pax->xlim);
+						bool dummy;
+						auto mm = get_inside_xlim_general(count, ln->xdata, pax->xlim, dummy);
 						if (count==0) no_more_zoom = false;
 						else if (mm.second - mm.first< 1.e-2 ) no_more_zoom = true;
 						else							  no_more_zoom = false;
@@ -1361,7 +1362,6 @@ void CPlotDlg::OnMenu(UINT nID)
 				pax->xlim[1] += deltaxlim/2;
 				pax->xlim[1] = MIN(pax->xrange[1], pax->xlim[1]);
 			}
-			char buf[256];
 			if (pax->m_ln.empty()) break;
 			pax->xtick.tics1.clear(); pax->xtick.automatic = true;
 			pax->ytick.tics1.clear(); pax->ytick.automatic = true;
@@ -1774,7 +1774,7 @@ void CPlotDlg::ShowSpectrum(CAxes *pax, CAxes *paxBase)
 		mag.next = new CSignals; // this will be deleted during the cleanup of mag... really?
 		getFFTdata(*mag.next, fft);
 	}
-	PlotCSignals(pax, freq.data(), mag, 0, 0, LineStyle_solid); // inherited color scheme, no marker and solid line style
+	PlotCSignals(pax, freq.data(), mag, "", -1); // inherited color scheme, no marker and solid line style
 	strcpy(pax->xtick.format,"%.2gk"); // pax->xtick.format is called in anticipation of drawticks. i.e., format is used in drawticks
 	if (lastxlim[0]>lastxlim[1])
 	{
