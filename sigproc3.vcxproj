@@ -122,7 +122,6 @@
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -153,7 +152,6 @@
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -183,7 +181,6 @@
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -218,7 +215,6 @@
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
