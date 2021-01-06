@@ -317,7 +317,6 @@ public:
 	int updateGO(CVar &ref);
 	CVar * pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout = NULL);
 	CVar * TSeq(const AstNode *pnode, AstNode *p);
-	bool isThisAllowedPropGO(CVar *psig, const char *type, const CVar &tsig);
 	void astsig_init(void(*fp1)(CAstSig *, DEBUG_STATUS, int), void(*fp2)(CAstSig *, const AstNode *), bool(*fp3)(const char *), void(*fp4)(CAstSig *), void(*fp5)(int), void(*fp6a)(const char*), void(*fp7)(CAstSig *, const char *, const CVar &), void(*fp8)(CAstSig *));
 	bool IsThisBreakpoint(const AstNode *pnode);
 	void checkAudioSig(const AstNode *pnode, const CVar &checkthis, string addmsg = "");

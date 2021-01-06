@@ -294,10 +294,10 @@ void On_F2(HWND hDlg, CAstSig f2sig, CSignals * psig)
 		if (psig)
 		{
 			f2sig.Vars["arg"] = *psig;
-			f2sig.xtree = f2sig.parse_aux("axnew = f2_channel_stereo_mono_(arg)", emsg);
+			f2sig.xtree = f2sig.parse_aux("axnew = ?f2_channel_stereo_mono(arg)", emsg);
 		}
 		else
-			f2sig.xtree = f2sig.parse_aux("axnew = f2_channel_stereo_mono_", emsg);
+			f2sig.xtree = f2sig.parse_aux("axnew = ?f2_channel_stereo_mono", emsg);
 		f2sig.Compute();
 		CVar *cfig = f2sig.GetGOVariable("?foc");
 		if (f2sig.GOvars.find("axnew") != f2sig.GOvars.end())
@@ -1559,6 +1559,8 @@ CVar* CShowvarDlg::pre_plot_var(const char* varname, string & title)
 		sprintf(_varname, "%s%s", name.c_str(), varname);
 		varname++;
 	}
+	else
+		strcpy(_varname, varname);
 	if (strcmp(varname, "gcf"))
 	{
 		psig = &(*pVars)[varname];

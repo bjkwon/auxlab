@@ -85,6 +85,8 @@ void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 	past->Sig.bufBlockSize = 1;
 }
 
+#ifndef NO_FILES
+
 void _fprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
 	CVar firstarg = past->Sig;
@@ -135,3 +137,4 @@ void _fprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 	}
 }
 
+#endif // NO_FILES
