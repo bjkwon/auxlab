@@ -13,12 +13,16 @@
 #include <string.h> // aux_file
 #include "sigproc.h"
 #include "sigproc_internal.h"
+
+map<double, FILE *> file_ids;
+
+#ifndef NO_FILES
+
 #include <algorithm>
 #include "bjcommon.h"
 #include "audstr.h"
 #include "lame_bj.h"
 
-map<double, FILE *> file_ids;
 
 static inline bool isnumeric(const char *buf)
 {
@@ -621,3 +625,4 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "cannot open file");
 }
 
+#endif // NO_FILES

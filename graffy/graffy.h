@@ -343,6 +343,7 @@ GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);
 GRAPHY_EXPORT void		ViewSpectrum(HANDLE _fig);
 GRAPHY_EXPORT void		showRMS(CVar *xGO, int code);  // currently not used. just leave it
 
+bool isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &tsig);
 
 GRAPHY_EXPORT HACCEL GetAccel(HANDLE hFig);
 GRAPHY_EXPORT HWND GetHWND_PlotDlg(HANDLE hFig);
