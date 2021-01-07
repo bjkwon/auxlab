@@ -1275,6 +1275,7 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *in
 	/* internaltransport carries the content of AUXCON script when ReadUDF() is called in auxconDlg.cpp
 	*/
 	if (!udf_filename) return NULL;
+	if (strlen(udf_filename)>255) return NULL; //MR 1
 	emsg.clear();
 	string fullpath, filecontent("");
 	AstNode *pout;
@@ -2317,9 +2318,13 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RH
 					if (!(pres = GetVariable(pn->str, np.psigBase)))
 					{
 						string varname;
+						string ex_msg = "Variable or function not available: ";
 						if (pn->type == N_STRUCT) varname = '.';
 						varname += pn->str;
-						throw CAstException(USAGE, *this, pn).proc("Variable or function not available: ", varname.c_str());
+						if (strlen(pn->str)<256)
+							throw CAstException(USAGE, *this, pn).proc(ex_msg.c_str(), varname.c_str());
+						else
+							throw CAstException(USAGE, *this, pn).proc(ex_msg.c_str(), varname.c_str(),string("A UDF name cannot be longer than 255 characters."));
 					}
 					if (pres->IsGO())
 //					{ // the variable pn->str is a GO

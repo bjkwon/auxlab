@@ -14,8 +14,8 @@
 #ifndef XCOM
 #define XCOM
 
-#define MAIN_PROMPT "AUX>"
-#define DEBUG_PROMPT "k>"
+#define MAIN_PROMPT "AUX> "
+#define DEBUG_PROMPT "k> "
 #define AUX_EXT_NAME "aux_ext"
 
 #define INI_HEAD_SRATE "SAMPLE RATE"
@@ -87,13 +87,6 @@ public:
 	static ostringstream outstream_tseq(CTimeSeries *psig, bool unit);
 	static ostringstream outstream_vector(CSignal*pvar, unsigned int id0, int offset);
 	static ostringstream outstream_value(double val, int offset);
-#ifdef _DEBUG
-	int RunTest(const char *infile, const char *intended_result_file, const char *reportfile);
-	int RunTestType(string &line);
-	int RunTestCountElement(int type, string &rest, int &col);
-	int xcom::RunTestCheckElements(const CVar &generated, const string &expected);
-#endif
-
 
 private:
 	int read_axl_block(FILE *fp, std::string &varname, CVar *pout, char *errstr, bool independent = true);
@@ -124,3 +117,7 @@ typedef struct {
 
 
 #endif
+
+/* Some miscellaneous rules in AUXLAB
+ - MR 1: Name of a udf should be limited to 255 characters
+*/
