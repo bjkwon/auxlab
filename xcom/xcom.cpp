@@ -23,17 +23,14 @@
 #include "histDlg.h"
 #include "consts.h"
 #include "xcom.h"
+#include "utils.h"
 #include "wavplay.h"
 
 #include "qlparse.h"
 
-
-char iniFile[256];
-
 double playbackblock(100.);
 uintptr_t hShowvarThread(NULL);
 uintptr_t hHistoryThread(NULL);
-char udfpath[4096];
 HANDLE hEventModule;
 HANDLE hEventLastKeyStroke2Base;
 
@@ -180,7 +177,7 @@ static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRec
 	return ret;
 }
 
-static int readINIs(const char *fname, char *estr_dummy, int &fs, char *path)
+static int readINI1(const char *fname, char *estr_dummy, int &fs)
 {//in, in, out, in/out
 	string strRead;
 	int val;
@@ -203,118 +200,7 @@ static int readINIs(const char *fname, char *estr_dummy, int &fs, char *path)
 	res = ReadINI(estr_dummy, fname, INI_HEAD_RECBYTES, strRead);
 	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF)
 		CAstSig::record_bytes = val;
-	if (ReadINI (estr_dummy, fname, "PATH", strRead)>=0)
-		strcat(path, strRead.c_str());
 	return 1;
-}
-
-static int writeINIs(const char *fname, char *estr, int fs, const char *path)
-{
-	char errStr[256];
-	if (!printfINI (errStr, fname, INI_HEAD_SRATE, "%d", fs)) {strcpy(estr, errStr); 	return 0;}
-	if (!printfINI (errStr, fname, INI_HEAD_PLAYBLOCK, "%.1f", CAstSig::play_block_ms)) { strcpy(estr, errStr);	return 0; }
-	if (!printfINI (errStr, fname, INI_HEAD_RECBLOCK, "%.1f", CAstSig::record_block_ms)) { strcpy(estr, errStr);	return 0; }
-	if (!printfINI (errStr, fname, INI_HEAD_PLAYBYTES, "%d", CAstSig::play_bytes)) { strcpy(estr, errStr);	return 0; }
-	if (!printfINI (errStr, fname, INI_HEAD_RECBYTES, "%d", CAstSig::record_bytes))	{strcpy(estr, errStr);	return 0;}
-	if (!printfINI (errStr, fname, "PATH", "%s", path)) {strcpy(estr, errStr); return 0;}
-	return 1;
-}
-
-static int writeINI_pos(const char *fname, char *estr, CRect rtMain, CRect rtShowDlg, CRect rtHistDlg)
-{
-	char errStr[256];
-	CString str;
-	str.Format("%d %d %d %d", rtMain.left, rtMain.top, rtMain.Width(), rtMain.Height());
-	if (!printfINI (errStr, fname, "WINDOW POS", "%s", str.c_str())) {strcpy(estr, errStr); return 0;}
-	str.Format("%d %d %d %d", rtShowDlg.left, rtShowDlg.top, rtShowDlg.Width(), rtShowDlg.Height());
-	if (!printfINI (errStr, fname, "VAR VIEW POS", "%s", str.c_str())) {strcpy(estr, errStr); return 0;}
-	str.Format("%d %d %d %d", rtHistDlg.left, rtHistDlg.top, rtHistDlg.Width(), rtHistDlg.Height());
-	if (!printfINI (errStr, fname, "HIST POS", "%s", str.c_str())) {strcpy(estr, errStr); return 0;}
-	return 1;
-}
-
-CWndDlg * Find_cellviewdlg(const char *name)
-{ // Currently this finds only CVectorsheetDlg... Expand to search other CShowDlg
-	char buf[256];
-	if (!name) return NULL;
-	vector<CWndDlg*>::iterator it;
-	for (it = cellviewdlg.begin(); it != cellviewdlg.end(); it++)
-	{
-		GetWindowText((*it)->hDlg, buf, sizeof(buf));
-		if (!strcmp(buf, name))
-			return *it;
-	}
-	return NULL;
-}
-
-void closeXcom(const char *EnvAppPath, int fs, const char *AppPath)
-{
-	// When CTRL_CLOSE_EVENT is pressed, you have 5 seconds. That's how Console app works in Windows.
-	// This function may continue after WinMain is finished; i.e., pEnv might have already lost its scope.
-	// Finish all cleanup work during this time.
-
-	CAstSig *pcast = xscope.front();
-	char estr[256], buffer[256];
-	const char* pt = strstr(EnvAppPath, AppPath);
-	string pathnotapppath;
-	size_t loc;
-	if (pt!=NULL)
-	{
-		pathnotapppath.append(EnvAppPath, EnvAppPath - pt);
-		string  str(pt + strlen(AppPath));
-		loc = str.find_first_not_of(';');
-		pathnotapppath.append(pt + strlen(AppPath)+loc);
-	}
-	else
-		pathnotapppath.append(EnvAppPath);
-	int res = writeINIs(iniFile, estr, fs, pathnotapppath.c_str());
-	delete pcast->pEnv;
-
-	CRect rt1, rt2, rt3;
-	GetWindowRect(GetConsoleWindow(), &rt1);
-	mShowDlg.GetWindowRect(rt2);
-	mHistDlg.GetWindowRect(rt3);
-	res = writeINI_pos(iniFile, estr, rt1,rt2, rt3);
-
-	string debugudfs("");
-	for (unordered_map<string, CDebugDlg*>::iterator it=dbmap.begin(); it!=dbmap.end(); it++)
-	{
-		debugudfs += it->second->fullUDFpath; debugudfs += "\r\n";
-	}
-	if (debugudfs.size()>0)
-	{
-		if (!printfINI (estr, iniFile, "DEBUGGING UDFS", "%s", debugudfs.c_str())) strcpy(buffer, estr); 
-		unordered_map<string, CDebugDlg*>::iterator it=dbmap.begin(); 
-		GetWindowRect(it->second->hParent->hDlg, &rt1);
-		CString str;
-		str.Format("%d %d %d %d", rt1.left, rt1.top, rt1.Width(), rt1.Height());
-		if (!printfINI (estr, iniFile, "DEBUG VIEW POS", "%s", str.c_str())) {strcpy(buffer, estr);/*do something*/ }
-	}
-	SYSTEMTIME lt;
-	GetLocalTime(&lt);	
-	vector<string> in;
-	sprintf(buffer, "//\t[%02d/%02d/%4d, %02d:%02d:%02d] AUXLAB closes------", lt.wMonth, lt.wDay, lt.wYear, lt.wHour, lt.wMinute, lt.wSecond);
-	in.push_back(buffer);
-	mainSpace.LogHistory(in);
-	if (hShowvarThread!=NULL) PostThreadMessage(GetWindowThreadProcessId(mShowDlg.hDlg, NULL), WM__ENDTHREAD, 0, 0);
-	if (hHistoryThread!=NULL) PostThreadMessage(GetWindowThreadProcessId(mHistDlg.hDlg, NULL), WM__ENDTHREAD, 0, 0);
-	int debugview(0);
-	if (hDebugThread2)
-		debugview = 1;
-	else
-	{
-		unordered_map<string, CDebugDlg*>::iterator it=dbmap.begin();
-		if (it!=dbmap.end())
-			PostThreadMessage(GetWindowThreadProcessId((it->second)->hDlg, NULL), WM__ENDTHREAD, 0, 0);
-	}
-	if (!printfINI(estr, iniFile, "DEBUG VIEW", "%d", debugview))
-	{	//do something	
-	}
-	// Investigate--when there's an error during a udf and exit the application the delete *it causes a crash. 8/15/2020
-//	for (vector<CAstSig*>::iterator it = xscope.begin()+1; it != xscope.end(); it++)
-//		delete *it;
-	fclose(stdout);
-	fclose(stdin);
 }
 
 unsigned int WINAPI histThread (PVOID var) 
@@ -336,7 +222,7 @@ unsigned int WINAPI histThread (PVOID var)
 	SetClassLongPtr(mHistDlg.hDlg, GCLP_HICON, (LONG)(LONG_PTR)h);
 
 	CRect rt1, rt2, rt3, rt4;
-	int res = readINI_pos(iniFile, &rt1, &rt2, &rt3, &rt4);
+	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
 	if (res & 4)	
 		mHistDlg.MoveWindow(rt3);
 	else
@@ -393,7 +279,7 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 
 	RECT rc;
 	CRect rt1, rt2, rt3, rt4;
-	int res = readINI_pos(iniFile, &rt1, &rt2, &rt3, &rt4);
+	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
 	if (res & 2)	
 		mShowDlg.MoveWindow(rt2);
 	else
@@ -417,12 +303,12 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	//begin debug thread only if previously debug files were open
 	char errStr[256];
 	string strRead;
-	if (ReadINI(errStr, iniFile, "DEBUG VIEW", strRead) > 0)
+	if (ReadINI(errStr, mainSpace.iniFile, "DEBUG VIEW", strRead) > 0)
 	{
 		int ival;
 		if (sscanf(strRead.c_str(), "%d", &ival) != EOF)
 		{
-			if (ival>0 && ReadINI(errStr, iniFile, "DEBUGGING UDFS", strRead) >= 0)
+			if (ival>0 && ReadINI(errStr, mainSpace.iniFile, "DEBUGGING UDFS", strRead) >= 0)
 			{
 				if ((hDebugThread2 = _beginthreadex(NULL, 0, debugThread2, (void*)&rt4, 0, NULL)) == -1)
 					MessageBox(GetConsoleWindow(), "Debug Thread Creation Failed.", 0, 0);
@@ -1220,7 +1106,6 @@ int xcom::SAVE_axl(CAstSig *past, const char* filename, vector<string> varlist, 
 
 int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 {
-	HMODULE hLib ;
 	string emsg;
 	char errstr[1024], buf[MAX_PATH], drive[MAX_PATH], dir[MAX_PATH], filename[MAX_PATH], ext[MAX_PATH], buffer[MAX_PATH];
 	string name, fname;
@@ -1229,6 +1114,49 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	if (HookName == "hist")
 	{
 		ShowWindow(mHistDlg.hDlg, SW_SHOW);
+	}
+	else if (HookName == "cd")
+	{
+		size_t res = str2vect(tar, argstr, " ");
+		if (!strcmp(argstr, ".."))
+		{
+			char *pos_backslash = strrchr(AppPath,'\\');
+			if (strlen(AppPath) > 1 && AppPath[strlen(AppPath) - 1] == '\\') AppPath[strlen(AppPath) - 1] = 0;
+			pos_backslash = strrchr(AppPath, '\\');
+			if (pos_backslash)
+			{
+				*(pos_backslash+1) = 0;
+				ast->pEnv->AppPath = AppPath;
+				printf("changed to %s\n", AppPath);
+			}
+		}
+		else
+		{
+			WIN32_FIND_DATA ls;
+			strcpy(buffer, AppPath);
+			strcat(buffer, argstr);
+			HANDLE hFind = FindFirstFile(buffer, &ls);
+			if (hFind == INVALID_HANDLE_VALUE)
+			{
+				printf("no directory %s found.\n", argstr);
+			}
+			else
+			{
+				if (ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				{
+					if (buffer[strlen(buffer) - 1] != '\\') strcat(buffer, "\\");
+					strcpy(AppPath, buffer);
+					ast->pEnv->AppPath = AppPath;
+					printf("changed to %s\n", AppPath);
+				}
+				else
+					printf("invalid directory %s\n", argstr);
+			}
+		}
+	}
+	else if (HookName == "pwd")
+	{
+		printf("%s\n", ast->pEnv->AppPath.c_str());
 	}
 	else if (HookName=="quit")
 	{
@@ -1252,6 +1180,60 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		mShowDlg.Fillup();
 		ast->FsFixed = true;
 	}
+	else if (HookName == "path")
+	{
+		nItems = str2vect(tar, argstr, " ");
+		if (nItems == 0)
+		{
+			tar.push_back("--show");
+			nItems++;
+		}
+		if (nItems == 1)
+		{
+			if (tar.front()!="-s" && tar.front() != "--show")
+				cout << "#path -s or #path --show will display the path of AUXLAB." << endl;
+			else
+				for (auto s : ast->pEnv->AuxPath)
+					cout << s << endl;
+		}
+		else if (nItems >= 2)
+		{
+			transform(tar[1].begin(), tar[1].end(), tar[1].begin(), ::tolower);
+			if (tar.front() == "-a" || tar.front() == "--add")
+			{
+				if (tar[1].back() == '\\') tar[1] = tar[1].substr(0, tar[1].size() - 1);
+				WIN32_FIND_DATA ls;
+				HANDLE hFind = FindFirstFile(tar[1].c_str(), &ls);
+				if (hFind == INVALID_HANDLE_VALUE)
+					cout << "\"" << tar[1] << "\" -- Invalid path or path not found." << endl;
+				else
+				{
+					ast->pEnv->AddPath(tar[1]);
+					string paths = ast->pEnv->path_delimited_semicolon();
+					if (!printfINI(errstr, iniFile, "PATH", "%s", paths.c_str())) { 
+						cout << "AuxPath updated, but failed while updating the INI file." << endl;
+						return 0; 
+					}
+				}
+			}
+			else if (tar.front() == "-r" || tar.front() == "--remove")
+			{
+				if (tar[1].back() != '\\') tar[1] += '\\';
+				auto fd = find(ast->pEnv->AuxPath.begin(), ast->pEnv->AuxPath.end(), tar[1]);
+				if (fd != ast->pEnv->AuxPath.end())
+				{
+					ast->pEnv->AuxPath.erase(fd);
+					string paths = ast->pEnv->path_delimited_semicolon();
+					if (!printfINI(errstr, mainSpace.iniFile, "PATH", "%s", paths.c_str())) {
+						cout << "AuxPath updated, but failed while updating the INI file." << endl;
+						return 0;
+					}
+				}
+				else
+					cout << "\"" << tar[1] << "\" not found in AuxPath" << endl;
+			}
+		}
+	}
 	else if (HookName=="load")
 	{
 		tar = qlparse(argstr, emsg);
@@ -1274,7 +1256,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		else
 		{
 			strcpy(errstr, argstr); strcat(errstr,".axl");
-			printf("File %s not found in %s\n", errstr, ast->pEnv->AuxPath.c_str()); 
+			printf("File %s not found in %s\n", errstr, ast->pEnv->AuxPath.front().c_str()); 
 		}
 	}
 	else if (HookName=="save")
@@ -1303,65 +1285,6 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 			printf("Workspace variables saved in %s\n", fname.c_str());
 		else
 			printf("#save failed---%s\n", errstr);
-	}
-	else if (HookName == "module")
-	{
-		tar = qlparse(argstr, emsg);
-		if (tar.size() != 1)
-		{
-			if (tar.empty())
-				sprintf(buf, "Parsing error in qlparse.dll (%s)", emsg.c_str());
-			else
-				sprintf(buf, "%s requires one argument. %d arguments in %s\n(Did you forget double quotations?)", HookName.c_str(), tar.size(), argstr);
-			throw buf;
-		}
-		FILE *fp = ast->OpenFileInPath(tar[0], "dll", emsg);
-		if (fp)
-		{
-			fclose(fp);
-			vector<string>::iterator it = find(LoadedModule.begin(), LoadedModule.end(), argstr);
-			if (it == LoadedModule.end())
-			{
-				hLib = LoadLibrary(argstr);
-				if (!hLib)
-				{
-					GetLastErrorStr(errstr);
-					emsg = errstr;
-					trimr(emsg, "\r\n");
-					sprintf(buf, "LoadLibrary error for %s: %s", tar[0].c_str(), emsg.c_str());
-					throw buf;
-				}
-				//All auxlab module (such as auxcon) must have the following gateway function void Open(vector<CAstSig*> *pvecast)
-				PFUN pf = (PFUN)GetProcAddress((HMODULE)hLib, (LPCSTR)"?Open@@YAXABV?$vector@PAVCAstSig@@V?$allocator@PAVCAstSig@@@std@@@std@@@Z");
-				if (!pf)
-				{
-					GetLastErrorStr(errstr);
-					emsg = errstr;
-					trimr(emsg, "\r\n");
-					sprintf(buf, "Error accessing for %s module initiation function: %s", tar[0].c_str(), emsg.c_str());
-					throw buf;
-				}
-				pf(xscope); // subclassing so that in the future all the message is routed to ProcessMsg() in the dll.
-				LoadedModule.push_back(argstr);
-				if (hEventModule) CloseHandle(hEventModule);
-				hEventModule = NULL;
-				hEventModule = CreateEvent((LPSECURITY_ATTRIBUTES)NULL, 0, 0, "AUXCONScriptEvent");
-				WaitForSingleObject(hEventModule, INFINITE);
-			}
-			else
-			{
-				sprintf(buf, "Module %s already opened", argstr);
-				throw buf;
-			}
-		}
-		else
-		{
-			if (emsg.empty())
-				printf("File %s not found\n", argstr);
-			else
-				printf("File %s not found in %s\n", argstr, emsg.c_str());
-		}
-//		h = LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON2), IMAGE_ICON, 0, 0, 0);
 	}
 	else if (HookName == "fs")
 	{
@@ -1827,9 +1750,10 @@ CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 
 	DWORD dw = sizeof(buf);
 	GetComputerName(buf, &dw);
-	sprintf(iniFile, "%s%s_%s.ini", mainSpace.AppPath, fname, buf);
-	int res = readINIs(iniFile, buf, fs, udfpath);
-	CAstSigEnv::AppPath = string(mainSpace.AppPath);
+	sprintf(mainSpace.iniFile, "%s%s_%s.ini", mainSpace.AppPath, fname, buf);
+	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", mainSpace.AppPath, fname, HISTORY_FILENAME, buf);
+	int res = readINI1(mainSpace.iniFile, buf, fs);
+	CAstSigEnv::AppPath = mainSpace.AppPath;
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	assert(pglobalEnv);
 	return pglobalEnv;
@@ -1837,17 +1761,16 @@ CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 
 void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
 {
-	char buf[256];
-	string addp;
+	char estr[256];
+	string strRead;
 	vector<string> tar;
 	pglobalEnv->InitBuiltInFunctions(hShowDlg);
 	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
 
-	addp = mainSpace.AppPath;
-	if (strlen(udfpath) > 0 && udfpath[0] != ';') addp += ';';
-	addp += udfpath;
-	pglobalEnv->SetPath(addp.c_str());
-
+	if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
+		pglobalEnv->SetPath(strRead.c_str());
+	else
+		cout << "PATH information not available in " << mainSpace.iniFile << endl;
 	freopen("CON", "w", stdout);
 	freopen("CON", "r", stdin);
 
@@ -1862,9 +1785,6 @@ void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
 	if (!SetConsoleMode(hStdout, fdwMode))
 		::MessageBox(NULL, "Error--SetConsoleMode", "AUXLAB", MB_OK);
 
-	DWORD dw = sizeof(buf);
-	GetComputerName(buf, &dw);
-	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", mainSpace.AppPath, fname, HISTORY_FILENAME, buf);
 	size_t nHistFromFile = mainSpace.ReadHist();
 	mainSpace.comid = nHistFromFile;
 }
@@ -1937,7 +1857,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	ShowWindow(mHistDlg.hDlg, SW_SHOW);
 
 	CRect rt1, rt2, rt3, rt4;
-	int res = readINI_pos(iniFile, &rt1, &rt2, &rt3, &rt4);
+	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
 	HWND hr2 = GetConsoleWindow();
 	if (res & 1)
 		MoveWindow(hr2, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
@@ -1962,7 +1882,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	mainSpace.console();
 	sendtoEventLogger("closeXcom called.");
 
-	closeXcom(pglobalEnv->AuxPath.c_str(), pglobalEnv->Fs, mainSpace.AppPath);
+	closeXcom();
 	sendtoEventLogger("WinMain exiting.");
 	return 1;
 }

@@ -26,8 +26,6 @@
 
 static char formattype[] = "A";
 
-void nonnulintervals(CSignals *psig, string &out);
-
 int xcom::write_axl_block(FILE *fp, string varname, CVar *pout, char *errstr, bool independent)
 {try {
 	char header[16], verstr[16] = {};

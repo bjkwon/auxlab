@@ -28,6 +28,7 @@
 #include <cstdlib>
 
 #include "wavplay.h"
+#include "utils.h"
 
 HWND hLog;
 
@@ -40,13 +41,12 @@ static bool stop_requested = false;
 
 extern xcom mainSpace;
 extern HWND hShowDlg;
-extern char iniFile[256];
 extern CDebugDlg mDebug; // delete?
 extern unordered_map<string, CDebugDlg*> dbmap;
 
 extern CWndDlg wnd;
 extern CShowvarDlg mShowDlg;
-extern char udfpath[4096];
+//extern char udfpath[4096];
 extern void* soundplayPt;
 
 HANDLE hEvent;
@@ -94,7 +94,7 @@ CFileDlg fileOpenSaveDlg;
 char axlfullfname[_MAX_PATH], axlfname[_MAX_FNAME + _MAX_EXT];
 
 HWND CreateTT(HINSTANCE hInst, HWND hParent, RECT rt, char *string, int maxwidth=400);
-void closeXcom(const char *penvAppPath, int fs, const char *AppPath);
+void closeXcom();
 size_t ReadThisLine(string &linebuf, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO coninfo0, SHORT thisline, size_t promptoffset);
 
 BOOL CALLBACK vectorsheetDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
@@ -103,8 +103,6 @@ BOOL CALLBACK debugDlgProc (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK DebugBaseProc (HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 
 #define RMSDB(BUF,FORMAT1,FORMAT2,X) { double rms;	if ((rms=X)==-1.*std::numeric_limits<double>::infinity()) strcpy(BUF, FORMAT1); else sprintf(BUF, FORMAT2, rms); }
-
-CWndDlg * Find_cellviewdlg(const char *name);
 
 uintptr_t hDebugThread(NULL);
 uintptr_t hDebugThread2(NULL);
@@ -1072,7 +1070,7 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 		recordingButtonRT.top -= rt0.top;
 		recordingButtonRT.bottom -= rt0.top;
 
-		showvar2graffy(iniFile);
+		showvar2graffy(mainSpace.iniFile);
 	}
 	else
 	{
@@ -1345,7 +1343,7 @@ void CShowvarDlg::OnDestroy()
 				delete cellviewdlg[k];
 			}
 		}
-		closeXcom(xscope.front()->pEnv->AppPath.c_str(), xscope.front()->pEnv->Fs, AppPath);
+		closeXcom();
 		exit(0);
 	}
 }
@@ -1381,10 +1379,9 @@ void CShowvarDlg::OnSysCommand(UINT cmd, int x, int y)
 
 void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 {
-	string addp, str;
-	size_t id;
+	string str, strRead;
 	vector<HANDLE> figs;
-	char *longbuffer, errstr[256];
+	char errstr[256];
 	static char fullfname[256], fname[256];
 	switch(idc)
 	{
@@ -1392,19 +1389,7 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	//	DialogBoxParam (hInst, MAKEINTRESOURCE(IDD_ABOUT), GetConsoleWindow(), (DLGPROC)AboutDlg, (LPARAM)hInst);
 	//	break;
 	case IDC_SETPATH: 
-		str = udfpath;
-		id = str.find_first_not_of(';');
-		longbuffer = new char[sizeof(udfpath)*8];
-		strcpy(longbuffer,udfpath+id);
-		if (InputBox("AUX UDF PATH", "Put path here (Each path is separated by a semicolon) (NOTE: The current application folder is the first priority path by default.)", longbuffer, sizeof(udfpath)*8, false, hDlg)==1)
-		{
-			strcpy(udfpath,longbuffer);
-			addp = AppPath;
-			addp += ';';
-			addp += longbuffer;
-			&xscope.front()->pEnv->SetPath(addp.c_str());
-		}
-		delete[] longbuffer;
+		DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PATHDLG), hDlg, (DLGPROC)AuxPathDlg, NULL);
 		break;
 
 	case IDC_STOP2:

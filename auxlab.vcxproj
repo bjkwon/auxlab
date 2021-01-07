@@ -28,6 +28,7 @@
     <ClCompile Include="$(SrcPath)loadsave.cpp" />
     <ClCompile Include="$(SrcPath)showvar.cpp" />
     <ClCompile Include="$(SrcPath)TabCtrl.cpp" />
+    <ClCompile Include="$(SrcPath)utils.cpp" />
     <ClCompile Include="$(SrcPath)xcom.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -39,6 +40,7 @@
     <ClInclude Include="$(SrcPath)resource1.h" />
     <ClInclude Include="$(SrcPath)showvar.h" />
     <ClInclude Include="$(SrcPath)TabCtrl.h" />
+    <ClInclude Include="$(SrcPath)utils.h" />
     <ClInclude Include="$(SrcPath)xcom.h" />
   </ItemGroup>
   <ItemGroup>

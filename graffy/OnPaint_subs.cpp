@@ -229,7 +229,7 @@ static vector<POINT> data2points(const map<double, double> &data, const CRect & 
 }
 
 // if it is audio, or null-x, plot, forget about map. Use this.
-vector<POINT> CPlotDlg::plotpoints2(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
+vector<POINT> CPlotDlg::plotpoints(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
 {
 	vector<POINT> out;
 	int fs = p->GetFs();
@@ -293,7 +293,7 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 			block->tmark += 1000. * m * block->nSamples / block->GetFs();
 		if (pline->lineWidth > 0 || pline->symbol != 0)
 		{
-			drawvector = plotpoints2(block, pax, pline, (CRect)pps->rcPaint);
+			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
 		}
 		if (pline->symbol != 0)
 		{
