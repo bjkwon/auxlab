@@ -78,7 +78,7 @@ void _std(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 		}
 		catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
 	}
-	past->Sig = past->Sig.fp_getval(&CSignal::stdev, &arg);
+		past->Sig = past->Sig.fp_getval(&CSignal::stdev, &arg);
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
@@ -137,8 +137,7 @@ double body::mean(unsigned int id0, unsigned int len, void *p) const
 double body::stdev(unsigned int id0, unsigned int len, void *p) const
 {
 	double out;
-	CVar param = *(CVar*)p;
-	double flag = param.value();
+	double flag = *(double*)p;
 	if (len == 0) len = nSamples;
 	if (!len) throw "Empty array";
 	double sqsum(0.);

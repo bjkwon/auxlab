@@ -24,11 +24,7 @@
 
 #include <algorithm> // for lowercase
 
-#ifndef CISIGPROC
 #include "psycon.tab.h"
-#else
-#include "cipsycon.tab.h"
-#endif
 
 #include "sigproc_internal.h"
 
@@ -125,26 +121,22 @@ unsigned long GetTickCount0()
 #endif
 
 #ifndef GRAFFY
-void CAstSig::cleanup_nodes(CAstSig *beginhere)
+
+const AstNode* CAstSig::findDadNode(const AstNode* p, const AstNode* pME)
 {
-	//size_t nLayersBase(1);
-	//if (!beginhere) // if called from auxcon, beginhere is NULL, then beginhere should be set to point the last astsig 
-	//{
-	//	nLayersBase++;
-	//	for (beginhere = xscope.front(); beginhere->son; )
-	//		beginhere = beginhere->son;
-	//}
-	//for (CAstSig *pst = beginhere; xscope.size() > nLayersBase; )
-	//{
-	//	xscope.pop_back();
-	//	CAstSig *up = pst->dad;
-	//	delete pst;
-	//	up->son = NULL;
-	//	pst = up;
-	//}
+	if (p)
+	{
+		if (!p->child && !p->alt) return NULL;
+		if (p->child == pME || p->alt) return p;
+		if (p->child)
+			return findParentNode(p->child, pME);
+		else
+			return findParentNode(p->alt, pME);
+	}
+	return NULL;
 }
 
-AstNode *CAstSig::findParentNode(AstNode *p, AstNode *pME, bool altonly)
+const AstNode *CAstSig::findParentNode(const AstNode *p, const AstNode *pME, bool altonly)
 {
 	if (p)
 	{
@@ -191,13 +183,14 @@ CAstSig::CAstSig(const CAstSig *src)
 	pLast = src->pLast;
 	inTryCatch = src->inTryCatch;
 }
-// Used in eval_include.cpp
+// Lateral copy (level not increased); used in eval_include.cpp
 CAstSig::CAstSig(const char *str, const CAstSig *src) 
 {
 	init();
 	if (src) 
 	{
 		pEnv = src->pEnv;
+		level = src->level;
 		Vars = src->Vars;
 		u = src->u;
 		fpmsg = src->fpmsg;
@@ -315,7 +308,6 @@ bool CAstSig::isInterrupted(void)
 {
 	return GfInterrupted;
 }
-
 
 CVar * CAstSig::Eval(AstNode *pnode)
 {
@@ -478,12 +470,12 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
 	auto itUDF = pEnv->udf.find(pCalling->str);
-	son->u.pUDF = (*itUDF).second.uxtree;
-	son->u.pUDF_base = son->u.pUDF;
-	son->u.base = son->u.pUDF->str;
-	son->xtree = son->u.pUDF_base->child->next;
+	son->u.t_func = (*itUDF).second.uxtree;
+	son->u.t_func_base = son->u.t_func;
+	son->u.base = son->u.t_func->str;
+	son->xtree = son->u.t_func_base->child->next;
 	son->u.argout.clear(); //output argument string list
-	AstNode *pOutParam = son->u.pUDF->alt;
+	AstNode *pOutParam = son->u.t_func->alt;
 	ostringstream oss;
 	if (pOutParam) {
 		if (pOutParam->type == N_VECTOR)
@@ -686,23 +678,24 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	auto udftree = pEnv->udf.find(pCalling->str);
 	if (udftree != pEnv->udf.end())
 	{
-		son->u.pUDF = (*udftree).second.uxtree;
-		son->u.pUDF_base = son->u.pUDF;
-		son->u.base = son->u.pUDF->str;
+		son->u.t_func = (*udftree).second.uxtree;
+		son->u.t_func_base = son->u.t_func;
+		son->u.base = son->u.t_func->str;
 	}
 	else
 	{
 		auto udftree2 = pEnv->udf.find(u.base); // if this is to be a local udf, base should be ready through a previous iteration.
 		if (udftree2 == pEnv->udf.end())
 			throw CAstException(INTERNAL, *this, pCalling).proc("PrepareCallUDF():supposed to be a local udf, but AstNode with that name not prepared");
-		son->u.pUDF_base = (*udftree2).second.uxtree;
+		son->u.t_func_base = (*udftree2).second.uxtree;
 		son->u.base = u.base; // this way, base can maintain through iteration.
-		son->u.pUDF = (*pEnv->udf.find(u.base)).second.local[pCalling->str].uxtree;
+		son->u.t_func = (*pEnv->udf.find(u.base)).second.local[pCalling->str].uxtree;
 	}
-	son->xtree = son->u.pUDF_base->child->next;
+	son->xtree = son->u.t_func_base->child->next;
+	son->xtree = son->u.t_func->child->next;
 	//output argument string list
 	son->u.argout.clear();
-	AstNode *pOutParam = son->u.pUDF->alt;
+	AstNode *pOutParam = son->u.t_func->alt;
 	ostringstream oss;
 	if (pOutParam) {
 		if (pOutParam->type == N_VECTOR)
@@ -713,6 +706,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 				pOutParam = pOutParam->alt;
 			for (AstNode *pf = pOutParam; pf; pf = pf->next)
 				son->u.argout.push_back(pf->str);
+			son->u.nargout = (int)son->u.argout.size();
 		}
 		else
 		{
@@ -728,7 +722,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 		if (lhs->type == N_VECTOR) for (son->u.nargout = 0; p && p->line == lhs->line; p = p->next, son->u.nargout++) {}
 		if (son->u.nargout > (int)son->u.argout.size()) {
 			oss << "More output arguments than in the definition (" << son->u.argout.size() << ").";
-			throw CAstException(USAGE, *this, pCalling).proc(oss.str().c_str(), son->u.pUDF->str);
+			throw CAstException(USAGE, *this, pCalling).proc(oss.str().c_str(), son->u.t_func->str);
 		}
 	}
 	else
@@ -739,7 +733,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	if (pa && pa->type == N_ARGS)
 		pa = pa->child;
 	//If the line invoking the udf res = var.udf(arg1, arg2...), binding of the first arg, var, is done separately via pBase. The rest, arg1, arg2, ..., are done below with pf->next
-	pf = son->u.pUDF->child->child;
+	pf = son->u.t_func->child->child;
 	if (pBase) { son->SetVar(pf->str, pBase); pf = pf->next; }
 	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
 	for (son->u.nargin = 0; pa && pf; pa = pa->next, pf = pf->next, son->u.nargin++)
@@ -810,140 +804,94 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 
 size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 {	
-	try {
+	// t_func: the T_FUNCTION node pointer for the current UDF call, created after ReadUDF ("formal" context--i.e., how the udf file was read with variables used in the file)
+	// pOutParam: AstNode for formal output variable (or LHS), just used inside of this function.
+	// Output parameter dispatching (sending the output back to the calling worksapce) is done with pOutParam and lhs at the bottom.
 
-		// pUDF: the T_FUNCTION node pointer for the current UDF call, created after ReadUDF ("formal" context--i.e., how the udf file was read with variables used in the file)
-		// pOutParam: AstNode for formal output variable (or LHS), just used inside of this function.
-		// Output parameter dispatching (sending the output back to the calling worksapce) is done with pOutParam and lhs at the bottom.
-
-		// u.debug.status is set when debug key is pressed (F5, F10, F11), prior to this call.
-		// For an initial entry UDF, u.debug.status should be null
-		SetVar("nargin", &CVar((double)u.nargin));
-		SetVar("nargout", &CVar((double)u.nargout)); // probably not correct
-		// If the udf has multiple statements, p->type is N_BLOCK), then go deeper
-		// If it has a single statement, take it from there.
-		AstNode *pFirst = u.pUDF->child->next;
-		if (pFirst->type == N_BLOCK)	pFirst = pFirst->next;
-		//Get the range of lines for the current udf
-		u.currentLine = pFirst->line;
-		AstNode *p;
-		int line2;
-		for (p = pFirst; p; p = p->next)
+	// u.debug.status is set when debug key is pressed (F5, F10, F11), prior to this call.
+	// For an initial entry UDF, u.debug.status should be null
+	SetVar("nargin", &CVar((double)u.nargin));
+	SetVar("nargout", &CVar((double)u.nargout)); // probably not correct
+	// If the udf has multiple statements, p->type is N_BLOCK), then go deeper
+	// If it has a single statement, take it from there.
+	AstNode *pFirst = u.t_func->child->next;
+	if (pFirst->type == N_BLOCK)	pFirst = pFirst->next;
+	//Get the range of lines for the current udf
+	u.currentLine = pFirst->line;
+	AstNode *p;
+	int line2;
+	for (p = pFirst; p; p = p->next)
+	{
+		line2 = p->line;
+		if (!p->next) // if the node is T_FOR, T_WHILE or T_IF, p-next is NULL is it should continue through p->child
 		{
-			line2 = p->line;
-			if (!p->next) // if the node is T_FOR, T_WHILE or T_IF, p-next is NULL is it should continue through p->child
+			if (p->type == T_FOR || p->type == T_WHILE)
+				p = p->alt;
+			else if (p->type == T_IF)
 			{
-				if (p->type == T_FOR || p->type == T_WHILE)
+				if (p->alt)
 					p = p->alt;
-				else if (p->type == T_IF)
-				{
-					if (p->alt)
-						p = p->alt;
-					else
-						p = p->child;
-				}
-			}
-		}
-		/* When this is called by auxcon, the memory for xscope is different from when called by xcom, so as a temporary measure,
-		fpmsg.ShowVariables now includes xscope.push_back(son) and a duplicate xscope is managed on the xcom side.
-		-- temporary solution xcom 1.31 12/9/2017 */
-		if (strcmp(u.application, "xcom"))
-			fpmsg.ShowVariables(this);
-		//probably needed to enter a new, external udf (if not, may skip)
-		if (pEnv->udf[u.base].newrecruit)
-			fpmsg.UpdateDebuggerGUI(this, refresh, -1); // shouldn't this be entering instead of refresh? It seems that way at least to F11 an not-yet-opened udf 10/16/2018. But.. it crashes. It must not have been worked on thoroughly...
-															//if this is auxconscript front astsig, enter call fpmsg.UpdateDebuggerGUI()
-		if (Script == "auxconscript01927362()")
-			/*u.debug.GUI_running = true, */ fpmsg.UpdateDebuggerGUI(this, entering, -1); // the rest of if's will be skipped
-																							 //check if this is subject to debugging.
-		if (u.debug.status == stepping)
-			/*u.debug.GUI_running = true, */ fpmsg.UpdateDebuggerGUI(this, entering, -1);
-		else
-		{ // probably entrance udf... First, check if current udfname (i.e., Script) is found in DebugBreaks
-		  // if so, mark u.debug.status as progress and set next breakpoint
-		  // and call debug_GUI 
-			vector<int> breakpoint = pEnv->udf[u.base].DebugBreaks;
-			for (vector<int>::iterator it = breakpoint.begin(); it != breakpoint.end(); it++)
-			{
-				if (*it < u.currentLine) continue;
-				if (*it <= line2) {
-					u.debug.status = progress; u.nextBreakPoint = *it;
-					u.debug.GUI_running = true, fpmsg.UpdateDebuggerGUI(this, entering, -1);
-					break;
-				}
-			}
-		}
-
-		p = pFirst;
-		while (p)
-		{
-			pLast = p;
-			// T_IF, T_WHILE, T_FOR are checked here to break right at the beginning of the loop
-			u.currentLine = p->line;
-			if (p->type == T_ID || p->type == T_FOR || p->type == T_IF || p->type == T_WHILE || p->type == N_IDLIST || p->type == N_VECTOR)
-				hold_at_break_point(p);
-			Compute(p);
-			//		pgo = NULL; // without this, go lingers on the next line
-			//		Sig.Reset(1); // without this, fs=3 lingers on the next line
-			if (fExit) break;
-			p = p->next;
-		}
-		if (!strcmp(u.application, "auxcon") && Script == "auxconscript01927362()")
-			fpmsg.Back2BaseScope(0);
-		if (u.debug.status != null)
-		{
-			//		currentLine = -1; // to be used in CDebugDlg::ProcessCustomDraw() (re-drawing with default background color)... not necessary for u.debug.status==stepping (because currentLine has been updated stepping) but won't hurt
-			if (u.debug.GUI_running == true)
-			{
-				// send to purgatory and standby for another debugging key action, if dad is the base scope
-				if (dad == xscope.front() && u.debug.status == stepping)
-				{
-					fpmsg.UpdateDebuggerGUI(this, purgatory, -1);
-					fpmsg.HoldAtBreakPoint(this, pLast);
-				}
-				u.currentLine = -1;
-				u.debug.inPurgatory = false; // necessary to reset the color of debug window listview.
-				//when exiting from a inside udf (whether local or not) to a calling udf with F10 or F11, the calling udf now should have stepping.
-				fpmsg.UpdateDebuggerGUI(this, exiting, -1);
-			}
-			if (xscope.size() > 2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
-			{//why is this necessary? 10/19/2018----yes this is...2/16/2019
-				if (u.debug.status == stepping && fpmsg.IsCurrentUDFOnDebuggerDeck && !fpmsg.IsCurrentUDFOnDebuggerDeck(Script.c_str()))
-					fpmsg.UpdateDebuggerGUI(dad, entering, -1);
+				else
+					p = p->child;
 			}
 		}
 	}
-	catch (const CAstException &e) {
-		// Fix
-		// try catch seems to work for usual cases
-		// but if eval() leads to exception thrown, line col info are messed up.
-		// 3/5/2020 
-		if (inTryCatch)
-		{ // Make a new struct variable from child of e.pTarget (which is T_CATCH)
-			CVar temp;
-			const char *name = xtree->alt->child->str;
-			SetVar(name, &temp); // new variable; OK this way, temp is deep-copied
-			string emsg = e.outstr;
-			size_t id = emsg.find("[GOTO_BASE]");
-			if (id != string::npos) emsg = emsg.substr(id + string("[GOTO_BASE]").size());
-			CVar msg(emsg);
-			SetVar("full", &msg, &Vars[name]);
-			msg = e.basemsg;
-			SetVar("base", &msg, &Vars[name]);
-			emsg = e.msgonly;
-			if (id != string::npos) emsg = emsg.substr(id + string("[GOTO_BASE]").size());
-			msg = emsg;
-			SetVar("body", &msg, &Vars[name]);
-			msg = e.sourceloc;
-			SetVar("source", &msg, &Vars[name]);
-			msg.SetValue(e.line);
-			SetVar("errline", &msg, &Vars[name]);
-			msg.SetValue(e.col);
-			SetVar("errcol", &msg, &Vars[name]);
-			Compute(xtree->alt->next);
+	//probably needed to enter a new, external udf (if not, may skip)
+	if (pEnv->udf[u.base].newrecruit)
+		fpmsg.UpdateDebuggerGUI(this, refresh, -1); // shouldn't this be entering instead of refresh? It seems that way at least to F11 an not-yet-opened udf 10/16/2018. But.. it crashes. It must not have been worked on thoroughly...
+														//if this is auxconscript front astsig, enter call fpmsg.UpdateDebuggerGUI()
+	if (u.debug.status == stepping)
+		/*u.debug.GUI_running = true, */ fpmsg.UpdateDebuggerGUI(this, entering, -1);
+	else
+	{ // probably entrance udf... First, check if current udfname (i.e., Script) is found in DebugBreaks
+		// if so, mark u.debug.status as progress and set next breakpoint
+		// and call debug_GUI 
+		vector<int> breakpoint = pEnv->udf[u.base].DebugBreaks;
+		for (vector<int>::iterator it = breakpoint.begin(); it != breakpoint.end(); it++)
+		{
+			if (*it < u.currentLine) continue;
+			if (*it <= line2) {
+				u.debug.status = progress; u.nextBreakPoint = *it;
+				u.debug.GUI_running = true, fpmsg.UpdateDebuggerGUI(this, entering, -1);
+				break;
+			}
 		}
-		else
-			throw e;
+	}
+	p = pFirst;
+	while (p)
+	{
+		pLast = p;
+		// T_IF, T_WHILE, T_FOR are checked here to break right at the beginning of the loop
+		u.currentLine = p->line;
+		if (p->type == T_ID || p->type == T_FOR || p->type == T_IF || p->type == T_WHILE || p->type == N_IDLIST || p->type == N_VECTOR)
+			hold_at_break_point(p);
+		Compute(p);
+		//		pgo = NULL; // without this, go lingers on the next line
+		//		Sig.Reset(1); // without this, fs=3 lingers on the next line
+		if (fExit) break;
+		p = p->next;
+	}
+	if (u.debug.status != null)
+	{
+		//		currentLine = -1; // to be used in CDebugDlg::ProcessCustomDraw() (re-drawing with default background color)... not necessary for u.debug.status==stepping (because currentLine has been updated stepping) but won't hurt
+		if (u.debug.GUI_running == true)
+		{
+			// send to purgatory and standby for another debugging key action, if dad is the base scope
+			if (dad == xscope.front() && u.debug.status == stepping)
+			{
+				fpmsg.UpdateDebuggerGUI(this, purgatory, -1);
+				fpmsg.HoldAtBreakPoint(this, pLast);
+			}
+			u.currentLine = -1;
+			u.debug.inPurgatory = false; // necessary to reset the color of debug window listview.
+			//when exiting from a inside udf (whether local or not) to a calling udf with F10 or F11, the calling udf now should have stepping.
+			fpmsg.UpdateDebuggerGUI(this, exiting, -1);
+		}
+		if (xscope.size() > 2) // pvevast hasn't popped yet... This means son is secondary udf (either a local udf or other udf called by the primary udf)
+		{//why is this necessary? 10/19/2018----yes this is...2/16/2019
+			if (u.debug.status == stepping && fpmsg.IsCurrentUDFOnDebuggerDeck && !fpmsg.IsCurrentUDFOnDebuggerDeck(Script.c_str()))
+				fpmsg.UpdateDebuggerGUI(dad, entering, -1);
+		}
 	}
 	return u.nargout;
 }
@@ -983,10 +931,10 @@ bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
 	//This depends on the node structure made in psycon.y; 
 	//If you change it, this should be adjusted as well.
 	//look for T_IF, T_FOR and T_WHILE
-	if (!u.pUDF) return false;
+	if (!u.t_func) return false;
 	if (!p)
 	{
-		if (!u.pLastRead)		p = u.pUDF->child;
+		if (!u.pLastRead)		p = u.t_func->child;
 		else p = u.pLastRead;
 	}
 	while (p)
@@ -1107,7 +1055,7 @@ bool CAstSig::isContiguous(body &ind, unsigned int &begin, unsigned int &end)
 bool CAstSig::checkcond(const AstNode *p)
 {
 	ConditionalOperation(p, p->child);
-	if (!Sig.IsScalar())	throw CAstException(USAGE, *this, p).proc("Logical operation applied to a non-scalar.", p->str);
+	if (!Sig.IsScalar())	throw CAstException(USAGE, *this, p).proc("Logical operation applied to a non-scalar.");
 	if (Sig.IsLogical()) 
 		return Sig.logbuf[0];
 	else				
@@ -2175,217 +2123,171 @@ CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode)
 	return &Sig;
 }
 
-CVar *CAstSig::cell_indexing(CVar *pBase, AstNode *pn, CNodeProbe &np)
+AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool &RHSpresent)
 {
-	size_t cellind = (size_t)(int)Compute(pn->alt->child)->value(); // check the validity of ind...probably it will be longer than this.
-	if (pBase->type() & TYPEBIT_CELL)
-	{
-		if (cellind > pBase->cell.size())
-			throw CAstException(RANGE, *this, pn->alt).proc("", pn->str, -1, (int)cellind);
-		Sig = *(np.psigBase = &pBase->cell.at(cellind - 1));
-		if (pn->child && np.root->child && searchtree(np.root->child, T_REPLICA))
-			replica_prep(&Sig);
-	}
-	else
-	{ // in this case x{2} means second chain
-		if (cellind > pBase->CountChains())
-			throw CAstException(RANGE, *this, pn->alt).proc("", pn->str, -1, (int)cellind);
-		CTimeSeries *pout = pBase;
-		for (size_t k = 0; k < cellind; k++, pout = pout->chain) {}
-		Sig = *pout;
-		np.psigBase = &Sig;
-	}
-	return np.psigBase;
-}
-
-AstNode *CAstSig::read_node(CNodeProbe &np, AstNode *pn, AstNode *ppar, bool &RHSpresent)
-{
-	if (pn->type == T_OP_CONCAT || pn->type == '+' || pn->type == '-' || pn->type == T_TRANSPOSE || pn->type == T_MATRIXMULT
-		|| pn->type == '*' || pn->type == '/' || pn->type == T_OP_SHIFT || pn->type == T_NEGATIVE || (pn==np.root && IsCondition(pn)))
+	if (ptree->type == T_OP_CONCAT || ptree->type == '+' || ptree->type == '-' || ptree->type == T_TRANSPOSE || ptree->type == T_MATRIXMULT
+		|| ptree->type == '*' || ptree->type == '/' || ptree->type == T_OP_SHIFT || ptree->type == T_NEGATIVE || (ptree==np.root && IsConditional(ptree)))
 	{ //No further actions
-		return get_next_parsible_node(pn);
+		return get_next_parsible_node(ptree);
 	}
 	string emsg;
-	AstNode *p = pn;
+	AstNode *p = ptree;
 	int ind(0);
 	CVar *pres;
 	ostringstream out;
-	AstNode *pUDF;
-	if (pn->type == T_ID || pn->type == N_STRUCT)
+	AstNode *t_func;
+	if (ptree->type == T_ID || ptree->type == N_STRUCT)
 	{
-		if (pn->str[0] == '?' && this==xscope.front())
-			throw CAstException(USAGE, *this, pn).proc("The caracter '?' cannot be used as a function or variable name in the base workspace.", pn->str);
+		if (ptree->str[0] == '?' && this==xscope.front())
+			throw CAstException(USAGE, *this, ptree).proc("The caracter '?' cannot be used as a function or variable name in the base workspace.", ptree->str);
 	}
-	if ((pUDF=ReadUDF(emsg, pn->str)))
+	if (!emsg.empty())	throw CAstException(USAGE, *this, ptree).proc(emsg.c_str());
+	if (builtin_func_call(np, ptree))
 	{
-		if (pn->child || RHSpresent)	throw_LHS_lvalue(pn, true);
-		// if static function, np.psigBase must be NULL
-		if (pUDF->suppress==3 && np.psigBase)
-			throw CAstException(USAGE, *this, pUDF).proc("Function declared as static cannot be called as a member function.", pn->str);
-		if (PrepareAndCallUDF(pn, np.psigBase)) // this probably won't return false
-		{// if a function call follows N_ARGS, skip it for next_parsible_node
-			np.psigBase = &Sig;
-			if (pn->alt && pn->alt->type == N_ARGS)
-				pn = pn->alt; // to skip N_ARGS
+		if (ptree->child || RHSpresent)	throw_LHS_lvalue(ptree, false);
+		np.psigBase = &Sig;
+		// if a function call follows N_ARGS, skip it for next_parsible_node
+		if (ptree->alt)
+		{
+			if (ptree->alt->type == N_ARGS || ptree->alt->type == N_HOOK)
+				ptree = ptree->alt; // to skip N_ARGS
 		}
+	}
+	else if (ptree->type == N_ARGS)
+		np.tree_NARGS(ptree, ppar);
+	else if (ptree->type == N_TIME_EXTRACT)
+		np.TimeExtract(ptree, ptree->child);
+	else if (ptree->type == T_REPLICA || ptree->type == T_ENDPOINT)
+	{
+		if (ptree->alt && ptree->alt->type == N_CELL)
+			np.cell_indexing(np.psigBase, ptree);
+		else
+			Sig = *np.psigBase;
+	}
+	else if (ptree->type == N_HOOK)
+	{
+		pres = GetGlobalVariable(ptree, ptree->str);
+		if (!pres)
+		{
+			if (np.root->child && (!ptree->alt || ptree->alt->type == N_STRUCT))
+				return NULL;
+			throw CAstException(USAGE, *this, ptree).proc("Gloval variable not available.", ptree->str);
+		}
+		np.psigBase = pres;
 	}
 	else
 	{
-		if (!emsg.empty())	throw CAstException(USAGE, *this, pn).proc(emsg.c_str());
-		if (builtin_func_call(np, pn))
+		// If RHS exists (i.e., child is non-null), no need to get the LHS variable completely,
+		// i.e., a.prop_layer_1.prop_layer_2 = (something else)
+		// you don't need to getvariable at the level of prop_layer_2
+		// (you still need to go down to the level prop_layer_1, though)
+		//when ptree is conditional, there's no RHS, i.e., ptree->child doesn't mean RHS; just skip
+		if (!IsConditional(ptree))
+			RHSpresent |= ptree->child != nullptr;
+		// With RHS, if ptree->alt is null, no need to GetVariable; just return (no update of Sig or pgo)
+		if (RHSpresent && !searchtree(np.root->child, T_REPLICA))
 		{
-			if (pn->child || RHSpresent)	throw_LHS_lvalue(pn, false);
-			np.psigBase = &Sig;
-			// if a function call follows N_ARGS, skip it for next_parsible_node
-			if (pn->alt)
-			{
-				if (pn->alt->type == N_ARGS || pn->alt->type == N_HOOK)
-					pn = pn->alt; // to skip N_ARGS
-			}
+			if (ptree->type == N_VECTOR && ptree->alt) throw_LHS_lvalue(ptree, false);
+			if (ptree->alt == nullptr) return nullptr;
 		}
-		else if (pn->type == N_ARGS)
+		if (IsConditional(ptree))
 		{
-			if (np.psigBase->IsGO() && np.psigBase->GetFs() != 3)
-			{
-				if (Compute(pn->child)->type()!= 1)
-					throw CAstException(USAGE, *this, ppar).proc("Invalid index of a graphic object arrary.");
-			}
-			else
-			{
-				if (np.psigBase->type() & TYPEBIT_CELL && ppar->type==T_ID)
-					throw CAstException(USAGE, *this, ppar).proc("A cell array cannot be accessed with ( ).", ppar->str);
-				if (np.psigBase->type() & TYPEBIT_AUDIO && pn->child->next)
-				{ // 2-D style notation for audio
-					if (pn->child->type == T_FULLRANGE)
-						throw CAstException(USAGE, *this, ppar).proc("The first arg in () cannot be : for audio.", ppar->str);
-					np.psigBase = getchannel(np.psigBase, p); // special case; x(1,:) or x(2,:)
-				}
-				else
-					np.ExtractByIndex(ppar, pn); //Sig updated. No change in psig
-				//if child exists --> RHS --> Sig just computed is only used as replica. Otherwise, Sig will be ignored (overridden)
-				if (pn->child && np.root->child && searchtree(np.root->child, T_REPLICA))
-					replica_prep(&Sig);
-			}
-			if (np.psigBase->IsGO())
-				pgo = np.psigBase;
-		}
-		else if (pn->type == N_TIME_EXTRACT)
-			np.TimeExtract(pn, pn->child);
-		else if (pn->type == T_REPLICA || pn->type == T_ENDPOINT)
-		{
-			if (pn->alt && pn->alt->type == N_CELL)
-				cell_indexing(np.psigBase, pn, np);
-			else
-				Sig = *np.psigBase;
+			if (np.psigBase->GetType() == CSIG_CELL)
+				throw CAstException(USAGE, *this, ppar).proc("A cell array cannot be accessed with ( ).", ppar->str);
+			CVar isig, isig2;
+			np.eval_indexing(ptree, isig);
+			pres = np.extract(ptree, isig);
+			if (!ptree->next) // 1D indexing, unGroup it
+				Sig.nGroups = 1;
 		}
 		else
 		{
-			if (pn->type == N_HOOK)
+			//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
+			if (!np.varname.empty()) np.varname += '.';
+			np.varname += ptree->str;
+			if (!(pres = GetVariable(ptree->str, np.psigBase)))
 			{
-				pres = GetGlobalVariable(pn, pn->str);
-				if (!pres)
+				if ((t_func = ReadUDF(emsg, ptree->str)))
 				{
-					if (np.root->child && (!pn->alt || pn->alt->type == N_STRUCT)) 
-						return NULL;
-					throw CAstException(USAGE, *this, pn).proc("Gloval variable not available.", pn->str);
-				}
-				np.psigBase = pres;
-			}
-			else
-			{
-				// If RHS exists (i.e., child is non-null), no need to get the LHS variable completely,
-				// i.e., a.prop_layer_1.prop_layer_2 = (something else)
-				// you don't need to getvariable at the level of prop_layer_2
-				// (you still need to go down to the level prop_layer_1, though)
-				//when pn is conditional, there's no RHS, i.e., pn->child doesn't mean RHS; just skip
-				if (!IsCondition(pn))
-					RHSpresent |= pn->child != nullptr;
-				// With RHS, if pn->alt is null, no need to GetVariable; just return (no update of Sig or pgo)
-				if (RHSpresent && !searchtree(np.root->child, T_REPLICA))
-				{
-					if (pn->type == N_VECTOR && pn->alt) throw_LHS_lvalue(pn, false);
-					if (pn->alt == nullptr) return nullptr;
-				}
-				if (IsCondition(pn))
-				{
-					if (np.psigBase->GetType() == CSIG_CELL)
-						throw CAstException(USAGE, *this, ppar).proc("A cell array cannot be accessed with ( ).", ppar->str);
-					CVar isig, isig2;
-					np.eval_indexing(pn, isig);
-					pres = np.extract(pn, isig);
-					if (!pn->next) // 1D indexing, unGroup it
-						Sig.nGroups = 1;
+					if (ptree->child || RHSpresent)	throw_LHS_lvalue(ptree, true);
+					// if static function, np.psigBase must be NULL
+					if (t_func->suppress == 3 && np.psigBase)
+						throw CAstException(USAGE, *this, t_func).proc("Function declared as static cannot be called as a member function.", ptree->str);
+						if (PrepareAndCallUDF(ptree, np.psigBase)) // this probably won't return false
+					{// if a function call follows N_ARGS, skip it for next_parsible_node
+						np.psigBase = &Sig;
+						if (ptree->alt && (ptree->alt->type == N_ARGS || IsConditional(ptree->alt)))
+							ptree = ptree->alt; // to skip N_ARGS
+					}
+					return get_next_parsible_node(ptree);
 				}
 				else
 				{
-					//Need to scan the whole statement whether this is a pgo statement requiring an update of GO
-					if (!np.varname.empty()) np.varname += '.';
-					np.varname += pn->str;
-					if (!(pres = GetVariable(pn->str, np.psigBase)))
+					if (emsg.empty())
 					{
 						string varname;
 						string ex_msg = "Variable or function not available: ";
-						if (pn->type == N_STRUCT) varname = '.';
-						varname += pn->str;
-						if (strlen(pn->str)<256)
-							throw CAstException(USAGE, *this, pn).proc(ex_msg.c_str(), varname.c_str());
+						if (ptree->type == N_STRUCT) varname = '.';
+						varname += ptree->str;
+						if (strlen(ptree->str) < 256)
+							throw CAstException(USAGE, *this, ptree).proc(ex_msg.c_str(), varname.c_str());
 						else
-							throw CAstException(USAGE, *this, pn).proc(ex_msg.c_str(), varname.c_str(),string("A UDF name cannot be longer than 255 characters."));
+							throw CAstException(USAGE, *this, ptree).proc(ex_msg.c_str(), varname.c_str(), string("A UDF name cannot be longer than 255 characters."));
 					}
-					if (pres->IsGO())
-//					{ // the variable pn->str is a GO
-						Sig = *(np.psigBase = pgo = pres);
-					if (pgo && RHSpresent && pn->alt)
-					{
-						if (pn->alt->type == N_STRUCT) setgo.type = pn->alt->str;
-						else if (pn->alt->type == N_ARGS) setgo.type = pn->str;
-					}
-				}
-				/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
-				// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
-//				else if (pgo && !np.root->child && !setgo.frozen)
-//					pgo = NULL;
-				if (searchtree(np.root->child, T_REPLICA))
-				{
-					replica_prep(pres);
-					// Updating replica with pres, the variable reading at current node, is necessary whenever replica is present
-					// But, if current node is final and type is one of these, don't update np.psigBase
-					if (!pn->alt && (pn->type == N_STRUCT || pn->type == N_ARGS || pn->type == N_TIME_EXTRACT))
-						return get_next_parsible_node(pn);
-				}
-				if (IsCondition(pn)) return get_next_parsible_node(pn);
-
-				if (pn->alt && pn->alt->type == N_CELL)
-				//either cellvar{2} or cellvar{2}(3). cellvar or cellvar(2) doesn't come here.
-				// i.e., pn->alt->child should be non-NULL
-				{
-					cell_indexing(pres, pn, np);
-				}
-				else
-				{
-					p = pn->alt;
-					if (p && p->type == N_STRUCT && !RHSpresent)
-					{
-						if (!pres->cell.empty() || (!pres->IsStruct() && !pres->IsEmpty()))
-						{
-							if (p->str[0] != '#' && !IsValidBuiltin(p->str))
-								if (!ReadUDF(emsg, p->str))
-									if (!emsg.empty())
-										throw CAstException(USAGE, *this, pn).proc(emsg.c_str()); // check the message
-									else
-									{
-										out << "Unknown variable, function, or keyword identifier : " << p->str;
-										if (pn->str) out << " for " << pn->str;
-										throw CAstException(USAGE, *this, pn).proc(out.str().c_str());
-									}
-						}
-					}
-					Sig = *(np.psigBase = pres);
+					else
+						throw CAstException(USAGE, *this, ptree).proc(emsg.c_str());
 				}
 			}
+			if (pres->IsGO()) // the variable ptree->str is a GO
+				Sig = *(np.psigBase = pgo = pres);
+			if (pgo && RHSpresent && ptree->alt)
+			{
+				if (ptree->alt->type == N_STRUCT) setgo.type = ptree->alt->str;
+				else if (ptree->alt->type == N_ARGS) setgo.type = ptree->str;
+			}
+		}
+		/* I had thought this would be necessary, but it works without this... what's going on? 11/6/2018*/
+		// If pgo is not NULL but pres is not a GO, that means a struct member of a GO, such as fig.pos, then check RHS (child of root. if it is NULL, reset pgo, so that the non-GO result is displayed)
+//				else if (pgo && !np.root->child && !setgo.frozen)
+//					pgo = NULL;
+		if (searchtree(np.root->child, T_REPLICA))
+		{
+			replica_prep(pres);
+			// Updating replica with pres, the variable reading at current node, is necessary whenever replica is present
+			// But, if current node is final and type is one of these, don't update np.psigBase
+			if (!ptree->alt && (ptree->type == N_STRUCT || ptree->type == N_ARGS || ptree->type == N_TIME_EXTRACT))
+				return get_next_parsible_node(ptree);
+		}
+		if (IsConditional(ptree)) return get_next_parsible_node(ptree);
+		if (ptree->alt && ptree->alt->type == N_CELL)
+		//either cellvar{2} or cellvar{2}(3). cellvar or cellvar(2) doesn't come here.
+		// i.e., ptree->alt->child should be non-NULL
+		{
+			np.cell_indexing(pres, ptree);
+		}
+		else
+		{
+			p = ptree->alt;
+			if (p && p->type == N_STRUCT && !RHSpresent)
+			{
+				if (!pres->cell.empty() || (!pres->IsStruct() && !pres->IsEmpty()))
+				{
+					if (p->str[0] != '#' && !IsValidBuiltin(p->str))
+						if (!ReadUDF(emsg, p->str))
+							if (!emsg.empty())
+								throw CAstException(USAGE, *this, ptree).proc(emsg.c_str()); // check the message
+							else
+							{
+								out << "Unknown variable, function, or keyword identifier : " << p->str;
+								if (ptree->str) out << " for " << ptree->str;
+								throw CAstException(USAGE, *this, ptree).proc(out.str().c_str());
+							}
+				}
+			}
+			Sig = *(np.psigBase = pres);
 		}
 	}
-	return get_next_parsible_node(pn);
+	return get_next_parsible_node(ptree);
 }
 
 
@@ -2536,7 +2438,6 @@ CVar * CAstSig::Dot(AstNode *p)
 	else	return &Sig;
 }
 
-
 CVar * CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 {
 //	why pgo = NULL; ? 
@@ -2638,8 +2539,8 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_ID:
 		return TID((AstNode*)pnode, p);
 	case T_TRY:
-		inTryCatch++; //
-		Compute(p);
+		inTryCatch++; 
+		Try_here(pnode, p);
 		break;
 	case T_CATCH:
 		inTryCatch--; //???? Maybe no longer needed?? 3/7/2020
@@ -2748,7 +2649,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_NEGATIVE:
 		-*Compute(p);
 		blockString(pnode,  Sig);
-		break;
+		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case T_OP_SHIFT:
 		tsig = Compute(p->next);
 		blockCell(pnode,  Sig);
@@ -2792,7 +2693,6 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_IF:
 		if (!p) break;
 		pLast = p;
-		hold_at_break_point(p);
 		if (checkcond(p))
 			Compute(p->next);
 		else if (pnode->alt) 
@@ -3267,7 +3167,7 @@ bool CAstSig::IsStatement(const AstNode *pnode)
 	}
 }
 
-bool CAstSig::IsCondition(const AstNode *pnode)
+bool CAstSig::IsConditional(const AstNode *pnode)
 {
 	if (!pnode) return false;
 	switch (pnode->type) {

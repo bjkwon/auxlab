@@ -9,7 +9,37 @@ void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 	past->blockString(pnode, past->Sig, "max() or min()");
 	string fname = pnode->str;
 	CVar sig = past->Sig;
-	int nOutVars = countVectorItems(past->xtree);
+	//we need tree pointer to the one calling the current statement
+	auto ptree_thisline = CAstSig::goto_line(past->xtree, pnode->line);
+	// To do...check the logic flow----12/29/2020
+	// ptree_thisline should be one of the following:
+	// 1) no child 
+	// 2) child 
+	// 3) N_BLOCK
+	// 4) T_IF, T_FOR, T_WHILE, or T_SWITCH
+	int nOutVars;
+	if (pnode->type == N_STRUCT)
+	{
+		auto ss = CAstSig::findDadNode(ptree_thisline, pnode);
+		auto ssp = CAstSig::findDadNode(ptree_thisline, ss);
+		if (ssp->type == N_ARGS)
+			nOutVars = 0;
+		else if (ssp->type == N_VECTOR)
+			nOutVars = countVectorItems(ssp);
+		else
+			throw "unchecked logic flow";
+	}
+	else
+	{
+		auto ss = CAstSig::findDadNode(ptree_thisline, pnode);
+		if (ss->type == N_ARGS)
+			nOutVars = 0;
+		else if (ss->type == N_VECTOR)
+			nOutVars = countVectorItems(ss);
+		else
+			throw "unchecked logic flow";
+	}
+	
 	CVar* popt = NULL;
 	if (nOutVars > 1)
 		popt = new CVar(sig.GetFs());

@@ -114,7 +114,7 @@ void closeXcom()
 BOOL CALLBACK AuxPathDlg(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
 	string str;
-	char strbuf[4096];
+	char pathPrev[4096], errstr[256];
 	int res;
 	switch (umsg)
 	{
@@ -127,10 +127,17 @@ BOOL CALLBACK AuxPathDlg(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 		switch (LOWORD(wParam))
 		{
 		case IDOK:
-			res = GetDlgItemText(hDlg, IDC_PATH, strbuf, sizeof(strbuf));
+			res = GetDlgItemText(hDlg, IDC_PATH, pathPrev, sizeof(pathPrev));
 			str = xscope.front()->pEnv->path_delimited_semicolon();
-			if (str != strbuf)
-				xscope.front()->pEnv->SetPath(strbuf);
+			if (str != pathPrev)
+			{
+				xscope.front()->pEnv->SetPath(pathPrev);
+				if (!printfINI(errstr, mainSpace.iniFile, "PATH", "%s", pathPrev)) {
+					MessageBox(hDlg, "Path updated, but unable to update the ini file.", errstr, MB_OK);
+					return 0;
+				}
+			}
+			break;
 		case IDCANCEL:
 			EndDialog(hDlg, 0);
 			break;

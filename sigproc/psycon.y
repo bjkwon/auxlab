@@ -72,7 +72,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 %token <str> T_STRING "string"	T_ID "identifier"
 %token T_ENDPOINT T_FULLRANGE
 
-%type <pnode> block block_func line line_func stmt funcdef elseif_list condition conditional case_list id_list arg arg_list vector matrix range exp_range assign exp expcondition initcell compop assign2this tid csig varblock func_static_or_not
+%type <pnode> block block_func line line_func stmt funcdef elseif_list condition conditional case_list id_list arg arg_list vector matrix range exp_range assign exp expcondition initcell compop assign2this tid csig varblock func_decl
 
 %right '='
 %right '\''
@@ -144,13 +144,12 @@ Why? t1~t2 is reduced to arg_list
 input: /* empty */
 	{ *pproot = NULL;}
 	| block_func	/* can be NULL */
-	{ *pproot = $1;} //yyn=3
+	{ *pproot = $1;}
 ;
 
 block_func: line_func	/* block_func can be NULL */
-	{ $$ = $1; }
 	| block_func line_func
-	{ //yyn=5
+	{
 		if ($2) {
 			if ($1 == NULL)
 				$$ = $2;
@@ -177,7 +176,7 @@ block:	line	/* complicated to prevent NULL (make empty block instead) or single 
 		else
 			$$ = newAstNode(N_BLOCK, @$);
 	}
-	| block line //yyn=7
+	| block line
 	{
 		if ($2) {
 			if ($1->type == N_BLOCK) {
@@ -200,15 +199,15 @@ block:	line	/* complicated to prevent NULL (make empty block instead) or single 
 ;
 
 line:	T_NEWLINE
-	{ $$ = NULL;} //yyn=8
+	{ $$ = NULL;}
 	| error T_NEWLINE
-	{ //yyn=9
+	{
 		$$ = NULL;
 		yyerrok;
 	}
 	| stmt eol
 	| stmt eol2
-	{ //yyn=11
+	{
 		$$ = $1;
 		$$->suppress=1;
 	}
@@ -224,61 +223,115 @@ eol: ',' | T_NEWLINE | T_EOF
 eol2: ';'
 ;
 
-func_end: /* empty */ | T_EOF
+func_end: /* empty */
+    | T_EOF
 ;
 
-conditional: condition	| condition eol	| exp	| exp eol
+func_decl: T_FUNCTION
+	{
+		$$ = newAstNode(T_FUNCTION, @$);
+		$$->suppress = 2;
+	}
+	| T_STATIC T_FUNCTION
+	{
+		$$ = newAstNode(T_FUNCTION, @$);
+		$$->suppress = 3;
+	}
 ;
 
-elseif_list: /*empty*/
+funcdef: func_decl T_ID block func_end
 	{
-		$$ = newAstNode(T_IF, @$);
-		$$->col = 3923;
+		$$ = $1;
+		$$->str = $2;
+		$$->child = newAstNode(N_IDLIST, @$);
+		$$->child->next = $3;
 	}
-	| T_ELSEIF conditional block elseif_list
+	| func_decl varblock '=' T_ID block func_end
 	{
-		$$ = newAstNode(T_IF, @$);
-		$$->child = $2;
-		AstNode *p = $3;
-		if (p->type!=N_BLOCK)
+		$$ = $1;
+		$$->str = $4;
+		$$->child = newAstNode(N_IDLIST, @$);
+		$$->child->next = $5;
+		if ($2->type!=N_VECTOR)
 		{
-			p = newAstNode(N_BLOCK, @3);
-			p->next = $3;
-		}
-		$2->next = p;
-		$$->alt = $4;
-		$$->col = 4000;
-	}
-	| elseif_list T_ELSE block
-	{ //yyn=26;
-		AstNode *p = $3;
-		if (p->type!=N_BLOCK)
-		{
-			p = newAstNode(N_BLOCK, @3);
-			p->next = $3;
-		}
-		if ($1->child==NULL) // if there's no elseif; i.e., elseif_list is empty
-		{
-			yydeleteAstNode($1, 1);
-			$$ = p;
+			$$->alt = newAstNode(N_VECTOR, @2);
+			AstNode *p = newAstNode(N_VECTOR, @2);
+			p->alt = p->tail = $2;
+			$$->alt->str = (char*)p;
 		}
 		else
 		{
-			$$ = $1;
-			$1->alt = p;
+			$$->alt = $2;
+		}
+	}
+	| func_decl T_ID '(' id_list ')' block func_end
+	{
+		$$ = $1;
+		$$->str = $2;
+		$$->child = $4;
+		$4->next = $6;
+	}
+	| func_decl varblock '=' T_ID '(' id_list ')' block func_end
+	{
+		$$ = $1;
+		$$->str = $4;
+		$$->child = $6;
+		$6->next = $8;
+		if ($2->type!=N_VECTOR)
+		{
+			$$->alt = newAstNode(N_VECTOR, @2);
+			AstNode *p = newAstNode(N_VECTOR, @2);
+			p->alt = p->tail = $2;
+			$$->alt->str = (char*)p;
+		}
+		else
+		{
+			$$->alt = $2;
 		}
 	}
 ;
-//yyn=27
-expcondition: csig
-	| condition
+
+case_list: /* empty */
+	{ $$ = newAstNode(T_SWITCH, @$);}
+	| T_NEWLINE
+	{ $$ = newAstNode(T_SWITCH, @$);}
+	| case_list T_CASE exp T_NEWLINE block
+	{
+		if ($1->alt)
+			$1->tail->alt = $3;
+		else
+			$1->alt = $3;
+		AstNode *p = $5;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @5);
+			p->next = $5;
+		}
+		$1->tail = $3->next = p;
+		$$ = $1;
+	}
+	| case_list T_CASE '{' arg_list '}' T_NEWLINE block
+	{
+		if ($1->alt)
+			$1->tail->alt = $4;
+		else
+			$1->alt = $4;
+		AstNode *p = $7;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @7);
+			p->next = $7;
+		}
+		$1->tail = $4->next = p;
+		$$ = $1;
+	}
 ;
-//yyn=29
+
 stmt: expcondition
 	| assign
 	| initcell
 	| T_IF conditional block elseif_list T_END
-	{ // yyn=32; This works, too, for "if cond, act; end" without else, because elseif_list can be empty
+	{ // This works, too, for "if cond, act; end" without else, because elseif_list can be empty
 		$$ = newAstNode(T_IF, @$);
 		AstNode *p = $3;
 		if (p->type!=N_BLOCK)
@@ -382,6 +435,61 @@ stmt: expcondition
 ;
 
 
+conditional: condition	| condition eol	| exp	| exp eol
+;
+
+elseif_list: /*empty*/
+	{
+		$$ = newAstNode(T_IF, @$);
+	}
+	| T_ELSEIF conditional block elseif_list
+	{
+		$$ = newAstNode(T_IF, @$);
+		$$->child = $2;
+		AstNode *p = $3;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @3);
+			p->next = $3;
+		}
+		$2->next = p;
+		$$->alt = $4;
+	}
+	| elseif_list T_ELSE block
+	{
+		AstNode *p = $3;
+		if (p->type!=N_BLOCK)
+		{
+			p = newAstNode(N_BLOCK, @3);
+			p->next = $3;
+		}
+		if ($1->child==NULL) // if there's no elseif; i.e., elseif_list is empty
+		{
+			yydeleteAstNode($1, 1);
+			$$ = p;
+		}
+		else
+		{
+			$$ = $1;
+			$1->alt = p;
+		}
+	}
+;
+
+expcondition: csig
+;
+
+csig: exp_range
+;
+
+initcell: '{' arg_list '}'
+	{
+		$$ = $2;
+		$$->type = N_INITCELL;
+		$$->line = @$.first_line;
+		$$->col = @$.first_column;
+	}
+;
 
 condition: exp '<' exp
 	{ $$ = makeBinaryOpNode('<', $1, $3, @$);}
@@ -437,7 +545,7 @@ arg: ':'
 ;
 
 arg_list: arg
-	{ //yyn=58
+	{
 		$$ = newAstNode(N_ARGS, @$);
 		$$->tail = $$->child = $1;
 	}
@@ -449,7 +557,6 @@ arg_list: arg
 		else
 			$$->tail = $$->next = $3;
 	}
-	| condition
 ;
 
 matrix: /* empty */
@@ -464,7 +571,7 @@ matrix: /* empty */
 		$$->str = (char*)p;
 	}
 	| vector
-	{ //yyn=62
+	{
 		$$ = newAstNode(N_MATRIX, @$);
 		AstNode * p = newAstNode(N_VECTOR, @$);
 		p->alt = p->tail = $1;
@@ -480,7 +587,7 @@ matrix: /* empty */
 ;
 
 vector: exp_range
-	{ //yyn=65
+	{
 	// N_VECTOR consists of "outer" N_VECTOR--alt for dot notation
 	// and "inner" N_VECTOR--alt for all successive items thru next
 	// Because N_VECTOR doesn't use str, the inner N_VECTOR is created there and cast for further uses.
@@ -510,13 +617,14 @@ range: exp ':' exp
 		$$ = makeFunctionCall(":", $1, $3, @$);
 	}
 	| exp ':' exp ':' exp
-	{//69
+	{
 		$$ = makeFunctionCall(":", $1, $5, @$);
 		$5->next = $3;
 	}
 ;
 
-exp_range: exp	| range ;
+exp_range: exp	| range 	| condition
+;
 
 compop: "+="
 	{
@@ -566,12 +674,7 @@ compop: "+="
 ;
 
 assign2this: '=' exp_range
-	{ //84
-		$$ = $2;
-	}
-	| '=' condition
-	{ // LHS OP RHS: if RHS is condition, OP should be either '=' or "++="
-	  // For other OP's (such as += @= #= etc), condition on RHS is not allowed.
+	{
 		$$ = $2;
 	}
 	| "++=" condition
@@ -613,12 +716,12 @@ assign2this: '=' exp_range
 ;
 
 varblock:	 T_ID
-	{ //89
+	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 	}
 	|	tid '.' T_ID
-	{//90
+	{
 		$$ = $1;
 		AstNode *p = newAstNode(N_STRUCT, @$);
 		p->str = $3;
@@ -636,26 +739,14 @@ varblock:	 T_ID
 			$$->tail = $$->alt = p;
 		}
 	}
-	| condition '.' T_ID
-	{ // Questionable. What is this? Marked 7/5/2020
-		$$ = $1;
-		AstNode *p = newAstNode(N_STRUCT, @$);
-		p->str = $3;
-		//Concatenated dot expressions go through $$->tail
-		if ($$->tail!=NULL)
-			$$->tail->alt = p; // update $$->tail
-		else
-			$$->alt = p; // initiate $$->tail
-		$$->tail = p;
-	}
 	| varblock '{' exp '}'
-	{//92
+	{
 		$$ = $1;
 		$$->tail = $$->alt->alt = newAstNode(N_CELL, @$);
 		$$->tail->child = $3;
 	}
 	| '[' vector ']'
-	{//tid-vector 93
+	{//tid-vector --> what's this comment? 12/30/2020
 		$$ = $2;
 	}
 	| '$' varblock
@@ -681,7 +772,7 @@ tid: varblock
 		$$->alt->child = $3;
 	}
 	| T_ID '{' exp '}' '(' arg_list ')'
-	{ //98
+	{
 		$$ = newAstNode(T_ID, @$);
 		$$->str = $1;
 		$$->alt = newAstNode(N_CELL, @$);
@@ -695,7 +786,7 @@ tid: varblock
 		handle_tilde($$, $3, @3);
 	}
 	| varblock '(' ')'
-	{ // 100
+	{
 		if ($$->alt != NULL  && $$->alt->type==N_STRUCT)
 		{ // dot notation with a blank parentheses, e.g., a.sqrt() or (1:2:5).sqrt()
 			$$ = $1;
@@ -730,7 +821,7 @@ tid: varblock
 		$$->tail = $$->alt->alt; // we need this; or tail is broken and can't put '.' tid at the end
 	}
 	| tid '\''
-	{ 	//105
+	{
 		$$ = newAstNode(T_TRANSPOSE, @$);
  		$$->child = $1;
 	}
@@ -781,7 +872,7 @@ tid: varblock
 
 /* Here, both rules of tid and varblock should be included... tid assign2this alone is not enough 8/18/2018*/
 assign: tid assign2this
-	{ //113
+	{
 		$$ = $1;
 		$$->child = $2;
 	}
@@ -829,25 +920,21 @@ assign: tid assign2this
 	}
 ;
 
-
-exp: T_NUMBER
-	{ // 118
+exp: initcell
+	| tid
+	| T_NUMBER
+	{
 		$$ = newAstNode(T_NUMBER, @$);
 		$$->dval = $1;
 	}
 	| T_STRING
-	{ // 119
+	{
 		$$ = newAstNode(T_STRING, @$);
 		$$->str = $1;
 	}
 	| T_ENDPOINT
 	{
 		$$ = newAstNode(T_ENDPOINT, @$);
-	}
-	| initcell
-	| tid
-	{//122
-		$$ = $1;
 	}
 	| '-' exp %prec T_NEGATIVE
 	{
@@ -898,117 +985,6 @@ exp: T_NUMBER
 	{ $$ = makeBinaryOpNode(T_OP_CONCAT, $1, $3, @$);}
 ;
 
-func_static_or_not: T_FUNCTION
-	{
-		$$ = newAstNode(T_FUNCTION, @$);
-		$$->suppress = 2;
-	}
-	| T_STATIC T_FUNCTION
-	{
-		$$ = newAstNode(T_FUNCTION, @$);
-		$$->suppress = 3;
-	}
-;
-
-funcdef: func_static_or_not T_ID block func_end
-	{
-		$$ = $1;
-		$$->str = $2;
-		$$->child = newAstNode(N_IDLIST, @$);
-		$$->child->next = $3;
-	}
-	| func_static_or_not varblock '=' T_ID block func_end
-	{
-		$$ = $1;
-		$$->str = $4;
-		$$->child = newAstNode(N_IDLIST, @$);
-		$$->child->next = $5;
-		if ($2->type!=N_VECTOR)
-		{
-			$$->alt = newAstNode(N_VECTOR, @2);
-			AstNode *p = newAstNode(N_VECTOR, @2);
-			p->alt = p->tail = $2;
-			$$->alt->str = (char*)p;
-		}
-		else
-		{
-			$$->alt = $2;
-		}
-	}
-	| func_static_or_not T_ID '(' id_list ')' block func_end
-	{
-		$$ = $1;
-		$$->str = $2;
-		$$->child = $4;
-		$4->next = $6;
-	}
-	| func_static_or_not varblock '=' T_ID '(' id_list ')' block func_end
-	{
-		$$ = $1;
-		$$->str = $4;
-		$$->child = $6;
-		$6->next = $8;
-		if ($2->type!=N_VECTOR)
-		{
-			$$->alt = newAstNode(N_VECTOR, @2);
-			AstNode *p = newAstNode(N_VECTOR, @2);
-			p->alt = p->tail = $2;
-			$$->alt->str = (char*)p;
-		}
-		else
-		{
-			$$->alt = $2;
-		}
-	}
-;
-
-case_list: /* empty */
-	{ $$ = newAstNode(T_SWITCH, @$);}
-	| T_NEWLINE
-	{ $$ = newAstNode(T_SWITCH, @$);}
-	| case_list T_CASE exp T_NEWLINE block
-	{
-		if ($1->alt)
-			$1->tail->alt = $3;
-		else
-			$1->alt = $3;
-		AstNode *p = $5;
-		if (p->type!=N_BLOCK)
-		{
-			p = newAstNode(N_BLOCK, @5);
-			p->next = $5;
-		}
-		$1->tail = $3->next = p;
-		$$ = $1;
-	}
-	| case_list T_CASE '{' arg_list '}' T_NEWLINE block
-	{
-		if ($1->alt)
-			$1->tail->alt = $4;
-		else
-			$1->alt = $4;
-		AstNode *p = $7;
-		if (p->type!=N_BLOCK)
-		{
-			p = newAstNode(N_BLOCK, @7);
-			p->next = $7;
-		}
-		$1->tail = $4->next = p;
-		$$ = $1;
-	}
-;
-//154
-csig: exp_range
-;
-
-initcell: '{' arg_list '}'
-	{
-		$$ = $2;
-		$$->type = N_INITCELL;
-		$$->line = @$.first_line;
-		$$->col = @$.first_column;
-	}
-;
 
 //tseq:
 // vector '[' ']'

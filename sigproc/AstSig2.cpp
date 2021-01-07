@@ -272,7 +272,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 					pbase->setgo.type = p->str;
 				else
 				{ // from previous, untracktable
-					AstNode *pp = pbase->findParentNode((AstNode*)pnode, p, true);
+					auto pp = pbase->findParentNode(pnode, p, true);
 					pbase->setgo.type = pp->str;
 				}
 			}
@@ -471,8 +471,8 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	eval_indexing(p->child, isig);
 	if (!(isig.type() & 1)) // has more than one element. 
 		lhsref_single = false;
-//	if (isig._max() > pbase->Sig.nSamples)
-//		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(),-1);
+	if (isig._max() > pbase->Sig.nSamples)
+		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(),-1);
 	pbase->Sig = extract(pnode, isig);
 	return pbase->Sig;
 }
@@ -606,9 +606,15 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 			throw CAstException(USAGE, *pbase, pnode).proc("Invalid object type to extract based on index.");
 		else // should be non-audio, non-time sequence data such as vector
 		{
-			int id(0);
+			int id = 0;
 			for (unsigned int k = 0; k < isig.nSamples; k++)
-				out.buf[id++] = (psigBase)->buf[(int)isig.buf[k] - 1];
+			{
+				auto ind = (unsigned int)isig.buf[k];
+// redundant with range check in ExtractByIndex()
+//				if (ind > psigBase->nSamples)
+//					throw CAstException(RANGE, *pbase, pnode).proc(pnode->str, "", ind, -1);
+				out.buf[id++] = (psigBase)->buf[ind - 1];
+			}
 		}
 	}
 	out.nGroups = isig.nGroups;
@@ -731,7 +737,7 @@ CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *p
 CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
 { // Computes pRHS, if available, and assign it to LHS.
 	// 2 cases where psig is not Sig: first, a(2), second, a.sqrt
-	if (pbase->IsCondition(pLHS))
+	if (pbase->IsConditional(pLHS))
 		return TID_condition(pnode, pLHS, pRHS, psig);
 	switch (pLHS->type)
 	{
@@ -739,7 +745,7 @@ CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 		TID_indexing(pLHS, pRHS, psig);
 		if (pbase->pgo)
 		{ // need to get the member name right before N_ARGS
-			AstNode *pp = pbase->findParentNode((AstNode*)pnode, pLHS, true);
+			auto pp = pbase->findParentNode(pnode, pLHS, true);
 			pbase->setgo.type = pp->str;
 		}
 		break;

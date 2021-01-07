@@ -634,7 +634,7 @@ ostringstream xcom::outstream_tmarks(CTimeSeries *psig, bool unit)
 ostringstream xcom::outstream_value(double val, int offset)
 {
 	ostringstream out;
-	if (val > .001 || val < -.001)
+	if (val == 0. || val > .001 || val < -.001)
 		out << val;
 	else
 	{
@@ -1251,7 +1251,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		if (nItems == 1)
 		{
 			if (tar.front()!="-s" && tar.front() != "--show")
-				cout << "#path -s or #path --show will display the path of AUXLAB." << endl;
+				cout << "Format: #path [-a|r|s] path \nor #path [--add|--remove|--show] path" << endl;
 			else
 				for (auto s : ast->pEnv->AuxPath)
 					cout << s << endl;
@@ -1291,6 +1291,10 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 				}
 				else
 					cout << "\"" << tar[1] << "\" not found in AuxPath" << endl;
+			}
+			else
+			{
+				cout << "Format: #path [-a|r|s] path \nor #path [--add|--remove|--show] path" << endl;
 			}
 		}
 	}

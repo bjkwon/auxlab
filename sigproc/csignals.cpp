@@ -1289,6 +1289,8 @@ CTimeSeries CTimeSeries::fp_getval(double (CSignal::*fp)(unsigned int, unsigned 
 		}
 		else
 		{
+			// This assumes that popt from the calling party is a pointer to a CVar object 
+			if (popt && ((CVar*)popt)->nSamples	) outcarrier = ((CVar*)popt)->value();
 			if (nGroups == nSamples) 
 			{ // computing a column vector should yield a scalar. 7/7/2020
 				nGroups = 1; 

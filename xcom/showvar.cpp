@@ -437,6 +437,7 @@ void CShowvarDlg::plotvar(CVar *psig, const string& title, const char *varname)
 
 
 
+
 double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 {
 	//Update sig
@@ -1126,7 +1127,7 @@ void CShowvarDlg::OnShowWindow(BOOL fShow, UINT status)
 	int res;
 	HMENU hMenu = ::GetSystemMenu(hDlg, FALSE);
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
-	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU3, "Set UDF &Path");
+	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU3, "Set AUX Path");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	res = AppendMenu(hMenu, MF_STRING, ID_HELP_SYSMENU2, "Adjust fs (Sampling &Rate)");
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
@@ -2264,7 +2265,6 @@ void AudioCapture(unique_ptr<carrier> pmsg)
 			pmsg->cbp.closing = true;
 			PostThreadMessage(pmsg->cbp.recordingThread, WM__STOP_REQUEST, 0, 0);
 			CDebugDlg::pAstSig = NULL;
-			CAstSig::cleanup_nodes(ast);
 			Back2BaseScope(0);
 
 			string line;

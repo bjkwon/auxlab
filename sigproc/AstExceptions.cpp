@@ -228,12 +228,3 @@ void CAstException::addLineCol()
 	}
 	sourceloc = oss.str();
 }
-
-void CAstException::clean()
-{
-	// if the exception is thrown from auxcon, it will skip
-	if (pCtx && pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017
-		if (pCtx->xtree && pCtx->xtree->type == N_BLOCK) // pCtx->pCtx is checked to avoid crash during wavwrite(undefined_var,"filename")
-			CAstSig::cleanup_nodes((CAstSig *)pCtx);
-}
-

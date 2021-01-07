@@ -265,6 +265,8 @@
     <ClCompile Include="$(SrcPath)_func\_matrix.cpp" />
     <ClCompile Include="$(SrcPath)_func\_setnextchan.cpp" />
     <ClCompile Include="$(SrcPath)_func\_str2num.cpp" />
+    <ClCompile Include="$(SrcPath)AstSig_read_xtree.cpp" />
+    <ClCompile Include="$(SrcPath)AstSig_flow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)aux_classes.h" />
