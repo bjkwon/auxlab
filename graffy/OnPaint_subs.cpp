@@ -13,6 +13,7 @@
 #include <limits>
 #include <mutex>
 #include <thread>
+#include <iterator>
 
 #include "wavplay.h"
 
@@ -28,6 +29,226 @@ void CPlotDlg::OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc)
 		rt.bottom++;
 		pdc->SolidFill(selColor, rt);
 	}
+}
+
+static inline LONG getpointx(double x, const CRect &rcAx, double xlim[])
+{
+	double mapx = rcAx.Width() / (xlim[1] - xlim[0]);
+	double _x = .5 + rcAx.left + mapx * (x - xlim[0]);
+	LONG out = (LONG)_x;
+	return out;
+}
+static inline LONG getpointy(double y, const CRect &rcAx, double ylim[])
+{
+	double mapy = rcAx.Height() / (ylim[1] - ylim[0]);
+	double _y = rcAx.bottom - mapy * (y - ylim[0]);
+	LONG out = (LONG)_y;
+	return out;
+}
+
+static inline POINT getpoint(double x, double y, const CRect &rcAx, double ratiox, double ratioy, double xlim[], double ylim[])
+{
+	//convert (x,y) in double to point in rcAx
+	double _x = .5 + rcAx.left + ratiox * (x - xlim[0]);
+	double _y = .5 + rcAx.bottom - ratioy * (y - ylim[0]);
+	POINT out = { (LONG)_x, (LONG)_y };
+	return out;
+}
+
+static pair<map<double, double>::const_iterator, map<double, double>::const_iterator> 
+get_inside_xlim(int &count, const map<double, double> &data, double xlim[])
+{
+	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> out;
+	auto it = data.begin();
+	//Assumption: xlim is monotonically increasing
+	for (; it != data.end() && (*it).first <= xlim[1]; it++)
+	{
+		if ((*it).first < xlim[0]) continue;
+		else
+		{
+			out.first = it;
+			break;
+		}
+	}
+	count = 0;
+	for (; it != data.end(); it++)
+	{
+		if ((*it).first <= xlim[1])
+		{
+			count++;
+			continue;
+		}
+		else
+		{
+			out.second = it;
+			break;
+		}
+	}
+	if (it==data.end())
+		out.second = it;
+	return out;
+}
+
+static pair<vector<double>::const_iterator, vector<double>::const_iterator>
+get_inside_xlim(int& count, const vector<double> &buf, double xlim[])
+{
+	pair<vector<double>::const_iterator, vector<double>::const_iterator> out;
+	//Assumption: xlim is monotonically increasing
+	auto it = buf.begin();
+	for (; it != buf.end() && *it <= xlim[1]; it++)
+	{
+		if (*it < xlim[0]) continue;
+		else
+		{
+			out.first = it;
+			break;
+		}
+	}
+	count = 0;
+	for (; it != buf.end(); it++)
+	{
+		if (*it <= xlim[1])
+		{
+			count++;
+			continue;
+		}
+		else
+		{
+			out.second = it;
+			break;
+		}
+	}
+	if (it == buf.end())
+		out.second = --it;
+	return out;
+}
+
+
+
+static vector<POINT> data2points(const vector<double>& xbuf, const vector<double> &buf, const CRect& rcArea, double xlim[], double ylim[])
+{
+	// grab data in the range of xlim
+	// plot them in the coordinate of rcArea
+	vector<POINT> out;
+	POINT pt;
+	// Inspect data and find out where the key is within xlim
+	// Assume the key of data is ordered.--> Isn't it what map is about?
+	int count;
+	pair<vector<double>::const_iterator, vector<double>::const_iterator>
+		range = get_inside_xlim(count, xbuf, xlim);
+	// if xbuf is out of xlim, return empty
+	if (count == 0) return out;
+	// calculate how many data points one pixel represents 
+	LONG px1 = getpointx(*range.first, rcArea, xlim);
+	LONG px2 = getpointx(*range.second, rcArea, xlim);
+	LONG pxdiff = px2 - px1;
+	double dataCount_per_pixel = (double)count / pxdiff;
+	int idataCount_per_pixel = (int)dataCount_per_pixel;
+	const double remainder = dataCount_per_pixel - idataCount_per_pixel;
+	double leftover = remainder;
+	if (dataCount_per_pixel > 4)
+	{
+		int cnt = 0;
+		auto it = range.first;
+		auto it2 = buf.begin();
+		advance(it2, distance(xbuf.begin(), it));
+		size_t cum = 0;
+		bool loop = true;
+		pt.x = px1;
+		while (loop)
+		{
+			size_t advance_count = idataCount_per_pixel;
+			if (leftover > 1)
+			{
+				advance_count++;
+				leftover--;
+			}
+			if (cum + advance_count > count) advance_count = count - cum;
+			pair<vector<double>::const_iterator, vector<double>::const_iterator>
+				ul = minmax_element(it2, it2 + advance_count);
+			LONG temp = pt.y = getpointy(*ul.first, rcArea, ylim);
+			out.push_back(pt);
+			pt.y = getpointy(*ul.second, rcArea, ylim);
+			if (pt.y!=temp)
+				out.push_back(pt);
+			advance(it, advance_count);
+			advance(it2, advance_count);
+			cum += advance_count;
+			if (pt.x >= px2 || cum >= count)
+				loop = false;
+			leftover += remainder;
+			pt.x++;
+		}
+	}
+	else
+	{
+		auto it2 = buf.begin();
+		advance(it2, distance(xbuf.begin(), range.first));
+		double ratiox = rcArea.Width() / (xlim[1] - xlim[0]);
+		double ratioy = rcArea.Height() / (ylim[1] - ylim[0]);
+		for (auto it = range.first; it != range.second; it++, it2++)
+		{
+			// Map data point into point in RECT
+			pt = getpoint(*it, *it2, rcArea, ratiox, ratioy, xlim, ylim);
+			out.push_back(pt);
+		}
+	}
+	return out;
+}
+
+// Keep this for the case of plot(x,y) with x not monotonically increasing.
+static vector<POINT> data2points(const map<double, double> &data, const CRect & rcArea, double xlim[], double ylim[])
+{
+	// grab data in the range of xlim
+	// plot them in the coordinate of rcArea
+	vector<POINT> out;
+	POINT pt;
+	// Inspect data and find out where the key is within xlim
+	// Assume the key of data is ordered.--> Isn't it what map is about?
+	int count;
+	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> 
+		range = get_inside_xlim(count, data, xlim);
+	// calculate how many data points one pixel represents 
+	double dataCount_per_pixel = (double)count / rcArea.Width();
+	if (dataCount_per_pixel > 5)
+	{
+//		DO THIS AGAIN
+	}
+	else
+	{
+		double ratiox = rcArea.Width() / (xlim[1] - xlim[0]);
+		double ratioy = rcArea.Height() / (ylim[1] - ylim[0]);
+		for (auto it = range.first; it != range.second; it++)
+		{
+			// Map data point into point in RECT
+			pt = getpoint((*it).first, (*it).second, rcArea, ratiox, ratioy, xlim, ylim);
+			out.push_back(pt);
+		}
+	}
+	return out;
+}
+
+// if it is audio, or null-x, plot, forget about map. Use this.
+vector<POINT> CPlotDlg::plotpoints2(const CSignal *p, CAxes *pax, CLine *lyne, CRect rcPaint)
+{
+	vector<POINT> out;
+	int fs = p->GetFs();
+	//map<double, double> in;
+	//for (unsigned int k = 0; k < p->nSamples; k++)
+	//{
+	//	double t = (double)k / fs;
+	//	in[t] = p->buf[k];
+	//}
+	//out = data2points(in, pax->rct, pax->xlim, pax->ylim);
+	vector<double> xbuf;
+	vector<double> buf(p->buf, p->buf + p->nSamples);
+	for (unsigned int k = 0; k < p->nSamples; k++)
+	{
+		double t = (double)k / fs + p->tmark / 1000.;
+		xbuf.push_back(t);
+	}
+	out = data2points(xbuf, buf, pax->rct, pax->xlim, pax->ylim);
+	return out;
 }
 
 vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps, CLine *pline, CTimeSeries* block)
@@ -72,7 +293,7 @@ vector<POINT> CPlotDlg::OnPaint_drawblock(CAxes* pax, CDC &dc, PAINTSTRUCT* pps,
 			block->tmark += 1000. * m * block->nSamples / block->GetFs();
 		if (pline->lineWidth > 0 || pline->symbol != 0)
 		{
-			drawvector = plotpoints(block, pax, pline, (CRect)pps->rcPaint);
+			drawvector = plotpoints2(block, pax, pline, (CRect)pps->rcPaint);
 		}
 		if (pline->symbol != 0)
 		{

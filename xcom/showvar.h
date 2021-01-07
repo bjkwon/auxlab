@@ -140,7 +140,7 @@ public:
 	void plotvar_update(CFigure *cfig, CVar *psig);
 	double plotvar_update2(CAxes *pax, CSignals *psig);
 	double plotvar_update2(CAxes *pax, CTimeSeries *psig);
-	CFigure * newFigure(CRect rt, string title, const char *varname, GRAFWNDDLGSTRUCT *pin);
+	CFigure * newFigure(string title, const char *varname, GRAFWNDDLGSTRUCT *pin);
 	HWND varname2HWND(const char *varname);
 
 	HACCEL hAccel;

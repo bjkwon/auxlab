@@ -316,6 +316,8 @@ struct GRAFWNDDLGCHILDSTRUCT
 	HANDLE hIcon;
 };
 
+class CGraffyEnv;
+
 GRAPHY_EXPORT void initGraffy(CAstSig *base);
 GRAPHY_EXPORT HANDLE FindGObj(CSignals *xGO, CGobj *hGOParent = NULL);
 GRAPHY_EXPORT void SetInProg(CVar *xGO, bool inprog);
@@ -340,6 +342,7 @@ GRAPHY_EXPORT vector<CVar*> FindFigurebyvalue(const CVar &vals);
 #define NO_USING_NAMESPACE
 GRAPHY_EXPORT HANDLE OpenGraffy(GRAFWNDDLGSTRUCT &in);
 GRAPHY_EXPORT HANDLE OpenChildGraffy(GRAFWNDDLGCHILDSTRUCT &in);
+GRAPHY_EXPORT void showvar2graffy(void *p);
 
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon=NULL);
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon = NULL);

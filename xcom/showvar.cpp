@@ -40,7 +40,7 @@ static bool stop_requested = false;
 
 extern xcom mainSpace;
 extern HWND hShowDlg;
-
+extern char iniFile[256];
 extern CDebugDlg mDebug; // delete?
 extern unordered_map<string, CDebugDlg*> dbmap;
 
@@ -94,7 +94,7 @@ CFileDlg fileOpenSaveDlg;
 char axlfullfname[_MAX_PATH], axlfname[_MAX_FNAME + _MAX_EXT];
 
 HWND CreateTT(HINSTANCE hInst, HWND hParent, RECT rt, char *string, int maxwidth=400);
-void closeXcom(const char *AppPath);
+void closeXcom(const char *penvAppPath, int fs, const char *AppPath);
 size_t ReadThisLine(string &linebuf, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO coninfo0, SHORT thisline, size_t promptoffset);
 
 BOOL CALLBACK vectorsheetDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
@@ -257,13 +257,12 @@ BOOL FSDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 2-2) audio mono -> audio stereo or vice versa: delete axes and make new plot(s), but keep the old xlim
 */
 
-CFigure * CShowvarDlg::newFigure(CRect rt, string title, const char *varname, GRAFWNDDLGSTRUCT *pin)
+CFigure * CShowvarDlg::newFigure(string title, const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
 	pin->hIcon = LoadImage(hInst, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0);
 	pin->hWndAppl = hDlg;
 	pin->block = CAstSig::play_block_ms;
 	pin->scope = pcast->u.title.empty() ? "base workspace" : pcast->u.title;
-	pin->rt = rt;
 	pin->caption = title;
 	pin->threadCaller = GetCurrentThreadId();
 	CFigure *out = (CFigure *)OpenGraffy(*pin);
@@ -320,10 +319,10 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 		{
 
 		}
-		else if (psig->IsAudio() || psig->IsTimeSignal() || psig->IsVector())//(type == CSIG_AUDIO || type == CSIG_TSERIES || type == CSIG_VECTOR)
+		else if (psig->IsAudio() || psig->IsTimeSignal() || psig->IsVector())
 		{
 			static GRAFWNDDLGSTRUCT in;
-			CFigure * cfig = newFigure(CRect(0, 0, 500, 310), title.c_str(), varname, &in);
+			CFigure * cfig = newFigure(title.c_str(), varname, &in);
 			cfig->visible = 1;
 			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
 			plotlines = PlotCSignals(cax, NULL, psig, -1);
@@ -341,9 +340,10 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			{
 				CRect rt;
 				plotDlgList.push_back(cfig->m_dlg->hDlg);
-				::GetWindowRect(cfig->m_dlg->hDlg, rt);
-				rt.MoveToXY(10, 40);
-				::MoveWindow(cfig->m_dlg->hDlg, rt.left, rt.top, rt.Width(), rt.Height(), 1);
+				// Setting the position of a named plot
+				//::GetWindowRect(cfig->m_dlg->hDlg, rt);
+				//rt.MoveToXY(10, 40);
+				//::MoveWindow(cfig->m_dlg->hDlg, rt.left, rt.top, rt.Width(), rt.Height(), 1);
 			}
 			cfig->m_dlg->ShowWindow(SW_SHOW);
 		}
@@ -1072,6 +1072,7 @@ BOOL CShowvarDlg::OnInitDialog(HWND hwndFocus, LPARAM lParam)
 		recordingButtonRT.top -= rt0.top;
 		recordingButtonRT.bottom -= rt0.top;
 
+		showvar2graffy(iniFile);
 	}
 	else
 	{
@@ -1344,7 +1345,7 @@ void CShowvarDlg::OnDestroy()
 				delete cellviewdlg[k];
 			}
 		}
-		closeXcom(AppPath);
+		closeXcom(xscope.front()->pEnv->AppPath.c_str(), xscope.front()->pEnv->Fs, AppPath);
 		exit(0);
 	}
 }
