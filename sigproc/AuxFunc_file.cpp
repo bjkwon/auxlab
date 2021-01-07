@@ -46,6 +46,7 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
+	auto ss = CAstSigEnv::AppPath;
 	string filename = past->makefullfile(past->ComputeString(p));
 	char mode[8];
 	strcpy(mode, past->ComputeString(p->next).c_str());
@@ -359,56 +360,6 @@ void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		past->Sig.SetFs(past->pEnv->Fs);
 }
 
-void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	CVar firstarg = past->Sig;
-	_sprintf(past, pnode, p, fnsigs);
-	string buffer;
-	buffer = past->Sig.string();
-	bool openclosehere(1);
-	FILE *file = nullptr;
-	//is first argument string?
-//	past->Compute(p);
-	if (firstarg.IsString())
-	{
-		string filename = past->makefullfile(firstarg.string());
-		file = fopen(filename.c_str(), "at");
-	}
-	else
-	{
-		if (!firstarg.IsScalar())
-		{
-			past->Sig.SetValue(-2.);
-			return;
-		}
-		if (firstarg.value() == 0.)
-		{
-			printf(buffer.c_str());
-			return;
-		}
-		file = file_ids[firstarg.value()];
-		openclosehere = false;
-	}
-	if (!file)
-	{
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be either a file identifider, filename or 0 (for console)");
-	}
-	if (fprintf(file, buffer.c_str()) < 0)
-		past->Sig.SetValue(-3.);
-	else
-	{
-		if (openclosehere)
-		{
-			if (fclose(file) == EOF)
-			{
-				past->Sig.SetValue(-4.);
-				return;
-			}
-		}
-		past->Sig.SetValue((double)buffer.length());
-	}
-}
-
 static void write2textfile(FILE * fid, CVar *psig)
 {
 	if (psig->bufBlockSize == 1)
@@ -551,7 +502,7 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			int oldFs = past->GetFs();
 			CVar ratio(1);
 			ratio.SetValue(past->Sig.GetFs() / (double)oldFs);
-			past->Sig.runFct2modify(&CSignal::resample, &ratio);
+			past->Sig.fp_mod(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
 				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, ratio.string().c_str());
 			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), oldFs);
@@ -575,7 +526,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	FILE *fp(NULL);
 	int res;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
-	fp = past->OpenFileInPath(past->ComputeString(p), "", fullpath);
+	fp = past->fopen_from_path(past->ComputeString(p), "", fullpath);
 	_splitpath(past->ComputeString(p).c_str(), NULL, NULL, fname, ext);
 	if (fp)
 	{

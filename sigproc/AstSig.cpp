@@ -209,7 +209,7 @@ CAstSig::CAstSig(const char *str, const CAstSig *src)
 		pEnv = new CAstSigEnv(DefaultFs);
 	}
 	string emsg;
-	SetNewScript(emsg, str);
+	parse_aux(str, emsg);
 	if (src)
 	{
 		pgo = src->pgo;
@@ -224,7 +224,7 @@ CAstSig::CAstSig(const char *str, CAstSigEnv *env)
 	init();
 	pEnv = env;
 	string emsg;
-	SetNewScript(emsg, str);
+	parse_aux(str, emsg);
 }
 
 CAstSig::CAstSig(AstNode *pnode, const CAstSig *src)
@@ -295,12 +295,11 @@ unsigned long CAstSig::toc(const AstNode *p)
 	return Tick1 = (GetTickCount0() - Tick0);
 }
 
-AstNode *CAstSig::SetNewScript(string &emsg, const char *str, const char *premsg)
+AstNode *CAstSig::parse_aux(const char *str, string& emsg)
 {
-	// New rules when using SetNewScript 12/19/2017
+	// New rules when using parse_aux 12/19/2017
 	// when it fails, it returns NULL and errstr should carry the message, so that the caller can throw an exception
-	// when it suceeds or just needs to return NULL, errstr is empty.
-	// errstr shall be allocated by the caller
+	// when it suceeds or just needs to return NULL, emsg is empty.
 	emsg.clear();
 	int res;
 	char *errmsg;
@@ -309,14 +308,14 @@ AstNode *CAstSig::SetNewScript(string &emsg, const char *str, const char *premsg
 		yydeleteAstNode(pAst, 0);
 		fAllocatedAst = false;
 	}
-	pAst = NULL;
+	AstNode* out = NULL;
 	if ((res = yysetNewStringToScan(str)))
 	{
 		emsg = "yysetNewStringToScan() failed!";
 		return NULL;
 	}
- 	res = yyparse(&pAst, &errmsg);
-	fAllocatedAst = pAst ? true : false;
+ 	res = yyparse(&out, &errmsg);
+	fAllocatedAst = out ? true : false;
 	if (!errmsg && res == 2)
 	{
 		emsg = "Out of memory!";
@@ -324,23 +323,15 @@ AstNode *CAstSig::SetNewScript(string &emsg, const char *str, const char *premsg
 	}
 	if (errmsg) {
 		if (fAllocatedAst) {
-			yydeleteAstNode(pAst, 0);
+			yydeleteAstNode(out, 0);
 			fAllocatedAst = false;
-			pAst = NULL;
-		}
-		if (premsg)
-		{
-			char errStr[256];
-			strcpy(errStr, premsg);
-			strcat(errStr, "\n");
-			strcat(errStr, errmsg);
-			errmsg = errStr;
+			out = NULL;
 		}
 		emsg = errmsg;
 		return NULL;
 	}
 	Script = str;
-	return pAst;
+	return out;
 }
 
 #ifdef NO_PLAYSND // just for psynteg 11.17.2017
@@ -665,7 +656,9 @@ void CAstSig::outputbinding(const AstNode *plhs)
 		vector<unique_ptr<CVar*>>::iterator it = Sigs.begin();
 		for (AstNode *p = ((AstNode *)plhs->str)->alt; p; p = p->next)
 		{
-			bind_psig(p, *it->release());
+			auto pp = *it->release();
+			bind_psig(p, pp);
+			if (it != Sigs.begin()) delete pp; // most likely pp was created in _func() in _functions
 			it++;
 			if (it==Sigs.end() && p->next)
 				throw CAstException(USAGE, *this, p).proc("Too many output arguments.");
@@ -1161,6 +1154,32 @@ void CAstSig::checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned
 		throw CAstException(RANGE, *this, pnode).proc(errstr.c_str(), "", id, -1);
 }
 
+AstNode* CAstSigEnv::checkin_udf(const string& udfname, const string& filecontent)
+{ 
+	// add a udf if it is new
+	// or update filecontent 
+	udf[udfname].newrecruit = true;
+//	if (!parse_aux(emsg, filecontent.c_str()))
+	return NULL;
+
+}
+
+AstNode * CAstSigEnv::checkout_udf(const string & udfname, const string & filecontent)
+{
+	// if udfname is present in the environment AND
+	//    the content is the same as filecontent
+	// returns pAst
+	// otherwise NULL
+
+	//assumption: udfname is all lower case
+	if (udf.find(udfname) != udf.end())
+	{
+		if (udf[udfname].content == filecontent)
+			return udf[udfname].pAst;
+	}
+	return NULL;
+}
+
 AstNode *CAstSig::SetNewScriptFromFile(string &emsg, const char *full_filename, const char *udf_filename, string &filecontent)
 {
 	// if filecontent is not empty, it doesn't check whether the file exits and checks only if the content is the same
@@ -1175,7 +1194,7 @@ AstNode *CAstSig::SetNewScriptFromFile(string &emsg, const char *full_filename, 
 	// if udf_filename is NULL, this was called by aux_include (a script, not a udf)
 	if (!udf_filename)
 	{
-		if (!SetNewScript(emsg, filecontent.c_str()))
+		if (!parse_aux(filecontent.c_str(), emsg))
 			return NULL;
 		}
 	else
@@ -1191,7 +1210,7 @@ AstNode *CAstSig::SetNewScriptFromFile(string &emsg, const char *full_filename, 
 		Script = udf_filename; // will not have any lingering effects. The context stays within CAstSig aux(pEnv) in ReadUDF()
 		transform(Script.begin(), Script.end(), Script.begin(), ::tolower);
 		pEnv->udf[Script].newrecruit = true;
-		if (!SetNewScript(emsg, filecontent.c_str()))
+		if (!parse_aux(filecontent.c_str(), emsg))
 			return NULL; // syntax error in auxcon script is caught here
 	}
 	return pAst;
@@ -1206,7 +1225,7 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 	string read;
 	size_t res = pt(id, read); 
 	CAstSig aux(pEnv);
-	AstNode *tempAst = aux.SetNewScript(emsg, read.c_str());
+	AstNode *tempAst = aux.parse_aux(read.c_str(), emsg);
 	if (tempAst) 
 	{
 		char *newname = (char*)malloc(strlen(aux.pAst->str) + 1);
@@ -1271,10 +1290,9 @@ multimap<CVar, AstNode *> CAstSig::register_switch_cvars(const AstNode *pnode, v
 	return  out;
 }
 
-AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *internaltransport)
+AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename)
 {
-	/* internaltransport carries the content of AUXCON script when ReadUDF() is called in auxconDlg.cpp
-	*/
+	// returns node for the UDF, if it exists.
 	if (!udf_filename) return NULL;
 	if (strlen(udf_filename)>255) return NULL; //MR 1
 	emsg.clear();
@@ -1283,34 +1301,26 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *in
 	if (pEnv->udf.empty())
 	{ // Read aux private functions`
 	}
-	if (!internaltransport) // not from AUXCON
+	//local functions have precedence; i.e., if fun1() has myloc() in it, the file myloc.aux will not be searched.
+	auto udf_finder = pEnv->udf.find(u.base);
+	if (udf_finder != pEnv->udf.end())
 	{
-		//local functions have precedence; i.e., if fun1() has myloc() in it, the file myloc.aux will not be searched.
-		map<string, UDF>::iterator it = pEnv->udf.find(u.base);
-		if (it != pEnv->udf.end())
-		{
-			map<string, UDF>::iterator jt = it->second.local.find(udf_filename);
-			if (jt != it->second.local.end())
-				return jt->second.pAst;
-		}
-		//Search for the file 
-		FILE *auxfile = OpenFileInPath(udf_filename, "aux", fullpath);
-		if (!auxfile)
-		{ //if not found, it shoulbe be a built-in or local function, then return
-			if (pEnv->udf.find(udf_filename) == pEnv->udf.end())
-				return NULL;
-			else // file not found but it is not a local function.... what can it be?
-				return pEnv->udf[udf_filename].pAst; // check
-		}
-		//file found
-		fclose(auxfile);	
-		transform(fullpath.begin(), fullpath.end(), fullpath.begin(), ::tolower);
+		map<string, UDF>::iterator jt = udf_finder->second.local.find(udf_filename);
+		if (jt != udf_finder->second.local.end())
+			return jt->second.pAst;
 	}
-	else
-	{ //from AUXCON
-		filecontent = internaltransport;
-		fullpath = string("9:\\module\\") + udf_filename;
+	//Search for the file 
+	FILE *auxfile = fopen_from_path(udf_filename, "aux", fullpath);
+	if (!auxfile)
+	{ //if not found, it shoulbe be a built-in or local function, then return
+		if (pEnv->udf.find(udf_filename) == pEnv->udf.end())
+			return NULL;
+		else // file not found but it is not a local function.... what can it be?
+			return pEnv->udf[udf_filename].pAst; // check
 	}
+	//file found
+	fclose(auxfile);	
+	transform(fullpath.begin(), fullpath.end(), fullpath.begin(), ::tolower);
 
 	CAstSig aux(pEnv);
 	//read the file;  if new, parse the string and set new pAst. If the udf was already registered, it returns NULL.
@@ -1345,7 +1355,7 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename, const char *in
 	return pout;
 }
 
-AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, string &filecontent)
+AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, const string &filecontent)
 { 
 	//Deregistering takes place during cleaning out of pEnv i.e., ~CAstSigEnv()
 	char udf_filename[256];
@@ -1428,7 +1438,7 @@ CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 		//Being fixed.... but need further checking
 		//6/17/2020
 		if (dB.chain || (dB.next && dB.next->chain))
-			sigRMS = sigRMS.runFct2getvals(&CSignal::RMS);
+			sigRMS = sigRMS.fp_getval(&CSignal::RMS);
 		else
 			sigRMS.RMS(); // this should be called before another Compute is called (then, refRMS.buf won't be valid)
 	}
@@ -1575,7 +1585,7 @@ string CAstSig::adjustfs(int newfs)
 			gcopy <= it.second;
 			level1 = gcopy.RMS();
 			ratio.SetValue( (double) pEnv->Fs / newfs);
-			it.second.runFct2modify(&CSignal::resample, &ratio);
+			it.second.fp_mod(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
 			{
 				sformat(out, "Error while resampling the variable %s\n[from libsamplerate]%s", it.first.c_str(), ratio.string().c_str());
@@ -1933,8 +1943,6 @@ vector<CVar *> CAstSig::Compute(void)
 	Sig.cell.clear();
 	Sig.strut.clear();
 	Sig.struts.clear();
-	Sig.outarg.clear();
-	Sig.outarg2.clear();
 	Sig.SetNextChan(NULL);
 	Sig.functionEvalRes = false;
 	inTryCatch = 0;
@@ -2810,7 +2818,6 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		Compute(p);
 		checkAudioSig(pnode,  Sig);
 		Sig >>= tsig.value();
-		Sig.nGroups = tsig.nGroups;
 		return TID((AstNode*)pnode, NULL, &Sig);
 		break;
 	case T_OP_CONCAT:
@@ -3271,7 +3278,7 @@ string CAstSig::makefullfile(const string &fname, char *extension)
 }
 
 
-FILE *CAstSig::OpenFileInPath(string fname, string ext, string &fullfilename)
+FILE *CAstSig::fopen_from_path(string fname, string ext, string &fullfilename)
 { // in in out
 	char drive[64], dir[MAX_PATH], filename[MAX_PATH], extension[MAX_PATH];
 	_splitpath(fname.c_str(), drive, dir, filename, extension);

@@ -402,11 +402,11 @@ CVar * CNodeProbe::TimeExtract(const AstNode *pnode, AstNode *p)
 
 	CTimeSeries *pts = psigBase;
 	for (; pts; pts = pts->chain)
-		pbase->endpoint = pts->CSignal::endt().front();
+		pbase->endpoint = pts->CSignal::endt();
 	if (psigBase->next)
 	{
 		pts = psigBase->next;
-		pbase->endpoint = max(pbase->endpoint, pts->CSignal::endt().front());
+		pbase->endpoint = max(pbase->endpoint, pts->CSignal::endt());
 	}
 	vector<double> tpoints = pbase->gettimepoints(pnode, p);
 	CVar out(*psigBase);
@@ -471,8 +471,8 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 	eval_indexing(p->child, isig);
 	if (!(isig.type() & 1)) // has more than one element. 
 		lhsref_single = false;
-//	if (isig._max().front() > pbase->Sig.nSamples)
-//		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max().front(),-1);
+//	if (isig._max() > pbase->Sig.nSamples)
+//		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(),-1);
 	pbase->Sig = extract(pnode, isig);
 	return pbase->Sig;
 }
@@ -492,9 +492,9 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 	out.UpdateBuffer(isig.nSamples);
 	//CSignal::Min() makes a vector
 	//body::Min() makes a scalar.
-	if (isig._min().front() <= 0.)
+	if (isig._min() <= 0.)
 	{
-		outstream << "Invalid index " << "for " << varname << " : " << (int)isig._min().front() << " (must be positive)";
+		outstream << "Invalid index " << "for " << varname << " : " << (int)isig._min() << " (must be positive)";
 		throw CAstException(USAGE, *pbase, pnode).proc(outstream.str().c_str());
 	}
 	if ((psigBase)->IsComplex())
@@ -520,8 +520,8 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 	{
 		if ((psigBase)->IsGO())
 		{
-			if (isig._max().front() > (psigBase)->nSamples)
-				throw CAstException(RANGE, pbase, pnode).proc("", "", (int)isig._max().front());
+			if (isig._max() > (psigBase)->nSamples)
+				throw CAstException(RANGE, pbase, pnode).proc("", "", (int)isig._max());
 			if (isig.nSamples == 1)
 			{
 				size_t did = (size_t)isig.value() - 1;
@@ -654,8 +654,8 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 				isig2 = tp.Compute(p);
 			}
 			if (isig2.IsLogical()) pbase->index_array_satisfying_condition(isig2);
-			else if (isig2._max().front() > (double)psigBase->Len())
-				throw CAstException(RANGE, pbase, pInd).proc("2nd index ", "", (int)isig2._max().front());
+			else if (isig2._max() > (double)psigBase->Len())
+				throw CAstException(RANGE, pbase, pInd).proc("2nd index ", "", (int)isig2._max());
 			pbase->interweave_indices(isig, isig2, psigBase->Len());
 		}
 	}

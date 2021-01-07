@@ -13,15 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\_functions">
+      <UniqueIdentifier>{4571d413-ec54-41cf-8000-53aa339fcb3b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(SrcPath)caudio.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="$(SrcPath)AuxFunc.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="$(SrcPath)AuxFunc_file.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="$(SrcPath)csignals.cpp">
@@ -53,6 +53,99 @@
     </ClCompile>
     <ClCompile Include="$(SrcPath)vartypes.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)support.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_iir.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_minmax.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_tparamonly.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\rand.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\printf.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\play_record.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\err_warning_throw.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_dir.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_matrix.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\interp.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\eval_include.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_fdelete.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\isfuncs.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\fft.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\tone_fm.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\tsq.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\type_same.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\and_or_sort.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_arraybasic.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_str2num.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\windowing.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\hilb_env.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\lr_aud_vec.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\_setnextchan.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\getsetfs.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\cell_func.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\ones_z.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\filt.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)_func\sharps.cpp">
+      <Filter>Source Files\_functions</Filter>
+    </ClCompile>
+    <ClCompile Include="$(SrcPath)AuxFunc_file.cpp">
+      <Filter>Source Files\_functions</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -26,5 +26,3 @@
 
 extern double playblock;
 
-//from ellf.c
-extern "C" int design_iir(double *num, double *den, int fs, int kind, int type, int n, double *freqs, double dbr /*rippledB*/, double dbd /*stopEdgeFreqORattenDB*/);
