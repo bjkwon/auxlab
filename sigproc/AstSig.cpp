@@ -1158,7 +1158,7 @@ bool CAstSig::checkcond(const AstNode *p)
 void CAstSig::checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned int id, string errstr)
 {
 	if (id>inout->nSamples) 
-		throw CAstException(RANGE, *this, pnode).proc(errstr.c_str(), "", id);
+		throw CAstException(RANGE, *this, pnode).proc(errstr.c_str(), "", id, -1);
 }
 
 AstNode *CAstSig::SetNewScriptFromFile(string &emsg, const char *full_filename, const char *udf_filename, string &filecontent)

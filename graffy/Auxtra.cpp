@@ -491,10 +491,6 @@ static void deep_erase(CAstSig* past, CVar * const del)
 		{
 			// Taken care of by CAstSig::erase_GO(CVar * obj)
 		}
-		// if Reset() resets a GO into a NULL, the next two lines are not necessary 10/1/2020
-		past->Sig.strut.clear();
-		past->Sig.struts.clear();
-		past->Sig.SetValue((double)var2deleted.size());
 	}
 }
 

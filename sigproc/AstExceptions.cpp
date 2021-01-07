@@ -64,18 +64,6 @@ string GetNodeType(int type)
 		return "N_CELLASSIGN";
 	case N_IXASSIGN:
 		return "N_IXASSIGN";
-	case N_USEC:
-		return "N_USEC";
-	case N_MSEC:
-		return "N_MSEC";
-	case N_CIPULSE3:
-		return "N_CIPULSE3";
-	case N_CIPULSE4:
-		return "N_CIPULSE4";
-	case N_CIPULSE5:
-		return "N_CIPULSE5";
-	case N_CIPULSE6:
-		return "N_CIPULSE6";
 	default:
 		return "Unknown NODE";
 	}

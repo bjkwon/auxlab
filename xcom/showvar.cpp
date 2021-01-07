@@ -434,6 +434,7 @@ void CShowvarDlg::plotvar(CVar *psig, const string& title, const char *varname)
 }
 
 
+
 double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 {
 	//Update sig

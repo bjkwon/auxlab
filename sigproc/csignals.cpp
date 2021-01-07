@@ -856,6 +856,74 @@ body& body::MakeLogical()
 	return (*this = out);
 }
 
+/* If consecutive, RHS with different length can be applied to LHS, updating this length.
+If not consecutive, RHS must have the same length as LHS.
+11/28/2020
+*/
+
+body& body::replacebyindex(const vector<unsigned int>& ind, const body & RHS)
+{ // non-consecutive
+	// ASSUME: 1) [HARD REQUIREMENT] RHS.length == ind.size
+	// 2) [SOFT REQUIREMENT] all values in ind must be in the range of this buf. Otherwise, no effect
+	unsigned int k = 0;
+	if (RHS.nSamples == 1)
+	{
+		for (auto id : ind)
+		{
+			if (id < nSamples)
+			{
+				if (bufBlockSize == 1)
+					logbuf[id] = RHS.logbuf[0];
+				else if (bufBlockSize == 8)
+					buf[id] = RHS.buf[0];
+				else if (bufBlockSize == 16)
+					cbuf[id] = RHS.cbuf[0];
+			}
+		}
+	}
+	else
+	{
+		for (auto id : ind)
+		{
+			if (id < nSamples)
+			{
+				if (bufBlockSize == 1)
+					logbuf[id] = RHS.logbuf[k++];
+				else if (bufBlockSize == 8)
+					buf[id] = RHS.buf[k++];
+				else if (bufBlockSize == 16)
+					cbuf[id] = RHS.cbuf[k++];
+			}
+		}
+	}
+	return *this;
+}
+
+body& body::replacebyindex(unsigned int id0, unsigned int len, const body & RHS)
+{ // consecutive
+	// ASSUME: RHS.bufBlockSize is the same as this bufBlockSize
+// if RHS.length  > len --> update buffer
+// else just update buffer content and update the length of this
+	if (RHS.nSamples > len || id0 == nSamples)
+	{
+		bool* newbuf = new bool[(nSamples + RHS.nSamples - len) * bufBlockSize];
+		memcpy(newbuf, logbuf, id0* bufBlockSize);
+		memcpy(newbuf + id0 * bufBlockSize, RHS.buf, RHS.nSamples * bufBlockSize);
+		memcpy(newbuf + (id0 + RHS.nSamples) * bufBlockSize, logbuf + (id0 + len) * bufBlockSize, (nSamples - id0 - len) * bufBlockSize);
+		nSamples += RHS.nSamples - len;
+		delete[] buf;
+		logbuf = newbuf;
+	}
+	else
+	{
+		memmove(logbuf + id0 * bufBlockSize, RHS.buf, RHS.nSamples * bufBlockSize);
+		if (RHS.nSamples != len)
+			memmove(logbuf + (id0 + RHS.nSamples) * bufBlockSize, logbuf + (id0 + len) * bufBlockSize, (nSamples - id0 - len) * bufBlockSize);
+		nSamples += RHS.nSamples - len;
+	}
+	return *this;
+} 
+
 body &body::insert(body &sec, int id)
 {
 	if (sec.nSamples == 0) return *this;
@@ -3025,12 +3093,15 @@ int CSignal::DecFir(const CSignal& coeff, int offset, int nChan)
 CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, vector<double>& state, unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
+	if (state.empty()) state.push_back(0.);
 	if (IsComplex())
 	{
 		complex<double> * out = new complex<double>[len];
 		for (unsigned int m = id0; m < id0 + len; m++)
 		{
 			out[m] = num[0] * cbuf[m] + state.front();
+			//DO THIS--------------------
+
 			//size of state is always one less than num or den
 			//int k = 1;
 			//for (auto& v : state)
@@ -3049,19 +3120,19 @@ CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, 
 		double * out = new double[len];
 		for (unsigned int m = id0; m < id0 + len; m++)
 		{
-			out[m] = num[0] * buf[m] + state.front();
+			out[m - id0] = num[0] * buf[m] + state.front();
 			//size of state is always one less than num or den
 			int k = 1;
 			for (auto& v : state)
 			{
-				v = num[k] * buf[m] - den[k] * out[m];
+				v = num[k] * buf[m] - den[k] * out[m - id0];
 				if (k < state.size() )
 					v += *((&v) + 1);
 				k++;
 			}
 		}
-		delete[] buf;
-		buf = out;
+		memcpy(buf + id0, out, sizeof(double) * len);
+		delete[] out;
 	}
 	return *this;
 }
@@ -3539,12 +3610,21 @@ CSignals::CSignals(const CTimeSeries& src)
 	*this = src;
 }
 
-CSignals::CSignals(double *y, int len)
+CSignals::CSignals(double* y, int len)
 	: next(NULL)
 {
 	SetFs(1);
 	UpdateBuffer(len);
-	memcpy(buf, y, sizeof(double)*len);
+	memcpy(buf, y, sizeof(double) * len);
+}
+
+CSignals::CSignals(complex<double> *y, int len)
+	: next(NULL)
+{
+	SetFs(1);
+	SetComplex();
+	UpdateBuffer(len);
+	memcpy(buf, y, sizeof(double) * len);
 }
 
 CSignals::~CSignals()
