@@ -262,6 +262,7 @@ void CAstSig::init()
 	fAllocatedAst = false;
 	fBreak = false;
 	fExit = false;
+	wait4cv = false;
 	memset(callbackIdentifer, 0, LEN_CALLBACKIDENTIFIER);
 	pLast = NULL;
 	son = NULL;
@@ -1775,6 +1776,7 @@ vector<double> CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)
 	return out;
 }
 
+#include "graffy2.h"
 #define MARKERCHARS "os.x+*d^v<>ph"
 
 bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &tsig)
@@ -1795,20 +1797,19 @@ bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &
 	if (!strcmp(propname, "userdata"))
 		return true; // everything is allowed for userdata
 
-	if (psig->strut["type"] == string("axes"))
+	switch (GOtype(psig))
 	{
+	case GRAFFY_axes:
 		if (!strcmp(propname, "x") || !strcmp(propname, "y"))
 			return true;
-	}
-	else if (psig->strut["type"] == string("axis"))
-	{ 
+		break;
+	case GRAFFY_axis:
 		if (!strcmp(propname, "lim"))
 			return ((tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO) && tsig.nSamples == 2);
 		if (!strcmp(propname, "tick"))
 			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_EMPTY);
-	}
-	else if (psig->strut["type"] == string("line"))
-	{
+		break;
+	case GRAFFY_line:
 		if (!strcmp(propname, "marker"))
 		{
 			if (tsig.GetType() != CSIG_STRING || tsig.nSamples != 2)
@@ -1822,16 +1823,16 @@ bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &
 			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO);
 		if (!strcmp(propname, "linestyle"))
 			return true; // check at SetGOProperties() in graffy.cpp
-	}
-	else if (psig->strut["type"] == string("text"))
-	{
+		break;
+	case GRAFFY_text:
 		if (!strcmp(propname, "fontsize"))
 			return (tsig.GetType() == CSIG_SCALAR && tsig.bufBlockSize == 8);
 		if (!strcmp(propname, "fontname") || !strcmp(propname, "string"))
 			return (tsig.GetType() == CSIG_STRING);
+		break;
+		/* Do checking differently for different GO--fig, axes, axis, line, text 8/1/2018
+		*/
 	}
-	/* Do checking differently for different GO--fig, axes, axis, line, text 8/1/2018
-	*/
 	return false;
 }
 

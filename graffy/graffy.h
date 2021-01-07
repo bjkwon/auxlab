@@ -1,12 +1,12 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
-// 
-// 
+//
+//
 // Version: 1.497
 // Date: 12/26/2018
 //
@@ -31,7 +31,6 @@
 
 #endif               //====================== STATIC LIBRARY
 
-
 #define GRAPHY_REPLACE_SAME_KEY		(DWORD)0x0000
 #define GRAPHY_REPLACE_NO_KEY		(DWORD)0x0001
 #define GRAPHY_RETURN_ERR_SAME_KEY	(DWORD)0x0002
@@ -39,9 +38,8 @@
 #define FONT_STYLE_NORMAL	0
 #define FONT_STYLE_ITALIC	1
 #define FONT_STYLE_BOLD		2
-#define FONT_STYLE_UNDERLINE	4	
-#define FONT_STYLE_STRIKEOUT	8	
-
+#define FONT_STYLE_UNDERLINE	4
+#define FONT_STYLE_STRIKEOUT	8
 
 #define WM_GCF_UPDATED		WM_APP+752
 #define WM_PARENT_THREAD	WM_APP+753
@@ -53,6 +51,7 @@
 #define GRAFFY
 #include "bjcommon_win.h"
 #include "bjcommon.h"
+#include "graffy2.h"
 #ifndef SIGPROC
 #include "sigproc.h"
 #endif
@@ -60,7 +59,7 @@
 //#include "winutils.h"  // OLD WIN32+
 
 // CFigure objects are instantiated ("new'ed") during instantiation of CPlotDlg
-// CAxes objects are instantiated by CFigure::axes() 
+// CAxes objects are instantiated by CFigure::axes()
 
 // CFigure, CAxes objects have the proper m_dlg member variable during their instantiation.
 
@@ -79,30 +78,6 @@ public:
 	CRect GetRect(int width, int height);
 	void Set(CRect windRect, CRect axRect);
 	void AdjustPos2FixLocation(CRect oldrt, CRect newrt);
-};
-
-enum graffytype: char
-{ 
-	GRAFFY_root='r',
-	GRAFFY_figure='f',
-	GRAFFY_axes = 'a',
-	GRAFFY_axis='x',
-	GRAFFY_text='t',
-	GRAFFY_patch='p',
-	GRAFFY_line='l',
-	GRAFFY_tick='k',
-};
-
-
-enum LineStyle: unsigned _int8
-{ 
-	LineStyle_err = 255,
-	LineStyle_noline = 0,
-	LineStyle_solid, 
-	LineStyle_dash, 
-	LineStyle_dot, 
-	LineStyle_dashdot,
-	LineStyle_dashdotdot,
 };
 
 class CGobj : public CVar
@@ -132,7 +107,7 @@ public:
 class CTick : public CGobj
 {
 public:
-	bool automatic; 
+	bool automatic;
 	POINT gap4next;
 	int size; // in pixel
 	int labelPos; // in pixel
@@ -156,7 +131,7 @@ class CLine : public CGobj
 public:
 //	list<map<double,double>> chain; // this is the same meaning as chain in CSignals
 	CTimeSeries sig;
-	CSignal xdata;
+	vector<double> xdata;
 	double t1, t2;
 	char symbol; // marker symbol
 	unsigned _int8 lineWidth;
@@ -175,7 +150,7 @@ public:
 	POINT initial; // client coordinate for the first point (assuming that the line is not reversing)
 	POINT final; // client coordinate for the first point (assuming that the line is not reversing)
 	RECT rti, rtf;
-	unsigned int orglength() {return xdata.nSamples;};
+	size_t orglength() {return xdata.size();};
 };
 
 class CText : public CGobj
@@ -199,7 +174,7 @@ public:
 	void initGO(void * _hpar);
 	GRAPHY_EXPORT CText& operator=(const CText& rhs);
 	GRAPHY_EXPORT CText(CWndDlg * base, CGobj* pParent = NULL, const char* strInit=NULL, CPosition posInit=CPosition(0,0,0,0));   // standard constructor
-	~CText();   
+	~CText();
 };
 
 class CAxis : public CGobj
@@ -215,6 +190,7 @@ class CAxes : public CGobj
 {
 public:
 	COLORREF colorAxis;
+	bool limReady;
 	double xlim[2], ylim[2];
 	double xlimFull[2], ylimFull[2];
 	CTick xtick; // How do I pass the argument for instantiation of these objects?
@@ -227,7 +203,7 @@ public:
 
 	GRAPHY_EXPORT CAxes *create_child_axis(CPosition pos);
 	void GetCoordinate(POINT* pt, double& x, double& y);
-	GRAPHY_EXPORT CLine * plot(double *xdata, CTimeSeries *pydata, DWORD colorCode, char cymbol=0, LineStyle ls=LineStyle_solid);
+	GRAPHY_EXPORT CLine * plot(double *xdata, const CTimeSeries &ydata, DWORD colorCode, char cymbol=0, LineStyle ls=LineStyle_solid);
 	GRAPHY_EXPORT void setxlim();
 	GRAPHY_EXPORT void setylim();
 	GRAPHY_EXPORT void DeleteLine(int index);
@@ -274,10 +250,7 @@ public:
 	POINT GetRef();
 };
 
-
-
 #endif //GRAFFY
-
 
 #define WM__VAR_CHANGED			WM_APP+811
 #define WM__PLOTDLG_CREATED		WM_APP+823
@@ -325,18 +298,20 @@ GRAPHY_EXPORT bool GetInProg(CVar *xGO);
 
 GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b);
 
+GRAPHY_EXPORT HWND GetFigure(HANDLE h);
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *figsig);
 GRAPHY_EXPORT HANDLE FindFigure(HWND h);
+GRAPHY_EXPORT HANDLE FindFigure(INT_PTR figID);
+GRAPHY_EXPORT vector<HANDLE> FindFigures(const CVar &sig); // figures
+
+GRAPHY_EXPORT vector<HANDLE> GetGraffyHandles(const CVar &sig); // non-figures
+
 
 GRAPHY_EXPORT vector<HANDLE> graffy_Figures();
 GRAPHY_EXPORT vector<CGobj*> graffy_CFigs();
 GRAPHY_EXPORT void graffy_remove_CFigs(CGobj* h);
-GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID);
-GRAPHY_EXPORT HANDLE GCA(HANDLE _fig);
-GRAPHY_EXPORT CVar *GetFigGO(HWND h);
 GRAPHY_EXPORT int CloseFigure(HANDLE h);
 GRAPHY_EXPORT HANDLE FindWithCallbackID(const char *callbackid);
-GRAPHY_EXPORT vector<CVar*> FindFigurebyvalue(const CVar &vals);
 
 #ifdef _WIN32XX_WINCORE_H_
 #define NO_USING_NAMESPACE
@@ -346,15 +321,15 @@ GRAPHY_EXPORT void showvar2graffy(void *p);
 
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon=NULL);
 GRAPHY_EXPORT HANDLE  OpenFigure(CRect *rt, const char *caption, HWND hWndAppl, int devID, double block, const char * callbackID, HANDLE hIcon = NULL);
-#endif 
+#endif
 
 
 
 GRAPHY_EXPORT HANDLE	AddAxes(HANDLE fig, double x0, double y0, double wid, double hei);
 GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, CPosition pos);
 GRAPHY_EXPORT HANDLE	AddText (HANDLE fig, const char* text, double x, double y, double wid, double hei);
-GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CSignals *pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
-GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, CTimeSeries *pdata, COLORREF col=0xff0000, char cymbol=0, LineStyle ls=LineStyle_solid);
+GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CSignals & pdata, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
+GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CTimeSeries & data, COLORREF col=0xff0000, char cymbol=0, LineStyle ls=LineStyle_solid);
 GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);

@@ -36,7 +36,9 @@ DWORD threadID; // delete this after 7/25/2019
 
 #include <mutex>
 #include <thread>
+#include <condition_variable>
 extern mutex mtx_OnPaint;
+extern condition_variable cv_closeFig;
 
 void initLineList(); // from Auxtra.cpp
 
@@ -45,6 +47,7 @@ class CGraffyEnv : public CWinApp
 public:
 	CGobj GraffyRoot;
 	CAstSig *pctx;
+	unsigned int cumulative;
 	vector<CPlotDlg *> fig;
 	vector<HWND> hDlg_fig;
 	vector<HANDLE> figures();
@@ -52,6 +55,7 @@ public:
 	HANDLE  findAxes(HANDLE ax);
 	HANDLE findGObj(CSignals *xGO, CGobj *hGOParent = NULL);
 	CFigure *findFigure(CSignals *xFig);
+	HWND GetFigure(HANDLE h);
 	HANDLE  openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, const char * callbackID, HANDLE hIcon = NULL);
 	HANDLE  openFigure(CRect *rt, HWND hWndAppl, int devID, double blocksize, const char * callbackID, HANDLE hIcon = NULL);
 	HANDLE  openChildFigure(CRect *rt, HWND hWndAppl);
@@ -122,6 +126,21 @@ vector<CVar*> FindFigurebyvalue(const CVar &vals)
 	//reject if it's a time sequence
 	if (vals.IsTimeSignal())
 		return out;
+	for (unsigned int k = 0; k < vals.nSamples; k++)
+	{
+		double val = vals.buf[k];
+		auto fit = theApp.fig.begin();
+		for (; fit != theApp.fig.end(); fit++)
+		{
+			if ((*fit)->gcf.value() == val)
+			{
+				out.push_back((CVar*)&(*fit)->gcf);
+				break;
+			}
+		}
+	}
+
+
 	CVar _vals = vals;
 	{
 		auto f = theApp.fig.begin();
@@ -248,6 +267,7 @@ GRAPHY_EXPORT void initGraffy(CAstSig *base)
 
 CGraffyEnv::CGraffyEnv()
 {
+	cumulative = 0;
 	//	if (!mutexPlot) mutexPlot = CreateMutex(0, 0, 0);
 	hEvent1 = CreateEvent(NULL, FALSE, FALSE, TEXT("graffy"));
 
@@ -338,6 +358,24 @@ HANDLE CGraffyEnv::findGObj(CSignals *xGO, CGobj *hGOParent)
 }
 
 
+GRAPHY_EXPORT HWND GetFigure(HANDLE h)
+{
+	return theApp.GetFigure(h);
+}
+
+HWND CGraffyEnv::GetFigure(HANDLE h)
+{
+	CFigure *cfig = (CFigure *)h;
+	CVar *pgo = (CVar*)cfig;
+	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
+	{
+		if (*cfig == (*it)->gcf)
+			return (*it)->hDlg;
+		return NULL;
+	}
+	return NULL;
+}
+
 CFigure *CGraffyEnv::findFigure(CSignals *xFig)
 {
 	for (vector<CPlotDlg*>::iterator it = fig.begin(); it != fig.end(); it++)
@@ -413,7 +451,6 @@ HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 	GetWindowRect(hWndAppl, RectApplication);
 	int screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
 	int screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
-	HWND hConsole = GetParent(hWndAppl);
 	GetWindowRect(GetConsoleWindow(), rcCon);
 
 	newFig->pctx = pctx;
@@ -429,7 +466,7 @@ HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int
 	newFig->gcf.setPos(rt->left, rt->top, rt->Width(), rt->Height());
 	if (strlen(caption) == 0) // if (caption=="")    NOT THE SAME  in WIN64
 	{
-		s.Format("Figure %d", countFigures());
+		s.Format("Figure %d", ++cumulative);
 		newFig->SetWindowText(s);
 		newFig->title = (char*)(INT_PTR)countFigures();
 	}
@@ -624,8 +661,10 @@ void thread4Plot(PVOID var)
 			}
 		}
 	}
+	CFigure *fg = (CFigure*)in->fig;
 	CloseFigure(in->fig);
 	delete in;
+	cv_closeFig.notify_one();
 }
 
 GRAPHY_EXPORT HANDLE OpenChildFigure(CRect *rt, HWND hWndAppl)
@@ -753,6 +792,8 @@ GRAPHY_EXPORT void graffy_remove_CFigs(CGobj* hRemove)
 /*New 1*/
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *pfigsig)
 {
+	// If pfigsig is CGobj, don't call this; Just cast.
+	// (It won't be bad even if you call this, but you may just get confused what this is doing. 9/7/2020
 	for (auto fig : theApp.fig)
 	{
 		int fs = fig->gcf.GetFs();
@@ -776,48 +817,127 @@ GRAPHY_EXPORT HANDLE FindFigure(HWND h)
 	return NULL;
 }
 
-GRAPHY_EXPORT HANDLE GetGraffyHandle(INT_PTR figID)
+static HANDLE FindFigure(const CVar &sig)
+{ // assumption: length of sig is 1
+	auto input_type = sig.type();
+	if (input_type & TYPEBIT_GO)
+	{
+		for (auto f : theApp.fig)
+			if ((CVar)sig == f->gcf)
+				return &f->gcf;
+	}
+	else if (input_type & TYPEBIT_STRING)
+	{
+		for (auto f : theApp.fig)
+		{
+			string title;
+			f->GetWindowTextA(title);
+			if (title == sig.string())
+				return &f->gcf;
+		}
+	}
+	else if (input_type & 1)
+	{
+		for (auto f : theApp.fig)
+		{
+			auto type = ((CVar*)&f->gcf)->type();
+			// if f is named skip to the next
+			if (type & TYPEBIT_STRING) continue;
+			else if (sig.value() == f->gcf.value())
+				return &f->gcf;
+		}
+	}
+	return NULL;
+}
+
+GRAPHY_EXPORT vector<HANDLE> FindFigures(const CVar &sig)
+{
+	vector<HANDLE> out;
+	auto type = sig.type();
+	if (sig.nSamples == 0) return out;
+	else if (sig.nSamples == 1 || type & TYPEBIT_GO)
+	{
+		HANDLE _out = FindFigure(sig);
+		if (_out)	out.push_back(_out);
+	}
+	else
+	{
+		for (unsigned int k = 0; k < sig.nSamples; k++)
+		{
+			HANDLE _out = FindFigure(CSignals(sig.buf[k]));
+			if (_out) out.push_back(_out);
+		}
+	}
+	return out;
+}
+
+
+static HANDLE GetGraffyHandle(const CVar &sig)
+{
+	if (sig.IsGO())
+	{
+		CGobj *pp = (CGobj*)&sig;
+		if (pp->type == GRAFFY_figure)
+			return NULL;
+		return (HANDLE)&sig;
+	}
+	else
+		return NULL;
+}
+
+GRAPHY_EXPORT vector<HANDLE> GetGraffyHandles(const CVar &sig)
+{ // non-figures
+	vector<HANDLE> out;
+	if (sig.nSamples == 1) out.push_back(GetGraffyHandle(sig));
+	else
+	{
+
+	}
+	return out;
+}
+
+GRAPHY_EXPORT HANDLE FindFigure(INT_PTR figID)
 {
 	string str;
-	for (size_t k = 0; k<theApp.fig.size(); k++)
+	for (auto f : theApp.fig)
 	{
-		CFigure* cfig = &theApp.fig[k]->gcf;
-		if (cfig->nSamples>0 && cfig->GetFs()!=2 && (INT_PTR)cfig->value() == figID) return (HANDLE)cfig;
-		for (vector<CAxes*>::iterator paxit = cfig->ax.begin(); paxit != cfig->ax.end(); paxit++)
+		CFigure* pfig = &f->gcf;
+		auto type = ((CVar*)pfig)->type();
+		if (!(type & TYPEBIT_STRING) && (INT_PTR)pfig->value() == figID)
+			return (HANDLE)pfig;
+		for (auto ax : pfig->ax)
 		{
-			if ((INT_PTR)*paxit == figID) return (HANDLE)*paxit;
-			for (size_t q = 0; q < (*paxit)->m_ln.size(); q++)
-			{
-				CLine *ln = (*paxit)->m_ln[q];
+			if ((INT_PTR)ax == figID) 
+				return (HANDLE)ax;
+			for (auto ln : ax->m_ln)
 				if ((INT_PTR)ln == figID) return (HANDLE)ln;
-			}
 		}
-		for (vector<CText*>::iterator ptxit = cfig->text.begin(); ptxit != cfig->text.end(); ptxit++)
-			if ((INT_PTR)*ptxit == figID) return (HANDLE)*ptxit;
+		for (auto txt : pfig->text)
+		{
+			if ((INT_PTR)txt == figID) return (HANDLE)txt;
+		}
 	}
 	return NULL;
 }
 
 GRAPHY_EXPORT bool GetInProg(CVar *xGO)
 {
-	string type = xGO->strut["type"].string();
-	if (type != "figure") return false;
+	if (GOtype(xGO) != GRAFFY_figure) return false;
 	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
 	return phDlg->getInProg();
 }
 
 GRAPHY_EXPORT void SetInProg(CVar *xGO, bool inprog)
 { // currently applicable only when xGO is CFigure
-	string type = xGO->strut["type"].string();
-	if (type != "figure") return;
-	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
-	phDlg->setInProg(inprog);
+	if (GOtype(xGO) == GRAFFY_figure) {
+		CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
+		phDlg->setInProg(inprog);
+	}
 }
 
 GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b)
 {
-	string type = xGO->strut["type"].string();
-	if (type != "figure") return false;
+	if (GOtype(xGO) != GRAFFY_figure) return false;
 	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
 	phDlg->Register(pax, b); // add the case for return false
 	return true;
@@ -825,10 +945,10 @@ GRAPHY_EXPORT bool RegisterAx(CVar *xGO, CAxes *pax, bool b)
 
 void showRMS(CVar *xGO, int code)
 {
-	string type = xGO->strut["type"].string();
-	if (type != "figure") return;
-	CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
-	phDlg->dBRMS((SHOWSTATUS)code);
+	if (GOtype(xGO) == GRAFFY_figure) {
+		CPlotDlg *phDlg = (CPlotDlg*)(((CFigure*)xGO)->m_dlg);
+		phDlg->dBRMS((SHOWSTATUS)code);
+	}
 }
 
 GRAPHY_EXPORT void ViewSpectrum(HANDLE _h)
@@ -880,17 +1000,57 @@ GRAPHY_EXPORT void ShowStatusBar(HANDLE _fig)
 }
 // if (data.GetType() == CSIG_VECTOR) strcpy(ax->xtick.format, "%.0f"); // for non-audio, plot(x) call, don't bother to show any decimal point on x-axis.
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CTimeSeries *pdata, COLORREF col, char cymbol, LineStyle ls)
+static CTimeSeries Real(const CTimeSeries &x)
 {
-	//ptdata is treated as non-stereo
-	CSignals *tp = ((CVar*)pdata)->next;
-	((CVar*)pdata)->next = NULL;
-	vector<HANDLE> out = PlotCSignals(_ax, x, (CSignals*)pdata, col, cymbol, ls);
-	((CVar*)pdata)->next = tp;
+	CTimeSeries out(x.GetFs(), x.nSamples);
+	if (x.IsComplex())
+	{
+		out.bufBlockSize = sizeof(double);
+		for (unsigned int k = 0; k < x.nSamples; k++) out.buf[k] = x.buf[2 * k];
+	}
+	else
+	{
+		out = x;
+	}
 	return out;
 }
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata, COLORREF col, char cymbol, LineStyle ls)
+static CTimeSeries Imag(const CTimeSeries &x)
+{
+	CTimeSeries out(x.GetFs(), (int)x.nSamples);
+	if (x.IsComplex())
+	{
+		out.bufBlockSize = sizeof(double);
+		for (unsigned int k = 0; k < x.nSamples; k++) out.buf[k] = x.buf[2 * k + 1];
+	}
+	else
+	{
+		out.UpdateBuffer(x.nSamples);
+	}
+	return out;
+}
+
+GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CTimeSeries &data, COLORREF col, char cymbol, LineStyle ls)
+{
+	// mono
+	vector<HANDLE> out;
+	CLine *lyne;
+	CAxes *ax = static_cast<CAxes *>(_ax);
+	if (data.IsComplex())
+	{
+		CTimeSeries real(data);
+		real.SetReal();
+		out.push_back(ax->plot(x, real, col, cymbol, ls));
+		CTimeSeries imag = Imag(data);
+		if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'l'; // real part in complex input, left channel
+		out.push_back(ax->plot(x, imag, col, cymbol, ls));
+	}
+	else
+		out.push_back(lyne = ax->plot(x, data, col, cymbol, ls));
+	return out;
+}
+
+GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals &data, COLORREF col, char cymbol, LineStyle ls)
 {
 	CLine *lyne;
 	CAxes *ax = static_cast<CAxes *>(_ax);
@@ -899,31 +1059,12 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, CSignals *pdata
 	{
 		col = 0;		*((char*)&col + 3) = 'L';
 	} // left channel
-	if (pdata->IsComplex())
-	{
-		CSignals copy(*pdata);
-		copy.SetReal();
-		out.push_back(ax->plot(x, &copy, col, cymbol, ls));
-		pdata->Imag();
-		if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'l'; // real part in complex input, left channel
-		out.push_back(ax->plot(x, pdata, col, cymbol, ls));
-	}
-	else
-		out.push_back(lyne = ax->plot(x, pdata, col, cymbol, ls));
-	if (pdata->next)
+	out = PlotCSignals(_ax, x, (const CTimeSeries)data, col, cymbol, ls);
+	if (data.next)
 	{
 		*((char*)&col + 3) = 'R';
-		if (pdata->next->IsComplex())
-		{
-			CSignals copy(*pdata->next);
-			copy.SetReal();
-			out.push_back(ax->plot(x, &copy, col, cymbol, ls));
-			pdata->next->Imag();
-			if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'r'; // real part in complex input, left channel
-			out.push_back(ax->plot(x, pdata->next, col, cymbol, ls));
-		}
-		else
-			out.push_back(ax->plot(x, pdata->next, col, cymbol, ls)); // Right channel
+		vector<HANDLE> out2 = PlotCSignals(_ax, x, (const CTimeSeries)*data.next, col, cymbol, ls);
+		out.push_back(out2.front());
 	}
 	CAxes * hAx = (CAxes *)ax;
 	CGobj * hPar = ((CGobj *)ax)->hPar;
@@ -1126,18 +1267,43 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 	}
 }
 
+GRAPHY_EXPORT graffytype GOtype(const CVar & obj)
+{
+	graffytype out;
+	auto vv = obj.strut.find("type");
+	if (vv == obj.strut.end()) return GRAFFY_no_graffy;
+	if ((*vv).second.type() & TYPEBIT_STRING)
+	{
+		string typestr = (*vv).second.string();
+		if (typestr == "figure") return GRAFFY_figure;
+		if (typestr == "axes") return GRAFFY_axes;
+		if (typestr == "line") return GRAFFY_line;
+		if (typestr == "tick") return GRAFFY_tick;
+		if (typestr == "axis") return GRAFFY_axis;
+		if (typestr == "text") return GRAFFY_text;
+		if (typestr == "patch") return GRAFFY_patch;
+		else return GRAFFY_others;
+	}
+	else
+		return GRAFFY_no_graffy;
+}
+
 GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CVar & RHS)
 {
 	//put NULL for the first param to invoke InvalidateRect 
 	CFigure *cfig;
+	CAxes *cax;
+	CLine *cline;
+	CText *ctxt;
 	HANDLE h;
+	bool b = false;
+	CSignals onoff(&b, 1);
 	if (!pctx->isThisAllowedPropGO(pctx->pgo, proptype, RHS))
 		throw CAstException(ARGS, pctx, NULL).proc("Invalid parameter for the property", proptype);
-	string type = pctx->pgo->strut["type"].string();
 	CRect rt(0, 0, 0, 0);
-//	h = FindGObj(pctx->pgo);
-	if (type == "figure")
+	switch (GOtype(pctx->pgo))
 	{
+	case GRAFFY_figure:
 		cfig = static_cast<CFigure *>(pctx->pgo);
 		cfig->m_dlg->GetWindowRect(rt);
 		if (!strcmp(proptype, "pos"))
@@ -1157,10 +1323,9 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 			bool onoff = (bool)RHS.value();
 			cfig->m_dlg->ShowWindow(onoff ? SW_SHOW : SW_HIDE);
 		}
-	}
-	else if (type == "axes")
-	{
-		CAxes *cax = static_cast<CAxes *>(pctx->pgo);
+		break;
+	case GRAFFY_axes:
+		cax = static_cast<CAxes *>(pctx->pgo);
 		cfig = (CFigure *)cax->hPar;
 		rt = cax->rct;
 		if (!strcmp(proptype, "pos"))
@@ -1190,13 +1355,10 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 			cfig->m_dlg->GetWindowRect(rt);
 			rt.MoveToXY(CPoint(0, 0));
 		}
-	}
-	else if (type == "axis")
-	{
-		bool b = false;
-		CSignals onoff(&b, 1);
+		break;
+	case GRAFFY_axis:
 		h = pctx->pgo->struts["parent"].front();
-		CAxes *cax = static_cast<CAxes *>(h);
+		cax = static_cast<CAxes *>(h);
 		cfig = (CFigure *)cax->hPar;
 		rt = cax->rct;
 		rt.UnionRect(rt, cax->xtick.rt);
@@ -1232,11 +1394,10 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 			}
 		}
 		pctx->pgo->strut["auto"] = onoff;
-	}
-	else if (type == "line")
-	{
-		CLine *cline = static_cast<CLine *>(pctx->pgo);
-		CAxes *cax = (CAxes *)cline->hPar;
+		break;
+	case GRAFFY_line:
+		cline = static_cast<CLine *>(pctx->pgo);
+		cax = (CAxes *)cline->hPar;
 		cfig = (CFigure *)cax->hPar;
 		if (!strcmp(proptype, "marker"))
 		{
@@ -1254,20 +1415,20 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		else if (!strcmp(proptype, "linestyle"))
 		{
 			LineStyle tp = cline->GetLineStyle();
-			if (tp == LineStyle_err) 
+			if (tp == LineStyle_err)
 				throw CAstException(ARGS, pctx, NULL).proc("linestyle must be one of the following\nnone - : -- -. ..", "");
 			cline->lineStyle = tp;
 		}
 		else if (!strcmp(proptype, "visible"))
 			cline->visible = (int)RHS.value();
-		else if (!strcmp(proptype, "xdata"))
-		{
-			if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
-				throw CAstException(USAGE, pctx, NULL).proc("RHS elements must be equal to existing points", "");
-			cline->xdata = RHS;
-			cax->setxlim();
-			cax->xtick.tics1.clear();
-		}
+		//else if (!strcmp(proptype, "xdata"))
+		//{
+		//	if (RHS.nSamples != pctx->pgo->strut["xdata"].nSamples) 
+		//		throw CAstException(USAGE, pctx, NULL).proc("RHS elements must be equal to existing points", "");
+		//	cline->xdata = RHS;
+		//	cax->setxlim();
+		//	cax->xtick.tics1.clear();
+		//}
 		else if (!strcmp(proptype, "ydata"))
 			cline->sig = RHS;
 		rt.UnionRect(cax->rct, cax->xtick.rt);
@@ -1276,10 +1437,9 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		//	cfig->m_dlg->InvalidateRect(cax->rct); // invalidated rect should also include rects of xtick and ytick .... do it!
 		//	cfig->m_dlg->InvalidateRect(cax->xtick.rt); // hhhhm... this is not working.... 8/3/2018 7:40pm
 		//}
-	}
-	else if (type == "text")
-	{
-		CText *ctxt = static_cast<CText *>(pctx->pgo);
+		break;
+	case GRAFFY_text:
+		ctxt = static_cast<CText *>(pctx->pgo);
 		cfig = (CFigure *)ctxt->hPar;
 		if (!strcmp(proptype, "fontname"))
 			ctxt->ChangeFont(RHS.string().c_str(), (int)ctxt->strut["fontsize"].value());
@@ -1297,6 +1457,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 		else if (!strcmp(proptype, "visible"))
 			ctxt->visible = RHS.logbuf[0];
 		rt = ctxt->textRect; // no need to worry about old vs new RECT; Re-repaint is done inside of OnPaint if necessary.
+		break;
 	}
 	addRedrawCue(cfig->m_dlg->hDlg, rt);
 }

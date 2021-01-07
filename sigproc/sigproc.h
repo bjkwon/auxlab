@@ -249,7 +249,7 @@ public:
 	map<string, vector<CVar *>> GOvars;
 	AstNode *pAst;
 	CVar Sig;
-	CVar *pgo;
+	CVar *pgo; // pointer, not a copy, of the last computed object; used for graffy functions
 	string Script;
 	CAstSigEnv *pEnv;
 	CUDF u;
@@ -265,6 +265,7 @@ public:
 	unsigned long Tick0, Tick1;
 	bool fBreak, fAllocatedAst;
 	bool FsFixed;
+	bool wait4cv;
 	CFuncPointers fpmsg; // function pointer "messenger"
 	void init();
 	static const int DefaultFs = 22050;
@@ -321,8 +322,8 @@ public:
 	void checkVector(const AstNode *pnode, CVar &checkthis, string addmsg = "");
 	void checkSignal(const AstNode *pnode, CVar &checkthis, string addmsg="");
 	void checkScalar(const AstNode *pnode, CVar &checkthis, string addmsg = "");
-	void checkString(const AstNode *pnode, CVar &checkthis, string addmsg="");
-	void blockCell(const AstNode *pnode, CVar &checkthis);
+	void checkString(const AstNode *pnode, const CVar &checkthis, string addmsg="");
+	void blockCell(const AstNode *pnode, const CVar &checkthis);
 	void blockEmpty(const AstNode *pnode, CVar &checkthis);
 	void blockScalar(const AstNode *pnode, CVar &checkthis);
 	void blockString(const AstNode *pnode, CVar &checkthis);

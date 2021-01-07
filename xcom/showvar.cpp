@@ -24,11 +24,16 @@
 #include <thread>
 #include <queue>
 #include <mutex>
+#include <condition_variable>
 
 #include <cstdlib>
 
 #include "wavplay.h"
 #include "utils.h"
+
+condition_variable cv_closeFig;
+mutex mtx_closeFig;
+extern condition_variable cv_delay_closingfig;
 
 HWND hLog;
 
@@ -94,7 +99,6 @@ CFileDlg fileOpenSaveDlg;
 char axlfullfname[_MAX_PATH], axlfname[_MAX_FNAME + _MAX_EXT];
 
 HWND CreateTT(HINSTANCE hInst, HWND hParent, RECT rt, char *string, int maxwidth=400);
-void closeXcom();
 size_t ReadThisLine(string &linebuf, HANDLE hCon, CONSOLE_SCREEN_BUFFER_INFO coninfo0, SHORT thisline, size_t promptoffset);
 
 BOOL CALLBACK vectorsheetDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
@@ -323,9 +327,10 @@ void CShowvarDlg::plotvar(CVar *psig, string title, const char *varname)
 			CFigure * cfig = newFigure(title.c_str(), varname, &in);
 			cfig->visible = 1;
 			CAxes *cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			plotlines = PlotCSignals(cax, NULL, psig, -1);
+			plotlines = PlotCSignals(cax, NULL, *psig, -1);
 			RegisterAx((CVar*)cfig, cax, true);
 			cfig->m_dlg->GetWindowText(buf, sizeof(buf));
+			cfig->strut["name"] = string(buf);
 			//For the global variable $gcf, updated whether or not this is named plot.
 			xscope.at(res)->SetVar("?foc", cfig);
 			if (!IsNamedPlot(hPlot))
@@ -359,7 +364,7 @@ double CShowvarDlg::plotvar_update2(CAxes *pax, CTimeSeries *psig)
 	while (!pax->m_ln.empty())
 		deleteObj(pax->m_ln.front());
 	((CVar*)pax)->struts["children"].clear();
-	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
+	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, -1);
 	double lower = 1.e100;
 	for (auto lnObj : plotlines)
 	{
@@ -375,7 +380,7 @@ double CShowvarDlg::plotvar_update2(CAxes *pax, CSignals *psig)
 	while (!pax->m_ln.empty())
 		deleteObj(pax->m_ln.front());
 	((CVar*)pax)->struts["children"].clear();
-	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, psig, -1);
+	vector<HANDLE> plotlines = PlotCSignals(pax, NULL, *psig, -1);
 	double lower = 1.e100;
 	for (auto lnObj : plotlines)
 	{
@@ -920,8 +925,8 @@ void CShowvarDlg::debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry)
 
 void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 {
-	LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
-	string vam;
+//		LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
+	//string vam;
 	// do I need to update gcf for all xcope members?
 //	SetGlovar(xscope.at(res)->GetVariable("gcf",vam));
 	// do I need to update gcf for all xcope members?
@@ -945,6 +950,9 @@ void CShowvarDlg::OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin)
 
 void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 {
+//	unique_lock<mutex> lck(mtx_closeFig);
+//	cv_closeFig.wait(lck);
+
 	vector<string> varname2del;
 	CVar *p = (CVar *)FindFigure(hDlgPlot);
 	vector<string> varname2delete;
@@ -1000,6 +1008,7 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 		if (dlg && dlg->dwUser == 1010)
 			dlg->DestroyWindow();
 	}
+	cv_delay_closingfig.notify_one();
 }
 
 void CShowvarDlg::InitVarShow(int type, const char *name)

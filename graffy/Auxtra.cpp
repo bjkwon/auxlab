@@ -1,11 +1,11 @@
-/// AUXLAB 
+/// AUXLAB
 //
 // Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: graffy
 // Graphic Library (Windows only)
-// 
+//
 // Version: 1.7
 // Date: 5/21/2020
 
@@ -27,7 +27,6 @@ extern HWND hWndApp;
 uintptr_t hTread;
 bool win7;
 
-
 void addRedrawCue(HWND hDlg, RECT rt);
 void ReplaceStr(string &str, const char *from, const char *to) { ReplaceStr(str, string(from), string(to)); }
 
@@ -37,6 +36,18 @@ DWORD colordw;
 double blocksize;
 
 bool isWin7();
+
+static void _delete_ans(CAstSig *past)
+{
+	// Delete the "ans" variable from the main scope if it is a GO.
+	// Without this, auxlab may crash if showvar refreshes the variable list and fillup the showvarDlg
+	// while plot or line call is in progress (so the new ans variable is not yet ready).
+	// Currently used only in plot or _delete_graffy, but may be needed in other Graffy calls. 9/5/2020
+	auto ansIt = past->GOvars.find("ans");
+	if (ansIt != past->GOvars.end())
+		if ((*ansIt).second.front()->IsGO())
+			past->GOvars.erase(ansIt);
+}
 
 int IsNamedPlot(HWND hwnd)
 { // returns 1 if it is named plot
@@ -207,7 +218,7 @@ void initLineList()
 	linecolorlist['g'] = RGB(0,255,0); // green
 	linecolorlist['b'] = RGB(0,0,255); // blue
 	linecolorlist['k'] = RGB(0,0,0); // black
-	linecolorlist['w'] = RGB(255,255,255); // white 
+	linecolorlist['w'] = RGB(255,255,255); // white
 }
 //DO THIS-----if an option is not specified, the default should come in... Now the default seems a bit off. For example, "r" defaults to red, no marker, no line. 8/2/2018
 void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineStyle &ls, int &mk, DWORD &col)
@@ -221,7 +232,7 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	id = input.find_first_of(COLORSTR);
 	if (id!=string::npos) col = linecolorlist[input[id]], input.erase(id,1);
 	while ((id=input.find_first_of(COLORSTR))!=string::npos) {
-		// what's this? 1/17/2020 
+		// what's this? 1/17/2020
 		throw CAstException(USAGE, *past, pnode).proc("more than two characters for line color");
 		input.erase(id,1);
 		// Do something 1/17/2020
@@ -230,7 +241,7 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	if (id!=string::npos) mk = linemarkerlist[input[id]], input.erase(id,1);
 	else				markerspecified = false, mk = 0;
 	while ((id=input.find_first_of(MARKERSTR))!=string::npos) {
-		// what's this? 1/17/2020 
+		// what's this? 1/17/2020
 		throw CAstException(USAGE, *past, pnode).proc("more than two characters for marker");
 		input.erase(id,1);
 		// Do something 1/17/2020
@@ -246,8 +257,8 @@ void getLineSpecifier (CAstSig *past, const AstNode *pnode, string input, LineSt
 	else
 		throw CAstException(USAGE, *past, pnode).proc((input + string(" Invalid line style specifier")).c_str());
 	if (input2.find_first_of(MARKERSTR)==string::npos) //marker is not specified but
-		if (input.empty()) // linestyle is not 
-			ls = linestylelist["-"]; // set it solid 
+		if (input.empty()) // linestyle is not
+			ls = linestylelist["-"]; // set it solid
 }
 
 #define LOADPF(OUT, DEFTYPE, FUNCSIGNATURE) if ((OUT = (DEFTYPE)GetProcAddress((HMODULE)hLib, FUNCSIGNATURE))==NULL) {char buf[256]; sprintf(buf, "cannot find %s", FUNCSIGNATURE); MessageBox(NULL, "LOADPF error", buf, 0); return 0;}
@@ -263,7 +274,7 @@ DWORD double2RGB(double color[3])
 	return out;
 }
 
-/*From now on, Make sure to update this function whenever functions are added/removed in graffy.cpp 
+/*From now on, Make sure to update this function whenever functions are added/removed in graffy.cpp
 7/15/2016 bjk
 */
 
@@ -321,7 +332,7 @@ GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *
 {
 	if (!past->Sig.IsGO())
 		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
-	if (past->Sig.strut["type"].string() == "figure")
+	if (GOtype(past->Sig) == GRAFFY_figure)
 	{
 		HANDLE h = FindFigure(&past->Sig);
 		HWND hh = GetHWND_PlotDlg(h);
@@ -331,51 +342,36 @@ GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *
 		throw CAstException(USAGE, *past, p).proc("Only figure handle is supported now.");
 }
 
-GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{ // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
-// 
-	if (!past->pgo) // if argument is scalar or vector with integer, delete(1:5), figure windows are deleted
-	{ // this is not in compliance with AUX syntax philosophy but recognized for the sake of convenience. 10/24/2019
-		CVar tsig = past->Sig;
-		vector<CVar*> figs = FindFigurebyvalue(tsig);
-		while (!figs.empty())
-		{
-			auto f = figs.front();
-			past->pgo = f;
-			_delete_graffy(past, pnode, p, fnsigs);
-			figs = FindFigurebyvalue(tsig);
-		}
-		past->pgo = nullptr;
-		return;
-	}
+static void _delete_figure(CVar *pgo)
+{
+	HWND h = GetFigure(pgo);
+// 	StopPlay(hAudio, true);
+	PostMessage(h, WM_QUIT, 0, 0);
+}
 
-	// To delete multiple GO's, delete one by one
-	if (past->pgo->GetType() == CSIG_HDLARRAY)
-	{
-		CVar temp = *past->pgo;
-		for (unsigned int k = 0; k < temp.nSamples; k++)
-		{
-			past->pgo = (CVar*)(INT_PTR)temp.buf[k];
-			_delete_graffy(past, pnode, p, fnsigs);
-		}
-		return;
-	}
-
-	CGobj *hobj = (CGobj *)past->pgo;
+static void _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDLE obj)
+{
+	CGobj *hobj = (CGobj *)obj;
+	CVar *pgo = (CVar*)obj;
+	CVar *hPar = ((CFigure*)hobj)->hPar;
 	if (!hobj)
 		throw CAstException(USAGE, *past, pnode).proc("1st argument is not a valid graphic object identifier."); //check
-	//remove from registered ax list
-	if (past->pgo->strut["type"] == string("axes"))
+	switch (hobj->type)
 	{
-		CFigure *cfg = (CFigure *)((CFigure*)hobj)->hPar;
-		RegisterAx((CVar*)cfg, (CAxes*)hobj, false);
+	case GRAFFY_axes:
+		RegisterAx(hPar, (CAxes*)hobj, false);
+		hPar->struts["gca"].clear();
+		break;
+	case GRAFFY_text:
+		break;
+	case GRAFFY_line:
+		break;
 	}
-
 	map<CAstSig *, vector<CVar *>> scope_delList;
 	CAstSig *tp = past->dad;
 	while (tp)
 	{
-		scope_delList[tp] = toDelete(tp, past->pgo);
+		scope_delList[tp] = toDelete(tp, pgo);
 		tp = tp->dad;
 	}
 
@@ -386,7 +382,7 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 		{
 			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end(); )
 			{
-				if (Is_A_Ancestor_of_B(past->pgo, (*jt)))
+				if (Is_A_Ancestor_of_B(pgo, (*jt)))
 					jt = (*it).second.erase(jt);
 				else
 					jt++;
@@ -395,7 +391,7 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 		}
 		else
 		{
-			if (Is_A_Ancestor_of_B(past->pgo, (*it).second.front()))
+			if (Is_A_Ancestor_of_B(pgo, (*it).second.front()))
 			{
 				past->Vars[(*it).first] = CVar(); // do not call SetVars--it doesn't make a new item in Vars because of the item in GOvars with the name (*it).first
 				it = past->GOvars.erase(it);
@@ -411,14 +407,13 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 		{
 			for (auto kt = (*jt)->struts["children"].begin(); kt != (*jt)->struts["children"].end(); )
 			{
-				if (*kt == past->pgo)
+				if (*kt == pgo)
 					kt = (*jt)->struts["children"].erase(kt);
 				else
 					kt++;
 			}
 		}
 	}
-
 	deleteObj(hobj);
 	past->Sig = CVar();
 	past->pgo = NULL;
@@ -433,6 +428,74 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 		past->u.rt2validate[GetHWND_PlotDlg(hobj)] = CRect(0, 0, 0, 0);
 	else
 		InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
+}
+
+
+GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{ // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
+//
+	// One of the following:
+//	delete(1:3)
+// delete(figure(2))
+// delete(ax)
+// delete([gcf 3:4])
+// delete([gcf figure(3).children])
+
+/* First delete figure windows, gcf and ?foc from GOvars
+then the rest (if it's still around)
+
+Do this tomorrow 9/7/2020
+|
+*/
+	past->wait4cv = true;
+
+	// First delete figure objects; then do the rest.
+	if (	past->Sig.type() <= 2 || past->Sig.IsGO()) // or a vector
+	{
+		//figures first
+		vector<HANDLE> requested = FindFigures(past->Sig);
+//		if (requested.empty())
+//			throw CAstException(USAGE, *past, pnode).proc("Not a valid graphic object identifier.");
+		_delete_ans(past);
+		CVar *pgcf = past->GetVariable("gcf");
+		CVar *foc = past->GetVariable("?foc");
+		for (auto fig : requested)
+		{
+			//if fig is gcf or ?foc, remove it from GOvars
+			if (fig == pgcf)
+				past->GOvars.erase(past->GOvars.find("gcf"));
+			if (fig == foc)
+				past->GOvars.erase(past->GOvars.find("?foc"));
+			CGobj *fg = (CGobj *)fig;
+			if (fg->type == GRAFFY_figure)
+			{
+				// 	StopPlay(hAudio, true);
+				PostMessage(fg->m_dlg->hDlg, WM_QUIT, 0, 0);
+			}
+		}
+
+		// non-figures
+//		_delete_graffy_non_figure(past, pnode, past->pgo);
+//		vector<HANDLE> requested2 = GetGraffyHandles(past->Sig);
+//		for (auto obj : requested2)
+//		{
+//			_delete_graffy_non_figure(past, pnode, obj);
+//		}
+		past->Sig.Reset(1);
+		return;
+	}
+
+	// To delete multiple GO's, delete one by one
+	if (past->pgo->GetType() == CSIG_HDLARRAY)
+	{
+		CVar temp = *past->pgo;
+		for (unsigned int k = 0; k < temp.nSamples; k++)
+		{
+			past->pgo = (CVar*)(INT_PTR)temp.buf[k];
+			_delete_graffy(past, pnode, p, fnsigs);
+		}
+		return;
+	}
 }
 
 GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -485,6 +548,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 			}
 			past->Sig = *static_cast<CFigure *>(h);
 			past->pgo = static_cast<CFigure *>(h); // This is how the figure handle (pointer) is sent back to AstSig
+			BOOL res = SetForegroundWindow(((CGobj*)past->pgo)->m_dlg->hDlg);
 			return;
 		}
 	}
@@ -512,7 +576,7 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["pos"].buf[1] = rt.top;
 	cfig->strut["pos"].buf[2] = rt.Width();
 	cfig->strut["pos"].buf[3] = rt.Height();
-	past->Sig = *(past->pgo = cfig); 
+	past->Sig = *(past->pgo = cfig);
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	//if called by a callback
 	if (strlen(past->callbackIdentifer)>0) SetInProg(cfig, true);
@@ -535,10 +599,10 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		args.push_back(past->Compute(pp));
 	int count = 0;
 	vector<CVar *>::reverse_iterator rit = args.rbegin();
-	if ((**rit).GetType() != CSIG_STRING) throw CAstException(USAGE, *past, pnode).proc("The last argument must be string.");
+	if (!((**rit).type() & TYPEBIT_STRING)) throw CAstException(USAGE, *past, pnode).proc("The last argument must be string.");
 	for (rit++; count<2; rit++, count++)
 	{
-		if ((**rit).GetType() != CSIG_SCALAR) 
+		if ((**rit).GetType() != CSIG_SCALAR)
 			throw CAstException(USAGE, *past, pnode).proc("X- and Y- positions must be scalar.");
 	}
 	CSignals *pgcf = past->GetVariable("gcf");
@@ -553,11 +617,11 @@ GRAPHY_EXPORT void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	else
 		pgcf = pGO;
 	CFigure *cfig = (CFigure *)pgcf;
-	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back()->string().c_str(), 
+	CText *ctxt = static_cast<CText *>(AddText(cfig, args.back()->string().c_str(),
 		(*(args.end()-3))->value(), (*(args.end() - 2))->value(), 0, 0));
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
-	past->Sig = *(past->pgo = ctxt); 
+	past->Sig = *(past->pgo = ctxt);
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 }
 
@@ -589,9 +653,9 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 	}
 	else
 	{
-		if (pGO->strut["type"].string() == "figure")
+		if (GOtype(pGO) == GRAFFY_figure)
 			pgcf = pGO;
-		else 
+		else
 			throw CAstException(USAGE, *past, pnode).proc("Only figure handle can create axes or handle axes");
 	}
 	CFigure *cfig = (CFigure *)FindFigure(pgcf);
@@ -615,7 +679,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 
 GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
 {
-	//CSignals *pgcf = past->GetVariable("gcf"); 
+	//CSignals *pgcf = past->GetVariable("gcf");
 	//if (!pgcf) return -1;
 	//out->Reset();
 	//out->UpdateBuffer(2);
@@ -629,65 +693,29 @@ GRAPHY_EXPORT int _reserve_sel(CAstSig *past, const AstNode *p, CSignals *out)
 	return 0;
 }
 
-void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, string plotOptions, int nArgs)
+#define BLOCKCELLSTRING(AST,SIG) \
+{ \
+AST->blockCell(pnode, SIG);\
+AST->blockString(pnode, SIG);\
+}
+
+void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const CVar &arg1, const CVar &arg2, const string &plotOptions)
 {
 	int marker;
 	LineStyle linestyle;
 	DWORD col(-1);
 	getLineSpecifier(past, pnode, plotOptions, linestyle, marker, col); // check if the format is valid and get the plot options if all are good.
 	double *xdata = NULL;
-	int xdataLen=-1;
-	int count = 1;
-	bool ignoreLast = false;
-	for (const AstNode *pp = p; ; count++)
+	if (arg2.type()) // arg2 not empty; x-y plot
 	{
-		if (count == 1)
-		{
-			if (past->pgo)		continue;
-		}
-		else
-		{
-			if (p)
-			{
-				CAstSig tp(past);
-				if (!tp.Compute(pp)->IsString())
-					past->Compute(pp);
-				pp = p->next;
-			}
-		}
-		past->blockCell(pnode, past->Sig);
-		past->blockString(pnode, past->Sig);
-		past->blockScalar(pnode, past->Sig); // this should be gone to plot time series 7/2/2020
-		if (pp)
-		{//check whether pp is processed into a string...We need to know whether this is x-ploy or xy-plot
-		 //it should have survived error handling in _plot_line
-			CAstSig tp(past);
-			if (tp.Compute(pp)->IsString())
-				ignoreLast = true;
-		}
-		if ((!pp || ignoreLast) && !xdata) // NULL p: the last; NULL xdata: not xy plot
-		{
-			plotlines = PlotCSignals(pax, NULL, &past->Sig, col, marker, linestyle);
-			break;
-		}
-		else
-		{
-			if (xdata)
-			{ //xy-plot
-				if (past->Sig.nSamples != xdataLen)
-					throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
-				plotlines = PlotCSignals(pax, xdata, &past->Sig, col, marker, linestyle);
-				delete[] xdata;
-				break;
-			}
-			else
-			{
-				xdata = new double[xdataLen = past->Sig.nSamples];
-				memcpy(xdata, past->Sig.buf, past->Sig.nSamples*past->Sig.bufBlockSize);
-			}
-			pax->xTimeScale = past->Sig.IsTimeSignal();
-		}
+		if (arg1.nSamples != arg2.nSamples)
+			throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
+		plotlines = PlotCSignals(pax, arg1.buf, arg2, col, marker, linestyle);
 	}
+	else
+		plotlines = PlotCSignals(pax, NULL, arg1, col, marker, linestyle);
+	pax->xTimeScale = past->Sig.IsTimeSignal();
+	pax->limReady = false;
 }
 
 #include <mutex>
@@ -710,131 +738,159 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 
 	The line function is the same except it always adds the line object.
 	*/
-	//First, check whether a graphic handle is given as the first param
-	CVar *pgo = past->pgo;
-	if (!past->Sig.IsGO())	pgo = NULL; // first param is not a graphic handle
-	static vector<CVar> args;
-	static GRAFWNDDLGSTRUCT in;
-	//args is the argument list not including the graphic handle.
-	mainast = past;
-	CAxes *cax = NULL;
+	bool newFig = false;
+	CAxes *pax;
 	CFigure *cfig = NULL;
-	try {
-		CAstSig tp(past);
-		//Find gcf if pgo is NULL; if no gcf. create a figure
-		string plotOptions;
-		int nArgs = 1;
-		for (const AstNode *pp(p); pp; pp = pp->next)
+	string plotOptions;
+	CVar arg1; // x in plot(x,y) or plot(h,x,y), cannot be NULL
+	CVar arg2; // y in plot(x,y) or plot(h,x,y)
+	CVar arg3; // "o" in plot(x,y,"o") or plot(h,x,y,"o")
+	//First, check whether a graphic handle is given as the first param
+	if (past->Sig.IsGO()) // update 8/23/2020
+	{
+		CVar *pgo = past->pgo; // pgo is the actual go, past->Sig is only the mirroring one.
+		switch (GOtype(*pgo))
 		{
-			nArgs++;
-			if (!pp->next) // the last one
+		case GRAFFY_figure:
+			// check if it is named plot, if so mark it and go down; otherwise, set cax
+			if (pgo->GetFs() == 2)
+				newFig = true;
+			else
 			{
-				tp.Compute(pp);
-				if (tp.Sig.GetType() == CSIG_STRING)
-					plotOptions = tp.Sig.string();
+				auto itgca = pgo->struts.find("gca");
+				if (itgca == pgo->struts.end() || itgca->second.empty())
+				{
+					pax = (CAxes *)AddAxes((HANDLE)pgo, .08, .18, .86, .72);
+					RegisterAx(pgo, pax, true);
+				}
+				else
+					pax = (CAxes *)pgo->struts["gca"].front();
+			}
+			break;
+		case GRAFFY_axes:
+			pax = (CAxes *)pgo;
+			break;
+		default:
+			throw CAstException(USAGE, *past, p).proc(fnsigs, "A non-graphic object nor a data array is given as the first argument.");
+		}
+
+		// p should be the CVar object to plot, in plot(h,x,...) and subsequently next'ed.
+		// past->Sig has been stored as pgo; no need to shield it with try and CAstSig tp(past)
+		if (p) arg1 = past->Compute(p);
+		BLOCKCELLSTRING(past, arg1);
+		if (p->next)
+		{
+			if (p->next->next)	{
+				arg3 = past->Compute(p->next->next);
+				past->checkString(pnode, arg3, "last arg in plot()");
+				plotOptions = arg3.string();
+			}
+			arg2 = past->Compute(p->next);
+			if (arg2.type() & TYPEBIT_STRING)
+			{
+				plotOptions = arg2.string();
+				arg2.Reset();
 			}
 		}
-		bool newFig = false;
-		if (!pgo)
+	}
+	else
+	{
+		CVar *pgo = NULL;
+		cfig = (CFigure *)past->GetVariable("gcf");
+		if (cfig)
 		{
-			cfig = (CFigure *)past->GetVariable("gcf");
-			if (cfig)
-			{ 
-				// gcf should not be a named plot
-				if (cfig->struts["gca"].empty()) // no axes present; create one.
-				{
-					cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-					RegisterAx((CVar*)cfig, cax, true);
-				}
-				else // use existing axes 
-					cax = (CAxes *)cfig->struts["gca"].front();
+			// gcf should not be a named plot
+			if (cfig->struts["gca"].empty()) // no axes present; create one.
+			{
+				pax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+				RegisterAx((CVar*)cfig, pax, true);
 			}
-			else
-				newFig = true;
+			else // use existing axes
+				pax = (CAxes *)cfig->struts["gca"].front();
 		}
 		else
-		{
-			if (pgo->strut["type"].string() == "figure")
-			{ // pgo is figure; check if it is named plot, if so mark it and go down; otherwise, set cax
-				if (pgo->GetFs() == 2)
-					newFig = true;
-				else
+			newFig = true;
+		// past->Sig should be the CVar object to plot, in plot(x,...) and p is the rest of arguments and next'ed.
+		try {
+			BLOCKCELLSTRING(past, past->Sig);
+			arg1 = past->Sig;
+			if (p) {
+				CAstSig tp(past);
+				if (p->next) {
+					arg3 = tp.Compute(p->next);
+					tp.checkString(pnode, arg3, "last arg in plot()");
+					plotOptions = arg3.string();
+				}
+				arg2 = tp.Compute(p);
+				if (arg2.type() & TYPEBIT_STRING)
 				{
-					auto itgca = pgo->struts.find("gca");
-					if (itgca == pgo->struts.end() || itgca->second.empty())
-					{
-						cax = (CAxes *)AddAxes(FindFigure(pgo), .08, .18, .86, .72);
-						RegisterAx((CVar*)FindFigure(pgo), cax, true);
-					}
-					else
-						cax = (CAxes *)pgo->struts["gca"].front();
+					plotOptions = arg2.string();
+					arg2.Reset();
 				}
 			}
-			else if (pgo->strut["type"].string() == "axes")
-				cax = (CAxes *)pgo;
-			else
-				throw CAstException(USAGE, *past, p).proc(fnsigs, "A non-graphic object nor a data array is given as the first argument.");
 		}
-		if (newFig)
-		{
-			CVar temp = past->Sig;
-			_figure(past, pnode, NULL, fnsigs);
-			cfig = (CFigure *)past->pgo;
-			cax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
-			sendtoEventLogger("(_plot_line) AddAxes called.");
-			past->Sig = temp;
-			past->pgo = NULL;
-			RegisterAx((CVar*)cfig, cax, true);
+		catch (const CAstException &e) {
+			throw e;
+			//			CAstException(USAGE, *past, pnode).proc(e.getErrMsg().c_str());
 		}
-		//Finally cax and cfig ready. Time to inspect input data
-		if (tp.Sig.GetType() == CSIG_STRING)
-			nArgs = -1;
-		plotOptions = (tp.Sig.GetType() == CSIG_STRING) ? tp.Sig.string() : "-";
-		if (!cfig) cfig = (CFigure*)((CVar*)cax)->struts["parent"].front();
-		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, true);
-		unique_lock<mutex> locker(mtx_OnPaint);
-		sendtoEventLogger("(_plot_line) mtx_OnPaint locked = %d", locker.owns_lock());
-		if (isPlot)
+	}
+	if (newFig)
+	{
+		CVar temp = past->Sig;
+		_figure(past, pnode, NULL, fnsigs);
+		cfig = (CFigure *)past->pgo;
+		pax = (CAxes *)AddAxes(cfig, .08, .18, .86, .72);
+		sendtoEventLogger("(_plot_line) AddAxes called.");
+		past->Sig = temp;
+		past->pgo = NULL;
+		RegisterAx((CVar*)cfig, pax, true);
+	}
+	if (!cfig) cfig = (CFigure*)((CVar*)pax)->struts["parent"].front();
+	if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, true);
+	// Finally pax and cfig ready. Time to inspect input data
+	unique_lock<mutex> locker(mtx_OnPaint);
+	sendtoEventLogger("(_plot_line) mtx_OnPaint locked = %d", locker.owns_lock());
+	if (isPlot)
+	{
+		//if there's existing line in the specified axes
+		_delete_ans(past);
+		if (!newFig && pax->strut["nextplot"] == string("replace"))
 		{
-			//if there's existing line in the specified axes
-			if (!newFig && cax->strut["nextplot"] == string("replace"))
+			pax->xlim[0] = 1; pax->xlim[1] = -1; pax->setxlim();
+			pax->ylim[0] = 1; pax->ylim[1] = -1; pax->setylim();
+			pax->xtick.tics1.clear();
+			pax->ytick.tics1.clear();
+			// line object in pax->child should be removed
+			for (auto obj = pax->child.begin(); obj != pax->child.end(); )
 			{
-				cax->xlim[0] = 1; cax->xlim[1] = -1; cax->setxlim();
-				cax->ylim[0] = 1; cax->ylim[1] = -1; cax->setylim();
-				cax->xtick.tics1.clear();
-				cax->ytick.tics1.clear();
-				// line object in cax->child should be removed
-				for (auto obj = cax->child.begin(); obj != cax->child.end(); )
+				if (GOtype(*obj) == GRAFFY_line)
+					obj = pax->child.erase(obj);
+				else
+					obj++;
+			}
+			for (auto ch = ((CVar*)pax)->struts["children"].begin(); ch != ((CVar*)pax)->struts["children"].end(); )
+			{
+				if (GOtype(*ch) == GRAFFY_line)
 				{
-					if ((*obj)->strut["type"].string() == "line")
-						obj = cax->child.erase(obj);
-					else
-						obj++;
+					deleteObj(*ch);
+					ch = ((CVar*)pax)->struts["children"].erase(ch);
+					sendtoEventLogger("deleteObj called.");
 				}
-				for (auto ch = ((CVar*)cax)->struts["children"].begin(); ch != ((CVar*)cax)->struts["children"].end(); )
-				{
-					if ((*ch)->strut["type"].string() == "line")
-					{
-						deleteObj(*ch);
-						ch = ((CVar*)cax)->struts["children"].erase(ch);
-						sendtoEventLogger("deleteObj called.");
-					}
-					else
-						ch++;
-				}
+				else
+					ch++;
 			}
 		}
-		__plot(cax, past, pnode, p, fnsigs, plotOptions, nArgs);
-
-		if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
-		if (!newFig)
-			cfig = (CFigure*)cax->struts["parent"].front();
-		sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked.");
 	}
-	catch (const CAstException &e) { 
-		throw e;
-//			CAstException(USAGE, *past, pnode).proc(e.getErrMsg().c_str()); 
+	if (plotOptions.empty()) plotOptions = "-";
+	__plot(pax, past, pnode, arg1, arg2, plotOptions);
+	if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
+	sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked.");
+	if (past->GetVariable("gcf") != cfig)
+	{
+		past->GOvars["gcf"].clear();
+		past->GOvars["gcf"].push_back(cfig);
 	}
+	BOOL res = SetForegroundWindow(((CGobj*)cfig)->m_dlg->hDlg);
 
 	//past->pgo carries the pointer, past->Sig is sent only for console display
 	switch (plotlines.size())
@@ -860,7 +916,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 
 
 //	if (mutex==NULL) mutex = CreateMutex(0, 0, 0);
-//	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent")); 
+//	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent"));
 }
 
 GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -877,7 +933,7 @@ GRAPHY_EXPORT void _showrms(CAstSig *past, const AstNode *pnode, const AstNode *
 {
 	if (!past->Sig.IsGO())
 		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
-	if (past->Sig.strut["type"].string() != "figure")
+	if (GOtype(past->Sig) != GRAFFY_figure)
 		throw CAstException(USAGE, *past, p).proc("The argument must be a figure handle.");
 	CVar *pgo = past->pgo;
 	showRMS(pgo, 0);
@@ -891,7 +947,9 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 	CAxes *cax;
 	if (!past->Sig.IsGO())
 		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
-	if (past->Sig.strut["type"].string() == "figure")
+	switch (GOtype(past->Sig))
+	{
+	case GRAFFY_figure:
 	{
 		static GRAFWNDDLGSTRUCT in;
 		in.block = 200; // ((CPlotDlg*)rhs.m_dlg)->block;
@@ -899,7 +957,7 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		((CGobj*)past->pgo)->m_dlg->GetWindowRect(in.rt);
 		in.threadCaller = GetCurrentThreadId();
 		in.hWndAppl = GetHWND_WAVPLAY();
-		CFigure *cfig = (CFigure *)OpenGraffy(in);
+		cfig = (CFigure *)OpenGraffy(in);
 		static char buf[64];
 		cfig->m_dlg->GetWindowText(buf, sizeof(buf));
 		cfig->strut["name"] = string(buf);
@@ -921,7 +979,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		PostMessage(GetHWND_WAVPLAY(), WM__PLOTDLG_CREATED, (WPARAM)buf, (LPARAM)&in);
 		past->Sig = *(past->pgo = cfig);
 	}
-	else if (past->Sig.strut["type"].string() == "axes")
+	break;
+	case GRAFFY_axes:
 	{
 		cfig = (CFigure *)past->pgo->struts["parent"].front();
 		CAxes * pax = new CAxes(((CGobj*)cfig)->m_dlg, (CGobj*)cfig);
@@ -930,7 +989,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		cfig->ax.push_back(pax);
 		past->Sig = *(past->pgo = pax);
 	}
-	else if (past->Sig.strut["type"].string() == "text")
+	break;
+	case GRAFFY_text:
 	{
 		cfig = (CFigure *)past->pgo->struts["parent"].front();
 		CText * ptext = new CText(((CGobj*)cfig)->m_dlg, (CGobj*)cfig, NULL, ((CGobj*)past->pgo)->pos);
@@ -939,7 +999,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		cfig->text.push_back(ptext);
 		past->Sig = *(past->pgo = ptext);
 	}
-	else if (past->Sig.strut["type"].string() == "line")
+	break;
+	case GRAFFY_line:
 	{
 		cax = (CAxes *)past->pgo->struts["parent"].front();
 		CLine *tp = new CLine(((CGobj*)cax)->m_dlg, cax);
@@ -948,6 +1009,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		cax->struts["children"].push_back(tp);
 		past->Sig = *(past->pgo = tp);
 		cfig = (CFigure*)cax;
+	}
+	break;
 	}
 	if (past->isthisUDFscope(pnode))
 		past->u.rt2validate[cfig->m_dlg->hDlg] = CRect(0, 0, 0, 0);
