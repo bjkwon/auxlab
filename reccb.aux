@@ -1,0 +1,18 @@
+function [out,fig]=reccb(in)
+//input and output arguments are static
+// This AUX callback function displays the incoming audio waveform by each block.
+// Evoked by AUXLAB as callback
+// "in" has the following members: ?fs, ?index, ?data
+// Provided as a reference; nothing fancy... Bomjun Kwon 10/1/2019
+
+if in.?index==0
+	fig=figure
+    out = []
+else
+	out ++= in.?data
+	fig.plot(in.?data)
+	fig.showrms
+end
+
+
+

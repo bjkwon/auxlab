@@ -1456,7 +1456,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	HANDLE h;
 	bool b = false;
 	CSignals onoff(&b, 1);
-	if (!pctx->isThisAllowedPropGO(pctx->pgo, proptype, RHS))
+	if (!isThisAllowedPropGO(pctx->pgo, proptype, RHS))
 		throw CAstException(ARGS, pctx, NULL).proc("Invalid parameter for the property", proptype);
 	CRect rt(0, 0, 0, 0);
 	switch (GOtype(pctx->pgo))
@@ -1663,4 +1663,61 @@ GRAPHY_EXPORT vector<DWORD> Colormap(BYTE head, char lh, char rc, int nItems)
 			out.push_back(dw);
 		}
 	return out;
+}
+
+bool isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &tsig)
+{
+	if (psig->strut.find(propname) == psig->strut.end())
+		if (psig->struts.find(propname) == psig->struts.end())
+			return false;
+	if (!strcmp(propname, "pos")) // 4-element vector
+		return (tsig.GetType() == CSIG_VECTOR && tsig.nSamples == 4);
+	if (!strcmp(propname, "color")) // 3-element vector
+		return tsig.nSamples == 3;
+	if (!strcmp(propname, "visible")) // a real constant or bool
+		return tsig.nSamples == 1 && tsig.bufBlockSize <= 8;
+	if (!strcmp(propname, "nextplot"))
+		return (tsig.GetType() == CSIG_STRING);
+	if (!strcmp(propname, "tag"))
+		return (tsig.GetType() == CSIG_STRING);
+	if (!strcmp(propname, "userdata"))
+		return true; // everything is allowed for userdata
+
+	switch (GOtype(psig))
+	{
+	case GRAFFY_axes:
+		if (!strcmp(propname, "x") || !strcmp(propname, "y"))
+			return true;
+		break;
+	case GRAFFY_axis:
+		if (!strcmp(propname, "lim"))
+			return ((tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO) && tsig.nSamples == 2);
+		if (!strcmp(propname, "tick"))
+			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_EMPTY);
+		break;
+	case GRAFFY_line:
+		if (!strcmp(propname, "marker"))
+		{
+			if (tsig.GetType() != CSIG_STRING || tsig.nSamples != 2)
+				return false;
+			char ch = (char)tsig.logbuf[0];
+			return strchr("os.x+*d^v<>ph", ch) != NULL;
+		}
+		if (!strcmp(propname, "markersize") || !strcmp(propname, "width"))
+			return (tsig.GetType() == CSIG_SCALAR);
+		if (!strcmp(propname, "xdata") || !strcmp(propname, "ydata"))
+			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO);
+		if (!strcmp(propname, "linestyle"))
+			return true; // check at SetGOProperties() in graffy.cpp
+		break;
+	case GRAFFY_text:
+		if (!strcmp(propname, "fontsize"))
+			return (tsig.GetType() == CSIG_SCALAR && tsig.bufBlockSize == 8);
+		if (!strcmp(propname, "fontname") || !strcmp(propname, "string"))
+			return (tsig.GetType() == CSIG_STRING);
+		break;
+		/* Do checking differently for different GO--fig, axes, axis, line, text 8/1/2018
+		*/
+	}
+	return false;
 }

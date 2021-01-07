@@ -1,0 +1,23 @@
+function [out,fig]=reccb2(in)
+//input and output arguments are static
+// This AUX callback function displays the FFT magnitude in log
+// of the incoming audio signal for each block.
+// Evoked by AUXLAB as callback
+// "in" has the following members: ?fs, ?index, ?data
+// Provided as a reference; nothing fancy... Bomjun Kwon 10/1/2019
+
+if in.?index==0
+	fig=figure
+	fig.plot(1:5)
+	fig.children.x.lim = [0 getfs/2]
+	fig.children.y.lim = [-10 10]
+	out = []
+else
+	out ++= in.?data
+	z = in.?data.fft.vector
+	freq = (1:z.length/2)*getfs/z.length
+	fig.plot(freq, 20*z(1:end/2).abs.log10)
+end
+
+
+

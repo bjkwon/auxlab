@@ -1734,63 +1734,6 @@ vector<double> CAstSig::gettimepoints(const AstNode *pnode, AstNode *p)
 #include "graffy2.h"
 #define MARKERCHARS "os.x+*d^v<>ph"
 
-bool CAstSig::isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &tsig)
-{
-	if (psig->strut.find(propname) == psig->strut.end())
-		if (psig->struts.find(propname) == psig->struts.end())
-			return false;
-	if (!strcmp(propname, "pos")) // 4-element vector
-		return (tsig.GetType() == CSIG_VECTOR && tsig.nSamples == 4);
-	if (!strcmp(propname, "color")) // 3-element vector
-		return tsig.nSamples == 3;
-	if (!strcmp(propname, "visible")) // a real constant or bool
-		return tsig.nSamples == 1 && tsig.bufBlockSize<=8;
-	if (!strcmp(propname, "nextplot"))
-		return (tsig.GetType() == CSIG_STRING);
-	if (!strcmp(propname, "tag"))
-		return (tsig.GetType() == CSIG_STRING);
-	if (!strcmp(propname, "userdata"))
-		return true; // everything is allowed for userdata
-
-	switch (GOtype(psig))
-	{
-	case GRAFFY_axes:
-		if (!strcmp(propname, "x") || !strcmp(propname, "y"))
-			return true;
-		break;
-	case GRAFFY_axis:
-		if (!strcmp(propname, "lim"))
-			return ((tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO) && tsig.nSamples == 2);
-		if (!strcmp(propname, "tick"))
-			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_EMPTY);
-		break;
-	case GRAFFY_line:
-		if (!strcmp(propname, "marker"))
-		{
-			if (tsig.GetType() != CSIG_STRING || tsig.nSamples != 2)
-				return false;
-			char ch = (char)tsig.logbuf[0];
-			return strchr(MARKERCHARS, ch) != NULL;
-		}
-		if (!strcmp(propname, "markersize") || !strcmp(propname, "width"))
-			return (tsig.GetType() == CSIG_SCALAR);
-		if (!strcmp(propname, "xdata") || !strcmp(propname, "ydata"))
-			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO);
-		if (!strcmp(propname, "linestyle"))
-			return true; // check at SetGOProperties() in graffy.cpp
-		break;
-	case GRAFFY_text:
-		if (!strcmp(propname, "fontsize"))
-			return (tsig.GetType() == CSIG_SCALAR && tsig.bufBlockSize == 8);
-		if (!strcmp(propname, "fontname") || !strcmp(propname, "string"))
-			return (tsig.GetType() == CSIG_STRING);
-		break;
-		/* Do checking differently for different GO--fig, axes, axis, line, text 8/1/2018
-		*/
-	}
-	return false;
-}
-
 vector<AstNode *> copy_AstNode(const AstNode *psrc, AstNode *ptarget)
 { // copy everything except for alt and tail
 	vector<AstNode *> out;
@@ -3042,6 +2985,10 @@ CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
 	{
 		if (psig->IsGO()) // name and psig should be fed to struts
 		{
+			// Previous one should be cleared.  
+			// I wonder if this clear() would cause an issue 
+			// What has the SetVar convention been for GO 1/3/2021
+			pBase->struts[name].clear();
 			pBase->struts[name].push_back(psig);
 			auto it = pBase->strut.find(name);
 			if (it != pBase->strut.end()) pBase->strut.clear();
@@ -3111,7 +3058,8 @@ string CAstSig::makefullfile(const string &fname, char *extension)
 	if (drive[0] == 0 && dir[0] == 0) // no directory info
 		fullfilename = pEnv->AppPath;
 	fullfilename += fname;
-	if (extension && ext[0] && strcmp(extension, ext))
+	// if the target extension is not specified, add default extension
+	if (!ext[0])
 		fullfilename += extension;
 	return fullfilename;
 }

@@ -145,9 +145,8 @@ protected:
 
 class CSignal : public body
 {
-protected:
-	int fs;
 public:
+	int fs;
 	double tmark;
 	short snap; // 0 for regular; 1 for time seq or an object where data stack up on the same tmark (vertically), like FFT
 	unsigned int Len() { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }

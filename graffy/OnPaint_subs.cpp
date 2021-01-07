@@ -243,7 +243,7 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 
 void CPlotDlg::OnPaint_fill_sbinfo(CAxes* pax)
 {
-	if (!pax->m_ln.empty() || (!gcf.ax.empty() && !gcf.ax[1]->m_ln.empty() ))
+	if (!pax->m_ln.empty() || (!gcf.ax.empty() && !gcf.ax[0]->m_ln.empty() ))
 	{
 		sbinfo.xBegin = pax->xlim[0];
 		sbinfo.xEnd = pax->xlim[1];

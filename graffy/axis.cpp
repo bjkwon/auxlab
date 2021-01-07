@@ -695,7 +695,7 @@ rangepair get_inside_xlim_monotonic(int &count, const vector<double>& buf, const
 	return out;
 }
 
-pair<double, double> get_inside_xlim_general(int& count, const vector<double>& buf, const double xlim[])
+pair<double, double> get_inside_xlim_general(int& count, const vector<double>& buf, const double xlim[], bool& increasing)
 {
 	vector<double> temp;
 	double miny(1.e100), maxy(-1.e100);
@@ -710,6 +710,8 @@ pair<double, double> get_inside_xlim_general(int& count, const vector<double>& b
 			maxy = max(maxy, v);
 		}
 	}
+	if (miny == buf.front() && maxy == buf.back()) increasing = true;
+	else increasing = false;
 	return make_pair(miny, maxy);
 }
 
@@ -887,14 +889,19 @@ int get_plot_range_from_tmark(const CSignal& p, const double xlim[], double& xli
 	return count = id2 - id1;
 }
 
-rangepair get_plot_range_from_xbuf(bool xyplot, const vector<double>& xbuf, double const *xlim, double &xlim1, double &xlim2, int &count)
+rangepair get_plot_range_from_xbuf(bool xyplot, const vector<double>& xbuf, double const *xlim, double &xlim1, double &xlim2, int &count, bool& inc)
 {
 	rangepair range;
 	if (xyplot)
 	{
-		auto minmax = get_inside_xlim_general(count, xbuf, xlim);
+		auto minmax = get_inside_xlim_general(count, xbuf, xlim, inc);
 		xlim1 = minmax.first;
 		xlim2 = minmax.second;
+		if (inc)
+		{ // range is needed only when inc is set... this is a temporary hack. 1/3/2021
+			range.first = xbuf.begin();
+			range.second = xbuf.end();
+		}
 	}
 	else
 	{
@@ -919,23 +926,26 @@ vector<POINT> CAxes::data2points1(bool xyplot, const vector<double>& xbuf, doubl
 	double xlim1, xlim2;
 	double dataCount_per_pixel = 1;
 	LONG px1 = 0, px2 = 0;
-	rangepair range = get_plot_range_from_xbuf(xyplot, xbuf, xlim, xlim1, xlim2, count);
+	bool increasing;
+	// This line checks whether xbuf is non-decreasing for xyplot and sets increasing
+	//  (if xyplot is false, increasing is always true)
+	// increasing was added to handle cases where xyplot is true but certainly xbuf increasing
+	// for example, when the spectrum is plotted with freq specified in user-called plot() or in udf
+	// In that case, it should be treated as if xyplot is false for "drawing-compact" purposes 1/3/2021
+	rangepair range = get_plot_range_from_xbuf(xyplot, xbuf, xlim, xlim1, xlim2, count, increasing);
 	if (count == 0) return out; // if xbuf is out of xlim, return empty
-	if (!xyplot)
-	{
 	// calculate how many data points one pixel represents 
-		px1 = getpointx(xlim1, rct, xlim);
-		px2 = getpointx(xlim2, rct, xlim);
-		// if px1==px2 (i.e., there's only one point) dataCount_per_pixel doesn't matter as long as xSpacingPP is big to make a temporary symbol in drawCLine()
-		dataCount_per_pixel = (px1 == px2) ? .001 : (double)count / (px2 - px1);
-		xSpacingPP = 1. / dataCount_per_pixel;
-		if (dataCount_per_pixel > 4)
-		{// points are closed to each other enough to treat them as a chunk
-			out = plot_points_compact(count, px1, px2, range.first, xbuf, buf, dataCount_per_pixel);
-			for (auto p : out)
-				out_cumular.push_back(p);
-			return out;
-		}
+	px1 = getpointx(xlim1, rct, xlim);
+	px2 = getpointx(xlim2, rct, xlim);
+	// if px1==px2 (i.e., there's only one point) dataCount_per_pixel doesn't matter as long as xSpacingPP is big to make a temporary symbol in drawCLine()
+	dataCount_per_pixel = (px1 == px2) ? .001 : (double)count / (px2 - px1);
+	xSpacingPP = 1. / dataCount_per_pixel;
+	if (increasing && dataCount_per_pixel > 4)
+	{// points are closed to each other enough to treat them as a chunk
+		out = plot_points_compact(count, px1, px2, range.first, xbuf, buf, dataCount_per_pixel);
+		for (auto p : out)
+			out_cumular.push_back(p);
+		return out;
 	}
 	double ratiox = rct.Width() / (xlim[1] - xlim[0]);
 	double ratioy = rct.Height() / (ylim[1] - ylim[0]);
