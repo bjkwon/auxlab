@@ -183,9 +183,9 @@ void CAudcapStatus::OnCommand(int idc, HWND hwndCtl, UINT event)
 			sendtoEventLogger("(CAudcapStatus::OnCommand) mtx4PlotDlg unlocked\n");
 			//======================================= end of mtx4PlotDlg scope
 		}
-		lineBlocktime = ax->plot(NULL, pp, RGB(0, 155, 102), 'o');
-		lineSymAvga = ax->plot(&xref1, pp2, RGB(240, 55, 0), '>');
-		lineSymAvgb = ax->plot(&xref2, pp2, RGB(240, 55, 0), '<');
+		lineBlocktime = ax->plot(NULL, pp, "",  RGB(0, 155, 102), 'o');
+		lineSymAvga = ax->plot(&xref1, pp2, "", RGB(240, 55, 0), '>');
+		lineSymAvgb = ax->plot(&xref2, pp2, "", RGB(240, 55, 0), '<');
 		lineBlocktime->filled = true;
 		lineSymAvga->filled = true;
 		lineSymAvgb->filled = true;
@@ -211,14 +211,14 @@ void CAudcapStatus::OnCommand(int idc, HWND hwndCtl, UINT event)
 		{
 			cbproctimeHistory[id - 2] = cbtime;
 			pp2 = CSignal(cbproctimeHistory, id - 1);
-			lineCallbacktime = ax->plot(NULL, pp2, RGB(200, 102, 0), 'd');
+			lineCallbacktime = ax->plot(NULL, pp2, "", RGB(200, 102, 0), 'd');
 			lineCallbacktime->filled = true;
 		}
 		else if (index > 1 && id == 1)
 		{ //the beginning of new cycle of plotting except for the very first cycle
 			cbproctimeHistory[49] = cbtime;
 			pp2 = CSignal(cbproctimeHistory, 50);
-			lineCallbacktime = ax->plot(NULL, pp2, RGB(200, 102, 0), 'd');
+			lineCallbacktime = ax->plot(NULL, pp2, "", RGB(200, 102, 0), 'd');
 			lineCallbacktime->filled = true;
 			int px = ax->double2pixel(50, 'x');
 			int py = ax->double2pixel(cbtime, 'y');

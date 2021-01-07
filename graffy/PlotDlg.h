@@ -193,7 +193,6 @@ private:
 	CPen * OnPaint_createpen_with_linestyle(CLine* pln, CDC& dc, CPen** pOldPen);
 	vector<double> OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<POINT> & dv);
 	void OnPaint_fill_sbinfo(CAxes* pax);
-	double xlim[2];
 public:
 	CPlotDlg(HINSTANCE hInstance, CGobj *hPar = NULL);   // standard constructor
 	~CPlotDlg();
@@ -225,8 +224,7 @@ public:
 	BOOL OnNCActivate(UINT state);
 	void OnSoundEvent(CVar *pvar, int code);
 	void MouseLeave(UINT umsg);
-	vector<POINT> plotpoints(double &xSpacingPP, CAxes *pax, const vector<double> &xbuf, const CSignal &p, unsigned int begin);
-	vector<POINT> drawCLine(CAxes* pax, CDC &dc, CLine *lyne);
+	vector<POINT> drawCLine(CDC& dc, CLine* const pline, vector<POINT>& out);
 	void DrawMarker(const CDC &dc, CLine* mline, const vector<POINT> & dv);
 	POINT GetIndDisplayed(CAxes *pax);
 	void HandleLostFocus(UINT umsg, LPARAM lParam = 0);
@@ -263,4 +261,5 @@ public:
 
 typedef pair<vector<double>::const_iterator, vector<double>::const_iterator> rangepair;
 
-rangepair get_inside_xlim(int& count, const vector<double> &buf, double xlim[]);
+rangepair get_inside_xlim_monotonic(int& count, const vector<double>& buf, const double xlim[]);
+pair<double, double> get_inside_xlim_general(int& count, const vector<double> &buf, const double xlim[]);

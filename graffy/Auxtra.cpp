@@ -491,6 +491,10 @@ static void deep_erase(CAstSig* past, CVar * const del)
 		{
 			// Taken care of by CAstSig::erase_GO(CVar * obj)
 		}
+		// if Reset() resets a GO into a NULL, the next two lines are not necessary 10/1/2020
+		past->Sig.strut.clear();
+		past->Sig.struts.clear();
+		past->Sig.SetValue((double)var2deleted.size());
 	}
 }
 
@@ -533,6 +537,15 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 			for (auto v : varname)
 				var2deleted.push_back(v);
 		}
+
+		// NEED TO CALL THIS BLOCK FROM WITHIN CODE (NOT delete AUX command)
+		// want to delete children objects of cfig like this... but not directly calling deleteObj()
+		//		while (!cfig->ax.empty())
+		//			deleteObj(cfig->ax.front());
+		// DO IT on 11/26/2020!!!!!!
+
+
+
 		// non-figures
 		for (auto del : nonfigs2delete)
 		{
@@ -542,6 +555,9 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 				var2deleted.push_back(v);
 			_delete_graffy_non_figure(past, pnode, del);
 		}
+
+
+
 		// if Reset() resets a GO into a NULL, the next two lines are not necessary 10/1/2020
 		past->Sig.strut.clear();
 		past->Sig.struts.clear();
@@ -783,10 +799,10 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const CVar &arg1, c
 	{
 		if (arg1.nSamples != arg2.nSamples)
 			throw CAstException(USAGE, *past, pnode).proc("The length of 1st and 2nd arguments must be the same.");
-		plotlines = PlotCSignals(pax, arg1.buf, arg2, col, marker, linestyle);
+		plotlines = PlotCSignals(pax, arg1.buf, arg2, "", col, marker, linestyle);
 	}
 	else
-		plotlines = PlotCSignals(pax, NULL, arg1, col, marker, linestyle);
+		plotlines = PlotCSignals(pax, NULL, arg1, "", col, marker, linestyle);
 	pax->xTimeScale = past->Sig.IsTimeSignal();
 	pax->limReady = false;
 }
@@ -887,16 +903,15 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	// Finally pax and cfig ready. Time to inspect input data
 	unique_lock<mutex> locker(mtx_OnPaint);
 	sendtoEventLogger("(_plot_line) mtx_OnPaint locked = %d", locker.owns_lock());
+	pax->xtick.tics1.clear();
+	pax->ytick.tics1.clear();
 	if (isPlot)
 	{
 		//if there's existing line in the specified axes
 		_delete_ans(past);
 		if (!newFig && pax->strut["nextplot"] == string("replace"))
 		{
-			pax->xlim[0] = 1; pax->xlim[1] = -1; pax->setxlim();
 			pax->ylim[0] = 1; pax->ylim[1] = -1; pax->setylim();
-			pax->xtick.tics1.clear();
-			pax->ytick.tics1.clear();
 			// line object in pax->child should be removed
 			for (auto obj = pax->child.begin(); obj != pax->child.end(); )
 			{
@@ -920,6 +935,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	}
 	if (plotOptions.empty()) plotOptions = "-";
 	__plot(pax, past, pnode, arg1, arg2, plotOptions);
+	if (isPlot) pax->set_xlim_xrange(); // must be called after PlotCSignals (i.e., line is created)
 	if (strlen(past->callbackIdentifer) > 0) SetInProg(cfig, false);
 	sendtoEventLogger("(_plot_line) mtx_OnPaint unlocked.");
 	if (past->GetVariable("gcf") != cfig)
@@ -1024,6 +1040,9 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		*pax = *(CAxes*)past->pgo;
 		((CVar*)cfig)->struts["children"].push_back(pax);
 		cfig->ax.push_back(pax);
+		pax->SetValue((double)(INT_PTR)(void*)pax);
+		// xrange must be copied as well (otherwise, it will hang due to uninitialized xrange).
+		memcpy((void*)pax->xrange, ((CAxes*)past->pgo)->xrange, sizeof(double) * 2);
 		past->Sig = *(past->pgo = pax);
 	}
 	break;

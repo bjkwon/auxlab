@@ -30,209 +30,7 @@ void CPlotDlg::OnPaintMouseMovingWhileClicked(CAxes* pax, CDC* pdc)
 	}
 }
 
-static inline LONG getpointx(double x, const CRect &rcAx, double xlim[])
-{
-	double mapx = rcAx.Width() / (xlim[1] - xlim[0]);
-	double _x = .5 + rcAx.left + mapx * (x - xlim[0]);
-	LONG out = (LONG)_x;
-	return out;
-}
-static inline LONG getpointy(double y, const CRect &rcAx, double ylim[])
-{
-	double mapy = rcAx.Height() / (ylim[1] - ylim[0]);
-	double _y = rcAx.bottom - mapy * (y - ylim[0]);
-	LONG out = (LONG)_y;
-	return out;
-}
 
-static inline POINT getpoint(double x, double y, const CRect &rcAx, double ratiox, double ratioy, double xlim[], double ylim[])
-{
-	//convert (x,y) in double to point in rcAx
-	double _x = .5 + rcAx.left + ratiox * (x - xlim[0]);
-	double _y = .5 + rcAx.bottom - ratioy * (y - ylim[0]);
-	POINT out = { (LONG)_x, (LONG)_y };
-	return out;
-}
-
-static pair<map<double, double>::const_iterator, map<double, double>::const_iterator> 
-get_inside_xlim(int &count, const map<double, double> &data, double xlim[])
-{
-	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> out;
-	auto it = data.begin();
-	//Assumption: xlim is monotonically increasing
-	for (; it != data.end() && (*it).first <= xlim[1]; it++)
-	{
-		if ((*it).first < xlim[0]) continue;
-		else
-		{
-			out.first = it;
-			break;
-		}
-	}
-	count = 0;
-	for (; it != data.end(); it++)
-	{
-		if ((*it).first <= xlim[1])
-		{
-			count++;
-			continue;
-		}
-		else
-		{
-			out.second = it;
-			break;
-		}
-	}
-	if (it==data.end())
-		out.second = it;
-	return out;
-}
-
-// Assumption: buf and xlim are monotonically increasing
-rangepair get_inside_xlim(int& count, const vector<double> &buf, double xlim[])
-{
-	rangepair out;
-	//xlim is monotonically increasing
-	out.first = lower_bound(buf.begin(), buf.end(), xlim[0]);
-	out.second = lower_bound(buf.begin(), buf.end(), xlim[1]);
-	count = (int)(out.second - out.first);
-	return out;
-}
-
-static vector<POINT> data2points(double &xSpacingPP, const vector<double>& xbuf, double *buf, const CRect& rcArea, double xlim[], double ylim[])
-{
-	// xSpacingPP: [output] the x spacing between data points in pixel
-	// grab data in the range of xlim
-	// plot them in the coordinate of rcArea
-	vector<POINT> out;
-	POINT pt;
-	// Inspect data and find out where the key is within xlim
-	// Assume the key of data is ordered.--> Isn't it what map is about?
-	int count;
-	rangepair range = get_inside_xlim(count, xbuf, xlim);
-	// if xbuf is out of xlim, return empty
-	if (count == 0) return out;
-	// calculate how many data points one pixel represents 
-	LONG px1 = getpointx(*range.first, rcArea, xlim);
-	LONG px2 = getpointx(*(range.second-1), rcArea, xlim);
-	LONG pxdiff = px2 - px1;
-	double dataCount_per_pixel = (double)count / pxdiff;
-	xSpacingPP = 1. / dataCount_per_pixel;
-	int idataCount_per_pixel = (int)dataCount_per_pixel;
-	const double remainder = dataCount_per_pixel - idataCount_per_pixel;
-	double leftover = remainder;
-	if (dataCount_per_pixel > 4)
-	{
-		int cnt = 0;
-		auto it = range.first;
-		double *buf_pos = buf + distance(xbuf.begin(), range.first);
-		size_t cum = 0;
-		bool loop = true;
-		pt.x = px1;
-		while (loop)
-		{
-			size_t advance_count = idataCount_per_pixel;
-			if (leftover > 1)
-			{
-				advance_count++;
-				leftover--;
-			}
-			if (cum + advance_count > count) advance_count = count - cum;
-			auto minmax = minmax_element(buf_pos, buf_pos + advance_count);
-			LONG temp = pt.y = getpointy(*minmax.first, rcArea, ylim);
-			if (pt.y > rcArea.bottom)
-				temp = pt.y = rcArea.bottom;
-			out.push_back(pt);
-			pt.y = getpointy(*minmax.second, rcArea, ylim);
-			pt.y = max(pt.y, rcArea.top);
-			if (pt.y!=temp)
-				out.push_back(pt);
-			advance(it, advance_count);
-			buf_pos += advance_count;
-			cum += advance_count;
-			if (pt.x >= px2 || cum >= count)
-				loop = false;
-			leftover += remainder;
-			pt.x++;
-		}
-	}
-	else
-	{
-		double *buf_pos = buf + distance(xbuf.begin(), range.first);
-		double ratiox = rcArea.Width() / (xlim[1] - xlim[0]);
-		double ratioy = rcArea.Height() / (ylim[1] - ylim[0]);
-		for (auto it = range.first; it != range.second; it++, buf_pos++)
-		{
-			// Map data point into point in RECT
-			pt = getpoint(*it, *buf_pos, rcArea, ratiox, ratioy, xlim, ylim);
-			out.push_back(pt);
-		}
-	}
-	return out;
-}
-
-// Keep this for the case of plot(x,y) with x not monotonically increasing.
-static vector<POINT> data2points(const map<double, double> &data, const CRect & rcArea, double xlim[], double ylim[])
-{
-	// grab data in the range of xlim
-	// plot them in the coordinate of rcArea
-	vector<POINT> out;
-	POINT pt;
-	// Inspect data and find out where the key is within xlim
-	// Assume the key of data is ordered.--> Isn't it what map is about?
-	int count;
-	pair<map<double, double>::const_iterator, map<double, double>::const_iterator> 
-		range = get_inside_xlim(count, data, xlim);
-	// calculate how many data points one pixel represents 
-	double dataCount_per_pixel = (double)count / rcArea.Width();
-	if (dataCount_per_pixel > 5)
-	{
-//		DO THIS AGAIN
-	}
-	else
-	{
-		double ratiox = rcArea.Width() / (xlim[1] - xlim[0]);
-		double ratioy = rcArea.Height() / (ylim[1] - ylim[0]);
-		for (auto it = range.first; it != range.second; it++)
-		{
-			// Map data point into point in RECT
-			pt = getpoint((*it).first, (*it).second, rcArea, ratiox, ratioy, xlim, ylim);
-			out.push_back(pt);
-		}
-	}
-	return out;
-}
-
-// if it is audio, or null-x, plot, forget about map. Use this.
-vector<POINT> CPlotDlg::plotpoints(double &xSpacingPP, CAxes *pax, const vector<double> &xbuf, const CSignal &p, unsigned int begin)
-{
-	vector<POINT> out;
-	int fs = p.GetFs();
-	//map<double, double> in;
-	//for (unsigned int k = 0; k < p->nSamples; k++)
-	//{
-	//	double t = (double)k / fs;
-	//	in[t] = p->buf[k];
-	//}
-	//out = data2points(in, pax->rct, pax->xlim, pax->ylim);
-	;
-//	vector<double> buf(p->buf + begin, p->buf + end);
-	vector<double> _xbuf;
-	if (xbuf.empty())
-	{
-		int offset = 1;
-		if (p.type() & TYPEBIT_TEMPORAL) offset--;
-		for (unsigned int k = offset; k < p.nSamples + offset; k++)
-		{
-			double t = (double)k / fs + p.tmark / 1000.;
-			_xbuf.push_back(t);
-		}
-		out = data2points(xSpacingPP, _xbuf, p.buf + begin, pax->rct, pax->xlim, pax->ylim);
-	}
-	else
-		out = data2points(xSpacingPP, xbuf, p.buf + begin, pax->rct, pax->xlim, pax->ylim);
-	return out;
-}
 
 vector<DWORD> color_scheme(COLORREF linecolor, const CVar &linecolorProp, unsigned int nGroups)
 {
@@ -255,13 +53,14 @@ vector<DWORD> color_scheme(COLORREF linecolor, const CVar &linecolorProp, unsign
 	return out;
 }
 
-vector<POINT> CPlotDlg::drawCLine(CAxes* pax, CDC &dc, CLine *pline)
-{
+vector<POINT> CPlotDlg::drawCLine(CDC &dc, CLine * const pline, vector<POINT> & out)
+{ 
 	// For tseq, if you want to streamline, you can bypass estimateDrawCounts assuming that individual nSample for the p is 1
 	// but it may require re-writing code ps more than you desire... something to think about 5/20/2020
 
 	vector<POINT> drawvector;
 	CPoint pt;
+	CAxes* pax = (CAxes*)pline->hPar;
 	CPen* pPenOld = NULL;
 	int nDraws = 0, estCount = 1;
 	double xSpacingPP = (double)pax->rct.Width();
@@ -280,8 +79,11 @@ vector<POINT> CPlotDlg::drawCLine(CAxes* pax, CDC &dc, CLine *pline)
 			pline->color = *colorIt;
 			if (p->type() & TYPEBIT_TEMPORAL && m > 0) // tmark incremental per Group
 				p->tmark += 1000. * p->nSamples / p->GetFs();
-			if(pline->sig.nSamples > 0 && (pline->lineWidth > 0 || pline->symbol != 0) )
-				drawvector = plotpoints(xSpacingPP, pax, pline->xdata, *p, m * p->nSamples);
+			if (pline->sig.nSamples > 0 && (pline->lineWidth > 0 || pline->symbol != 0))
+			{
+				if (pline->xdata.empty()) pline->xyplot = false;
+				drawvector = pax->chain_in_CLine_to_POINTs(pline->xyplot, *p, m * p->nSamples, pline->xdata, xSpacingPP, out);
+			}
 			if (drawvector.empty()) {
 				if (!kolor.empty()) colorIt++;  
 				continue;
@@ -390,24 +192,19 @@ vector<double> CPlotDlg::OnPaint_make_tics(CDC& dc, CAxes * pax, const vector<PO
 		}
 		if (pax->xtick.tics1.empty() && pax->xtick.automatic)
 		{
-			if (!pax->limReady)
-				pax->limReady=true, memcpy(xlim, pax->xlim, sizeof(xlim));
-			if (psig && psig->type() & TYPEBIT_TEMPORAL)
-			{
-				pax->xtick.tics1 = pax->gengrids('x', -3);
-			}
+//			if (!pax->limReady)
+//				pax->limReady=true, memcpy(xrangeDlg, pax->xlim, sizeof(xlim));
+			if (psig->type() & TYPEBIT_TEMPORAL || draw.size() > 2)
+				pax->setxticks();
 			else
 			{
-				if (draw.size() > 2)
-					pax->setxticks(xlim);
-				else
+				for (auto v : draw)
 				{
-					for (auto v : draw)
-					{
-						double x1, y1;
-						pax->GetCoordinate(&v, x1, y1);
-						pax->xtick.tics1.push_back((int)(x1 + .1));
-					}
+					double x1, y1;
+					pax->GetCoordinate(&v, x1, y1);
+					pax->xtick.tics1.push_back(pax->xlim[0]);
+					pax->xtick.tics1.push_back((int)(x1 + .1));
+					pax->xtick.tics1.push_back(pax->xlim[1]);
 				}
 			}
 		}

@@ -361,37 +361,6 @@ int CAxes::GetDivCount(char xy, int dimens)
 	return nTicks;
 }
 
-void CAxes::setxticks(double * const fullrange)
-{
-	int nTicks = GetDivCount('x', -1);
-	int beginID, nSamples;
-	assert(m_ln.size()>0);
-	int fs = m_ln.front()->sig.GetFs();
-	vector<unsigned int> out;
-	vector<double> vxdata;
-	double percentShown;
-	if (!xtick.automatic) return;
-	//nTicks is the number of divided parts (i.e., 2 means split by half)
-	percentShown = 1. - ( (xlim[0]- fullrange[0]) + (fullrange[1]-xlim[1]) ) / (fullrange[1]- fullrange[0]);
-	nSamples = (int)(percentShown * m_ln.front()->sig.nSamples+.5);
-	splitevenindices(out, nSamples, nTicks);
-	vxdata.reserve(nSamples);
-	if (m_ln.front()->xdata.empty())
-	{
-		beginID = (int)ceil(xlim[0]*fs);
-		for (int k=beginID; k<beginID+nSamples; k++) vxdata.push_back((double)(k)/fs); // no need to check whether it is an audio signal
-	}
-	else
-	{
-		for (beginID=0; beginID<(int)m_ln.front()->sig.nSamples; beginID++)
-			if (m_ln.front()->xdata[beginID]>=xlim[0])
-				break;
-		for (int k=beginID; k<beginID+nSamples; k++)
-			vxdata.push_back(m_ln.front()->xdata[k]);
-	}
-	xtick.set(out, vxdata, nSamples);
-}
-
 GRAPHY_EXPORT void CAxes::setRange(const char xy, double x1, double x2)
 {
 	if (xy == 'x')
@@ -406,8 +375,9 @@ GRAPHY_EXPORT void CAxes::setRange(const char xy, double x1, double x2)
 	}
 }
 
-GRAPHY_EXPORT void CAxes::setxlim()
-{//to be called after CLine objects are prepared
+GRAPHY_EXPORT void CAxes::set_xlim_xrange()
+{
+	//to be called after CLine objects are prepared
 	if (m_ln.empty()) return;
 	CTimeSeries *psig = NULL;
 	for (auto lyne : m_ln)
@@ -445,7 +415,7 @@ GRAPHY_EXPORT void CAxes::setxlim()
 		}
 	}
 	if (xlim[0] == xlim[1]) { xlim[0] -= .005;	xlim[1] += .005; }
-//	memcpy(xlimFull, xlim, sizeof(xlim));
+	memcpy((void*)xrange, xlim, sizeof(xlim));
 }
 
 GRAPHY_EXPORT void CAxes::setylim()
@@ -476,10 +446,9 @@ GRAPHY_EXPORT void CAxes::setylim()
 		ylim[0] -= yRange / 10;
 		ylim[1] += yRange / 10;
 	}
-	ylimFull[0] = ylim[0]; ylimFull[1] = ylim[1];
 }
 
-GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, DWORD col, char cymbol, LineStyle ls)
+GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, const std::string & vname, DWORD col, char cymbol, LineStyle ls)
 {
 	WORD colorcode = HIWORD(col);
 	BYTE lo = LOBYTE(colorcode);
@@ -487,6 +456,7 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, DWORD
 	char buf[64] = {};
 	bool complex = ydata.bufBlockSize == 16;
 	CLine *in2, *in = new CLine(m_dlg, this);
+	in->varname = vname;
 	if (complex)
 	{
 		int fs = ydata.GetFs();
@@ -519,7 +489,6 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, DWORD
 	m_ln.push_back(in);
 	if (xdata)
 		in->xdata = vector<double>(xdata, xdata + ydata.nSamples);
-	setxlim();
 	in->strut["xdata"] = CVar(CSignals(CSignal(in->xdata)));
 	buf[0] = cymbol;
 	in->strut["marker"] = std::string(buf);
@@ -673,20 +642,530 @@ CAxes& CAxes::operator=(const CAxes& rhs)
 		{
 			CLine *tp = new CLine(m_dlg, this);
 			*tp = *ln;
+			tp->struts["parent"].push_back(this);
 			m_ln.push_back(tp);
 			struts["children"].push_back(tp);
 		}
 		strut["box"] = ((CVar)rhs).strut["box"];
 		strut["linewidth"] = ((CVar)rhs).strut["linewidth"];
 		strut["nextplot"] = ((CVar)rhs).strut["nextplot"];
-		CAxis *mor = new CAxis(m_dlg, this);
-		*mor = *(CAxis*)((CVar)rhs).struts["x"].front();
-		struts["x"].push_back(mor);
-		mor->SetValue((double)(INT_PTR)(void*)mor);
-		CAxis *mor2 = new CAxis(m_dlg, this);
-		*mor2 = *(CAxis*)((CVar)rhs).struts["y"].front();
-		struts["y"].push_back(mor2);
-		mor2->SetValue((double)(INT_PTR)(void*)mor2);
+		auto * axObj = struts["x"].front();
+		*axObj = *(CAxis*)((CVar)rhs).struts["x"].front();
+		axObj->SetValue((double)(INT_PTR)(void*)axObj);
+		axObj = struts["y"].front();
+		*axObj = *(CAxis*)((CVar)rhs).struts["y"].front();
+		axObj->SetValue((double)(INT_PTR)(void*)axObj);
 	}
 	return *this;
+}
+
+static inline LONG getpointx(double x, const CRect& rcAx, double xlim[])
+{
+	double mapx = rcAx.Width() / (xlim[1] - xlim[0]);
+	double _x = .5 + rcAx.left + mapx * (x - xlim[0]);
+	LONG out = (LONG)_x;
+	return out;
+}
+static inline LONG getpointy(double y, const CRect& rcAx, double ylim[])
+{
+	double mapy = rcAx.Height() / (ylim[1] - ylim[0]);
+	double _y = rcAx.bottom - mapy * (y - ylim[0]);
+	LONG out = (LONG)_y;
+	return out;
+}
+
+// Map data point into point in RECT
+static inline POINT getpoint(double x, double y, const CRect& rcAx, double ratiox, double ratioy, double xlim[], double ylim[])
+{
+	//convert (x,y) in double to point in rcAx
+	double _x = .5 + rcAx.left + ratiox * (x - xlim[0]);
+	double _y = .5 + rcAx.bottom - ratioy * (y - ylim[0]);
+	POINT out = { (LONG)_x, (LONG)_y };
+	return out;
+}
+
+// Assumption: buf and xlim are monotonically increasing
+rangepair get_inside_xlim_monotonic(int &count, const vector<double>& buf, const double xlim[])
+{
+	rangepair out;
+	// if buf is not monotonic, the output is not meaningful, but count is important
+	out.first = lower_bound(buf.begin(), buf.end(), xlim[0]);
+	out.second = lower_bound(buf.begin(), buf.end(), xlim[1]);
+	count = (int)(out.second - out.first);
+	return out;
+}
+
+pair<double, double> get_inside_xlim_general(int& count, const vector<double>& buf, const double xlim[])
+{
+	vector<double> temp;
+	double miny(1.e100), maxy(-1.e100);
+	temp.reserve(buf.size());
+	count = 0;
+	for (auto v : buf)
+	{
+		if (v >= xlim[0] && v < xlim[1])
+		{
+			count++;
+			miny = min(miny, v);
+			maxy = max(maxy, v);
+		}
+	}
+	return make_pair(miny, maxy);
+}
+
+// if it is audio, or null-x, plot, forget about map. Use this.
+vector<POINT> CAxes::chain_in_CLine_to_POINTs(bool xyplot, const CSignal& p, unsigned int begin, vector<double>& xbuf, double& xSpacingPP, vector<POINT>& out)
+{
+	if (p.type() & TYPEBIT_TEMPORAL)
+	{
+		return data2points2(p, begin, xSpacingPP, out);
+	}
+	else
+	{
+		if (xbuf.empty())
+		{
+			int offset = 1;
+			if (p.type() & TYPEBIT_TEMPORAL) offset--;
+			for (unsigned int k = offset; k < p.nSamples + offset; k++)
+			{
+				double t = (double)k / p.GetFs() + p.tmark / 1000.;
+				xbuf.push_back(t);
+			}
+		}
+		return data2points1(xyplot, xbuf, p.buf + begin, xSpacingPP, out);
+	}
+}
+
+vector<POINT> CAxes::plot_points_compact(int count, LONG px1, LONG px2, vector<double>::const_iterator itx, const vector<double>& xbuf, double* const buf, double nData_p_pixel)
+{ // for now, non x-y plot only
+	vector<POINT> out;
+	POINT pt;
+	int idataCount_per_pixel = (int)nData_p_pixel;
+	const double remainder = nData_p_pixel - idataCount_per_pixel;
+	double leftover = remainder;
+	int cnt = 0;
+	double* buf_pos = buf + distance(xbuf.begin(), itx);
+	size_t cum = 0;
+	bool loop = true;
+	pt.x = px1;
+	while (loop)
+	{
+		size_t advance_count = idataCount_per_pixel;
+		if (leftover > 1)
+		{
+			advance_count++;
+			leftover--;
+		}
+		if (cum + advance_count > count) advance_count = count - cum;
+		auto minmax = minmax_element(buf_pos, buf_pos + advance_count);
+		LONG temp = pt.y = getpointy(*minmax.first, rct, ylim);
+		if (pt.y > rct.bottom)
+			temp = pt.y = rct.bottom;
+		out.push_back(pt);
+		pt.y = getpointy(*minmax.second, rct, ylim);
+		pt.y = max(pt.y, rct.top);
+		if (pt.y != temp)
+			out.push_back(pt);
+		advance(itx, advance_count);
+		buf_pos += advance_count;
+		cum += advance_count;
+		if (pt.x >= px2 || cum >= count)
+			loop = false;
+		leftover += remainder;
+		pt.x++;
+	}
+	return out;
+}
+
+static vector<POINT> plot_points_compact2(int count, LONG px1, LONG px2, int ibegin, double tbegin, const CRect &rct, double * ylim, double* const buf, double nData_p_pixel)
+{ // temporal 
+	vector<POINT> out;
+	POINT pt;
+	int idataCount_per_pixel = (int)nData_p_pixel;
+	const double remainder = nData_p_pixel - idataCount_per_pixel;
+	double leftover = remainder;
+	int cnt = 0;
+	double* buf_pos = buf + ibegin;
+	size_t cum = 0;
+	bool loop = true;
+	pt.x = px1;
+	while (loop)
+	{
+		size_t advance_count = idataCount_per_pixel;
+		if (leftover > 1)
+		{
+			advance_count++;
+			leftover--;
+		}
+		if (cum + advance_count > count) advance_count = count - cum;
+		auto minmax = minmax_element(buf_pos, buf_pos + advance_count);
+		LONG temp = pt.y = getpointy(*minmax.first, rct, ylim);
+		if (pt.y > rct.bottom)
+			temp = pt.y = rct.bottom;
+		out.push_back(pt);
+		pt.y = getpointy(*minmax.second, rct, ylim);
+		pt.y = max(pt.y, rct.top);
+		if (pt.y != temp)
+			out.push_back(pt);
+		buf_pos += advance_count;
+		cum += advance_count;
+		if (pt.x >= px2 || cum >= count)
+			loop = false;
+		leftover += remainder;
+		pt.x++;
+	}
+	return out;
+}
+
+
+vector<POINT> CAxes::plot_points_xyplot_beyond_range(const vector<double>& xbuf, double* const buf, double ratiox, double ratioy)
+{
+	vector<POINT> out;
+	auto itx0 = xbuf.begin();
+	auto itx1 = xbuf.end();
+	double* buf_pos = buf + distance(xbuf.begin(), itx0);
+	bool lastin = false;
+	for (auto it = itx0; it != itx1; it++, buf_pos++)
+	{
+		// If the current point is between xlim, push it (CASE 1) 
+		// If the current one is in, the next one should be in (CASE 2) because of the current one.
+		// If the current one is in, the last one should be in (CASE 3) even if it was not in
+		// if the last one and current one flanks xlim, push both current and last (CASE 4) 
+		if (*it >= xlim[0] && *it <= xlim[1])
+		{
+			if (it != itx0 && !lastin)
+			{ //(CASE 3) 
+				out.push_back(getpoint(*(it - 1), *(buf_pos - 1), rct, ratiox, ratioy, xlim, ylim));
+			}
+			// (CASE 1) 
+			out.push_back(getpoint(*it, *buf_pos, rct, ratiox, ratioy, xlim, ylim));
+			lastin = true;
+		}
+		else if (lastin)
+		{ // (CASE 2) 
+			out.push_back(getpoint(*it, *buf_pos, rct, ratiox, ratioy, xlim, ylim));
+			lastin = false;
+		}
+		else if (it != itx0 && (*it - xlim[0]) * (*(it - 1) - xlim[0]) < 0)
+		{ // (CASE 4) 
+			out.push_back(getpoint(*(it - 1), *(buf_pos - 1), rct, ratiox, ratioy, xlim, ylim));
+			out.push_back(getpoint(*it, *buf_pos, rct, ratiox, ratioy, xlim, ylim));
+			lastin = false;
+		}
+		else
+			lastin = false;
+	}
+	return out;
+}
+int get_plot_range_from_tmark(const CSignal& p, const double xlim[], double& xlim1, double& xlim2, int& id1, int& id2)
+{ 
+	int count = 0;
+	if (p.tmark > xlim[1] * 1000.) return 0;
+	double lastTimePt = (p.tmark + p.dur().front()) / 1000.;
+	if (lastTimePt < xlim[0]) return 0;
+	if (xlim[0] > p.tmark / 1000.)
+	{
+		id1 = (int)((xlim[0] - p.tmark / 1000.) * p.GetFs() + .5);
+		xlim1 = xlim[0];
+	}
+	else
+	{
+		id1 = 0;
+		xlim1 = p.tmark / 1000.;
+	}
+	if (xlim[1] > lastTimePt)
+	{
+		id2 = p.nSamples;
+		xlim2 = lastTimePt;
+	}
+	else
+	{
+		id2 = (int)((xlim[1] - p.tmark / 1000.) * p.GetFs() + .5);
+		xlim2 = xlim[1];
+	}
+	id2 = min((int)p.nSamples, id2);
+	return count = id2 - id1;
+}
+
+rangepair get_plot_range_from_xbuf(bool xyplot, const vector<double>& xbuf, double const *xlim, double &xlim1, double &xlim2, int &count)
+{
+	rangepair range;
+	if (xyplot)
+	{
+		auto minmax = get_inside_xlim_general(count, xbuf, xlim);
+		xlim1 = minmax.first;
+		xlim2 = minmax.second;
+	}
+	else
+	{
+		range = get_inside_xlim_monotonic(count, xbuf, xlim);
+		xlim1 = *range.first;
+		if (range.first == range.second)
+			xlim2 = xlim1;
+		else
+			xlim2 = *(range.second - 1);
+	}
+	return range;
+}
+
+vector<POINT> CAxes::data2points1(bool xyplot, const vector<double>& xbuf, double* const buf, double& xSpacingPP, vector<POINT> &out_cumular)
+{
+	// xSpacingPP: [output] the x spacing between data points in pixel
+	// grab data in the range of xlim
+	// plot them in the coordinate of rcArea
+	vector<POINT> out;
+	// Inspect data and find out where the key is within xlim
+	int count;
+	double xlim1, xlim2;
+	double dataCount_per_pixel = 1;
+	LONG px1 = 0, px2 = 0;
+	rangepair range = get_plot_range_from_xbuf(xyplot, xbuf, xlim, xlim1, xlim2, count);
+	if (count == 0) return out; // if xbuf is out of xlim, return empty
+	if (!xyplot)
+	{
+	// calculate how many data points one pixel represents 
+		px1 = getpointx(xlim1, rct, xlim);
+		px2 = getpointx(xlim2, rct, xlim);
+		// if px1==px2 (i.e., there's only one point) dataCount_per_pixel doesn't matter as long as xSpacingPP is big to make a temporary symbol in drawCLine()
+		dataCount_per_pixel = (px1 == px2) ? .001 : (double)count / (px2 - px1);
+		xSpacingPP = 1. / dataCount_per_pixel;
+		if (dataCount_per_pixel > 4)
+		{// points are closed to each other enough to treat them as a chunk
+			out = plot_points_compact(count, px1, px2, range.first, xbuf, buf, dataCount_per_pixel);
+			for (auto p : out)
+				out_cumular.push_back(p);
+			return out;
+		}
+	}
+	double ratiox = rct.Width() / (xlim[1] - xlim[0]);
+	double ratioy = rct.Height() / (ylim[1] - ylim[0]);
+	if (xyplot) {
+		out = plot_points_xyplot_beyond_range(xbuf, buf, ratiox, ratioy);
+	}
+	else
+	{
+		double* buf_pos = buf + distance(xbuf.begin(), range.first);
+		for (auto it = range.first; it != range.second; it++, buf_pos++)
+			out.push_back(getpoint(*it, *buf_pos, rct, ratiox, ratioy, xlim, ylim));
+	}
+	for (auto p : out)
+		out_cumular.push_back(p);
+	return out;
+}
+
+vector<POINT> CAxes::data2points2(const CSignal& p, int begin, double& xSpacingPP, vector<POINT>& out_cumular)
+{
+	// xSpacingPP: [output] the x spacing between data points in pixel
+	// grab data in the range of xlim
+	// plot them in the coordinate of rcArea
+	double* const buf = p.buf + begin;
+	vector<POINT> out;
+	// Inspect data and find out where the key is within xlim
+	int count;
+	double xlim1, xlim2;
+	LONG px1 = 0, px2 = 0;
+	int id1, id2;
+	count = get_plot_range_from_tmark(p, xlim, xlim1, xlim2, id1, id2);
+	if (count <= 0) return out; // if data to plot is out of xlim, return empty
+	double t1 = p.tmark / 1000. + (double)id1 / p.GetFs();
+	double t2 = p.tmark / 1000. + (double)id2 / p.GetFs();
+	double dataCount_per_pixel = 1;
+	px1 = getpointx(t1, rct, xlim);
+	px2 = getpointx(t2, rct, xlim);
+	dataCount_per_pixel = (px1 == px2) ? .001 : (double)count / (px2 - px1);
+	xSpacingPP = 1. / dataCount_per_pixel;
+	if (dataCount_per_pixel > 4)
+	{// points are closed to each other enough to treat them as a chunk
+		out = plot_points_compact2(count, px1, px2, id1, t1, rct, ylim, buf, dataCount_per_pixel);
+		for (auto p : out)
+			out_cumular.push_back(p);
+		return out;
+	}
+	else
+	{
+		double ratiox = rct.Width() / (xlim[1] - xlim[0]);
+		double ratioy = rct.Height() / (ylim[1] - ylim[0]);
+		double xpoint = t1;
+		double advance = 1. / p.GetFs();
+		for (int id = id1; id < id2; id++, xpoint += advance)
+			out.push_back(getpoint(xpoint, buf[id], rct, ratiox, ratioy, xlim, ylim));
+		for (auto p : out)
+			out_cumular.push_back(p);
+	}
+	return out;
+}
+
+static void make(double x1, double x2, uint16_t state, double& div, std::vector<double>& out)
+{
+	out.clear();
+	if (state % 3 < 2)
+		div /= 2;
+	else
+		div /= 2.5;
+	double v = (int)ceil(x1 / div) * div;
+	if (v != x1)
+		out.push_back(x1);
+	while (v < x2)
+	{
+		out.push_back(v);
+		v += div;
+	}
+	out.push_back(x2);
+}
+
+std::vector<double> value_grid(double x1, double x2, int nReq)
+{ // Generate a sequence between x1 and x2 with the count closest to nReq
+  // 0 to 10 is divided with a width of 10 (one), 5 (two), 2 (five), 1 (ten)
+  // The return value, the vector, has one of the following size 1, 2, 5, or 10
+  // if x1 = 0, x2 = 10.
+  // If requested size, nReq, is close to one of those, that's good to return
+  // If not, continue with more divisions and try until the error increases in iteration
+  // (if the error increases, take the previous case and return that result)
+
+	std::vector<double> out, outlast;
+	// divider is 1, 2 or 5 times a power of ten
+	// always x2 > x1
+	double x = fmax(fabs(x1), fabs(x2));
+	double div = pow(10., (double)(int)log10(x) + 1);
+	// div/2 is the division value to begin with inside make()
+	int prev = nReq;
+	for (int factor = 0, b = 1; b > 0; factor++)
+	{
+		make(x1, x2, factor, div, out);
+		int error = abs(nReq - (int)out.size());
+		if (error <= 2)
+			b = 0;
+		else if (error > prev && nReq/2 > prev && !outlast.empty())
+		{ // exit check... Make sure this is fail-safe; otherwise an infinite loop
+			out = outlast;
+			b = 0;
+		}
+		else
+		{
+			prev = error;
+			outlast = out;
+		}
+	}
+	return out;
+}
+
+/* In an axes, all lines must be either non-temporal or all-temporal
+
+When multiple lines exist, 
+if it is non-temporal and non xyplot, all lines begin at 0 (or at the same point) but it may end at a different point.
+--> Try to make xtick at the point where the x point the data exists.
+If any one line is xyplot, each line may begin and end any time.
+--> Let's not try aligning xtick with data point.
+
+If it is temporal, any line can begin and end at any point.
+--> No need to align xtick with data point.
+
+*/
+void CAxes::setxticks()
+{ // xtics1 begins with xlim[0] and ends with xlim[1] and filled with the actual ticks
+  // If the first or last actual ticks item overlaps with xlim[0] or xlim[1], do not duplicate
+  // This rule is in effect in DrawTicks() in PlotDlg.cpp
+	if (!xtick.automatic) return;
+	int nTicks = GetDivCount('x', -1);
+	assert(m_ln.size() > 0);
+	int fs = m_ln.front()->sig.GetFs();
+	vector<double> out;
+
+	// Is multiple lines and any line is xyplot -- condition A
+	bool xyp = false;
+	for (auto v : m_ln)
+		if (v->xyplot) {
+			xyp = true;
+			break;
+		}
+	if (m_ln.size()>1)
+	{
+		if (xyp)// condition A
+			out = value_grid(xlim[0], xlim[1], nTicks);
+		else // condition B: multiple lines, but all have the same begin point
+		{
+			out = value_grid(xlim[0], xlim[1], nTicks);
+		}
+	}
+	else
+	{
+		out = value_grid(xlim[0], xlim[1], nTicks);
+	}
+	xtick.tics1 = out;
+}
+
+int headint(double x)
+{
+	if (x == 0) return 0;
+	double lg = log10(x);
+	if (x >= 1.)
+		return (int)pow(10., lg - (int)lg);
+	return (int)headint(pow(10., lg + 1 - ceil(lg)));
+}
+
+double remove_head(double v, int& lasthead)
+{ // this removes the head. If it is <1, shift the head into the digit above decimal point.
+	lasthead = 0;
+	if (v == 0.) return 0.;
+	if (v < 0) return remove_head(-v, lasthead);
+	lasthead = headint(v);
+	if (v > 1)
+		return v - lasthead * pow(10., (int)log10(v));
+	else
+		return v - lasthead * pow(10., (int)log10(v) - 1);
+}
+
+int diff_digit(double v1, double v2)
+{ // returns the digit (below the decimal point) where v1 and v2 differ
+  // if v1 == v2, return -1
+  // if v1 and v2 are in different digits, return -1
+  // if it differs on a digit above the decimal point, return -1
+	if (v1 == v2) return -1;
+	if (v1 * v2 == 0.) return -1;
+	if (v1 < 0) v1 = -v1;
+	if (v2 < 0) v2 = -v2;
+	int cum = (int)log10(v1);
+	double mag1 = log10(v1);
+	double mag2 = log10(v2);
+	if (mag1 * mag2 <= 0.) return -1;
+	if ((int)mag1 != (int)mag2) return -1;
+	int head1 = 0;
+	int head2 = 0;
+	if (v1 >= 1.)
+	{
+		head1 = headint(v1);
+		head2 = headint(v2);
+	}
+	else
+		cum--;
+	while (head1 == head2)
+	{
+		// Remove the head digit
+		v1 = remove_head(v1, head1);
+		v2 = remove_head(v2, head2);
+		if (head1 != head2) break;
+		cum--;
+		if (head1 + head2 == 0) break;
+	}
+	return cum;
+}
+
+int CAxes::get_prec_xtick()
+{
+	if (xtick.tics1.size() < 2) return 0;
+	int prec1 = 0x7FFFFFFF; // 32-bit MAX_MAX
+	int prec2 = 0x80000000; // 32-bit MAX_MIN
+	// if tics1 has more than two elements with greater than 1 and if they are 
+	// analyze tics1 separately for > 1 and < 1
+	for (auto it = xtick.tics1.rbegin() + 1; it != xtick.tics1.rend(); it++)
+	{
+		if (*it < 1) break;
+		prec2 = max(prec2, diff_digit(*(it - 1), *it));
+	}
+	if (prec2 > 0) return prec2;
+	for (auto it = xtick.tics1.begin() + 1; it != xtick.tics1.end(); it++)
+	{
+		prec1 = min(prec1, diff_digit(*(it - 1), *it));
+	}
+	return -prec1;
 }

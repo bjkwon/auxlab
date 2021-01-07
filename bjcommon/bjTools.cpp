@@ -7,15 +7,14 @@
 // Miscellaneous Support Library
 // 
 // 
-// Version: 1.495
-// Date: 12/13/2018
+// Version: 1.73
+// Date: 11/22/2022
 // 
 #include <math.h>
 #include "audfret.h"
 
 #define MAX_HEADING_LENGTH		128
 #define MAX_CHAR 29998
-
 
 int countFloatingPoints(double f, int max_fp)
 {
@@ -28,7 +27,12 @@ int countFloatingPoints(double f, int max_fp)
 	for (i=0; i<max_fp; i++)
 	{
 		err = (f*tens - (double)(__int64)(f*tens)) / tens;
-		if (err<errCrit)
+		double diff = errCrit - err;
+		// Why is this not a simple inequality errCrit > err?
+		// with double, err is like 0.09999999999947, whereas errCrit is 0.1
+		// There must be a better way than this, but just keep this way for now. 
+		// 11/22/2020
+		if (diff > 1.e-10) // max_fp capped at 10
 			return i;
 		tens *= 10;
 	}
@@ -66,23 +70,21 @@ int countchar(const char *str, char c)
 	return count;
 }
 
-
-void sprintfFloat(char *strOut, double f, int max_fp)
+int sprintfFloat(char *strOut, double f, int max_fp)
 {
 	int fp;
 	char *temp, format[64];
 
 	if (f<0)
 	{
-		sprintfFloat(strOut, -f, max_fp);
+		fp = sprintfFloat(strOut, -f, max_fp);
 		temp = (char*)calloc(strlen(strOut)+2,1);
 		strcpy(temp,"-");
 		strcat(temp+1, strOut);
 		strcpy(strOut, temp);
 		free(temp);
-		return;
+		return -fp;
 	}
-
 	if ((fp=countFloatingPoints(f, max_fp))==0)
 		sprintf (strOut, "%d", (int)f);
 	else
@@ -91,13 +93,21 @@ void sprintfFloat(char *strOut, double f, int max_fp)
 		sprintf (strOut, format, f);
 	}
 	trimLeft(strOut, " ");
+	return fp;
 }
 
+// Important---as of Nov 2020, max_fp should be capped at 9.
+// Look inside countFloatingPoints.
 int sprintfFloat(double f, int max_fp, char *strOut, size_t sizeStrOut)
 {
-	char buffer[128];
+	if (max_fp > 9) {
+		memset(strOut, 'X', sizeStrOut-1);
+		strOut[sizeStrOut - 1] = 0;
+		return -1;
+	}
+	char buffer[256];
 	if (f>1.e10 || f<-1.e10) {	memset((void*)strOut,'*', sizeStrOut-2); strOut[sizeStrOut-1]=0; return 0;}
-	sprintfFloat (buffer, f, max_fp);
+	int res = sprintfFloat (buffer, f, max_fp);
 	if (strlen(buffer)>sizeStrOut-1)
 	{
 		if (sizeStrOut>1) 
@@ -106,8 +116,17 @@ int sprintfFloat(double f, int max_fp, char *strOut, size_t sizeStrOut)
 			strOut[sizeStrOut-1]=0;
 		return 0;
 	}
+	if (strchr(buffer, '.'))
+	{
+		char* pt = buffer + strlen(buffer) - 1; // last character position
+		for (; ; pt--)
+		{
+			if (*pt == '0') *pt = '\0';
+			else break;
+		}
+	}
 	strcpy(strOut, buffer);
-	return 1;
+	return res;
 }
 
 char *trimLeft (char* string, const char *chars2Trimmed)

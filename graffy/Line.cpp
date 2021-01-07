@@ -13,7 +13,7 @@
 #include "graffy.h"
 
 GRAPHY_EXPORT CLine::CLine(CWndDlg * base, CGobj * pParent)
-: symbol(0), lineWidth(1), t1(-1), t2(-1), markersize(4), markerColor(-1)
+: symbol(0), lineWidth(1), t1(-1), t2(-1), markersize(4), markerColor(-1), xyplot(true)
 {
 	type = GRAFFY_line;
 	m_dlg = base;
@@ -45,18 +45,21 @@ GRAPHY_EXPORT CLine& CLine::operator=(const CLine& rhs)
 	if (this != &rhs)
 	{
 		CGobj::operator=(rhs);
+		strut.erase("pos");
 		t1 = rhs.t1;
 		t2 = rhs.t2;
 		lineStyle = rhs.lineStyle;
 		lineWidth = rhs.lineWidth;
+		xyplot = rhs.xyplot;
 		markerColor = rhs.markerColor;
 		markersize = rhs.markersize;
 		symbol = rhs.symbol;
 		sig = rhs.sig;
 		xdata = rhs.xdata;
 		//copy all strut from RHS
-		strut["linewidth"] = ((CVar)rhs).strut["linewidth"];
 		strut["linestyle"] = ((CVar)rhs).strut["linestyle"];
+		strut["width"] = ((CVar)rhs).strut["width"];
+		strut["xdata"] = ((CVar)rhs).strut["xdata"];
 		strut["ydata"] = ((CVar)rhs).strut["ydata"];
 	}
 	return *this;

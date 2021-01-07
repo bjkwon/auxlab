@@ -1050,7 +1050,7 @@ static CTimeSeries Imag(const CTimeSeries &x)
 	return out;
 }
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CTimeSeries &data, COLORREF col, char cymbol, LineStyle ls)
+GRAPHY_EXPORT vector<HANDLE> PlotCTimeSeries(HANDLE _ax, double *x, const CTimeSeries &data, const std::string& vname, COLORREF col, char cymbol, LineStyle ls)
 {
 	// mono
 	vector<HANDLE> out;
@@ -1060,17 +1060,65 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CTimeSeri
 	{
 		CTimeSeries real(data);
 		real.SetReal();
-		out.push_back(ax->plot(x, real, col, cymbol, ls));
+		out.push_back(ax->plot(x, real, vname, col, cymbol, ls));
 		CTimeSeries imag = Imag(data);
 		if (HIBYTE(HIWORD(col))) *((char*)&col + 3) = 'l'; // real part in complex input, left channel
-		out.push_back(ax->plot(x, imag, col, cymbol, ls));
+		out.push_back(ax->plot(x, imag, vname, col, cymbol, ls));
 	}
 	else
-		out.push_back(lyne = ax->plot(x, data, col, cymbol, ls));
+		out.push_back(lyne = ax->plot(x, data, vname, col, cymbol, ls));
 	return out;
 }
 
-GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals &data, COLORREF col, char cymbol, LineStyle ls)
+GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeSeries*> line, vector<string> vnames, vector<COLORREF> cols, vector<char> cymbol, vector<LineStyle> ls)
+{ // assume line is non-audio
+	// if color is not specified, go this way-- b r g y c m
+	vector<HANDLE> out;
+	auto itcol = cols.begin();
+	auto itls = ls.begin();
+	auto itsym = cymbol.begin();
+	auto itvname = vnames.begin();
+	CAxes* ax = static_cast<CAxes*>(_ax);
+	vector<COLORREF> def_cols;
+	if (itcol == cols.end())
+	{
+		def_cols.push_back(RGB(0, 0, 255));
+		def_cols.push_back(RGB(255, 0, 0));
+		def_cols.push_back(RGB(0, 255, 0));
+		def_cols.push_back(RGB(255, 255, 0));
+		def_cols.push_back(RGB(0, 255, 255));
+		def_cols.push_back(RGB(255, 0, 255));
+		cols = def_cols;
+		itcol = cols.begin();
+	}
+	for (auto ln : line)
+	{
+		COLORREF col = 0;
+		LineStyle style = LineStyle_solid;
+		char symb = 0;
+		if (itcol != cols.end()) col = *itcol, itcol++;
+		if (itls != ls.end()) style = *itls, itls++;
+		if (itsym != cymbol.end()) symb = *itsym, itsym++;
+		out.push_back(ax->plot(x, *ln, (*itvname++), col, symb, style));
+	}
+	CAxes* hAx = (CAxes*)ax;
+	CGobj* hPar = ((CGobj*)ax)->hPar;
+	bool existing = false;
+	for (auto it = hPar->struts["children"].begin(); it != hPar->struts["children"].end(); it++)
+		if ((*it) == hAx) { existing = true; break; }
+	if (!existing)
+		hPar->struts["children"].push_back(hAx);
+	hPar->struts.erase("gca");
+	hPar->struts["gca"].push_back(hAx);
+
+	CAxes* paxFFT;
+	if (paxFFT = (CAxes*)ax->hChild)
+		ViewSpectrum(paxFFT);
+	addRedrawCue(hPar->m_dlg->hDlg, CRect(0, 0, 0, 0));
+	return out;
+}
+
+GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals &data, const std::string& vname, COLORREF col, char cymbol, LineStyle ls)
 {
 	CLine *lyne;
 	CAxes *ax = static_cast<CAxes *>(_ax);
@@ -1079,11 +1127,11 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals 
 	{
 		col = 0;		*((char*)&col + 3) = 'L';
 	} // left channel
-	out = PlotCSignals(_ax, x, (const CTimeSeries)data, col, cymbol, ls);
+	out = PlotCTimeSeries(_ax, x, (const CTimeSeries)data, vname, col, cymbol, ls);
 	if (data.next)
 	{
 		*((char*)&col + 3) = 'R';
-		vector<HANDLE> out2 = PlotCSignals(_ax, x, (const CTimeSeries)*data.next, col, cymbol, ls);
+		vector<HANDLE> out2 = PlotCTimeSeries(_ax, x, (const CTimeSeries)*data.next, vname, col, cymbol, ls);
 		out.push_back(out2.front());
 	}
 	CAxes * hAx = (CAxes *)ax;
@@ -1140,6 +1188,93 @@ void _deleteObj(CFigure *hFig)
 	// If this is done before the message loop closes, hDlg_fig will be push_back'ed again with the now soon-to-be-defunct hDlg and
 	// it will cause a crash in CGraffyEnv::closeFigure  7/31/2018
 	theApp.hDlg_fig.erase(jt); 
+}
+
+static void deep_erase(CVar* Govar, CVar* const del)
+{
+	if (Govar->struts.find("children") == Govar->struts.end() ||
+		Govar->struts["children"].empty()) return;
+	//See if there's del found at the current layer
+	for (auto ch = Govar->struts["children"].begin(); ch != Govar->struts["children"].end(); )
+	{
+		if (*ch == del)
+			ch = Govar->struts["children"].erase(ch);
+		else
+			ch++;
+	}
+	//deeper layer
+	for (auto ch : Govar->struts["children"])
+		deep_erase(ch, del);
+}
+
+
+// Go through every GOvar and its derivatives. If it is same as del, erase from it
+// derivatives: children (all types), x or y (axes), userdata
+// 
+static void deep_erase(CAstSig* past, CVar* const del)
+{
+	for (auto gov = past->GOvars.begin(); gov != past->GOvars.end(); gov++)
+	{ // gov is either single (you can/should use .front() or multiGO 
+		if ((*gov).second.size() == 1)
+			deep_erase((*gov).second.front(), del);
+		else
+		{
+			// Taken care of by CAstSig::erase_GO(CVar * obj)
+		}
+	}
+}
+
+static int _delete_graffy_non_figure(CAstSig* past, HANDLE obj)
+{
+	if (!obj) return 0; // can be NULL while deleting a multi-figure obj.
+	CGobj* hobj = (CGobj*)obj;
+	CVar* pgo = (CVar*)obj;
+	CVar* hPar = ((CFigure*)hobj)->hPar;
+	switch (hobj->type)
+	{
+	case GRAFFY_axes:
+		RegisterAx(hPar, (CAxes*)hobj, false);
+		hPar->struts["gca"].clear();
+		break;
+	case GRAFFY_text:
+		break;
+	case GRAFFY_line:
+		break;
+	}
+	deleteObj(hobj);
+	past->pgo = NULL;
+	InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
+	return 1;
+}
+
+GRAPHY_EXPORT void deleteGObj(CAstSig* past, const CVar& sig)
+{
+	vector<unsigned int> fids;
+	vector<HANDLE> figs2delete = FindFigures(sig, fids);
+	vector<CVar*> nonfigs2delete = FindNonFigures(sig);
+	vector<string> var2deleted;
+	for (auto fig : figs2delete)
+	{
+		vector<string> varname = past->erase_GO((CVar*)fig);
+		CGobj* fobj = (CGobj*)fig;
+		// 	StopPlay(hAudio, true);
+		PostMessage(fobj->m_dlg->hDlg, WM_QUIT, 0, 0);
+		CGobj* hobj = (CGobj*)fig;
+		CVar* pgo = (CVar*)fig;
+		CVar* hPar = ((CFigure*)hobj)->hPar;
+		RegisterAx(hPar, (CAxes*)hobj, false);
+		for (auto v : varname)
+			var2deleted.push_back(v);
+	}
+	// non-figures
+	for (auto del : nonfigs2delete)
+	{
+		deep_erase(past, del);
+		vector<string> varname = past->erase_GO(del);
+		for (auto v : varname)
+			var2deleted.push_back(v);
+		_delete_graffy_non_figure(past, del);
+	}
 }
 
 GRAPHY_EXPORT void deleteObj(HANDLE h)

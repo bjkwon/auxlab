@@ -34,15 +34,15 @@ void CTick::initGO(void * _hpar)
 	CGobj::initGO(_hpar);
 }
 
-void CTick::set(vector<unsigned int> val, vector<double> xydata, int len)
+void CTick::set(const vector<unsigned int> & val, const vector<double> & xydata)
 {
-	int k(0);
+	size_t k = 0;
 	tics1.clear();
-	tics1.push_back(xydata[k]);
-	for (vector<unsigned int>::iterator it=val.begin(); it!=val.end(); it++)
+	tics1.push_back(xydata.front());
+	for (vector<unsigned int>::const_iterator it=val.begin(); it!=val.end(); it++)
 	{
 		k += *it;
-		if (k>=len)
+		if (k>=xydata.size())
 		{
 			vector<double> backuptics1(tics1);
 			double diff = tics1.back();
