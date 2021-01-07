@@ -105,21 +105,50 @@ void CTimeSeries::sort_by_tmark()
 bool CSignal::operate(const CSignal& sec, char op)
 {
 	// Exception handling is yet to be done 3/8/2019
-	  //Currently only for real arrays. 3/8
 	// If fs for one is 1 and for the other is >3 (such as 44100)
 	// make fs for this the big number
 	if (fs == 1 && sec.fs > 3) fs = sec.fs;
 	if (sec.IsScalar())
 	{
-		double val = sec.value();
-		if (op == '+')
-			for_each(buf, buf + nSamples, [val](double &v) { v += val; });
-		else if (op == '-')
-			for_each(buf, buf + nSamples, [val](double &v) { v -= val; });
-		else if (op == '*')
-			for_each(buf, buf + nSamples, [val](double &v) { v *= val; });
-		else if (op == '/')
-			for_each(buf, buf + nSamples, [val](double &v) { v /= val; });
+		if (sec.IsComplex())
+		{
+			complex<double> val = sec.cvalue();
+			if (!IsComplex()) SetComplex();
+			if (op == '+')
+				for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v += val; });
+			else if (op == '-')
+				for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v -= val; });
+			else if (op == '*')
+				for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v *= val; });
+			else if (op == '/')
+				for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v /= val; });
+		}
+		else
+		{
+			double val = sec.value();
+			if (IsComplex())
+			{
+				if (op == '+')
+					for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v += val; });
+				else if (op == '-')
+					for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v -= val; });
+				else if (op == '*')
+					for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v *= val; });
+				else if (op == '/')
+					for_each(cbuf, cbuf + nSamples, [val](complex<double>& v) { v /= val; });
+			}
+			else
+			{
+				if (op == '+')
+					for_each(buf, buf + nSamples, [val](double& v) { v += val; });
+				else if (op == '-')
+					for_each(buf, buf + nSamples, [val](double& v) { v -= val; });
+				else if (op == '*')
+					for_each(buf, buf + nSamples, [val](double& v) { v *= val; });
+				else if (op == '/')
+					for_each(buf, buf + nSamples, [val](double& v) { v /= val; });
+			}
+		}
 	}
 	else
 	{
@@ -127,15 +156,44 @@ bool CSignal::operate(const CSignal& sec, char op)
 		if (!operator_prep(sec, idBegin, idEnd, offset)) // if not overlapping, just skip
 			return false;
 		int k = 0;
-		double *secbuffer = sec.buf + offset;
-		if (op == '+')
-			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v += secbuffer[k++]; });
-		else if (op == '-')
-			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v -= secbuffer[k++]; });
-		else if (op == '*')
-			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v *= secbuffer[k++]; });
-		else if (op == '/')
-			for_each(buf + idBegin, buf + idEnd, [secbuffer, &k](double &v) { v /= secbuffer[k++]; });
+		if (sec.IsComplex())
+		{
+			complex<double>* cbuf2 = sec.cbuf + offset;
+			if (op == '+')
+				for_each(cbuf + idBegin, cbuf + idEnd, [cbuf2, &k](complex<double>& v) { v += cbuf2[k++]; });
+			else if (op == '-')
+				for_each(cbuf + idBegin, cbuf + idEnd, [cbuf2, &k](complex<double>& v) { v -= cbuf2[k++]; });
+			else if (op == '*')
+				for_each(cbuf + idBegin, cbuf + idEnd, [cbuf2, &k](complex<double>& v) { v *= cbuf2[k++]; });
+			else if (op == '/')
+				for_each(cbuf + idBegin, cbuf + idEnd, [cbuf2, &k](complex<double>& v) { v /= cbuf2[k++]; });
+		}
+		else
+		{
+			double* buf2 = sec.buf + offset;
+			if (IsComplex())
+			{
+				if (op == '+')
+					for_each(cbuf + idBegin, cbuf + idEnd, [buf2, &k](complex<double>& v) { v += buf2[k++]; });
+				else if (op == '-')
+					for_each(cbuf + idBegin, cbuf + idEnd, [buf2, &k](complex<double>& v) { v -= buf2[k++]; });
+				else if (op == '*')
+					for_each(cbuf + idBegin, cbuf + idEnd, [buf2, &k](complex<double>& v) { v *= buf2[k++]; });
+				else if (op == '/')
+					for_each(cbuf + idBegin, cbuf + idEnd, [buf2, &k](complex<double>& v) { v /= buf2[k++]; });
+			}
+			else
+			{
+				if (op == '+')
+					for_each(buf + idBegin, buf + idEnd, [buf2, &k](double& v) { v += buf2[k++]; });
+				else if (op == '-')
+					for_each(buf + idBegin, buf + idEnd, [buf2, &k](double& v) { v -= buf2[k++]; });
+				else if (op == '*')
+					for_each(buf + idBegin, buf + idEnd, [buf2, &k](double& v) { v *= buf2[k++]; });
+				else if (op == '/')
+					for_each(buf + idBegin, buf + idEnd, [buf2, &k](double& v) { v /= buf2[k++]; });
+			}
+		}
 	}
 	return true;
 }

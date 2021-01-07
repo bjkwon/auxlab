@@ -149,6 +149,7 @@
     <PreBuildEvent>
       <Command>
 	  call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
@@ -170,6 +171,7 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
@@ -194,11 +196,12 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy lame_bj </Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -222,11 +225,12 @@
     </PreLinkEvent>
     <PreBuildEvent>
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy lame_bj </Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

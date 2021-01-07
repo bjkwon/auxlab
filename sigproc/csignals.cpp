@@ -3022,69 +3022,46 @@ int CSignal::DecFir(const CSignal& coeff, int offset, int nChan)
 	return 1;
 }
 
-CSignal& CSignal::_filter(const vector<double> & num, const vector<double> & den, vector<double> &initialfinal, unsigned int id0, unsigned int len)
+CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, vector<double>& state, unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
 	if (IsComplex())
 	{
-		// initial and final conditions for complex not yet been done 6/2/2020
-		complex<double> val, *out = new complex<double>[len];
-		unsigned int m = id0;
-		for (; m < id0 + len; m++)
+		complex<double> * out = new complex<double>[len];
+		for (unsigned int m = id0; m < id0 + len; m++)
 		{
-			val = num[0] * cbuf[m];
-			for (unsigned int n = 1; n < num.size() && m >= n; n++)
-				val += num[n] * cbuf[m - n];
-			for (unsigned int n = 1; n < den.size() && m >= n; n++)
-				val -= den[n] * out[m - n];
-			out[m] = val;
+			out[m] = num[0] * cbuf[m] + state.front();
+			//size of state is always one less than num or den
+			//int k = 1;
+			//for (auto& v : state)
+			//{
+			//	v = num[k] * cbuf[m] - den[k] * out[m];
+			//	if (k < initial.size())
+			//		v += *((&v) + 1);
+			//	k++;
+			//}
 		}
 		delete[] cbuf;
 		cbuf = out;
 	}
 	else
 	{
-		vector<double> initial = initialfinal;
-		size_t tbufsize = max(num.size(), den.size());
-		vector<double> finalcondition(tbufsize - 1, 0.);
-		double val, *out = new double[tbufsize];
-		auto preex = initial.begin();
-		unsigned int m = 0;
-		for (; m < len; m++)
+		double * out = new double[len];
+		for (unsigned int m = id0; m < id0 + len; m++)
 		{
-			val = num[0] * buf[id0 + m];
-			for (unsigned int n = 1; n < num.size(); n++)
+			out[m] = num[0] * buf[m] + state.front();
+			//size of state is always one less than num or den
+			int k = 1;
+			for (auto& v : state)
 			{
-				if (m >= n)
-					val += num[n] * buf[id0 + m - n];
-				else
-				{
-					if (preex != initial.end())
-						val += *(preex++);
-					break;
-				}
+				v = num[k] * buf[m] - den[k] * out[m];
+				if (k < state.size() )
+					v += *((&v) + 1);
+				k++;
 			}
-			for (unsigned int n = 1; n < den.size() && m >= n; n++)
-				val -= den[n] * out[(m - n) % tbufsize];
-			if (m >= num.size())
-			{
-				buf[id0 + m - num.size()] = out[(m - num.size()) % tbufsize];
-				out[(m - num.size()) % tbufsize] = val;
-			}
-			else
-				out[m] = val;
 		}
-		//final condition
-		for (size_t q = 0; q < finalcondition.size(); q++)
-			for (size_t k = q + 1; k < num.size() && len + q >= k; k++)
-				finalcondition[q] += num[k] * buf[id0 + len - k + q];
-		for (; m - num.size() < len; m++)
-			buf[id0 + m - num.size()] = out[(m - num.size()) % tbufsize];
-		for (size_t q = 0; q < finalcondition.size(); q++)
-			for (size_t k = q + 1; k < den.size() && len + q >= k; k++)
-				finalcondition[q] -= den[k] * buf[id0 + len - k + q];
-		initialfinal = finalcondition;
-		delete[] out;
+		delete[] buf;
+		buf = out;
 	}
 	return *this;
 }
@@ -4353,12 +4330,18 @@ bool CVar::IsGO() const
 	if (strut.find("visible") == strut.end()) return false;
 	//if (strut.find("parent") == strut.end()) return false;
 	//if (strut.find("children") == strut.end()) return false;
+
+	// Add rejection for other handles (e.g., audio handle)
 	return true;
 }
 
 CVar&  CVar::length()
 {
-	if (IsGO() && fs == 3) SetValue((double)nSamples);
+	if (IsGO())
+	{
+		if (fs == 3) SetValue((double)nSamples);
+		else SetValue(1.);
+	}
 	else // checkcheckcheck
 		runFct2getvals(&CSignal::length);
 	return *this;

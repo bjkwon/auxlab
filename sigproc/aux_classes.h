@@ -21,16 +21,22 @@ using namespace std;
 #include <functional>
 
 #define TYPEBIT_NULL		0x0000
-#define TYPEBIT_TEMPORAL	0x0004
-#define TYPEBIT_SNAP		0x0008
+#define TYPEBIT_SNAP		0x0004
+#define TYPEBIT_TEMPORAL	0x0008
 // The difference between TYPEBIT_AUDIO and TYPEBIT_TSEQ: 
 // data in TYPEBIT_AUDIO aligned with time points in grid of 1/fs,
 // data in TYPEBIT_TSEQ are stacked on the same tmark.
 #define TYPEBIT_AUDIO		(TYPEBIT_TEMPORAL + TYPEBIT_NULL)
 #define TYPEBIT_TSEQ		(TYPEBIT_TEMPORAL + TYPEBIT_SNAP)
-#define TYPEBIT_STRING		0x0020
-#define TYPEBIT_LOGICAL		0x0080
-#define TYPEBIT_GO			0x0100
+#define TYPEBIT_SIZE8		0x0000 // 8 bytes -- sizeof(double)
+#define TYPEBIT_SIZE1		0x0010
+#define TYPEBIT_FS2			0x0020
+#define TYPEBIT_SIZE16		0x0040 // 16 bytes -- 8 bytes times 2 
+#define TYPEBIT_LOGICAL		(TYPEBIT_SIZE1 + TYPEBIT_NULL) // 0x0080
+// DO NOT MASK THIS WITH type() to detect string; Use IsString() instead.
+#define TYPEBIT_STRING		(TYPEBIT_SIZE1 + TYPEBIT_FS2) 
+#define TYPEBIT_COMPLEX		TYPEBIT_SIZE16
+#define TYPEBIT_GO			0x0800
 #define TYPEBIT_CELL		0x1000
 #define TYPEBIT_STRUT		0x2000
 #define TYPEBIT_STRUTS		0x4000
@@ -220,8 +226,11 @@ public:
 	inline bool IsEmpty() const { return nSamples == 0 && tmark == 0.; }
 	inline bool IsScalar() const { return nSamples == 1; }
 	inline bool IsVector() const { return nSamples > 1; }
-	inline bool IsAudio() const { uint16_t tp = type(); return tp & TYPEBIT_AUDIO  && !(tp & TYPEBIT_SNAP); }
-	bool IsString() const { return fs == 2; }
+	inline bool IsAudio() const { 
+		uint16_t tp = type() & 0x000F; 
+		return tp & TYPEBIT_AUDIO  && !(tp & TYPEBIT_SNAP); 
+	}
+	bool IsString() const { return bufBlockSize == 1 && fs == 2; }
 
 	CSignal & Modulate(double *env, unsigned int lenEnv, unsigned int beginID=0);
 	CSignal & SAM(double modRate, double modDepth, double initPhase);
@@ -253,12 +262,15 @@ public:
 		uint16_t out = TYPEBIT_NULL;
 		if (IsEmpty())			return out;
 		else if (fs == 1)		out = 0;
-		else if (fs == 2)		out = TYPEBIT_STRING;
 		else if (fs == 0 || fs > 500)		out = TYPEBIT_TEMPORAL;
 		if (snap) out += TYPEBIT_SNAP;
 		if (nSamples > 0) out++;
 		if (nSamples > 1) out++;
-		if (IsLogical()) out += TYPEBIT_LOGICAL;
+		// Data type based on data alignment
+		if (IsString())		out += TYPEBIT_STRING;
+		else if (IsBool()) out += TYPEBIT_SIZE1;
+		else if (bufBlockSize == sizeof(double)) out += TYPEBIT_SIZE8;
+		else if (bufBlockSize == sizeof(double) *2) out += TYPEBIT_SIZE16;
 		return out;
 	};
 

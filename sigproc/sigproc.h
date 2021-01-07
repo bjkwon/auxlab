@@ -301,6 +301,7 @@ private:
 	CVar *eval_RHS(AstNode *pnode);
 	inline void throw_LHS_lvalue(const AstNode *pn, bool udf);
 	CVar * NodeVector(const AstNode *pnode);
+	CVar * NodeVectorGO(CVar *psig, const AstNode *pnode);
 	CVar * NodeMatrix(const AstNode *pnode);
 	CVar * Dot(AstNode *p);
 	void switch_case_handler(const AstNode *pnode);
@@ -324,8 +325,10 @@ public:
 	void checkScalar(const AstNode *pnode, CVar &checkthis, string addmsg = "");
 	void checkString(const AstNode *pnode, const CVar &checkthis, string addmsg="");
 	void blockCell(const AstNode *pnode, const CVar &checkthis);
+	bool blockCell_allowGO(const AstNode *pnode, const CVar &checkthis);
 	void blockEmpty(const AstNode *pnode, CVar &checkthis);
-	void blockScalar(const AstNode *pnode, CVar &checkthis);
+	void blockScalar(const AstNode *pnode, CVar &checkthis); 
+	void blockTemporal(const AstNode *pnode, CVar &checkthis);
 	void blockString(const AstNode *pnode, CVar &checkthis);
 	void blockComplex(const AstNode *pnode, CVar &checkthis);
 	const AstNode *getparentnode(const AstNode *pnode, const AstNode *p);
@@ -336,6 +339,9 @@ public:
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase);
 	void outputbinding(const AstNode *plhs);
 	void bind_psig(AstNode *pn, CVar *tsig);
+	vector<string> erase_GO(const char* varname);
+	vector<string> erase_GO(CVar* obj);
+	vector<CVar*> get_GO_children(const vector<CVar*>& obj);
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);
 #endif

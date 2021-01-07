@@ -792,6 +792,7 @@ GRAPHY_EXPORT void graffy_remove_CFigs(CGobj* hRemove)
 /*New 1*/
 GRAPHY_EXPORT HANDLE FindFigure(CSignals *pfigsig)
 {
+	if (!pfigsig) return NULL; // can be NULL while deleting a multi-figure obj.
 	// If pfigsig is CGobj, don't call this; Just cast.
 	// (It won't be bad even if you call this, but you may just get confused what this is doing. 9/7/2020
 	for (auto fig : theApp.fig)
@@ -842,35 +843,65 @@ static HANDLE FindFigure(const CVar &sig)
 		{
 			auto type = ((CVar*)&f->gcf)->type();
 			// if f is named skip to the next
-			if (type & TYPEBIT_STRING) continue;
+			if (type & TYPEBIT_STRING) {
+				if ((INT_PTR)sig.value() == (INT_PTR)(CVar*)&f->gcf)
+					return &f->gcf;
+			}
 			else if (sig.value() == f->gcf.value())
+				return &f->gcf;
+			else if (sig.value() == (double)(INT_PTR)&f->gcf)
 				return &f->gcf;
 		}
 	}
 	return NULL;
 }
 
-GRAPHY_EXPORT vector<HANDLE> FindFigures(const CVar &sig)
+GRAPHY_EXPORT vector<HANDLE> FindFigures(const CVar &sig, vector<unsigned int> &idxFig)
 {
 	vector<HANDLE> out;
+	idxFig.clear();
 	auto type = sig.type();
 	if (sig.nSamples == 0) return out;
-	else if (sig.nSamples == 1 || type & TYPEBIT_GO)
+	else if (sig.nSamples == 1 || (type & TYPEBIT_GO && sig.GetFs()!=3))
 	{
 		HANDLE _out = FindFigure(sig);
 		if (_out)	out.push_back(_out);
+		idxFig.push_back(0);
 	}
 	else
 	{
 		for (unsigned int k = 0; k < sig.nSamples; k++)
 		{
 			HANDLE _out = FindFigure(CSignals(sig.buf[k]));
-			if (_out) out.push_back(_out);
+			if (_out) {
+				out.push_back(_out);
+				idxFig.push_back(k);
+			}
 		}
 	}
 	return out;
 }
 
+GRAPHY_EXPORT vector<CVar*> FindNonFigures(const CVar &sig)
+{
+	vector<CVar*> out;
+	auto type = sig.type();
+	if (sig.nSamples == 0) return out;
+	else if (sig.nSamples == 1 || (type & TYPEBIT_GO && sig.GetFs() != 3))
+	{
+		HANDLE _out = FindFigure(sig);
+		if (!_out)	out.push_back((CVar*)(INT_PTR)sig.value());
+	}
+	else
+	{
+		for (unsigned int k = 0; k < sig.nSamples; k++)
+		{
+			HANDLE _out = FindFigure(CSignals(sig.buf[k]));
+			if (!_out) out.push_back((CVar*)(INT_PTR)sig.buf[k]);
+		}
+	}
+	return out;
+}
 
 static HANDLE GetGraffyHandle(const CVar &sig)
 {
@@ -883,17 +914,6 @@ static HANDLE GetGraffyHandle(const CVar &sig)
 	}
 	else
 		return NULL;
-}
-
-GRAPHY_EXPORT vector<HANDLE> GetGraffyHandles(const CVar &sig)
-{ // non-figures
-	vector<HANDLE> out;
-	if (sig.nSamples == 1) out.push_back(GetGraffyHandle(sig));
-	else
-	{
-
-	}
-	return out;
 }
 
 GRAPHY_EXPORT HANDLE FindFigure(INT_PTR figID)
@@ -1085,6 +1105,7 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals 
 
 bool Is_A_Ancestor_of_B(vector<INT_PTR> &A, vector<INT_PTR> &B)
 {
+	if (A.empty() || B.empty()) return false;
 	vector<INT_PTR>::iterator it, jt;
 	for (it = A.begin(), jt = B.begin(); it != A.end() && jt != B.end(); it++, jt++)
 	{
@@ -1096,6 +1117,8 @@ bool Is_A_Ancestor_of_B(vector<INT_PTR> &A, vector<INT_PTR> &B)
 
 GRAPHY_EXPORT bool Is_A_Ancestor_of_B(CSignals *A, CSignals *B)
 {
+	if (!A || !B) return false;
+	if (A == B) return true;
 	CGobj* a = (CGobj*)A;
 	CGobj* b = (CGobj*)B;
 	return Is_A_Ancestor_of_B(a->geneal, b->geneal);

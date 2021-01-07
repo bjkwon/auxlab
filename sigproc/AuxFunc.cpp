@@ -42,6 +42,9 @@
 #endif
 
 
+// 10/1/2020 TO DO-----separate these graffy function somehow to add its own features 
+// such as blockNULL etc.
+
 #ifndef NO_FILES
 //these functions are defined in AuxFunc_file.cpp
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
@@ -199,6 +202,13 @@ void CAstSig::checkString(const AstNode *pnode, const CVar &checkthis, string ad
 	throw CAstException(USAGE, *this, pnode).proc((msg+addmsg).c_str());
 }
 
+bool CAstSig::blockCell_allowGO(const AstNode *pnode, const CVar &checkthis)
+{
+	if (checkthis.type() & TYPEBIT_GO) return true;
+	blockCell(pnode, checkthis);
+	return false;
+}
+
 void CAstSig::blockCell(const AstNode *pnode, const CVar &checkthis)
 {
 	string msg("Not valid with a cell, struct, or point-array variable ");
@@ -230,6 +240,14 @@ void CAstSig::blockString(const AstNode *pnode, CVar &checkthis)
 {
 	if (checkthis.GetType() == CSIG_STRING) {
 		string msg("Not valid with a string variable ");
+		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
+	}
+}
+
+void CAstSig::blockTemporal(const AstNode *pnode, CVar &checkthis)
+{
+	if (checkthis.type() & TYPEBIT_TEMPORAL) {
+		string msg("Not valid with a temporal object ");
 		throw CAstException(USAGE, *this, pnode).proc(msg.c_str());
 	}
 }
@@ -1728,7 +1746,8 @@ void _size(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	double tp2 = past->Sig.Len();
 	if (arg.value() == 0.)
 	{
-		past->Sig.Reset(1);
+		if (!past->Sig.type())
+			tp1 = 0.;
 		past->Sig.UpdateBuffer(2);
 		past->Sig.buf[0] = tp1;
 		past->Sig.buf[1] = tp2;
@@ -2554,7 +2573,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 		builtin[name] = ft;
 	}
 	ft.narg1 = 1;	ft.narg2 = 1;
-	name = "dtype";
+	name = "otype";
 	ft.func = _datatype;
 	builtin[name] = ft;
 	ft.alwaysstatic = true;
@@ -2901,6 +2920,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 	complex<double>(*cfn2)(complex<double>, complex<double>) = NULL;
 	string fname = pnode->str;
 	auto ft = pEnv->builtin.find(fname);
+	auto type = Sig.type();
 	bool structCall = pnode->type == N_STRUCT;
 	AstNode * p(NULL);
 	if (pnode->alt)
@@ -2985,6 +3005,12 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		}
 		break;
 	case 10: // other math function... function pointer ready
+		if (!type)
+		{
+			Sig.functionEvalRes = true;
+			Sig.Reset(1);
+			return;
+		}
 		fnsigs = fname + "(scalar or vector)";
 		if (p && p->type != N_STRUCT)
 			if (structCall)

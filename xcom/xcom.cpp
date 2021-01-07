@@ -1,15 +1,15 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: auxlab
-// Main Application. Based on Windows API  
-// 
-// 
+// Main Application. Based on Windows API
+//
+//
 // Version: 1.7
 // Date: 5/24/2020
-// 
+//
 #include "graffy.h" // this should come before the rest because of wxx820
 #include <windows.h>
 #include <stdio.h>
@@ -96,7 +96,7 @@ extern vector<CWndDlg*> cellviewdlg;
 
 unsigned int WINAPI debugThread2 (PVOID var) ;
 
-HANDLE hStdin, hStdout; 
+HANDLE hStdin, hStdout;
 BOOL CALLBACK showvarDlgProc (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK historyDlgProc (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam);
 BOOL CtrlHandler( DWORD fdwCtrlType );
@@ -209,7 +209,7 @@ static int readINI1(const char *fname, char *estr_dummy, int &fs)
 	return 1;
 }
 
-unsigned int WINAPI histThread (PVOID var) 
+unsigned int WINAPI histThread (PVOID var)
 {
 	sendtoEventLogger("histThread created.\n");
 	WNDCLASS wc;
@@ -229,7 +229,7 @@ unsigned int WINAPI histThread (PVOID var)
 
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
-	if (res & 4)	
+	if (res & 4)
 		mHistDlg.MoveWindow(rt3);
 	else
 	{
@@ -254,8 +254,8 @@ unsigned int WINAPI histThread (PVOID var)
 
 	MSG         msg ;
 	while (GetMessage (&msg, NULL, 0, 0))
-	{ 
-		if (msg.message==WM__ENDTHREAD) 
+	{
+		if (msg.message==WM__ENDTHREAD)
 			_endthreadex(17);
 		TranslateMessage (&msg) ;
 		DispatchMessage (&msg) ;
@@ -286,7 +286,7 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	RECT rc;
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
-	if (res & 2)	
+	if (res & 2)
 		mShowDlg.MoveWindow(rt2);
 	else
 	{
@@ -298,7 +298,7 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 		rc2.left = rc2.right - width/7*4+10;
 		rc2.bottom = rcConsole.bottom;
 		rc2.top = rc2.bottom - height/5*4;
-		if (rc2.left<0) 
+		if (rc2.left<0)
 		{
 			rc2.right -= rc2.left;
 			rc2.left = 0;
@@ -343,7 +343,7 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	HACCEL hAcc = LoadAccelerators (hModule, MAKEINTRESOURCE(IDR_XCOM_ACCEL));
 	while (GetMessage (&msg, NULL, 0, 0))
 	{
-		if (msg.message==WM__ENDTHREAD) 
+		if (msg.message==WM__ENDTHREAD)
 			_endthreadex(33);
 		if (!TranslateAccelerator(mShowDlg.hDlg, hAcc, &msg))
 		{
@@ -361,7 +361,7 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 
 bool need2echo(const AstNode *pnode)
 {
-	//if there are multiple statements on one line, 
+	//if there are multiple statements on one line,
 
 	//if node.str is one of the following, immediately return false
 	if (pnode->str)
@@ -415,7 +415,7 @@ size_t xcom::ctrlshiftleft(const char *buf, DWORD offset)
 	{
 		if ((res = str.find_last_not_of(alphas))!=string::npos)
 			return str.find_first_of(alphas, res);
-		else					
+		else
 			return str.find_first_of(alphas);
 	}
 	else if (isdigit(copy[len-offset-1]))
@@ -430,12 +430,12 @@ size_t xcom::ctrlshiftleft(const char *buf, DWORD offset)
 		res2 = str.find_last_of(nums);
 		if (res1==string::npos)
 		{
-			if (res2!=string::npos) 
+			if (res2!=string::npos)
 				res12 = res2;
 		}
 		else
 		{
-			if (res2!=string::npos) 
+			if (res2!=string::npos)
 				res12 = max(res1,res2)+1;
 			else
 				res12 = res1;
@@ -469,12 +469,12 @@ size_t xcom::ctrlshiftright(const char *buf, DWORD offset)
 		res2 = str.find_first_of(nums,inspt);
 		if (res1==string::npos)
 		{
-			if (res2!=string::npos) 
+			if (res2!=string::npos)
 				res12 = res2;
 		}
 		else
 		{
-			if (res2!=string::npos) 
+			if (res2!=string::npos)
 				res12 = min(res1,res2);
 			else
 				res12 = res1;
@@ -488,22 +488,22 @@ void xcom::checkdebugkey(INPUT_RECORD *in, int len)
 {
 	// ReadConsoleInput takes the input event and returns, not exactly totally expected ways.
 	// For example, it returns with one event with bKeyDown set and subsequently with the intended virtual keycode
-	// returns two events with one bKeyDown up with the intended virtual keycode and another event (e.g., FOCUS_EVENT) 
+	// returns two events with one bKeyDown up with the intended virtual keycode and another event (e.g., FOCUS_EVENT)
 	// So, the key processing should take place across multiple calls to this function with vcode, vcodeLast as static variables.
 	// Hypothetically, if events of multiple keystrokes, for eaxmple, F10 key down, up, down up), come in with one return of ReadConsoleInput, only the first key stroke pair (down/up) will be taken and further processed.
 	// But it doesn't always happen that way... in most cases, multiple keystrokes of the same key come in with separate returns of ReadConsoleInput.
 	// 10/17/2017 bjk
-	if (len==0) 
+	if (len==0)
 		return ;
 	int countNonKeyEventID(0);
 	vector<int> nonKeyEventID;
 	static WORD vcode(0), vcodeLast(0);
-	WORD vcode0; 
+	WORD vcode0;
 	for (int k=0; k<len; k++)
 	{
 		if (in[k].EventType !=	KEY_EVENT) 	nonKeyEventID.push_back(k);
 	}
-	if (nonKeyEventID.size()==len) 
+	if (nonKeyEventID.size()==len)
 		return ;
 	for (int k=0; k<len; k++)
 	{
@@ -523,7 +523,7 @@ void xcom::checkdebugkey(INPUT_RECORD *in, int len)
 					break;
 				}
 			}
-			if (in[k].Event.KeyEvent.bKeyDown) 
+			if (in[k].Event.KeyEvent.bKeyDown)
 				vcodeLast = in[k].Event.KeyEvent.wVirtualKeyCode;
 			else
 				vcode = in[k].Event.KeyEvent.wVirtualKeyCode;
@@ -531,7 +531,7 @@ void xcom::checkdebugkey(INPUT_RECORD *in, int len)
 				break;
 		}
 	}
-	if (vcode!=vcodeLast) 
+	if (vcode!=vcodeLast)
 		return ;
 	vcode0=vcode;
 	vcode=vcodeLast=0;
@@ -555,7 +555,7 @@ void xcom::checkdebugkey(INPUT_RECORD *in, int len)
 void xcom::console()
 {
 	char buf[4096] = {};
-	while(1) 
+	while(1)
 	{
 		buf[0] = 0;
 		WaitForSingleObject(hEventRecordingCallBack, INFINITE);
@@ -612,7 +612,7 @@ void printf_single(CVar *pvar)
 ostringstream xcom::outstream_tmarks(CTimeSeries *psig, bool unit)
 {
 	// unit is to be used in the future 8/15/2018
-	// Get the timepoints 
+	// Get the timepoints
 	ostringstream out;
 	streamsize org_precision = out.precision();
 	out.setf(ios::fixed);
@@ -738,6 +738,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		printf_vector(pvar, offset, postscript);
 		break;
 	case 1: //CSIG_SCALAR:
+	case TYPEBIT_COMPLEX + 1:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = ";
 		if (strstr(postscript, "[Handle]"))
@@ -751,7 +752,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		cout << postscript << endl;
 		if (org_precision != -1)
 		{
-			cout.precision(org_precision); 
+			cout.precision(org_precision);
 			cout.flags(org_flags);
 		}
 		break;
@@ -763,7 +764,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		break;
 	case TYPEBIT_AUDIO + 1:
 	case TYPEBIT_TSEQ + 1:
-	case TYPEBIT_TSEQ + 2: 
+	case TYPEBIT_TSEQ + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;
 		if (pvar->next) cout << "[L] " << endl;
@@ -775,6 +776,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		}
 		break;
 	case 2: //CSIG_VECTOR:
+	case TYPEBIT_COMPLEX + 2:
 		for (int p = 0; p < offset; p++) cout << " ";
 		cout << varname << " = ";
 		printf_vector(pvar, offset, postscript);
@@ -827,16 +829,17 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		for (int k = 0; k < offset; k++) cout << " ";
 		temp.UpdateBuffer(1);
 		memcpy(temp.buf, pvar->buf, pvar->bufBlockSize);
-		if (pvar->bufBlockSize == 1) 	temp.SetFs(2);
+		if (pvar->bufBlockSize == 1) { temp.SetFs(2); temp.bufBlockSize = 1; }
 		echo(varname, &temp, offset-1, " [Handle]");
 		passingdown = true;
 	case TYPEBIT_STRUT:
 	{
-		CSignals tp = *pvar;
-		CVar tp2 = tp;
-		if (pvar->nSamples > 0)
-			echo(varname, &tp2, offset, postscript);
-		if (!passingdown)		cout << varname << " [Structure]" << endl;
+		if (!passingdown)
+		{
+			if (pvar->nSamples > 0)
+				echo(varname, pvar, offset, postscript);
+			cout << varname << " [Structure]" << endl;
+		}
 		for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
 		{
 			ostringstream var0;
@@ -857,6 +860,14 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 			}
 		}
 	}
+		break;
+	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
+		for (unsigned int k = 0; k < pvar->nSamples; k++)
+		{
+			ostringstream _varname;
+			_varname << varname << '(' << j++ << ')';
+			echo(_varname.str().c_str(), (CVar*)(INT_PTR)pvar->buf[k]);
+		}
 		break;
 	default:
 		break;
@@ -886,7 +897,7 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 		if (!pvar)
 		{
 			pvar = pctx->GetVariable(pnode->str);
-			if (!pvar) return; // this filters out a null statement in a block such as a=1; b=100; 500 
+			if (!pvar) return; // this filters out a null statement in a block such as a=1; b=100; 500
 		}
 		if (CAstSig::IsLooping(pnode)) return; // T_IF, T_FOR, T_WHILE
 		// if the command required waiting, lock a mutex here
@@ -896,7 +907,7 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			cv_delay_closingfig.wait(lck);
 			pctx->wait4cv = false;
 		}
-		if (!pctx->lhs && depth==1)
+		if (!pctx->lhs && depth == 1)
 		{
 			pctx->SetVar("ans", pvar);
 			echo("ans", pvar);
@@ -915,7 +926,7 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 				else if (p && p->type == N_STRUCT)
 				{
 					string lhsvar = pnode->str;
-					CVar *pVarShow;
+					CVar* pVarShow;
 					for (; p; p = p->next)
 					{
 						lhsvar += string(".") + p->str;
@@ -938,14 +949,14 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			{
 				pctx->SetVar("ans", pvar);
 				echo("ans", pvar);
-//				echo(pctx->Script.c_str(), pvar);
+				//				echo(pctx->Script.c_str(), pvar);
 			}
 		}
 	}
 }
 
 int xcom::computeandshow(const char *in, CAstSig *pTemp)
-{ 
+{
 	CAstSig *pContext;
 	string emsg;
 	bool succ(true);
@@ -959,7 +970,7 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	trim(input, " \t\r\n");
 	trimr(input, "\r\n");
 	if (input.size()>0)
-	try { 
+	try {
 		//if the line begins with #, it bypasses the usual parsing
 		if (input[0] == '#')
 		{
@@ -1004,33 +1015,38 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		{
 			for (const AstNode *pp = pContext->pAst->next; pp; pp = pp->next, dt++)
 			{
-				if (pp->next) 
+				if (pp->next)
 				{// For a block statement, screen echoing applies only to the last item. The statements in the middle are not echoed regardless of suppress (;)
-					((AstNode *)pp)->suppress = true; 
+					((AstNode *)pp)->suppress = true;
 					echo(dt, pContext, pp);
 				}
 				else
-					echo(dt, pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); 
+					echo(dt, pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig);
 			}
 		}
-		else if (pContext->lhs && CAstSig::IsVECTOR(pContext->lhs))// && pContext->pAst->alt && pContext->pAst->alt->type!=N_STRUCT) // pContext->pAst->alt is necessary to ensure that there's a vector on the LHS 
+		else if (pContext->lhs && CAstSig::IsVECTOR(pContext->lhs))// && pContext->pAst->alt && pContext->pAst->alt->type!=N_STRUCT) // pContext->pAst->alt is necessary to ensure that there's a vector on the LHS
 		{
 			for (AstNode *pp = ((AstNode *)pContext->pAst->str)->alt; !pContext->lhs->suppress && pp; pp = pp->next, dt++)
 				echo(dt, pContext, pp);
 		}
-		else // see if lhs makes more sense than pAst 
-			echo(dt, pContext, pContext->pAst, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig); // fro739222985.html
+		else // see if lhs makes more sense than pAst
+		{
+			CVar *psig;
+			if (pContext->Sig.IsGO() && pContext->Sig.GetFs() != 3) psig = pContext->pgo;
+			else psig = &pContext->Sig;
+			echo(dt, pContext, pContext->pAst, psig );
+		}
 	}
 	catch (const char *errmsg) {
 		if (strncmp(errmsg, "Invalid", strlen("Invalid")))
-			cout << "ERROR: " << errmsg << endl;	 
+			cout << "ERROR: " << errmsg << endl;
 		else
 			cout << errmsg << endl;
 		//Going back to the base scope only during the debugging (F10, F5,... etc)
 		Back2BaseScope(0);
 		if (pContext->baselevel.size()>1) pContext->baselevel.pop_back();
 	}
-	catch (CAstSig *ast) 
+	catch (CAstSig *ast)
 	{ // this was thrown by aux_HOOK
 		if (ast->u.debug.status == aborting)
 		{
@@ -1058,8 +1074,8 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			else
 				strcpy(buf, input.substr(input.find(tar[1])).c_str());
 			succ = false;
-		if (hook(ast, HookName, buf)==-1)	
-				return -1;	
+		if (hook(ast, HookName, buf)==-1)
+				return -1;
 		}
 		catch (const char *errmsg)				{
 			cout << "ERROR:" << errmsg << endl;	 }
@@ -1080,7 +1096,7 @@ int xcom::SAVE_axl(CAstSig *past, const char* filename, vector<string> varlist, 
 	string not_saved_vars;
 	int savedCount(0);
 	if (varlist.empty())
-		it = past->Vars.begin(); 
+		it = past->Vars.begin();
 	else
 	{
 		it2 = varlist.begin();
@@ -1122,10 +1138,12 @@ int xcom::SAVE_axl(CAstSig *past, const char* filename, vector<string> varlist, 
 	return savedCount;
 }
 
+using std::setw;
+
 int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 {
 	string emsg;
-	char errstr[1024], buf[MAX_PATH], drive[MAX_PATH], dir[MAX_PATH], filename[MAX_PATH], ext[MAX_PATH], buffer[MAX_PATH];
+	char errstr[1024], buf[MAX_PATH], drive[MAX_PATH], dir[MAX_PATH], filename[MAX_PATH], ext[MAX_PATH], buffer[MAX_PATH] = {};
 	string name, fname;
 	size_t k(0), nItems;
 	vector<string> varlist, tar;
@@ -1151,8 +1169,11 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		else
 		{
 			WIN32_FIND_DATA ls;
-			strcpy(buffer, AppPath);
+			// see argstr is an absolute path
+			if (!strchr(argstr,':') && argstr[0] != '\\')
+				strcpy(buffer, AppPath);
 			strcat(buffer, argstr);
+			if (buffer[strlen(buffer) - 1] == '\\') buffer[strlen(buffer) - 1] = 0;
 			HANDLE hFind = FindFirstFile(buffer, &ls);
 			if (hFind == INVALID_HANDLE_VALUE)
 			{
@@ -1172,6 +1193,28 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 			}
 		}
 	}
+	else if (HookName == "dir" || HookName == "ls")
+	{
+		_splitpath(argstr, drive, dir, filename, ext);
+
+		WIN32_FIND_DATA ls;
+		if (!strchr(argstr, ':') && argstr[0] != '\\')
+			strcpy(buffer, AppPath);
+		strcat(buffer, argstr);
+		if (buffer[strlen(buffer)-1]== '\\')
+			strcat(buffer, "*.*");
+		HANDLE hFind = FindFirstFile(argstr, &ls);
+		bool b = hFind != INVALID_HANDLE_VALUE;
+		while (b)
+		{
+			cout << setw(25) << ls.cFileName;
+			if (ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				cout << setw(8) << "<DIR>" << endl;
+			else
+				cout << setw(25) << ls.nFileSizeLow << " bytes" << endl;
+			b = FindNextFile(hFind, &ls);
+		}
+	}
 	else if (HookName == "pwd")
 	{
 		printf("%s\n", ast->pEnv->AppPath.c_str());
@@ -1179,7 +1222,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	else if (HookName=="quit")
 	{
 		return -1;
-	} 
+	}
 	else if (HookName == "setfs")
 	{
 		if (!argstr[0]) return 0;
@@ -1228,9 +1271,9 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 				{
 					ast->pEnv->AddPath(tar[1]);
 					string paths = ast->pEnv->path_delimited_semicolon();
-					if (!printfINI(errstr, iniFile, "PATH", "%s", paths.c_str())) { 
+					if (!printfINI(errstr, iniFile, "PATH", "%s", paths.c_str())) {
 						cout << "AuxPath updated, but failed while updating the INI file." << endl;
-						return 0; 
+						return 0;
 					}
 				}
 			}
@@ -1266,7 +1309,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		FILE *fp = ast->OpenFileInPath(tar[0], "axl", name);
 		if (fp)
 		{
-			if (load_axl(fp, errstr)==0) 
+			if (load_axl(fp, errstr)==0)
 				printf("File %s reading error----%s.\n", argstr, errstr);
 			fclose(fp);
 			mShowDlg.Fillup(&ast->Vars);
@@ -1274,7 +1317,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 		else
 		{
 			strcpy(errstr, argstr); strcat(errstr,".axl");
-			printf("File %s not found in %s\n", errstr, ast->pEnv->AuxPath.front().c_str()); 
+			printf("File %s not found in %s\n", errstr, ast->pEnv->AuxPath.front().c_str());
 		}
 	}
 	else if (HookName=="save")
@@ -1319,7 +1362,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	}
 	else
 	{
-		//if Hookname is one of the aux-reserves, return -1 so that it continues to parsing 
+		//if Hookname is one of the aux-reserves, return -1 so that it continues to parsing
 		nItems = str2vect(tar, HookName.c_str(), ".");
 		vector<string>::iterator it = find(aux_reserves.begin(), aux_reserves.end(), HookName);
 		if (it != aux_reserves.end()) 	return -1;
@@ -1332,27 +1375,27 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 bool dbmapfind(const char* udfname)
 {
 	unordered_map<string, CDebugDlg*>::iterator it;
-	return (it = dbmap.find(udfname))!=dbmap.end(); 
+	return (it = dbmap.find(udfname))!=dbmap.end();
 }
 
 void xcom::LogHistory(vector<string> input)
 {
 	if (!mHistDlg.hDlg) return;
-	FILE* logFP = fopen(mHistDlg.logfilename,"at"); 
-	if (logFP) 
+	FILE* logFP = fopen(mHistDlg.logfilename,"at");
+	if (logFP)
 	{
 		for (size_t k=0; k<input.size(); k++)
 		{
 			if (input[k].size()>0)
-				fprintf(logFP, "%s\n", input[k].c_str()); 
+				fprintf(logFP, "%s\n", input[k].c_str());
 		}
-		fclose(logFP); 
+		fclose(logFP);
 	}
 	else
 	{
-		char temp[256]; 
-		sprintf(temp, "fopen error: %s", mHistDlg.logfilename); 
-		::MessageBox(mHistDlg.hDlg, temp, "LOGHISTORY", 0); 
+		char temp[256];
+		sprintf(temp, "fopen error: %s", mHistDlg.logfilename);
+		::MessageBox(mHistDlg.hDlg, temp, "LOGHISTORY", 0);
 	}
 }
 
@@ -1463,7 +1506,7 @@ void HoldAtBreakPoint(CAstSig *pastsig, const AstNode *pnode)
 			{
 				if (pastsig->u.currentLine >= ln)
 				{
-					pastsig->u.nextBreakPoint = 0xffff; 
+					pastsig->u.nextBreakPoint = 0xffff;
 					return;
 				}
 				pastsig->u.nextBreakPoint = ln;
@@ -1475,7 +1518,7 @@ void HoldAtBreakPoint(CAstSig *pastsig, const AstNode *pnode)
 				pastsig->u.nextBreakPoint = pastsig->pEnv->curLine + 1;
 			return;
 		default: //This is where user-typed lines are processed during debugging.
-			//debug.status should be set to null		
+			//debug.status should be set to null
 			pastsig->u.debug.status = typed_line;
 			mainSpace.computeandshow(buf, pastsig);
 			break;
@@ -1558,7 +1601,7 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 				rootname += '.';
 				for (vector<CWndDlg*>::iterator it = cellviewdlg.begin(); it != cellviewdlg.end(); it++)
 				{
-					//if this object's name begins with 
+					//if this object's name begins with
 					string ss = ((CShowvarDlg*)*it)->name;
 					if (((CShowvarDlg*)*it)->name.find(rootname) == 0 && ((CShowvarDlg*)*it)->name.size() != rootname.size())
 					{
@@ -1636,7 +1679,7 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		string add;
 		if (CAstSig::IsTID(pcast->pAst))
 			add = pcast->pAst->str;
-		if (pcast->pAst->child && pcast->pAst->child->str) 
+		if (pcast->pAst->child && pcast->pAst->child->str)
 			add = pcast->pAst->child->str;
 		sendtoEventLogger("%s %s\n", buffer, add.c_str());
 	}
@@ -1648,7 +1691,7 @@ size_t xcom::ReadHist()
 	HANDLE hFile = CreateFile(mHistDlg.logfilename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile==INVALID_HANDLE_VALUE) return 0;
 	LARGE_INTEGER fsize;
-	if (!GetFileSizeEx(hFile, &fsize)) 
+	if (!GetFileSizeEx(hFile, &fsize))
 	{ CloseHandle(hFile); MessageBox(mHistDlg.hDlg, "GetFileSizeEx error", "ReadHist()", 0);  return 0;	}
 
 	__int64 size = fsize.QuadPart;
@@ -1682,7 +1725,7 @@ size_t xcom::ReadHist()
 		pos0 = pos;
 	}
 	delete[] buffer;
-	CloseHandle(hFile); 
+	CloseHandle(hFile);
 	history.reserve(nHistFromFile*10);
 	for (vector<string>::reverse_iterator rit=_history.rbegin(); rit!=_history.rend(); rit++)
 		history.push_back(*rit);
@@ -1716,7 +1759,7 @@ LRESULT CALLBACK proc (HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lParam)
 }
 
 
-LRESULT CALLBACK wireKeyboardProc(int code, WPARAM wParam,LPARAM lParam) {  
+LRESULT CALLBACK wireKeyboardProc(int code, WPARAM wParam,LPARAM lParam) {
     if (code < 0) {
     	return CallNextHookEx(0, code, wParam, lParam);
     }
@@ -1740,9 +1783,12 @@ CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 	InitCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
 	BOOL bRet = InitCommonControlsEx(&InitCtrls);
 	AllocConsole();
-	AttachConsole(ATTACH_PARENT_PROCESS);
+//	AttachConsole(ATTACH_PARENT_PROCESS);
 	SetConsoleCP(437);
 	SetConsoleOutputCP(437);
+	freopen("conin$", "r", stdin);
+	freopen("conout$", "w", stdout);
+	freopen("conout$", "w", stderr);
 	HWND hr = GetConsoleWindow();
 	char fullmoduleName[MAX_PATH], moduleName[MAX_PATH];
 	char drive[16], dir[256], ext[8];
@@ -1789,8 +1835,6 @@ void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
 		pglobalEnv->SetPath(strRead.c_str());
 	else
 		cout << "PATH information not available in " << mainSpace.iniFile << endl;
-	freopen("CON", "w", stdout);
-	freopen("CON", "r", stdin);
 
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
@@ -1838,8 +1882,8 @@ int initializeAUXLAB3(CAstSig *pcast, char *auxextdllname)
 	mShowDlg.name = "#base";
 	mShowDlg.Fillup();
 	mShowDlg.changed = false;
-	mShowDlg.pVars = &pcast->Vars; // new 
-	mShowDlg.pGOvars = &pcast->GOvars; // new 
+	mShowDlg.pVars = &pcast->Vars; // new
+	mShowDlg.pGOvars = &pcast->GOvars; // new
 	xscope.push_back(pcast);
 	initGraffy(pcast);
 	pcast->astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &ValidateFig, &SetGOProperties, &RepaintGO);
