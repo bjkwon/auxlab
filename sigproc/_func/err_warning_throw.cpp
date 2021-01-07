@@ -34,7 +34,7 @@ void udf_rethrow(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 void _inputdlg(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
 	ostringstream caption;
-	if (past->pAst->type == N_BLOCK && !past->Script.empty())
+	if (past->xtree->type == N_BLOCK && !past->Script.empty())
 	{
 		caption << "[UDF] \"" << past->Script << "\" ";
 		caption << "Line " << pnode->line;

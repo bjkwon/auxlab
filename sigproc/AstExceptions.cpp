@@ -101,7 +101,7 @@ CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstN
 {
 	type = extp;
 	pCtx = &base;
-	pnode = _pnode ? _pnode : base.pAst;
+	pnode = _pnode ? _pnode : base.xtree;
 	if (base.inTryCatch)
 		findTryLine(base);
 	line = pnode->line;
@@ -176,8 +176,8 @@ void CAstException::findTryLine(const CAstSig & scope)
 {
 	//go upstream from pLast until T_TRY is found
 	//then update pLast with the catch node
-	//begin with scope.pAst which is pnode
-	for (const AstNode* p = scope.pAst; p; p = p->next)
+	//begin with scope.xtree which is pnode
+	for (const AstNode* p = scope.xtree; p; p = p->next)
 	{
 		if (p->type == T_TRY) pTarget = p->alt;
 		if (p == scope.pLast)
@@ -233,7 +233,7 @@ void CAstException::clean()
 {
 	// if the exception is thrown from auxcon, it will skip
 	if (pCtx && pCtx->dad) // if this call is made for a udf --but if from a local function, or other udf called by that udf, it might be different... think about a better solution. 11/16/2017
-		if (pCtx->pAst && pCtx->pAst->type == N_BLOCK) // pCtx->pCtx is checked to avoid crash during wavwrite(undefined_var,"filename")
+		if (pCtx->xtree && pCtx->xtree->type == N_BLOCK) // pCtx->pCtx is checked to avoid crash during wavwrite(undefined_var,"filename")
 			CAstSig::cleanup_nodes((CAstSig *)pCtx);
 }
 

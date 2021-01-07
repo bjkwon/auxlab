@@ -20,7 +20,7 @@ void _str2num(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 	CAstSig tast(past->pEnv);
 	if (!tast.parse_aux((string("[") + past->Sig.string() + "]").c_str(), emsg))
 		tast.parse_aux("[]", emsg);
-	if (!isAllNodeT_NUM(tast.pAst->child))
+	if (!isAllNodeT_NUM(tast.xtree->child))
 		tast.parse_aux("[]", emsg);
 	vector<CVar*> res = tast.Compute();
 	past->Sig = res.back();

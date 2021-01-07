@@ -109,14 +109,14 @@ class CNodeProbe;
 class UDF
 {
 public:
-	AstNode *pAst;
+	AstNode *uxtree; // the syntax tree for the content of the UDF; begining with T_FUNCTION
 	string fullname;
 	string content;
 	vector<int> DebugBreaks;
 	map<string, UDF> local;
 	bool newrecruit;
 	UDF& operator=(const UDF& rhs);
-	UDF() {	pAst = NULL; newrecruit = false;	};
+	UDF() { uxtree = NULL; newrecruit = false;	};
 	multimap<CVar, AstNode *> switch_case; // why multimap instead of map? Because the key for case may appear in multiple switch blocks
 	vector<int> switch_case_undefined;
 	virtual ~UDF() {};
@@ -156,7 +156,7 @@ public:
 	int SetPath(const char *path);
 	void AddPath(string path);
 	AstNode* checkout_udf(const string& udf_filename, const string& filecontent);
-	AstNode* checkin_udf(const string& udf_filename, const string& filecontent);
+	AstNode* checkin_udf(const string& udf_filename, const string& fullpath, const string& filecontent, string& emsg);
 };
 
 class CDebugStatus
@@ -250,7 +250,7 @@ public:
 	vector<int> baselevel;
 	map<string, CVar> Vars;
 	map<string, vector<CVar *>> GOvars;
-	AstNode *pAst;
+	AstNode *xtree; // syntax tree; where an aux-statement is parsed and broken down to a tree of nodes containing imparsible units
 	CVar Sig;
 	CVar *pgo; // pointer, not a copy, of the last computed object; used for graffy functions
 	string Script;
@@ -355,14 +355,10 @@ public:
     CAstSig(const CAstSig &org);
 	CAstSig(const CAstSig *src);
 	CAstSig(const char *str, const CAstSig *src);
-	CAstSig(AstNode *pNode, const CAstSig *src);
 	CAstSig(CAstSigEnv *env);
-	CAstSig(const char *str, CAstSigEnv *env);
-	CAstSig(AstNode *pNode, CAstSigEnv *env);
 	~CAstSig();
 
 	AstNode * parse_aux(const char* str, string& emsg);
-	AstNode * SetNewScriptFromFile(string &emsg, const char *full_filename, const char *str, string &filecontent);
 	vector<CVar*> Compute(void);
 	CVar * Compute(const AstNode *pnode);
 	CVar * InitCell(const AstNode *pnode, AstNode *p);

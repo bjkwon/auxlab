@@ -84,6 +84,7 @@ int sformat(string& out, size_t nLengthMax, const char* format, ...);
 void ReplaceStr(string &str, const string& from, const string& to);
 void splitevenindices(vector<unsigned int> &out, unsigned int nTotals, unsigned int nGroups);
 void GetLocalTimeStr(string &strOut);
+int GetFileText(FILE* fp, string& strOut);
 int GetFileText(const char *fname, const char *mod, string &strOut);
 int mceil(double x);
 

@@ -26,7 +26,7 @@ void _erase(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsig
 		auto it = past->Sig.strut.find(param.string());
 		if (it != past->Sig.strut.end())
 			past->Sig.strut.erase(it);
-		const AstNode* pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+		const AstNode* pRoot = past->findParentNode(past->xtree, (AstNode*)pnode, true);
 		past->SetVar(pRoot->str, &past->Sig);
 	}
 	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
@@ -42,6 +42,6 @@ void _head(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 		past->Sig.set_class_head(param);
 	}
 	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
-	const AstNode* pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+	const AstNode* pRoot = past->findParentNode(past->xtree, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
 }

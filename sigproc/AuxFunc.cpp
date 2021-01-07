@@ -466,7 +466,7 @@ void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 
 void _clear(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	past->ClearVar((AstNode *)past->pAst, &past->Sig);
+	past->ClearVar((AstNode *)past->xtree, &past->Sig);
 	past->Sig.Reset();
 }
 

@@ -184,14 +184,14 @@ CAstSig::CAstSig(const CAstSig *src)
 		pEnv = src->pEnv;
 	} else
 		pEnv = new CAstSigEnv(DefaultFs);
-	pAst = src->pAst;
+	xtree = src->xtree;
 	endpoint = src->endpoint;
 	pgo = src->pgo;
 	Script = src->Script;
 	pLast = src->pLast;
 	inTryCatch = src->inTryCatch;
 }
-// Used in auxfunc.cpp and psyntegDlgNIC.cpp
+// Used in eval_include.cpp
 CAstSig::CAstSig(const char *str, const CAstSig *src) 
 {
 	init();
@@ -218,45 +218,10 @@ CAstSig::CAstSig(const char *str, const CAstSig *src)
 		pLast = src->pLast;
 	}
 }
-// Used in dancer
-CAstSig::CAstSig(const char *str, CAstSigEnv *env)
-{
-	init();
-	pEnv = env;
-	string emsg;
-	parse_aux(str, emsg);
-}
-
-CAstSig::CAstSig(AstNode *pnode, const CAstSig *src)
-{
-	init();
-	Vars = src->Vars;
-	u = src->u;
-	fpmsg = src->fpmsg;
-	pAst = pnode;
-	if (src) {
-		pEnv = src->pEnv;
-		inTryCatch = src->inTryCatch;
-	}
-	else
-		pEnv = new CAstSigEnv(DefaultFs);
-	endpoint = src->endpoint;
-	pgo = src->pgo;
-	Script = src->Script;
-	dad = src->dad;
-	pLast = src->pLast;
-}
-
-CAstSig::CAstSig(AstNode *pnode, CAstSigEnv *env)
-{
-	init();
-	pAst = pnode;
-	pEnv = env;
-}
 
 void CAstSig::init()
 {
-	pAst = NULL;
+	xtree = NULL;
 	Script = "";
 	statusMsg = "";
 	fAllocatedAst = false;
@@ -280,7 +245,7 @@ void CAstSig::init()
 CAstSig::~CAstSig()
 {
 	if (fAllocatedAst)
-		yydeleteAstNode(pAst, 0);
+		yydeleteAstNode(xtree, 0);
 }
 
 unsigned long CAstSig::tic()
@@ -303,9 +268,9 @@ AstNode *CAstSig::parse_aux(const char *str, string& emsg)
 	emsg.clear();
 	int res;
 	char *errmsg;
-	if (strlen(str)==0) return pAst;
+	if (strlen(str)==0) return xtree;
 	if (fAllocatedAst) {
-		yydeleteAstNode(pAst, 0);
+		yydeleteAstNode(xtree, 0);
 		fAllocatedAst = false;
 	}
 	AstNode* out = NULL;
@@ -391,8 +356,8 @@ int CAstSig::isthislocaludf(void)
 	{
 		if (it->first!=Script)
 		{
-			for (AstNode *p=it->second.pAst; p; p=p->next)
-				if (p==ref->second.pAst) return 1;
+			for (AstNode *p=it->second.uxtree; p; p=p->next)
+				if (p==ref->second.uxtree) return 1;
 		}
 	}
 	return 0;
@@ -513,10 +478,10 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 	son->dad = this; // necessary when debugging exists with stepping (F10), the stepping can continue in tbe calling scope without breakpoints. --=>check 7/25
 	son->fpmsg = fpmsg;
 	auto itUDF = pEnv->udf.find(pCalling->str);
-	son->u.pUDF = (*itUDF).second.pAst;
+	son->u.pUDF = (*itUDF).second.uxtree;
 	son->u.pUDF_base = son->u.pUDF;
 	son->u.base = son->u.pUDF->str;
-	son->pAst = son->u.pUDF_base->child->next;
+	son->xtree = son->u.pUDF_base->child->next;
 	son->u.argout.clear(); //output argument string list
 	AstNode *pOutParam = son->u.pUDF->alt;
 	ostringstream oss;
@@ -718,23 +683,23 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	son->fpmsg = fpmsg;
 	if (GOvars.find("?foc") != GOvars.end()) son->GOvars["?foc"] = GOvars["?foc"];
 	if (GOvars.find("gcf") != GOvars.end())	son->GOvars["gcf"] = GOvars["gcf"];
-	auto itUDF = pEnv->udf.find(pCalling->str);
-	if (itUDF != pEnv->udf.end())
+	auto udftree = pEnv->udf.find(pCalling->str);
+	if (udftree != pEnv->udf.end())
 	{
-		son->u.pUDF = (*itUDF).second.pAst;
+		son->u.pUDF = (*udftree).second.uxtree;
 		son->u.pUDF_base = son->u.pUDF;
 		son->u.base = son->u.pUDF->str;
 	}
 	else
 	{
-		auto jtUDF = pEnv->udf.find(u.base); // if this is to be a local udf, base should be ready through a previous iteration.
-		if (jtUDF == pEnv->udf.end())
+		auto udftree2 = pEnv->udf.find(u.base); // if this is to be a local udf, base should be ready through a previous iteration.
+		if (udftree2 == pEnv->udf.end())
 			throw CAstException(INTERNAL, *this, pCalling).proc("PrepareCallUDF():supposed to be a local udf, but AstNode with that name not prepared");
-		son->u.pUDF_base = (*jtUDF).second.pAst;
+		son->u.pUDF_base = (*udftree2).second.uxtree;
 		son->u.base = u.base; // this way, base can maintain through iteration.
-		son->u.pUDF = (*pEnv->udf.find(u.base)).second.local[pCalling->str].pAst;
+		son->u.pUDF = (*pEnv->udf.find(u.base)).second.local[pCalling->str].uxtree;
 	}
-	son->pAst = son->u.pUDF_base->child->next;
+	son->xtree = son->u.pUDF_base->child->next;
 	//output argument string list
 	son->u.argout.clear();
 	AstNode *pOutParam = son->u.pUDF->alt;
@@ -956,7 +921,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 		if (inTryCatch)
 		{ // Make a new struct variable from child of e.pTarget (which is T_CATCH)
 			CVar temp;
-			const char *name = pAst->alt->child->str;
+			const char *name = xtree->alt->child->str;
 			SetVar(name, &temp); // new variable; OK this way, temp is deep-copied
 			string emsg = e.outstr;
 			size_t id = emsg.find("[GOTO_BASE]");
@@ -975,7 +940,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 			SetVar("errline", &msg, &Vars[name]);
 			msg.SetValue(e.col);
 			SetVar("errcol", &msg, &Vars[name]);
-			Compute(pAst->alt->next);
+			Compute(xtree->alt->next);
 		}
 		else
 			throw e;
@@ -1010,6 +975,8 @@ bool CAstSig::need2repaintnow(const AstNode *pnode, AstNode *p)
 
 bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
 {
+	// Needs revising. May be replaced simply by checking level 12/26/2020
+
 	//Is this is a call made insde of a UDF?
 	//If so, pnode should appear in next of chlld
 
@@ -1050,7 +1017,6 @@ bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
 		p = p->next;
 	}
 	return false;
-
 }
 
 const AstNode *CAstSig::getparentnode(const AstNode *ptree, const AstNode *p)
@@ -1154,66 +1120,43 @@ void CAstSig::checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned
 		throw CAstException(RANGE, *this, pnode).proc(errstr.c_str(), "", id, -1);
 }
 
-AstNode* CAstSigEnv::checkin_udf(const string& udfname, const string& filecontent)
-{ 
-	// add a udf if it is new
-	// or update filecontent 
-	udf[udfname].newrecruit = true;
-//	if (!parse_aux(emsg, filecontent.c_str()))
+AstNode* CAstSigEnv::checkin_udf(const string& udfname, const string& fullpath, const string& filecontent, string& emsg)
+{
+	AstNode* pout = NULL;
+	CAstSig qscope(this);
+	qscope.Script = udfname; 
+	transform(qscope.Script.begin(), qscope.Script.end(), qscope.Script.begin(), ::tolower);
+	udf[qscope.Script].newrecruit = true;
+	auto udftree = qscope.parse_aux(filecontent.c_str(), emsg);
+	if (udftree)
+	{
+		qscope.xtree = udftree;
+		pout = qscope.RegisterUDF(qscope.xtree, fullpath.c_str(), filecontent);
+		// The following should be after all the throws. Otherwise, the UDF AST will be dangling.
+		// To prevent de-allocation of the AST of the UDF when qscope goes out of scope.
+		if (qscope.xtree->type == N_BLOCK)
+			qscope.xtree->next = NULL;
+		else
+			qscope.xtree = NULL;
+		return pout;
+	}
 	return NULL;
-
 }
 
 AstNode * CAstSigEnv::checkout_udf(const string & udfname, const string & filecontent)
 {
 	// if udfname is present in the environment AND
 	//    the content is the same as filecontent
-	// returns pAst
+	// returns xtree
 	// otherwise NULL
 
 	//assumption: udfname is all lower case
 	if (udf.find(udfname) != udf.end())
 	{
 		if (udf[udfname].content == filecontent)
-			return udf[udfname].pAst;
+			return udf[udfname].uxtree;
 	}
 	return NULL;
-}
-
-AstNode *CAstSig::SetNewScriptFromFile(string &emsg, const char *full_filename, const char *udf_filename, string &filecontent)
-{
-	// if filecontent is not empty, it doesn't check whether the file exits and checks only if the content is the same
-	if (filecontent.empty())
-	{
-		if (GetFileText(full_filename, "rt", filecontent) < 0)
-		{
-			emsg = "SetNewScriptFromFile: GetFileText errror.";
-			return NULL;
-		}
-	}
-	// if udf_filename is NULL, this was called by aux_include (a script, not a udf)
-	if (!udf_filename)
-	{
-		if (!parse_aux(filecontent.c_str(), emsg))
-			return NULL;
-		}
-	else
-	{ // file exists. let's see if the udf was already registered.
-		if (pEnv->udf.find(udf_filename) != pEnv->udf.end())
-		{// Check if the content of the udf file is the same as filecontent; then return NULL
-			if (pEnv->udf[udf_filename].content == filecontent.c_str())
-			{
-				emsg.clear();
-				return NULL;
-			}
-		}
-		Script = udf_filename; // will not have any lingering effects. The context stays within CAstSig aux(pEnv) in ReadUDF()
-		transform(Script.begin(), Script.end(), Script.begin(), ::tolower);
-		pEnv->udf[Script].newrecruit = true;
-		if (!parse_aux(filecontent.c_str(), emsg))
-			return NULL; // syntax error in auxcon script is caught here
-	}
-	return pAst;
 }
 
 typedef  int(_cdecl  *PF) (int, std::string &);
@@ -1224,15 +1167,16 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 	PF pt = (PF)GetProcAddress(h, (LPCSTR)MAKELONG(1, 0)); // ReadAUXP
 	string read;
 	size_t res = pt(id, read); 
-	CAstSig aux(pEnv);
-	AstNode *tempAst = aux.parse_aux(read.c_str(), emsg);
-	if (tempAst) 
+	CAstSig qscope(pEnv);
+	AstNode *tempX = qscope.parse_aux(read.c_str(), emsg);
+	if (tempX) 
 	{
-		char *newname = (char*)malloc(strlen(aux.pAst->str) + 1);
+		qscope.xtree = tempX;
+		char *newname = (char*)malloc(strlen(qscope.xtree->str) + 1);
 		newname[0] = '?';
-		strcpy(newname + 1, aux.pAst->str);
-		free(aux.pAst->str);
-		aux.pAst->str = newname;
+		strcpy(newname + 1, qscope.xtree->str);
+		free(qscope.xtree->str);
+		qscope.xtree->str = newname;
 		size_t wh1, wh2;
 		string fname, out;
 		wh1 = read.find('=');
@@ -1240,8 +1184,8 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 		out = fname = read.substr(wh1 + 1, wh2 - wh1 - 1);
 		trim(fname, ' ');
 		fname.insert(0, "private://?");
-		RegisterUDF(aux.pAst, fname.c_str(), read);
-		aux.pAst = NULL;// To keep aux.pAst from deallocating when this function returns. This will be cleaned during the app shutdown. 9/19/2018
+		RegisterUDF(qscope.xtree, fname.c_str(), read);
+		qscope.xtree = NULL;// To keep qscope.xtree from deallocating when this function returns. qscope.xtree will be cleaned during the app shutdown. 9/19/2018
 		return out;
 	}
 	return "";
@@ -1296,10 +1240,9 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename)
 	if (!udf_filename) return NULL;
 	if (strlen(udf_filename)>255) return NULL; //MR 1
 	emsg.clear();
-	string fullpath, filecontent("");
 	AstNode *pout;
 	if (pEnv->udf.empty())
-	{ // Read aux private functions`
+	{ // Read aux private functions
 	}
 	//local functions have precedence; i.e., if fun1() has myloc() in it, the file myloc.aux will not be searched.
 	auto udf_finder = pEnv->udf.find(u.base);
@@ -1307,46 +1250,42 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename)
 	{
 		map<string, UDF>::iterator jt = udf_finder->second.local.find(udf_filename);
 		if (jt != udf_finder->second.local.end())
-			return jt->second.pAst;
+			return jt->second.uxtree;
 	}
 	//Search for the file 
+	string fullpath;
 	FILE *auxfile = fopen_from_path(udf_filename, "aux", fullpath);
 	if (!auxfile)
 	{ //if not found, it shoulbe be a built-in or local function, then return
 		if (pEnv->udf.find(udf_filename) == pEnv->udf.end())
 			return NULL;
 		else // file not found but it is not a local function.... what can it be?
-			return pEnv->udf[udf_filename].pAst; // check
+			return pEnv->udf[udf_filename].uxtree; // check
 	}
 	//file found
-	fclose(auxfile);	
 	transform(fullpath.begin(), fullpath.end(), fullpath.begin(), ::tolower);
-
-	CAstSig aux(pEnv);
-	//read the file;  if new, parse the string and set new pAst. If the udf was already registered, it returns NULL.
-	AstNode *tempAst = aux.SetNewScriptFromFile(emsg, fullpath.c_str(), udf_filename, filecontent);
-	if (tempAst) {
-		aux.pAst = tempAst;
-		pout = RegisterUDF(aux.pAst, fullpath.c_str(), filecontent);
-		// The following should be after all the throws. Otherwise, the UDF AST will be dangling.
-		// To prevent de-allocation of the AST of the UDF when the aux is destroyed.
-		if (aux.pAst->type == N_BLOCK)
-			aux.pAst->next = NULL;
-		else
-			aux.pAst = NULL;
+	string filecontent;
+	if (GetFileText(auxfile, filecontent) <= 0)
+	{// File reading error or empty file
+		emsg = string("Cannot read specified udf or script file ") + udf_filename;
+		fclose(auxfile);
+		return NULL;
 	}
+	fclose(auxfile);
+	// if udf exists and filecontent is still the content, use it
+	auto udftree = pEnv->checkout_udf(udf_filename, filecontent);
+	if (udftree)
+		pout = udftree; // should be the same
 	else
-	{
-		if (emsg.empty())
-			pout = pEnv->udf[udf_filename].pAst;
-		else
+	{ // if not, register or re-register the udf with the new content
+		if (!(pout = pEnv->checkin_udf(udf_filename, fullpath, filecontent, emsg)))
 		{ // parsing error in udf file
 			char buf[256];
 			sprintf(buf, " in %s", fullpath.c_str());
 			emsg += buf;
 			auto fd = pEnv->udf.find(udf_filename);
 			pEnv->udf.erase(fd);
-			return NULL;
+			return NULL; // error caught here
 		}
 	}
 	//pout->child should be ID_LIST
@@ -1373,7 +1312,7 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, const 
 	vector<int> undefined;
 	auto vv = register_switch_cvars(pnode4Func->child->next->next, undefined);
 
-	pEnv->udf[udf_filename].pAst = pnode4Func;	
+	pEnv->udf[udf_filename].uxtree = pnode4Func;	
 	pEnv->udf[udf_filename].fullname = fullfilename;
 	pEnv->udf[udf_filename].content = filecontent.c_str();
 	pEnv->udf[udf_filename].switch_case = vv;
@@ -1382,7 +1321,7 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, const 
 	for (AstNode *pp = pnode4Func->next; pp; pp = pp->next)
 	{// if one or more local functions exists
 		UDF loc;
-		loc.pAst = pp;
+		loc.uxtree = pp;
 		namefrompnode = pp->str;
 		transform(namefrompnode.begin(), namefrompnode.end(), namefrompnode.begin(), ::tolower);
 		loc.fullname = fullfilename;
@@ -1937,8 +1876,8 @@ vector<AstNode *> copy_AstNode(const AstNode *psrc, AstNode *ptarget)
 
 vector<CVar *> CAstSig::Compute(void)
 { 
-	// There are many reasons to use this function as a Gateway function in the application, avoiding calling Compute(pAst) directly.
-	// Call Compute(pAst) only if you know exactly what's going on. 11/8/2017 bjk
+	// There are many reasons to use this function as a Gateway function in the application, avoiding calling Compute(xtree) directly.
+	// Call Compute(xtree) only if you know exactly what's going on. 11/8/2017 bjk
 	vector<CVar*> res;
 	Sig.cell.clear();
 	Sig.strut.clear();
@@ -1949,14 +1888,14 @@ vector<CVar *> CAstSig::Compute(void)
 //	pgo = NULL;
 	lhs = NULL;
 	try {
-		if (!pAst) {
+		if (!xtree) {
 			res.push_back(&Sig);
 			return res;
 		}
 		fBreak = false;
 		GfInterrupted = false;
-		if (pAst->type == N_BLOCK && u.application &&  !strcmp(u.application,"xcom")) {
-			AstNode *p = pAst->next;
+		if (xtree->type == N_BLOCK && u.application &&  !strcmp(u.application,"xcom")) {
+			AstNode *p = xtree->next;
 			while (p)
 			{
 				res.push_back(Compute(p));
@@ -1968,7 +1907,7 @@ vector<CVar *> CAstSig::Compute(void)
 		else
 		{
 			baselevel.push_back(level);
-			res.push_back(Compute(pAst));
+			res.push_back(Compute(xtree));
 			baselevel.pop_back();
 		}
 		Tick1 = GetTickCount0();
@@ -2058,7 +1997,7 @@ CVar *CAstSig::MakeGOContainer(vector<CVar *> GOs)
 CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar)
 { // tidy up 8/15/2019
 	if (!varname)
-		throw CAstException(USAGE, *this, pAst).proc("GetGlobalVariable(): NULL varname");
+		throw CAstException(USAGE, *this, xtree).proc("GetGlobalVariable(): NULL varname");
 	if (pvar)
 	{
 	}
@@ -2108,7 +2047,7 @@ CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
 	}
 	catch (out_of_range oor)
 	{
-		throw CAstException(USAGE, *this, pAst).proc("GetGOVariable() should be called when varname is sure to exist in GOvars");
+		throw CAstException(USAGE, *this, xtree).proc("GetGOVariable() should be called when varname is sure to exist in GOvars");
 	}
 }
 
@@ -2119,7 +2058,7 @@ CVar *CAstSig::GetVariable(const char *varname, CVar *pvar)
 	string fullvarname = "";
 	CVar *pout(NULL);
 	if (!varname)
-		throw CAstException(USAGE, *this, pAst).proc("GetVariable(): NULL varname");
+		throw CAstException(USAGE, *this, xtree).proc("GetVariable(): NULL varname");
 	if (pvar)
 	{
 		if (pvar->strut.find(varname) != pvar->strut.end())
@@ -3138,7 +3077,7 @@ CAstSig &CAstSig::Reset(const int fs)
 {
 	map<string,UDF>::iterator it;
 	for (it=pEnv->udf.begin(); it!=pEnv->udf.end(); it++)
-		yydeleteAstNode(it->second.pAst, 0);
+		yydeleteAstNode(it->second.uxtree, 0);
 	Script = "";
 	pEnv->udf.clear();
 	Vars.clear();
@@ -3490,7 +3429,7 @@ CAstSigEnv::~CAstSigEnv()
 	if (shutdown)
 		for (map<string, UDF>::iterator it = udf.begin(); it != udf.end(); it++)
 		{
-			clean_AstNode(it->second.pAst);
+			clean_AstNode(it->second.uxtree);
 		}
 }
 
@@ -3691,7 +3630,7 @@ UDF& UDF::operator=(const UDF& rhs)
 {
 	if (this != &rhs)
 	{
-		pAst = rhs.pAst;
+		uxtree = rhs.uxtree;
 		fullname = rhs.fullname;
 		content = rhs.content;
 		DebugBreaks = rhs.DebugBreaks;

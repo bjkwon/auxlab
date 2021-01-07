@@ -18,7 +18,6 @@
 
 #include <windows.h>
 #include "sigproc.h"
-#include "caux.h"
 
 class AUD_PLAYBACK
 {

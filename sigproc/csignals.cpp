@@ -2758,6 +2758,7 @@ CSignals::CSignals(double* y, int len)
 	: next(NULL)
 {
 	SetFs(1);
+	SetComplex();
 	UpdateBuffer(len);
 	memcpy(buf, y, sizeof(double) * len);
 }

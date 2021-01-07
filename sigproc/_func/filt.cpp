@@ -56,7 +56,7 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
-		auto linehead = get_line_astnode(past->pAst, pnode);
+		auto linehead = get_line_astnode(past->xtree, pnode);
 		if (countVectorItems(linehead) > 1)
 		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
@@ -93,7 +93,7 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
-		auto linehead = get_line_astnode(past->pAst, pnode);
+		auto linehead = get_line_astnode(past->xtree, pnode);
 		if (countVectorItems(linehead) > 1)
 		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));

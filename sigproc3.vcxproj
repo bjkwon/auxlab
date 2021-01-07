@@ -223,7 +223,6 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="$(SrcPath)caudio.cpp" />
     <ClCompile Include="$(SrcPath)AstSig.cpp" />
     <ClCompile Include="$(SrcPath)AstSig2.cpp" />
     <ClCompile Include="$(SrcPath)AstExceptions.cpp" />
@@ -268,7 +267,6 @@
     <ClCompile Include="$(SrcPath)_func\_str2num.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(SrcPath)caux.h" />
     <ClInclude Include="$(SrcPath)aux_classes.h" />
     <ClInclude Include="$(SrcPath)psycon.tab.h" />
     <ClInclude Include="$(SrcPath)psycon.yacc.h" />

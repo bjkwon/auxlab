@@ -45,7 +45,7 @@ void _tsq_settimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::s
 		}
 	}
 	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
-	const AstNode* pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+	const AstNode* pRoot = past->findParentNode(past->xtree, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
 }
 
@@ -80,7 +80,7 @@ void _tsq_setvalues(CAstSig* past, const AstNode* pnode, const AstNode* p, std::
 		}
 	}
 	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
-	const AstNode* pRoot = past->findParentNode(past->pAst, (AstNode*)pnode, true);
+	const AstNode* pRoot = past->findParentNode(past->xtree, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
 }
 
