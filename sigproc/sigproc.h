@@ -213,10 +213,8 @@ public:
 	map<HWND, RECT> rt2validate;
 	const char* application;
 	bool repaint;
-	CUDF() {	application = nullptr;  nextBreakPoint = currentLine = -1;		CallbackCIPulse = NULL; CallbackHook = NULL; pLastRead = NULL; repaint = false;	};
+	CUDF() {	application = nullptr;  nextBreakPoint = currentLine = -1; pLastRead = NULL; repaint = false;	};
 	virtual ~CUDF() {};
-	void(*CallbackCIPulse)(const AstNode *, CAstSig *);
-	int(*CallbackHook)(CAstSig *past, const AstNode *pnode, const AstNode *p);
 	AstNode *pLastRead; //used for isthisUDFscope only, to mark the last pnode processed in 
 };
 
@@ -368,7 +366,6 @@ public:
 	CVar * GetGlobalVariable(const AstNode *pnode, const char *varname, CVar *pvar = NULL);
 	CVar * GetVariable(const char *varname, CVar *pvar = NULL);
 	CVar * TID(AstNode *pnode, AstNode *p, CVar *psig=NULL);
-	CVar * Eval(AstNode *pnode);
 	void Transpose(const AstNode *pnode, AstNode *p);
 	CAstSig & Reset(const int fs = 0);// , const char* path = NULL);
 	CAstSig & SetVar(const char *name, CVar *psig, CVar *pBase = NULL);

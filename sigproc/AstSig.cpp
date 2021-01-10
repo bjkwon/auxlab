@@ -309,20 +309,6 @@ bool CAstSig::isInterrupted(void)
 	return GfInterrupted;
 }
 
-CVar * CAstSig::Eval(AstNode *pnode)
-{
-	try {
-		if (!pnode)
-			return &Sig;
-		return Compute(pnode); 
-	} catch (const CAstException &e) {
-		char errmsg[500];
-		strncpy(errmsg, e.getErrMsg().c_str(), sizeof(errmsg)/sizeof(*errmsg));
-		errmsg[sizeof(errmsg)/sizeof(*errmsg)-1] = '\0';
-		throw errmsg;
-	}
-}
-
 AstNode *CAstSig::goto_line(const AstNode *pnode, int line)
 {
 	AstNode *pp, *p = (AstNode *)pnode;

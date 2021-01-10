@@ -765,6 +765,8 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	case TYPEBIT_AUDIO + 1:
 	case TYPEBIT_TSEQ + 1:
 	case TYPEBIT_TSEQ + 2:
+	case TYPEBIT_COMPLEX + TYPEBIT_TSEQ + 1:
+	case TYPEBIT_COMPLEX + TYPEBIT_TSEQ + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;
 		if (pvar->next) cout << "[L] " << endl;

@@ -117,7 +117,7 @@
       <AdditionalLibraryDirectories>mpglib-static.lib;libmp3lame-static.lib;lame.lib;</AdditionalLibraryDirectories>
     </Lib>
     <PreBuildEvent>
-      <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
@@ -147,7 +147,7 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
@@ -176,7 +176,7 @@
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
     </Link>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
@@ -210,7 +210,7 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\

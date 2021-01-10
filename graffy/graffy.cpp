@@ -1120,7 +1120,6 @@ GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeS
 
 GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals &data, const std::string& vname, COLORREF col, char cymbol, LineStyle ls)
 {
-	CLine *lyne;
 	CAxes *ax = static_cast<CAxes *>(_ax);
 	vector<HANDLE> out;
 	if (col == -1)
@@ -1427,7 +1426,6 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 
 GRAPHY_EXPORT graffytype GOtype(const CVar & obj)
 {
-	graffytype out;
 	auto vv = obj.strut.find("type");
 	if (vv == obj.strut.end()) return GRAFFY_no_graffy;
 	if ((*vv).second.type() & TYPEBIT_STRING)
