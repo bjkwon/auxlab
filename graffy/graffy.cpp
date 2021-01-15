@@ -1114,6 +1114,9 @@ GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeS
 	CAxes* paxFFT;
 	if (paxFFT = (CAxes*)ax->hChild)
 		ViewSpectrum(paxFFT);
+	// Change CRect(0, 0, 0, 0) to actual CRect of the whole client rect
+	// it won't work as is, in CGobj::addRedrawCue for UnionRect
+	// 1/14/2021........
 	addRedrawCue(hPar->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	return out;
 }
@@ -1146,7 +1149,9 @@ GRAPHY_EXPORT vector<HANDLE> PlotCSignals(HANDLE _ax, double *x, const CSignals 
 	CAxes * paxFFT;
 	if (paxFFT = (CAxes*)ax->hChild)
 		ViewSpectrum(paxFFT);
-	addRedrawCue(hPar->m_dlg->hDlg, CRect(0,0,0,0));
+	addRedrawCue(hPar->m_dlg->hDlg, hAx->rct);
+	addRedrawCue(hPar->m_dlg->hDlg, hAx->xtick.rt);
+	addRedrawCue(hPar->m_dlg->hDlg, hAx->ytick.rt);
 	return out;
 }
 
