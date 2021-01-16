@@ -104,7 +104,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 
 	char errstr[256] = {};
 	int newfs, recordID = (int)handle.value();
-	if ((newfs = Capture(devID, WM__AUDIOEVENT2, hShowDlg, past->pEnv->Fs, nChans, CAstSig::record_bytes, cbnode, duration, block, recordID, errstr)) < 0)
+	if ((newfs = Capture(devID, WM__AUDIOEVENT2, past->pEnv->Fs, nChans, CAstSig::record_bytes, cbnode, duration, block, recordID, errstr)) < 0)
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, errstr);
 	handle.strut["active"] = CVar((double)(1 == 1));
 	past->Sig.strut["h"] = handle;

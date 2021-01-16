@@ -1859,7 +1859,7 @@ void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
 	mainSpace.comid = nHistFromFile;
 }
 
-int initializeAUXLAB3(CAstSig *pcast, char *auxextdllname)
+int initializeAUXLAB3(CAstSig *pcast)
 {
 	char fname[256];
 	string emsg;
@@ -1896,6 +1896,7 @@ int initializeAUXLAB3(CAstSig *pcast, char *auxextdllname)
 	initGraffy(pcast);
 	pcast->astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &ValidateFig, &SetGOProperties, &RepaintGO);
 	init_aux_reserves();
+	wavrecInit(mShowDlg.hDlg);
 	return 0;
 }
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
@@ -1918,7 +1919,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	initializeAUXLAB2(pglobalEnv, auxextdllname, fname);
 	CAstSig cast(pglobalEnv);
-	initializeAUXLAB3(&cast, auxextdllname);
+	initializeAUXLAB3(&cast);
 
 	int _fs = cast.Sig.GetFs();
 	DWORD dw;

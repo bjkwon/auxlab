@@ -36,8 +36,6 @@
 #include "cipsycon.tab.h"
 #endif
 
-extern HWND hShowDlg;
-
 // 10/1/2020 TO DO-----separate these graffy function somehow to add its own features 
 // such as blockNULL etc.
 
@@ -517,14 +515,12 @@ int findcol(AstNode *past, const char* pstr, int line)
 	return -1;
 }
 
-typedef  map<string, Cfunction>(_cdecl  *PF) ();
-
 void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
 {
 	HANDLE hLib = LoadLibrary(dllname);
 	if (hLib)
 	{
-		PF pt = (PF)GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
+		auto pt = (map<string, Cfunction>(_cdecl *)()) GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
 		map<string, Cfunction> res = pt();
 		for (auto it = res.begin(); it != res.end(); it++)
 		{
@@ -534,9 +530,6 @@ void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
 }
 void CAstSigEnv::InitBuiltInFunctions(HWND h)
 {
-#ifndef NO_PLAYSND
-	hShowDlg = h;
-#endif
 	srand((unsigned)time(0) ^ (unsigned int)GetCurrentThreadId());
 
 	string name;

@@ -23,6 +23,8 @@ using namespace std;
 
 char waveErrMsg[256]; // to be used to send message to the main app (OnSoundEvent)
 
+HWND hApplWnd;
+
 #define MMERRTHROW(X,MM) rc=X; { if (rc != MMSYSERR_NOERROR) {\
 	nextaction = 1;	sprintf(waveErrMsg, "Error in %s\n", "waveInAddBuffer"); \
 		char _estr_[256]; waveOutGetErrorText(rc, _estr_, 256); strcat(waveErrMsg, _estr_);}}
@@ -288,7 +290,6 @@ void ThreadCapture(const record_param &p)
 	SendMessage(pWP->hWnd_calling, pWP->msgID, (WPARAM)&send2OnSoundEven, WIM_CLOSE); // send the opening status to the main application 
 }
 
-
 static inline CWaveRecord* findbyID(int id)
 {
 	for (auto it : recorders)
@@ -299,8 +300,12 @@ static inline CWaveRecord* findbyID(int id)
 	return NULL;
 }
 
+void wavrecInit(HWND _hApplWnd)
+{
+	hApplWnd = _hApplWnd;
+}
 
-int Capture(int DevID, UINT userDefinedMsgID, HWND hApplWnd, int fs, short nChans, short bytes, AstNode *cbnode, double duration, double block_dur_ms, int recordID, char *errmsg)
+int Capture(int DevID, UINT userDefinedMsgID, int fs, short nChans, short bytes, AstNode *cbnode, double duration, double block_dur_ms, int recordID, char *errmsg)
 {
 	if (findbyID(recordID))
 	{
