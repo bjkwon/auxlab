@@ -128,7 +128,8 @@ static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRec
 	CRect crTemp(0, 0, 500, 400);
 	if (ReadINI (errStr, fname, "WINDOW POS", strRead)>=0 && str2array (tar, 4, strRead.c_str(), " ")==4)
 	{
-		if ((tar[2] + tar[0]) < 0) *rtMain = crTemp;
+		if ((tar[2] + tar[0]) < 0) 
+			*rtMain = crTemp;
 		else
 		{
 			rtMain->left = tar[0];

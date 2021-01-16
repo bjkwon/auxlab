@@ -1040,6 +1040,9 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		// xrange must be copied as well (otherwise, it will hang due to uninitialized xrange).
 		memcpy((void*)pax->xrange, ((CAxes*)past->pgo)->xrange, sizeof(double) * 2);
 		past->Sig = *(past->pgo = pax);
+		HANDLE h = FindFigure(((CAxes*)past->pgo)->hPar);
+		HWND hh = GetHWND_PlotDlg(h);
+		InvalidateRect(hh, NULL, 1); // a lazy way. Repaint the whole area. maybe improve later? 1/14/2021
 	}
 	break;
 	case GRAFFY_text:
@@ -1064,6 +1067,8 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 	}
 	break;
 	}
+	// Revise these lines til the end and remove InvalidateRect from GRAFFY_axes 
+	// 1/14/2021
 	if (past->isthisUDFscope(pnode))
 		past->u.rt2validate[cfig->m_dlg->hDlg] = CRect(0, 0, 0, 0);
 	else

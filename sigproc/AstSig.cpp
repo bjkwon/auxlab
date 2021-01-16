@@ -3038,12 +3038,22 @@ int CAstSigEnv::SetPath(const char *path)
 
 string CAstSig::makefullfile(const string &fname, char *extension)
 {
-	char drive[64], dir[MAX_PATH], ext[MAX_PATH];
-	_splitpath(fname.c_str(), drive, dir, NULL, ext);
+	char drive[64], dir[MAX_PATH], file[MAX_PATH], ext[MAX_PATH];
+	_splitpath(fname.c_str(), drive, dir, file, ext);
 	string fullfilename;
-	if (drive[0] == 0 && dir[0] == 0) // no directory info
+	if (drive[0] == 0 && dir[0] == 0) // no directory info or current directory
+	{
 		fullfilename = pEnv->AppPath;
-	fullfilename += fname;
+		fullfilename += fname;
+	}
+	else if (drive[0] == 0 && !strcmp(dir, ".\\")) // no directory info or current directory
+	{
+		fullfilename = pEnv->AppPath;
+		fullfilename += file;
+		fullfilename += ext;
+	}
+	else
+		fullfilename = fname;
 	// if the target extension is not specified, add default extension
 	if (!ext[0])
 		fullfilename += extension;

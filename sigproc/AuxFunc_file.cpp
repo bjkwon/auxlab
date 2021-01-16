@@ -50,30 +50,34 @@ void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fns
 
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
-	string filename;
-	if (past->level > 1) 
-	{ // if fopen is called inside UDF, the file is searched in the same directory as the udf 
-	  // (which may be part of path or not) unless the path for the file is specified
-		char drive[MAX_PATH], dir[MAX_PATH];
-		// does p include the path?
-		filename = past->ComputeString(p);
-		_splitpath(filename.c_str(), drive, dir, NULL, NULL);
-		if (!drive[0] && !dir[0]) // no path included
-		{
-			string udfname = past->dad->Script;
-			_splitpath(past->pEnv->udf[udfname].fullname.c_str(), drive, dir, NULL, NULL);
-			filename = string(drive) + dir + past->ComputeString(p);
-		}
-	}
-	else
-		filename = past->makefullfile(past->ComputeString(p));
+	string filename = past->makefullfile(past->ComputeString(p));
 	char mode[8];
 	strcpy(mode, past->ComputeString(p->next).c_str());
-
 	FILE *fl;
 	if (!(fl = fopen(filename.c_str(), mode)))
 	{
-		past->Sig.SetValue(-1.);
+		if (past->level > 1)
+		{ // if fopen is called inside UDF, the file is searched in the same directory as the udf 
+		  // (which may be part of path or not) unless the path for the file is specified
+			char drive[MAX_PATH], dir[MAX_PATH];
+			// does p include the path?
+			filename = past->ComputeString(p);
+			_splitpath(filename.c_str(), drive, dir, NULL, NULL);
+			if (!drive[0] && !dir[0]) // no path included
+			{
+				_splitpath(past->pEnv->udf[past->u.title].fullname.c_str(), drive, dir, NULL, NULL);
+				filename = string(drive) + dir + past->ComputeString(p);
+			}
+			if (!(fl = fopen(filename.c_str(), mode)))
+				past->Sig.SetValue(-1.);
+			else
+			{
+				past->Sig.SetValue((double)(INT_PTR)fl);
+				file_ids[(double)(INT_PTR)fl] = fl;
+			}
+		}
+		else
+			past->Sig.SetValue(-1.);
 	}
 	else
 	{
