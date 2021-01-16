@@ -333,9 +333,9 @@ public:
 	void blockLogical(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
 	void blockComplex(const AstNode *pnode, const CVar &checkthis, string addmsg = "");
 	const AstNode *getparentnode(const AstNode *pnode, const AstNode *p);
-	bool need2repaintnow(const AstNode *pnode, AstNode *p = NULL);
+	bool need2repaintnow(const AstNode *pnode, AstNode *p = NULL, bool udfdone = true);
 	bool GOpresent(const AstNode *pnode, AstNode *p = NULL);
-	bool isthisUDFscope(const AstNode *pnode, AstNode *p=NULL);
+	bool isthisUDFscope(const AstNode *pnode, AstNode *p = NULL);
 	bool PrepareAndCallUDF(const AstNode *pnode, CVar *pBase, CVar *pStaticVars=NULL);
 	size_t CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase);
 	void outputbinding(const AstNode *plhs);

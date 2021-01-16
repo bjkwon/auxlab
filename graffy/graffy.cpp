@@ -74,7 +74,6 @@ CGraffyEnv theApp;
 
 #define THE_CPLOTDLG  static_cast <CPlotDlg*>(theApp.fig[id])
 
-
 void CGobj::addRedrawCue(HWND h, RECT rt)
 {
 	auto it = theApp.redraw.begin();
@@ -83,8 +82,16 @@ void CGobj::addRedrawCue(HWND h, RECT rt)
 		if (it->first == h)
 		{
 			RECT dummyzero = {};
+			// if it->second is already
 			if (!memcmp(&dummyzero, &(it->second), sizeof(RECT)))
 				return;
+			// if rt is all zero, existing redraw is cleared and the 
+			if (!memcmp(&dummyzero, &rt, sizeof(RECT)))
+			{
+				theApp.redraw.clear();
+				it->second = rt;
+				return;
+			}
 			CRect crt0(it->second);
 			CRect crt(rt);
 			crt0.UnionRect(crt0, crt);
@@ -1390,15 +1397,6 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 		for (auto fig = h.begin(); fig != h.end(); fig++)
 		{
 			CVar *pvar = (CVar*)*fig;
-			if (IsEventLoggerReady())
-			{
-				if (pvar->GetFs() == 2)
-					sprintf(buf, "(RepaintGO) %s ", pvar->string().c_str());
-				else if (pvar->nSamples > 0)
-					sprintf(buf, "(RepaintGO) Figure %d ", (int)pvar->value());
-				else
-					sprintf(buf, "(RepaintGO) Figure (empty)");
-			}
 			CFigure * pfig = (CFigure *)*fig;
 			if (pfig->visible == -1 && pfig->m_dlg->hDlg)
 			{
@@ -1411,11 +1409,14 @@ GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 				pfig->m_dlg->ShowWindow(SW_SHOW);
 				// ShowWindow(SW_SHOW) evokes WM_PAINT, so invalidateRedrawCue() shouldn't include this hDlg
 				eraseRedrawCue(pfig->m_dlg->hDlg);
-				if (IsEventLoggerReady())
+			}
+			if (pctx->son)
+			{
+				auto hh = pfig->m_dlg->hDlg;
+				auto finder = pctx->son->u.rt2validate.find(hh);
+				if (finder != pctx->son->u.rt2validate.end())
 				{
-					strcpy(buf2, "... made visible");
-					strcat(buf, buf2);
-					sendtoEventLogger(buf);
+					InvalidateRect(hh, &finder->second, TRUE);
 				}
 			}
 		}

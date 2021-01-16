@@ -427,16 +427,21 @@ static int _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDLE
 	case GRAFFY_line:
 		break;
 	}
-	deleteObj(hobj);
-	past->pgo = NULL;
 	if (past->isthisUDFscope(pnode))
-		past->u.rt2validate[GetHWND_PlotDlg(hobj)] = CRect(0, 0, 0, 0);
+	{
+		auto hh = GetHWND_PlotDlg(hobj);
+		//currently hh is NULL, this line not effective
+		if (hh)
+			addRedrawCue(hh, CRect(0, 0, 0, 0));
+	}
 	else
 		InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
+	deleteObj(hobj);
+	past->pgo = NULL;
 	return 1;
 }
 
-/*
+/*%
 Investigate 10/3/2020, 10/4/2020
 
 a=[4 3 0 8 .5 6.3]
@@ -1040,9 +1045,9 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		// xrange must be copied as well (otherwise, it will hang due to uninitialized xrange).
 		memcpy((void*)pax->xrange, ((CAxes*)past->pgo)->xrange, sizeof(double) * 2);
 		past->Sig = *(past->pgo = pax);
-		HANDLE h = FindFigure(((CAxes*)past->pgo)->hPar);
-		HWND hh = GetHWND_PlotDlg(h);
-		InvalidateRect(hh, NULL, 1); // a lazy way. Repaint the whole area. maybe improve later? 1/14/2021
+		//HANDLE h = FindFigure(((CAxes*)past->pgo)->hPar);
+		//HWND hh = GetHWND_PlotDlg(h);
+		//InvalidateRect(hh, NULL, 1); // a lazy way. Repaint the whole area. maybe improve later? 1/14/2021
 	}
 	break;
 	case GRAFFY_text:
@@ -1070,7 +1075,7 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 	// Revise these lines til the end and remove InvalidateRect from GRAFFY_axes 
 	// 1/14/2021
 	if (past->isthisUDFscope(pnode))
-		past->u.rt2validate[cfig->m_dlg->hDlg] = CRect(0, 0, 0, 0);
+		addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	else
 		cfig->m_dlg->InvalidateRect(NULL);
 }

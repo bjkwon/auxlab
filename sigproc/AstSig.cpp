@@ -781,7 +781,8 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	u.pLastRead = NULL;
 	if (pgo) pgo->functionEvalRes = true;
 	Sig.functionEvalRes = true;
-//	if (need2repaintnow(pCalling)) // or maybe pBase??
+	if (need2repaintnow(pCalling, NULL, true)) // or maybe pBase??
+		fpmsg.RepaintGO(this);
 	xscope.pop_back(); // move here????? to make purgatory work...
 	return true;
 }
@@ -891,10 +892,11 @@ bool CAstSig::GOpresent(const AstNode *pnode, AstNode *p)
 		return false;
 }
 
-bool CAstSig::need2repaintnow(const AstNode *pnode, AstNode *p)
+bool CAstSig::need2repaintnow(const AstNode *pnode, AstNode *p, bool udfdone)
 {
 	// if pnode is on the tree, i.e., part of the udf, no need to repaint, unless this is inside of debugger.
-	if (!u.repaint) return false;
+	if (son->u.rt2validate.empty()) return false;
+	if (udfdone) return true;
 	bool partofudf = isthisUDFscope(pnode);
 	if (partofudf)
 	{
