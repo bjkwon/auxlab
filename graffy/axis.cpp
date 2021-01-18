@@ -527,7 +527,9 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, const
 	strut["pos"].buf[3] = pos.height;
 	struts["x"].front()->strut["fontsize"] = CVar(999.); // ???? where can I find this?
 	struts["x"].front()->strut["tick"] = CVar(CSignals(CSignal(xtick.tics1)));
+	struts["x"].front()->strut["ticklabel"] = CVar(CSignals(CSignal(xtick.ticklabel)));
 	struts["y"].front()->strut["tick"] = CVar(CSignals(CSignal(ytick.tics1)));
+	struts["y"].front()->strut["ticklabel"] = CVar(CSignals(CSignal(ytick.ticklabel)));
 	struts["x"].front()->strut["lim"] = CVar(CSignals(xlim, 2));
 	struts["y"].front()->strut["lim"] = CVar(CSignals(ylim, 2));
 	struts["x"].front()->strut["xyz"] = std::string("x");

@@ -99,6 +99,7 @@ CTick& CTick::operator=(const CTick& rhs)
 		rt = rhs.rt;
 		size = rhs.size;
 		tics1 = rhs.tics1;
+		ticklabel = rhs.ticklabel;
 	}
 	return *this;
 }

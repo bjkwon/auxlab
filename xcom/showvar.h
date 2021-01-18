@@ -72,6 +72,17 @@ private:
 	vector<int> width;
 };
 
+class CListBox
+{
+public:
+	CListBox() {};
+	virtual ~CListBox() {};
+	vector<int> sels;
+	HWND hwnd;
+	void Init(HWND h) { hwnd = h; };
+	void GetSelectedItems();
+};
+
 class CShowvarDlg : public CWndDlg
 {
 public:
@@ -83,7 +94,7 @@ public:
 	map<string, string> *pGOvarsPar;
 	vector<string> scopes;
 	CDebugDlg *lastDebug;
-	HWND hList1, hList2;
+	CListBox lbox1, lbox2;
 	LVCOLUMN LvCol; // Column struct for ListView
 	LVITEM LvItem;  // ListView Item struct
 	CVar Sig;
@@ -136,12 +147,11 @@ public:
 	void debug(DEBUG_STATUS status, CAstSig *debugAstSig, int entry);
 	void AdjustWidths(int redraw=0);
 	int ClearVar(const char *var);
-	void plotvar(CVar *psig, const string& title, const char *varname);
-	void plotvar_update(CFigure *cfig, CVar *psig);
-	double plotvar_update2(CAxes *pax, CSignals *psig);
-	double plotvar_update2(CAxes *pax, CTimeSeries *psig);
-	CFigure * newFigure(const string& title, const char *varname, GRAFWNDDLGSTRUCT *pin);
+	void plotvar(const vector<CSignals*>& psigs, const vector<string>& varnames, bool focusonly);
+	CFigure * newFigure(const char *varname, GRAFWNDDLGSTRUCT *pin);
 	HWND varname2HWND(const char *varname);
+	vector<HWND> varnames2HWND(const vector<string>& varnames);
+	vector<HWND> varnames2HWND(const char* varname);
 
 	HACCEL hAccel;
 	HANDLE curFig;
@@ -158,7 +168,5 @@ private:
 	POINT titlebarDim;
 	RECT recordingButtonRT;
 	void deleteVar_closeFig(const char* varname);
-	CVar* pre_plot_var(const char* varname, string& title);
-	void plot_var_multi(const vector<CTimeSeries*>& objs, const vector <string>& title, const vector<string>&varnames);
-	void plotvar(vector< CTimeSeries*> psigs, vector <string> title, vector<string> varnames);
+	CVar* get_sig_full_varname(const char* varname);
 };

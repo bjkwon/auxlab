@@ -23,3 +23,7 @@ Here, selecting 10.0 (latest installed version) works just fine. It appears as f
 
 <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
 
+[UPDATE ON 9:29 PM 1/15/2021]====================
+In Visual Studio 2019 16.8.3, just delete the line of 
+<WindowsTargetPlatformVersion>
+will solve the problem.

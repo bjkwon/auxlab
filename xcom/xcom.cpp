@@ -279,7 +279,9 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	SetEvent(hE);
 
 	ShowWindow(mHistDlg.hDlg,SW_SHOW);
-	mShowDlg.hList1 = GetDlgItem(mShowDlg.hDlg , IDC_LIST1);
+	// Why is this necessary? 1/17/2021
+	if (GetDlgItem(mShowDlg.hDlg, IDC_LIST1))
+		mShowDlg.lbox1.hwnd = GetDlgItem(mShowDlg.hDlg , IDC_LIST1);
 	HANDLE h = LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0);
 	SetClassLongPtr (mShowDlg.hDlg, GCLP_HICON, (LONG)(LONG_PTR)LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0));
 	mShowDlg.win7 = win7;
@@ -1557,7 +1559,7 @@ void ValidateFig(const char* scope)
 	// When a UDF enters debugging, or exits from it, all figure windows are scanned and validated with scope
 	for (auto dlg: plots)
 	{
-		if (dlg->var.find("Figure ") == 0)
+		if (dlg->namedvar.find("Figure ") == 0)
 			continue;
 		HANDLE fig = FindFigure(dlg->hDlg);
 		CFigure *cfig = static_cast<CFigure *>(fig);

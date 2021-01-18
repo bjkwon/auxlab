@@ -485,6 +485,7 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 			value = pax->xtick.mult * *xt + pax->xtick.offset;
 			pDC->MoveTo(loc, pax->rct.bottom - 1);
 			pDC->LineTo(loc, pax->rct.bottom - 1 - pax->xtick.size);
+			if (pax->xtick.ticklabel == "hide") continue;
 			if (pax->m_ln.front()->sig.IsTimeSignal() && !pax->xtick.format)
 				strcpy(pax->xtick.format, "%4.2f"); // This is where two digits under decimal are drawn on the time axis.
 			if (pax->xtick.format[0] != 0)
@@ -544,6 +545,7 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 			value = nextpt;
 			pDC->MoveTo(pax->rct.left, loc);
 			pDC->LineTo(pax->rct.left + pax->ytick.size, loc);
+			if (pax->ytick.ticklabel == "hide") continue;
 			if (pax->ytick.format[0]!=0)
 				sprintf(label, pax->ytick.format, value);
 			else

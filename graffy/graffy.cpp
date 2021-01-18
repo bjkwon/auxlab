@@ -89,7 +89,7 @@ void CGobj::addRedrawCue(HWND h, RECT rt)
 			if (!memcmp(&dummyzero, &rt, sizeof(RECT)))
 			{
 				theApp.redraw.clear();
-				it->second = rt;
+				theApp.redraw.insert(pair<HWND, RECT>(h, rt));
 				return;
 			}
 			CRect crt0(it->second);
@@ -440,6 +440,7 @@ HANDLE CGraffyEnv::openChildFigure(CRect *rt, HWND hWndAppl)
 	addRedrawCue(newFig->hDlg, CRect(0, 0, 0, 0));
 	return &newFig->gcf;
 }
+
 HANDLE CGraffyEnv::openFigure(CRect *rt, const char* caption, HWND hWndAppl, int devID, double blocksize, const char * callbackID, HANDLE hIcon)
 {
 	CString s;
@@ -1004,7 +1005,7 @@ GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, double x0, double y0, double wid, dou
 
 GRAPHY_EXPORT HANDLE  AddText(HANDLE _fig, const char* text, double x0, double y0, double wid, double hei)
 {
-	CFigure *fig = static_cast<CFigure *>(_fig);
+	CFigure *fig = (CFigure *)_fig;
 	CPosition pos(x0, y0, wid, hei);
 	CText *ctxt = fig->AddText(text, pos);
 //	addRedrawCue(fig->m_dlg->hDlg, ctxt->textRect);
@@ -1077,15 +1078,22 @@ GRAPHY_EXPORT vector<HANDLE> PlotCTimeSeries(HANDLE _ax, double *x, const CTimeS
 	return out;
 }
 
-GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeSeries*> line, vector<string> vnames, vector<COLORREF> cols, vector<char> cymbol, vector<LineStyle> ls)
-{ // assume line is non-audio
+GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, const vector<CTimeSeries*>& line, const vector<string>& vnames, vector<COLORREF> cols, const vector<char>& cymbol, const vector<LineStyle>& ls)
+{ 
 	// if color is not specified, go this way-- b r g y c m
 	vector<HANDLE> out;
+	if (line.size() == 1)
+	{
+		CSignals* psig = (CSignals*)line.front();
+		cols.push_back(-1);
+		// Plotting with the default color scheme for a single csignals
+		return PlotCSignals(_ax, x, *psig, vnames.front(), -1);
+	}
 	auto itcol = cols.begin();
 	auto itls = ls.begin();
 	auto itsym = cymbol.begin();
 	auto itvname = vnames.begin();
-	CAxes* ax = static_cast<CAxes*>(_ax);
+	CAxes* ax = (CAxes*)_ax;
 	vector<COLORREF> def_cols;
 	if (itcol == cols.end())
 	{
@@ -1107,6 +1115,14 @@ GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeS
 		if (itls != ls.end()) style = *itls, itls++;
 		if (itsym != cymbol.end()) symb = *itsym, itsym++;
 		out.push_back(ax->plot(x, *ln, (*itvname++), col, symb, style));
+		if (((CSignals*)ln)->next)
+		{
+			itvname--;
+			if (itcol != cols.end()) col = *itcol, itcol++;
+			if (itls != ls.end()) style = *itls, itls++;
+			if (itsym != cymbol.end()) symb = *itsym, itsym++;
+			out.push_back(ax->plot(x, *(CTimeSeries*)(((CSignals*)ln)->next), (*itvname++), col, symb, style));
+		}
 	}
 	CAxes* hAx = (CAxes*)ax;
 	CGobj* hPar = ((CGobj*)ax)->hPar;
@@ -1121,9 +1137,6 @@ GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeS
 	CAxes* paxFFT;
 	if (paxFFT = (CAxes*)ax->hChild)
 		ViewSpectrum(paxFFT);
-	// Change CRect(0, 0, 0, 0) to actual CRect of the whole client rect
-	// it won't work as is, in CGobj::addRedrawCue for UnionRect
-	// 1/14/2021........
 	addRedrawCue(hPar->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	return out;
 }
@@ -1390,7 +1403,7 @@ GRAPHY_EXPORT CSignals &COLORREF2CSignals(vector<DWORD> col, CSignals &sig)
 GRAPHY_EXPORT void RepaintGO(CAstSig *pctx)
 { // make all figures created but unchecked for visible visible
 	// to do: this now applies all figures, but should only apply to those created inside pctx
-	char buf[512] = {}, buf2[256];
+	char buf[512] = {};
 	vector<CGobj*> h = graffy_CFigs();
 	if (pctx)
 	{
@@ -1461,7 +1474,7 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 	bool b = false;
 	CSignals onoff(&b, 1);
 	if (!isThisAllowedPropGO(pctx->pgo, proptype, RHS))
-		throw CAstException(ARGS, pctx, NULL).proc("Invalid parameter for the property", proptype);
+		throw CAstException(USAGE, pctx, NULL).proc("Invalid parameter for the property", proptype);
 	CRect rt(0, 0, 0, 0);
 	switch (GOtype(pctx->pgo))
 	{
@@ -1553,6 +1566,17 @@ GRAPHY_EXPORT void SetGOProperties(CAstSig *pctx, const char *proptype, const CV
 			{
 				cax->ytick.automatic = false;
 				cax->ytick.tics1 = RHS.body::ToVector();
+			}
+		}
+		else if (!strcmp(proptype, "ticklabel"))
+		{
+			if (pctx->pgo->strut["xyz"].string() == string("x"))
+			{
+				cax->xtick.ticklabel = RHS.string();
+			}
+			else if (pctx->pgo->strut["xyz"].string() == string("y"))
+			{
+				cax->ytick.ticklabel = RHS.string();
 			}
 		}
 		pctx->pgo->strut["auto"] = onoff;
@@ -1698,6 +1722,8 @@ bool isThisAllowedPropGO(CVar *psig, const char *propname, const CVar &tsig)
 			return ((tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_AUDIO) && tsig.nSamples == 2);
 		if (!strcmp(propname, "tick"))
 			return (tsig.GetType() == CSIG_VECTOR || tsig.GetType() == CSIG_EMPTY);
+		if (!strcmp(propname, "ticklabel"))
+			return (tsig.GetType() == CSIG_STRING || tsig.GetType() == CSIG_EMPTY);
 		break;
 	case GRAFFY_line:
 		if (!strcmp(propname, "marker"))

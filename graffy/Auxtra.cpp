@@ -641,10 +641,6 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["color"].buf[0] = (double)r / 256;
 	cfig->strut["color"].buf[1] = (double)g / 256;
 	cfig->strut["color"].buf[2] = (double)b / 256;
-	cfig->strut["pos"].buf[0] = rt.left;
-	cfig->strut["pos"].buf[1] = rt.top;
-	cfig->strut["pos"].buf[2] = rt.Width();
-	cfig->strut["pos"].buf[3] = rt.Height();
 	past->Sig = *(past->pgo = cfig);
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	//if called by a callback
@@ -691,8 +687,8 @@ GRAPHY_EXPORT void _text(CAstSig* past, const AstNode* pnode, const AstNode* p, 
 		cfig = (CFigure*)past->pgo;
 	}
 
-	ctxt = static_cast<CText *>(AddText(cfig, arg.back().string().c_str(),
-		arg[0].value(), arg[1].value(), 0, 0));
+	ctxt = (CText *)AddText(cfig, arg.back().string().c_str(),
+		arg[0].value(), arg[1].value(), 0, 0);
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
 	cfig->struts.erase("gca");

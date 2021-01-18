@@ -781,8 +781,6 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	u.pLastRead = NULL;
 	if (pgo) pgo->functionEvalRes = true;
 	Sig.functionEvalRes = true;
-	if (need2repaintnow(pCalling, NULL, true)) // or maybe pBase??
-		fpmsg.RepaintGO(this);
 	xscope.pop_back(); // move here????? to make purgatory work...
 	return true;
 }
