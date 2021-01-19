@@ -309,20 +309,6 @@ bool CAstSig::isInterrupted(void)
 	return GfInterrupted;
 }
 
-CVar * CAstSig::Eval(AstNode *pnode)
-{
-	try {
-		if (!pnode)
-			return &Sig;
-		return Compute(pnode); 
-	} catch (const CAstException &e) {
-		char errmsg[500];
-		strncpy(errmsg, e.getErrMsg().c_str(), sizeof(errmsg)/sizeof(*errmsg));
-		errmsg[sizeof(errmsg)/sizeof(*errmsg)-1] = '\0';
-		throw errmsg;
-	}
-}
-
 AstNode *CAstSig::goto_line(const AstNode *pnode, int line)
 {
 	AstNode *pp, *p = (AstNode *)pnode;
@@ -795,7 +781,6 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	u.pLastRead = NULL;
 	if (pgo) pgo->functionEvalRes = true;
 	Sig.functionEvalRes = true;
-//	if (need2repaintnow(pCalling)) // or maybe pBase??
 	xscope.pop_back(); // move here????? to make purgatory work...
 	return true;
 }
@@ -905,10 +890,11 @@ bool CAstSig::GOpresent(const AstNode *pnode, AstNode *p)
 		return false;
 }
 
-bool CAstSig::need2repaintnow(const AstNode *pnode, AstNode *p)
+bool CAstSig::need2repaintnow(const AstNode *pnode, AstNode *p, bool udfdone)
 {
 	// if pnode is on the tree, i.e., part of the udf, no need to repaint, unless this is inside of debugger.
-	if (!u.repaint) return false;
+	if (son->u.rt2validate.empty()) return false;
+	if (udfdone) return true;
 	bool partofudf = isthisUDFscope(pnode);
 	if (partofudf)
 	{
@@ -3052,12 +3038,22 @@ int CAstSigEnv::SetPath(const char *path)
 
 string CAstSig::makefullfile(const string &fname, char *extension)
 {
-	char drive[64], dir[MAX_PATH], ext[MAX_PATH];
-	_splitpath(fname.c_str(), drive, dir, NULL, ext);
+	char drive[64], dir[MAX_PATH], file[MAX_PATH], ext[MAX_PATH];
+	_splitpath(fname.c_str(), drive, dir, file, ext);
 	string fullfilename;
-	if (drive[0] == 0 && dir[0] == 0) // no directory info
+	if (drive[0] == 0 && dir[0] == 0) // no directory info or current directory
+	{
 		fullfilename = pEnv->AppPath;
-	fullfilename += fname;
+		fullfilename += fname;
+	}
+	else if (drive[0] == 0 && !strcmp(dir, ".\\")) // no directory info or current directory
+	{
+		fullfilename = pEnv->AppPath;
+		fullfilename += file;
+		fullfilename += ext;
+	}
+	else
+		fullfilename = fname;
 	// if the target extension is not specified, add default extension
 	if (!ext[0])
 		fullfilename += extension;

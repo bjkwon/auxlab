@@ -118,6 +118,7 @@ public:
 	CFont font;
 	CRect rt; // the region where ticks are drawn
 	vector<double> tics1;
+	std::string ticklabel;
 	//set() generates tic vector and fills tics1
 	void set(const vector<unsigned int>& val, const vector<double>& xydata); // val.size() is the number of division (i.e., 2 means split by half)
 	void extend(bool direction, double xlim);
@@ -336,7 +337,7 @@ GRAPHY_EXPORT HANDLE	AddAxes(HANDLE fig, double x0, double y0, double wid, doubl
 GRAPHY_EXPORT HANDLE  AddAxes(HANDLE _fig, CPosition pos);
 GRAPHY_EXPORT HANDLE	AddText (HANDLE fig, const char* text, double x, double y, double wid, double hei);
 GRAPHY_EXPORT vector<HANDLE>	PlotCSignals(HANDLE ax, double *x, const CSignals & pdata, const std::string& vname, COLORREF col = 0xff0000, char cymbol = 0, LineStyle ls = LineStyle_solid);
-GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, vector<CTimeSeries*> line, vector<string> vnames, vector<COLORREF> cols, vector<char> cymbol, vector<LineStyle> ls);
+GRAPHY_EXPORT vector<HANDLE> PlotMultiLines(HANDLE _ax, double* x, const vector<CTimeSeries*>& line, const vector<string>& vnames, vector<COLORREF> cols, const vector<char>& cymbol, const vector<LineStyle>& ls);
 GRAPHY_EXPORT void		SetRange(HANDLE ax, const char xy, double x1, double x2);
 GRAPHY_EXPORT int		GetFigSelRange(CSignals *hgo, CSignals *out);
 GRAPHY_EXPORT void		ShowStatusBar(HANDLE _fig);

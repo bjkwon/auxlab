@@ -19,6 +19,7 @@ if ax.length==1
 	// as of now, this is not automatically registered to gcf.
 	// Needs to send via output arg for On_F2 in showvar.cpp 9/15/2019
 	ax2 = ax.replicate // replicate also copies xrange of ax to ax2
+    ax.x.ticklabel = "hide"
 	ax.pos(2) += .4
 	lyne = ax.children
 	id4line = []
@@ -75,6 +76,7 @@ elseif ax.length==2
 	ax(2).delete
 	ax.children.delete
 	ax.line(z)
+    ax.x.ticklabel = "" // empty string means "default" or "show"
 else
     msgbox("Error--Figure window has multiple axes");
 	return;

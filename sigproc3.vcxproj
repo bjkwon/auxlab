@@ -117,12 +117,11 @@
       <AdditionalLibraryDirectories>mpglib-static.lib;libmp3lame-static.lib;lame.lib;</AdditionalLibraryDirectories>
     </Lib>
     <PreBuildEvent>
-      <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -148,12 +147,11 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -178,12 +176,11 @@
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
     </Link>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -213,12 +210,11 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay
+      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
 	  call copy_header.bat graffy2 graffy\
 	  call copy_header.bat psycon.yacc sigproc\
 	  call copy_header.bat audstr bjcommon\
 	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat caux sigproc\
 	  call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>

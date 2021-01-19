@@ -485,6 +485,7 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 			value = pax->xtick.mult * *xt + pax->xtick.offset;
 			pDC->MoveTo(loc, pax->rct.bottom - 1);
 			pDC->LineTo(loc, pax->rct.bottom - 1 - pax->xtick.size);
+			if (pax->xtick.ticklabel == "hide") continue;
 			if (pax->m_ln.front()->sig.IsTimeSignal() && !pax->xtick.format)
 				strcpy(pax->xtick.format, "%4.2f"); // This is where two digits under decimal are drawn on the time axis.
 			if (pax->xtick.format[0] != 0)
@@ -496,13 +497,13 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 			{
 				double width = pax->xtick.tics1.back() - pax->xtick.tics1.front();
 				if (xt == pax->xtick.tics1.end() - 1) prec++;
-				prec = max(prec, sprintfFloat(value, prec, label, 256));
+				prec = max(prec, sprintfFloat(value, prec, label, sizeof(label)));
 			}
 			if (xt == pax->xtick.tics1.begin() + 1)
 			{
 				int loc2 = pax->double2pixel(*(xt-1), xy);
 				value = pax->xtick.mult * *(xt - 1) + pax->xtick.offset;
-				sprintfFloat(value, prec+1, label2, 256);
+				sprintfFloat(value, prec+1, label2, sizeof(label));
 				GetTextExtentPoint32(hdc, label2, (int)strlen(label2), &sz);
 				if (iabs(loc - loc2) > sz.cx + pax->xtick.gap4next.x) // only if there's enough gap, Textout
 					pDC->TextOut(loc2, pax->rct.bottom + pax->xtick.labelPos, label2);
@@ -544,6 +545,7 @@ void CPlotDlg::DrawTicks(CDC *pDC, CAxes *pax, char xy)
 			value = nextpt;
 			pDC->MoveTo(pax->rct.left, loc);
 			pDC->LineTo(pax->rct.left + pax->ytick.size, loc);
+			if (pax->ytick.ticklabel == "hide") continue;
 			if (pax->ytick.format[0]!=0)
 				sprintf(label, pax->ytick.format, value);
 			else
@@ -1415,7 +1417,7 @@ void CPlotDlg::OnMenu(UINT nID)
 			pax->struts["x"].front()->strut["auto"] = CSignals(double(true));
 			pax->struts["y"].front()->strut["auto"] = CSignals(double(true));
 			// tick step size is not changed during left/right stepping
-			if (pax->xtick.tics1.size() < 10)
+			if (pax->xtick.tics1.size() < 3)
 			{
 				pax->xtick.tics1.clear();
 				pax->setxticks();
@@ -1434,6 +1436,10 @@ void CPlotDlg::OnMenu(UINT nID)
 							pax->xtick.tics1.push_back(val);
 						else
 						{
+							// xlim[1] should be appended only if it is not different from the last element of tics1
+							// overcoming the double precision 
+							// Also look at make() in axis.cpp 1/14/2021 
+							if (pax->xlim[1] > pax->xtick.tics1.back() + 1.e-10)
 							pax->xtick.tics1.push_back(pax->xlim[1]);
 							break;
 						}
@@ -1460,8 +1466,13 @@ void CPlotDlg::OnMenu(UINT nID)
 					}
 					auto range2remove = upper_bound(pax->xtick.tics1.begin(), pax->xtick.tics1.end(), pax->xlim[1]);
 					pax->xtick.tics1.erase(range2remove, pax->xtick.tics1.end());
-					pax->xtick.tics1.insert(pax->xtick.tics1.end(), pax->xlim[1]);
+					// xlim[1] should be appended only if it is not different from the last element of tics1
+					// overcoming the double precision 1/14/2021 
+					// Also look at make() in axis.cpp 1/14/2021 
+					if (pax->xlim[1] > pax->xtick.tics1.back()+1.e-10)
+						pax->xtick.tics1.insert(pax->xtick.tics1.end(), pax->xlim[1]);
 				}
+				InvalidateRect(pax->xtick.rt);
 			}
 			pax->struts["x"].front()->strut["tick"] = (CSignals)CSignal(pax->xtick.tics1);
 			sbinfo.xBegin = pax->xlim[0];

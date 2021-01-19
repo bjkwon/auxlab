@@ -45,7 +45,8 @@ public:
 	virtual ~cfigdlg() {};
 	DWORD threadID;
 	HWND hDlg;
-	std::string var;
+	std::string namedvar;
+	std::vector<std::string> varnames;
 	std::string scope;
 	CAstSig *pcast;
 };

@@ -427,16 +427,21 @@ static int _delete_graffy_non_figure(CAstSig *past, const AstNode *pnode, HANDLE
 	case GRAFFY_line:
 		break;
 	}
-	deleteObj(hobj);
-	past->pgo = NULL;
 	if (past->isthisUDFscope(pnode))
-		past->u.rt2validate[GetHWND_PlotDlg(hobj)] = CRect(0, 0, 0, 0);
+	{
+		auto hh = GetHWND_PlotDlg(hobj);
+		//currently hh is NULL, this line not effective
+		if (hh)
+			addRedrawCue(hh, CRect(0, 0, 0, 0));
+	}
 	else
 		InvalidateRect(GetHWND_PlotDlg(hobj), NULL, TRUE);
+	deleteObj(hobj);
+	past->pgo = NULL;
 	return 1;
 }
 
-/*
+/*%
 Investigate 10/3/2020, 10/4/2020
 
 a=[4 3 0 8 .5 6.3]
@@ -636,10 +641,6 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 	cfig->strut["color"].buf[0] = (double)r / 256;
 	cfig->strut["color"].buf[1] = (double)g / 256;
 	cfig->strut["color"].buf[2] = (double)b / 256;
-	cfig->strut["pos"].buf[0] = rt.left;
-	cfig->strut["pos"].buf[1] = rt.top;
-	cfig->strut["pos"].buf[2] = rt.Width();
-	cfig->strut["pos"].buf[3] = rt.Height();
 	past->Sig = *(past->pgo = cfig);
 	addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	//if called by a callback
@@ -686,8 +687,8 @@ GRAPHY_EXPORT void _text(CAstSig* past, const AstNode* pnode, const AstNode* p, 
 		cfig = (CFigure*)past->pgo;
 	}
 
-	ctxt = static_cast<CText *>(AddText(cfig, arg.back().string().c_str(),
-		arg[0].value(), arg[1].value(), 0, 0));
+	ctxt = (CText *)AddText(cfig, arg.back().string().c_str(),
+		arg[0].value(), arg[1].value(), 0, 0);
 	cfig->struts["children"].push_back(ctxt);
 	ctxt->SetValue((double)(INT_PTR)ctxt);
 	cfig->struts.erase("gca");
@@ -1040,6 +1041,9 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 		// xrange must be copied as well (otherwise, it will hang due to uninitialized xrange).
 		memcpy((void*)pax->xrange, ((CAxes*)past->pgo)->xrange, sizeof(double) * 2);
 		past->Sig = *(past->pgo = pax);
+		//HANDLE h = FindFigure(((CAxes*)past->pgo)->hPar);
+		//HWND hh = GetHWND_PlotDlg(h);
+		//InvalidateRect(hh, NULL, 1); // a lazy way. Repaint the whole area. maybe improve later? 1/14/2021
 	}
 	break;
 	case GRAFFY_text:
@@ -1064,8 +1068,10 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 	}
 	break;
 	}
+	// Revise these lines til the end and remove InvalidateRect from GRAFFY_axes 
+	// 1/14/2021
 	if (past->isthisUDFscope(pnode))
-		past->u.rt2validate[cfig->m_dlg->hDlg] = CRect(0, 0, 0, 0);
+		addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));
 	else
 		cfig->m_dlg->InvalidateRect(NULL);
 }

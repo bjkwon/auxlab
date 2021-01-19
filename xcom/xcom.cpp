@@ -128,7 +128,8 @@ static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRec
 	CRect crTemp(0, 0, 500, 400);
 	if (ReadINI (errStr, fname, "WINDOW POS", strRead)>=0 && str2array (tar, 4, strRead.c_str(), " ")==4)
 	{
-		if ((tar[2] + tar[0]) < 0) *rtMain = crTemp;
+		if ((tar[2] + tar[0]) < 0) 
+			*rtMain = crTemp;
 		else
 		{
 			rtMain->left = tar[0];
@@ -278,7 +279,9 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	SetEvent(hE);
 
 	ShowWindow(mHistDlg.hDlg,SW_SHOW);
-	mShowDlg.hList1 = GetDlgItem(mShowDlg.hDlg , IDC_LIST1);
+	// Why is this necessary? 1/17/2021
+	if (GetDlgItem(mShowDlg.hDlg, IDC_LIST1))
+		mShowDlg.lbox1.hwnd = GetDlgItem(mShowDlg.hDlg , IDC_LIST1);
 	HANDLE h = LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0);
 	SetClassLongPtr (mShowDlg.hDlg, GCLP_HICON, (LONG)(LONG_PTR)LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0));
 	mShowDlg.win7 = win7;
@@ -765,6 +768,8 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 	case TYPEBIT_AUDIO + 1:
 	case TYPEBIT_TSEQ + 1:
 	case TYPEBIT_TSEQ + 2:
+	case TYPEBIT_COMPLEX + TYPEBIT_TSEQ + 1:
+	case TYPEBIT_COMPLEX + TYPEBIT_TSEQ + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout << varname << " = " << endl;
 		if (pvar->next) cout << "[L] " << endl;
@@ -1554,7 +1559,7 @@ void ValidateFig(const char* scope)
 	// When a UDF enters debugging, or exits from it, all figure windows are scanned and validated with scope
 	for (auto dlg: plots)
 	{
-		if (dlg->var.find("Figure ") == 0)
+		if (dlg->namedvar.find("Figure ") == 0)
 			continue;
 		HANDLE fig = FindFigure(dlg->hDlg);
 		CFigure *cfig = static_cast<CFigure *>(fig);
@@ -1856,7 +1861,7 @@ void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
 	mainSpace.comid = nHistFromFile;
 }
 
-int initializeAUXLAB3(CAstSig *pcast, char *auxextdllname)
+int initializeAUXLAB3(CAstSig *pcast)
 {
 	char fname[256];
 	string emsg;
@@ -1893,6 +1898,7 @@ int initializeAUXLAB3(CAstSig *pcast, char *auxextdllname)
 	initGraffy(pcast);
 	pcast->astsig_init(&debug_appl_manager, &HoldAtBreakPoint, &dbmapfind, &ShowVariables, &Back2BaseScope, &ValidateFig, &SetGOProperties, &RepaintGO);
 	init_aux_reserves();
+	wavrecInit(mShowDlg.hDlg);
 	return 0;
 }
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
@@ -1915,7 +1921,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	initializeAUXLAB2(pglobalEnv, auxextdllname, fname);
 	CAstSig cast(pglobalEnv);
-	initializeAUXLAB3(&cast, auxextdllname);
+	initializeAUXLAB3(&cast);
 
 	int _fs = cast.Sig.GetFs();
 	DWORD dw;

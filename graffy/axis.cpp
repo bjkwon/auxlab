@@ -527,7 +527,9 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, const
 	strut["pos"].buf[3] = pos.height;
 	struts["x"].front()->strut["fontsize"] = CVar(999.); // ???? where can I find this?
 	struts["x"].front()->strut["tick"] = CVar(CSignals(CSignal(xtick.tics1)));
+	struts["x"].front()->strut["ticklabel"] = CVar(CSignals(CSignal(xtick.ticklabel)));
 	struts["y"].front()->strut["tick"] = CVar(CSignals(CSignal(ytick.tics1)));
+	struts["y"].front()->strut["ticklabel"] = CVar(CSignals(CSignal(ytick.ticklabel)));
 	struts["x"].front()->strut["lim"] = CVar(CSignals(xlim, 2));
 	struts["y"].front()->strut["lim"] = CVar(CSignals(ylim, 2));
 	struts["x"].front()->strut["xyz"] = std::string("x");
@@ -1020,7 +1022,12 @@ static void make(double x1, double x2, uint16_t state, double& div, std::vector<
 		out.push_back(v);
 		v += div;
 	}
-	out.push_back(x2);
+	// sometimes the last element of out is .0000000000000000001 less than x2
+	// due to the precision of "double" in that case x2 should not be appended
+	// (otherwise, prec in DrawTicks() is big (e.g., 17) and mess up the tick labeling)
+	// 01/14/2021
+	if (x2-out.back()>1.e-10)
+		out.push_back(x2);
 }
 
 std::vector<double> value_grid(double x1, double x2, int nReq)
