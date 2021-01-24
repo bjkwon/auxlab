@@ -77,7 +77,24 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 			CVar isig2;
 			if (pnode->child->next)
 			{
-				eval_indexing(pnode->child->next, isig2);
+				if (pnode->child->next->type == T_FULLRANGE)
+				{
+					if (sec.next)
+						throw CAstException(USAGE, *pbase, pnode).proc("LHS is mono; RHS should not be stereo.");
+					if (indsig.value() == 2.)
+					{
+						delete psigBase->next;
+						psigBase->next = new CSignals(sec.GetFs());
+						*(psigBase->next) = sec;
+					}
+					else
+					{
+						*psigBase = sec;
+					}
+					return;
+				}
+				else
+					eval_indexing(pnode->child->next, isig2);
 			}
 			if (pnode->type == N_ARGS || (pnode->next && pnode->next->type == N_CALL))
 			{
@@ -483,12 +500,19 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 { // pnode->type should be N_ARGS
 	CVar tsig, isig;
 	if (!p->child)	throw CAstException(USAGE, *pbase, pnode).proc("A variable index should be provided.");
-	eval_indexing(p->child, isig);
-	if (!(isig.type() & 1)) // has more than one element. 
-		lhsref_single = false;
-	if (isig._max() > pbase->Sig.nSamples)
-		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(),-1);
-	pbase->Sig = extract(pnode, isig);
+	if (p->child->type== T_FULLRANGE)
+	{
+
+	}
+	else
+	{
+		eval_indexing(p->child, isig);
+		if (!(isig.type() & 1)) // has more than one element. 
+			lhsref_single = false;
+		if (isig._max() > pbase->Sig.nSamples)
+			throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
+		pbase->Sig = extract(pnode, isig);
+	}
 	return pbase->Sig;
 }
 

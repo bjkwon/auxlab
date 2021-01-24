@@ -2106,7 +2106,13 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool 
 		}
 	}
 	else if (ptree->type == N_ARGS)
-		np.tree_NARGS(ptree, ppar);
+	{
+		// ptree points to LHS, no need for further processing. Skip
+		// (except that RHS involves .. or a compoud op connects LHS to RHS)
+
+		if (!ppar->child || searchtree(ppar->child->child, T_REPLICA) )
+			np.tree_NARGS(ptree, ppar);
+	}
 	else if (ptree->type == N_TIME_EXTRACT)
 		np.TimeExtract(ptree, ptree->child);
 	else if (ptree->type == T_REPLICA || ptree->type == T_ENDPOINT)
