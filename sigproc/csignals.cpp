@@ -2937,6 +2937,19 @@ CVar& CVar::setcell(unsigned int id, CVar &sec)
 	return *this;
 }
 
+CVar& CVar::bringnext()
+{
+	if (!next) Reset();
+	else
+	{
+		CTimeSeries::Reset();
+		*this <= next; // ghost copy
+		next = NULL;
+	}
+	return *this;
+}
+
+
 CSignals& CSignals::reciprocal(void)
 {
 	CTimeSeries::reciprocal();

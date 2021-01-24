@@ -16,7 +16,7 @@ void CNodeProbe::tree_NARGS(const AstNode* ptree, AstNode* ppar)
 		{ // 2-D style notation for audio
 			if (ptree->child->type == T_FULLRANGE)
 				throw CAstException(USAGE, *pbase, ppar).proc("The first arg in () cannot be : for audio.", ppar->str);
-			psigBase = pbase->getchannel(psigBase, ppar); // special case; x(1,:) or x(2,:)
+			pbase->getchannel(psigBase, ptree, ppar); 
 		}
 		else
 			ExtractByIndex(ppar, (AstNode*)ptree); //Sig updated. No change in psig

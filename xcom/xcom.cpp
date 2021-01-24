@@ -736,9 +736,12 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		break;
 	case TYPEBIT_LOGICAL+1:
 	case TYPEBIT_LOGICAL+2:
+	case TYPEBIT_STRUT + TYPEBIT_LOGICAL + 1:
+	case TYPEBIT_STRUT + TYPEBIT_LOGICAL + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout <<  varname << " = ";
 		printf_vector(pvar, offset, postscript);
+//		echo_strut(pvar, offset, varname, postscript);
 		break;
 	case 1: //CSIG_SCALAR:
 	case TYPEBIT_COMPLEX + 1:
@@ -840,33 +843,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		passingdown = true;
 	case TYPEBIT_STRUT:
 	case TYPEBIT_STRUT + TYPEBIT_STRUTS:
-	{
-		if (!passingdown)
-		{
-			if (pvar->nSamples > 0)
-				echo(varname, pvar, offset, postscript);
-			cout << varname << " [Structure]" << endl;
-		}
-		for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
-		{
-			ostringstream var0;
-			var0 << '.' << it->first;
-			echo(var0.str().c_str(), &it->second, offset);
-		}
-		for (map<string, vector<CVar*>>::iterator it = pvar->struts.begin(); it != pvar->struts.end(); it++)
-		{
-			ostringstream var0;
-			var0 << '.' << it->first;
-			if ((*it).second.empty())
-				echo(var0.str().c_str(), &CVar());
-			else
-			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end() && j < 10; jt++)
-			{
-				if (!CAstSig::HandleSig(&temp, *jt)) temp.SetString("(internal error)");
-				echo(var0.str().c_str(), &temp, offset, " [Handle]");
-			}
-		}
-	}
+		echo_strut(pvar, offset, varname, postscript);
 		break;
 	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
 		for (unsigned int k = 0; k < pvar->nSamples; k++)
@@ -878,6 +855,36 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		break;
 	default:
 		break;
+	}
+}
+void xcom::echo_strut(CVar* pvar, int offset, const char* varname, const char* postscript)
+{
+	unsigned int j = 1;
+	CVar temp;
+	if (varname)
+	{
+		if (pvar->nSamples > 0)
+			echo(varname, pvar, offset, postscript);
+		cout << varname << " [Structure]" << endl;
+	}
+	for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
+	{
+		ostringstream var0;
+		var0 << '.' << it->first;
+		echo(var0.str().c_str(), &it->second, offset);
+	}
+	for (map<string, vector<CVar*>>::iterator it = pvar->struts.begin(); it != pvar->struts.end(); it++)
+	{
+		ostringstream var0;
+		var0 << '.' << it->first;
+		if ((*it).second.empty())
+			echo(var0.str().c_str(), &CVar());
+		else
+			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end() && j < 10; jt++)
+			{
+				if (!CAstSig::HandleSig(&temp, *jt)) temp.SetString("(internal error)");
+				echo(var0.str().c_str(), &temp, offset, " [Handle]");
+			}
 	}
 }
 
@@ -1905,6 +1912,14 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 {
 	char buf[256], auxextdllname[256], fname[256];
 	CAstSigEnv *pglobalEnv = initializeAUXLAB(auxextdllname, fname);
+
+	//int16_t freq = 1000;
+	//uint16_t sampling_rate = 48000;
+	//float pi = 3.14159265358979323846f;
+	//float factor = 2.0f * cosf(2.0f * pi * freq / sampling_rate);
+	//		
+	//double pid = 3.14159265358979323846f;
+	//double factord = 2.0 * cos(2.0 * pid * freq / sampling_rate);
 
 	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
 		::MessageBox(NULL, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);

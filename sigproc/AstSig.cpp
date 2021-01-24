@@ -2029,26 +2029,49 @@ inline void CAstSig::throw_LHS_lvalue(const AstNode *pn, bool udf)
 	throw CAstException(USAGE, *this, pn).proc(out.str().c_str());
 }
 
-CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode)
+CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode, const AstNode* ppar)
 {
-	if (pnode->child->next->type != T_FULLRANGE)
-		throw CAstException(USAGE, *this, pnode).proc("2-D style extraction of audio signal not implemented yet.");
+	// 2-D indexing for audio, the first arg must be scalar 1 or two.
+	// Don't call eval_indexing(). Just Compute();
 	CVar tsig = Compute(pnode->child);
-	checkScalar(pnode, tsig, "first arg should be either 1 or 2.");
-	if (tsig.value() == 2.)
-	{
-		if (!pin->next)
-			Sig.Reset(1);
-		else
-			Sig = *pin->next;
-	}
-	else if (tsig.value() == 1.)
-	{
-		delete Sig.next;
-		Sig.next = NULL;
+	checkScalar(pnode, tsig, "First arg should be integer.");
+	if (tsig.value()!=1. && tsig.value()!=2.)
+		throw CAstException(USAGE, *this, pnode).proc("First arg should be either 1 (left chan) or 2 (right chan).");
+	// pnode->child->next shouldn't be NULL to come here.
+	if (!pin->next && tsig.value() == 2.)
+		throw CAstException(USAGE, *this, pnode).proc("2nd chan referenced in a mono audio.");
+	CNodeProbe np(this, (AstNode*)pnode, pin);
+	CVar isig;
+	if (pnode->child->next->type == T_FULLRANGE)
+	{ // T_FULLRANGE is treated separately, avoiding all the indexing handling
+		if (tsig.value() == 1.) // left channel
+		{
+			Sig <= pin; // ghost copying 
+			delete Sig.next;
+			Sig.next = NULL;
+		}
+		else // right channel
+		{
+			// pin->bringnext(); somewhere???
+			Sig <= (CSignals*)((pin->next));
+		}
 	}
 	else
-		throw CAstException(USAGE, *this, pnode).proc("x(1,:) for left, x(2,:) for right");
+	{
+		if (tsig.value() == 1.) // left channel
+		{
+			np.eval_indexing(pnode->child->next, isig);
+			Sig = np.extract(ppar, isig);
+		}
+		else
+		{
+			CVar temp;
+			temp <= (CSignals*)((pin->next));
+			np.psigBase = &temp;
+			np.eval_indexing(pnode->child->next, isig);
+			Sig = np.extract(ppar, isig);
+		}
+	}
 	return &Sig;
 }
 
@@ -2265,7 +2288,7 @@ void CAstSig::bind_psig(AstNode *pn, CVar *psig)
 			CNodeProbe ndprob(this, pn, NULL);
 			// ndprob.psigBase should be prepared to do indexing
 			AstNode *lhs_now = read_nodes(ndprob, true); 
-			ndprob.TID_indexing(pn->alt, NULL, psig);
+			ndprob.TID_indexing(pn, pn->alt, NULL, psig);
 		}
 		else if (pn->alt->type == N_TIME_EXTRACT)
 		{

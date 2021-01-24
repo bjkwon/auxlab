@@ -2,6 +2,7 @@
 
 // DOCUMENT initPhase --- 1 coresponds to PI (180 degrees)
 // If you want to make 1 corresponding to 360 degrees.... go ahead, change and document it 12/10/2020
+// CHECK!!!!!!!!!!!!!!! 1/22/2021
 static inline void __tone(double *buf, double freq, unsigned int length, int fs, double initPhase)
 {
 	auto k = (unsigned int)0;
@@ -68,8 +69,6 @@ void _tone(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 		__tone_glide(past->Sig.buf, freq.buf[0], freq.buf[1], nSamplesNeeded, past->Sig.GetFs());
 	}
 }
-
-// TEST TOMORROW!!!!!!!!! 12/6/2020... 12/10/2020
 
 void _fm(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {

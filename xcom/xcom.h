@@ -77,6 +77,8 @@ public:
 	int cleanup_debug();
 	void echo(const char *var, CVar *pvar, int offset = 1, const char *postscript = "");
 	void echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar=NULL);
+	void xcom::echo_strut(CVar* pvar, int offset, const char* varname = NULL, const char *postscript = NULL);
+
 	int load_axl(FILE *fp, char *errstr);
 
 	size_t ctrlshiftright(const char *buf, DWORD offset);

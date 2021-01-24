@@ -72,10 +72,16 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 		//		or cell index for cell LHS,  for example, T_NUMBER for cc{3}
 		unsigned int id1, id2;
 		AstNode *repl_RHS = pbase->searchtree(pnode->child, T_REPLICA);
-		if (psigBase->GetType() == CSIG_AUDIO)
+		if (psigBase->type() & TYPEBIT_TEMPORAL)
 		{
+			CVar isig2;
+			if (pnode->child->next)
+			{
+				eval_indexing(pnode->child->next, isig2);
+			}
 			if (pnode->type == N_ARGS || (pnode->next && pnode->next->type == N_CALL))
 			{
+				CVar* pid = pnode->child->next ? &isig2 : &indsig;
 				// CAstSig::replace(const AstNode *pnode, CTimeSeries *pobj, body &sec, int id1, int id2)
 				// actually works efficiently (without blindly adding to the buffer) when there's no change in nSamples
 				// so I'm not doing if (repl_RHS) here.
@@ -83,45 +89,56 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 				// so I'm not getting rid of it below. 
 				// Buf probably I really need to check logical cases instead!!!
 				// 11/7/2019
-				if (indsig.IsLogical()) // s(conditional_var)
+				if (pid->IsLogical()) // s(conditional_var)
 				{
-					for (CTimeSeries *p = &sec; p; p = p->chain)
+					for (CTimeSeries* p = &sec; p; p = p->chain)
 					{
-						int id((int)(p->tmark*sec.GetFs() / 1000 + .5));
+						int id((int)(p->tmark * sec.GetFs() / 1000 + .5));
 						for (unsigned int k = 0; k < p->nSamples; k++)
-							if (indsig.logbuf[id + k])
+							if (pid->logbuf[id + k])
 								psigBase->buf[id + k] = p->buf[(int)k];
 					}
 				}
 				else // s(id1:id2) or cel{n}(id1:id2)
 				{ // x(1200:1201) = zeros(111) FAILED HERE	on memcpy line.... that's wrong. 1/20/2018
 					// this must be contiguous
-					if (!pbase->isContiguous(indsig, id1, id2))
+					if (!pbase->isContiguous(*pid, id1, id2))
 					{
 						if (sec.IsEmpty())
 							throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, RHS cannot be empty.");
 						if (sec.nSamples != 1 && sec.nSamples != indsig.nSamples)
 							throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, the length of RHS and LHS must match.");
 						vector<unsigned int> ids;
-						ids.resize(indsig.nSamples);
+						ids.resize(pid->nSamples);
 						unsigned int k = 0;
-						for_each(ids.begin(), ids.end(), [indsig, &k](unsigned int& v) { v = (unsigned int)indsig.buf[k++] - 1; });
+						if (pnode->child->next)
+							for_each(ids.begin(), ids.end(), [isig2, &k](unsigned int& v) { v = (unsigned int)isig2.buf[k++] - 1; });
+						else
+							for_each(ids.begin(), ids.end(), [indsig, &k](unsigned int& v) { v = (unsigned int)indsig.buf[k++] - 1; });
 						psigBase->replacebyindex(ids, sec);
 					}
 					else
 					{
-						psigBase->replacebyindex(id1 - 1, id2 - id1 + 1, sec);
+						if (pnode->child->next)
+						{
+							if (indsig.value()==2.)
+								psigBase->next->replacebyindex(id1 - 1, id2 - id1 + 1, sec);
+							else
+								psigBase->replacebyindex(id1 - 1, id2 - id1 + 1, sec);
+						}
+						else
+							psigBase->replacebyindex(id1 - 1, id2 - id1 + 1, sec);
 					}
 				}
 			}
 			else if (!pnode->next && !pnode->str) // if s(conditional) is on the LHS, the RHS must be either a scalar, or the replica, i.e., s(conditional)
 			{
-				if (!repl_RHS && !indsig.IsLogical()) 
-					throw CAstException(INTERNAL,*pbase, pnode).proc("insertreplace()--s(conditional?)");
+				if (!repl_RHS && !indsig.IsLogical())
+					throw CAstException(INTERNAL, *pbase, pnode).proc("insertreplace()--s(conditional?)");
 				if (sec.IsScalar())
 				{
 					double val = sec.value();
-					for (CTimeSeries *piece(psigBase), *index(&indsig); piece; piece = piece->chain, index = index->chain)
+					for (CTimeSeries* piece(psigBase), *index(&indsig); piece; piece = piece->chain, index = index->chain)
 					{
 						for (unsigned int k = 0; k < index->nSamples; k++)
 							if (index->logbuf[k]) piece->buf[k] = val;
@@ -129,9 +146,9 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 				}
 				else
 				{ // RHS is conditional (can be replica)
-				  // At this point no need to worry about replacing null with non-null (i.e., signal is always non-null in the signal portions of sec. 
-				  //   4/13/2017
-					for (CTimeSeries *p = &sec; p; p = p->chain)
+					// At this point no need to worry about replacing null with non-null (i.e., signal is always non-null in the signal portions of sec. 
+					//   4/13/2017
+					for (CTimeSeries* p = &sec; p; p = p->chain)
 					{
 						int id = (int)(p->tmark * pbase->GetFs() / 1000 + .5);
 						for (unsigned int k = 0; k < p->nSamples; k++)
@@ -139,15 +156,15 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 					}
 				}
 			}
-			else if ( (p->alt && p->alt->type == N_TIME_EXTRACT) || // x{id}(t1~t2) = ...sqrt
+			else if ((p->alt && p->alt->type == N_TIME_EXTRACT) || // x{id}(t1~t2) = ...sqrt
 				p->type == N_TIME_EXTRACT || (p->next && p->next->type == N_IDLIST))  // s(repl_RHS1~repl_RHS2)   or  cel{n}(repl_RHS1~repl_RHS2)
 			{
 				if (repl_RHS) //direct update of buf
 				{
 					id1 = (unsigned int)round(indsig.buf[0] * psigBase->GetFs() / 1000.);
-					memcpy(psigBase->logbuf + id1 * psigBase->bufBlockSize, sec.buf, sec.nSamples*sec.bufBlockSize);
+					memcpy(psigBase->logbuf + id1 * psigBase->bufBlockSize, sec.buf, sec.nSamples * sec.bufBlockSize);
 					if (psigBase->next)
-						memcpy(psigBase->next->logbuf + id1 * psigBase->bufBlockSize, sec.next->buf, sec.nSamples*sec.bufBlockSize);
+						memcpy(psigBase->next->logbuf + id1 * psigBase->bufBlockSize, sec.next->buf, sec.nSamples * sec.bufBlockSize);
 				}
 				else
 					psigBase->ReplaceBetweenTPs(sec, indsig.buf[0], indsig.buf[1]);
@@ -208,11 +225,21 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 	}
 }
 
-CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_indexing(const AstNode* pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
 {
 	CVar isig, isigGhost;
 	CVar *tsig = NULL;
-	eval_indexing(pLHS->child, isig);
+	if (psig->type() & TYPEBIT_TEMPORAL && pLHS->child->next)
+	{
+		// 2-D indexing for audio, the first arg must be scalar 1 or two
+		// Don't call eval_indexing(). Just Compute();
+		isig = pbase->Compute(pLHS->child);
+		pbase->checkScalar(pnode, isig, "First arg should be integer.");
+		if (isig.value() != 1. && isig.value() != 2.)
+			throw CAstException(USAGE, *pbase, pnode).proc("First arg should be either 1 (left chan) or 2 (right chan).");
+	}
+	else
+		eval_indexing(pLHS->child, isig);
 	if (pRHS)
 	{
 		tsig = pbase->Compute(pRHS);
@@ -224,17 +251,6 @@ CVar * CNodeProbe::TID_indexing(AstNode *pLHS, AstNode *pRHS, CVar *psig)
 			return psigBase;
 		}
 		insertreplace(pLHS, *tsig, isig);
-
-
-		//This is where elements of an existing array are changed, updated or replaced by indices.
-		//if tsig is chained, call insertreplace for each chain with a moving ghost of isig
-		//isigGhost <= isig;
-		//for (CVar *p = tsig; p; p = (CVar*)p->chain)
-		//{
-		//	int lastIndex = isigGhost.nSamples = p->nSamples;
-		//	insertreplace(pLHS, *p, isigGhost);
-		//	isigGhost.buf += lastIndex;
-		//}
 	}
 	else
 		insertreplace(pLHS, *psig, isig);
@@ -265,7 +281,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 		}
 		else if (p->alt->type == N_ARGS) // regular indexing
 		{
-			TID_indexing(p->alt, pRHS, psig);
+			TID_indexing(pnode, p->alt, pRHS, psig);
 			if (pbase->pgo)
 			{ // need to get the member name right before N_ARGS
 				if (p->alt->type==N_ARGS)
@@ -465,8 +481,7 @@ CNodeProbe::CNodeProbe(CAstSig *past, AstNode *pnode, CVar *psig)
 
 CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 { // pnode->type should be N_ARGS
-	ostringstream ostream;
-	CVar tsig, isig, isig2;
+	CVar tsig, isig;
 	if (!p->child)	throw CAstException(USAGE, *pbase, pnode).proc("A variable index should be provided.");
 	eval_indexing(p->child, isig);
 	if (!(isig.type() & 1)) // has more than one element. 
@@ -659,9 +674,11 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 				tp.endpoint = (double)psigBase->Len();
 				isig2 = tp.Compute(p);
 			}
+			auto mx = isig2._max();
+			auto nx = psigBase->Len();
 			if (isig2.IsLogical()) pbase->index_array_satisfying_condition(isig2);
 			else if (isig2._max() > (double)psigBase->Len())
-				throw CAstException(RANGE, pbase, pInd).proc("2nd index ", "", (int)isig2._max());
+				throw CAstException(RANGE, pbase, pInd).proc("2nd index ", "", psigBase->Len(), (int)isig2._max());
 			pbase->interweave_indices(isig, isig2, psigBase->Len());
 		}
 	}
@@ -742,7 +759,7 @@ CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 	switch (pLHS->type)
 	{
 	case N_ARGS:
-		TID_indexing(pLHS, pRHS, psig);
+		TID_indexing(pnode, pLHS, pRHS, psig);
 		if (pbase->pgo)
 		{ // need to get the member name right before N_ARGS
 			auto pp = pbase->findParentNode(pnode, pLHS, true);

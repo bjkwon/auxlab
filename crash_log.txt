@@ -1,0 +1,24 @@
+10:44 AM 1/23/2021
+dd4278a42abb6c6263d1f66a25966c44109eef3d
+
+1. Crash
+
+tone(400,400).hann
+press ENTER on "ans"
+x=1;y=1
+
+Crashes in ShowWS_CommandPrompt()--OnVarChanged()
+
+1-1 Crash
+When a named fig is displayed (it doesn't have to be "ans")
+x=1;y=1;
+==> This will crash
+
+2. Bug
+
+a=noise(10);b=tone(500,10);c=[a;b]
+tone(400,400).hann
+press ENTER on "ans"
+c.left
+Then the "ans" figure does not update
+
