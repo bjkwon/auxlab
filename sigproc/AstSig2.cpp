@@ -123,8 +123,8 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 					{
 						if (sec.IsEmpty())
 							throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, RHS cannot be empty.");
-						if (sec.nSamples != 1 && sec.nSamples != indsig.nSamples)
-							throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, the length of RHS and LHS must match.");
+					//	if (sec.nSamples != 1 && sec.nSamples != indsig.nSamples)
+					//		throw CAstException(USAGE, *pbase, pnode).proc("For non-consecutive indexing, the length of RHS and LHS must match.");
 						vector<unsigned int> ids;
 						ids.resize(pid->nSamples);
 						unsigned int k = 0;
@@ -132,7 +132,17 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 							for_each(ids.begin(), ids.end(), [isig2, &k](unsigned int& v) { v = (unsigned int)isig2.buf[k++] - 1; });
 						else
 							for_each(ids.begin(), ids.end(), [indsig, &k](unsigned int& v) { v = (unsigned int)indsig.buf[k++] - 1; });
-						psigBase->replacebyindex(ids, sec);
+						if (sec.type() & 1) // scalar
+							psigBase->replacebyindex(ids.begin(), ids.end(), sec);
+						else
+						{
+							CTimeSeries* pchain = &sec;
+							for (auto itBegin = ids.begin(); pchain; pchain = pchain->chain)
+							{
+								psigBase->replacebyindex(itBegin, itBegin + pchain->nSamples, *pchain);
+								itBegin += pchain->nSamples;
+							}
+						}
 					}
 					else
 					{
@@ -218,12 +228,7 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 			{
 				if (contig)
 				{
-					auto _id1 = (unsigned int)indsig.buf[0];
-					if (_id1 > psigBase->nSamples+1)
-						throw CAstException(RANGE, *pbase, pnode).proc("LHS invalid indexing", "", _id1, -1);
-//					pbase->checkindexrange(pnode, psigBase, _id1, );
-					auto _id2 = min(_id1, (unsigned int)indsig.buf[indsig.nSamples - 1]);
-					psigBase->replacebyindex(_id1 - 1, _id2 - _id1 + 1, sec);
+					psigBase->replacebyindex(id1 - 1, id2 - id1 + 1, sec);
 				}
 				else
 				{
@@ -235,7 +240,7 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 					ids.resize(indsig.nSamples);
 					unsigned int k = 0;
 					for_each(ids.begin(), ids.end(), [indsig, &k](unsigned int& v) { v = (unsigned int)indsig.buf[k++] - 1; });
-					psigBase->replacebyindex(ids, sec);
+					psigBase->replacebyindex(ids.begin(), ids.end(), sec);
 				}
 			}
 		}
@@ -500,9 +505,9 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 { // pnode->type should be N_ARGS
 	CVar tsig, isig;
 	if (!p->child)	throw CAstException(USAGE, *pbase, pnode).proc("A variable index should be provided.");
-	if (p->child->type== T_FULLRANGE)
+	if (p->child->type == T_FULLRANGE && (pbase->Sig.type() & TYPEBIT_TEMPORAL))
 	{
-
+		// nothing 
 	}
 	else
 	{

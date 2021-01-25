@@ -22,3 +22,11 @@ press ENTER on "ans"
 c.left
 Then the "ans" figure does not update
 
+================================================================
+9:45 PM 1/24/2021
+69e6a1d6a7b9c4d9b236dab9cfa11688fcfdeff5
+
+x=[2 1 0 8 10]
+str="bk",ff=sqrt(2); x.max
+
+Crash in _minmax()

@@ -763,40 +763,28 @@ If not consecutive, RHS must have the same length as LHS.
 11/28/2020
 */
 
-body& body::replacebyindex(const vector<unsigned int>& ind, const body & RHS)
+body& body::replacebyindex(vector<unsigned int>::iterator idBegin, vector<unsigned int>::iterator idEnd, const body & RHS)
 { // non-consecutive
-	// ASSUME: 1) [HARD REQUIREMENT] RHS.length == ind.size
-	// 2) [SOFT REQUIREMENT] all values in ind must be in the range of this buf. Otherwise, no effect
-	unsigned int k = 0;
+	// ASSUME: 1) ind.size -- RHS.length; or RHS is scalar
+	// 2) all values in ind must be in the range of this buf
 	if (RHS.nSamples == 1)
 	{
-		for (auto id : ind)
-		{
-			if (id < nSamples)
-			{
-				if (bufBlockSize == 1)
-					logbuf[id] = RHS.logbuf[0];
-				else if (bufBlockSize == 8)
-					buf[id] = RHS.buf[0];
-				else if (bufBlockSize == 16)
-					cbuf[id] = RHS.cbuf[0];
-			}
-		}
+		if (bufBlockSize == 1)
+			for (auto it = idBegin; it!=idEnd; it++) logbuf[*it] = RHS.logbuf[0];
+		else if (bufBlockSize == 8)
+			for (auto it = idBegin; it!=idEnd; it++) buf[*it] = RHS.buf[0];
+		else // if (bufBlockSize == 16)
+			for (auto it = idBegin; it!=idEnd; it++) cbuf[*it] = RHS.cbuf[0];
 	}
 	else
 	{
-		for (auto id : ind)
-		{
-			if (id < nSamples)
-			{
-				if (bufBlockSize == 1)
-					logbuf[id] = RHS.logbuf[k++];
-				else if (bufBlockSize == 8)
-					buf[id] = RHS.buf[k++];
-				else if (bufBlockSize == 16)
-					cbuf[id] = RHS.cbuf[k++];
-			}
-		}
+		unsigned int k = 0;
+		if (bufBlockSize == 1)
+			for (auto it = idBegin; it!=idEnd; it++) logbuf[*it] = RHS.logbuf[k++];
+		else if (bufBlockSize == 8)
+			for (auto it = idBegin; it!=idEnd; it++) buf[*it] = RHS.buf[k++];
+		else // if (bufBlockSize == 16)
+			for (auto it = idBegin; it!=idEnd; it++) cbuf[*it] = RHS.cbuf[k++];
 	}
 	return *this;
 }

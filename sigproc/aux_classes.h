@@ -128,7 +128,7 @@ public:
 	body& MakeLogical();
 	body& LogOp(body &rhs, int type);
 	body &insert(body &sec, int id);
-	body& replacebyindex(const vector<unsigned int>& ind, const body& RHS);
+	body& replacebyindex(vector<unsigned int>::iterator idBegin, vector<unsigned int>::iterator idEnd, const body& RHS);
 	body& replacebyindex(unsigned int id0, unsigned int len, const body& RHS);
 
 	body & interp1(body &that, body &qp);
