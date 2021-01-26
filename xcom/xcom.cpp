@@ -230,8 +230,15 @@ unsigned int WINAPI histThread (PVOID var)
 
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
+	auto screensize = GetScreenSize();
 	if (res & 4)
+	{
+		if (rt3.left > screensize.cx)
+			rt3.MoveToX(0);
+		if (rt3.top > screensize.cy)
+			rt3.MoveToY(450);
 		mHistDlg.MoveWindow(rt3);
+	}
 	else
 	{
 		CRect rcConsole(30, 450, 700, 900);
@@ -286,11 +293,18 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	SetClassLongPtr (mShowDlg.hDlg, GCLP_HICON, (LONG)(LONG_PTR)LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0));
 	mShowDlg.win7 = win7;
 
+	auto screensize = GetScreenSize();
 	RECT rc;
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
 	if (res & 2)
+	{
+		if (rt2.left > screensize.cx)
+			rt2.MoveToX(50);
+		if (rt2.top > screensize.cy)
+			rt2.MoveToY(150);
 		mShowDlg.MoveWindow(rt2);
+	}
 	else
 	{
 		CRect rcConsole(30, 450, 700, 900);
@@ -1913,14 +1927,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	char buf[256], auxextdllname[256], fname[256];
 	CAstSigEnv *pglobalEnv = initializeAUXLAB(auxextdllname, fname);
 
-	//int16_t freq = 1000;
-	//uint16_t sampling_rate = 48000;
-	//float pi = 3.14159265358979323846f;
-	//float factor = 2.0f * cosf(2.0f * pi * freq / sampling_rate);
-	//		
-	//double pid = 3.14159265358979323846f;
-	//double factord = 2.0 * cos(2.0 * pid * freq / sampling_rate);
-
 	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
 		::MessageBox(NULL, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
 	if ((hHistoryThread = _beginthreadex(NULL, 0, histThread, (void*)mainSpace.AppPath, 0, NULL)) == -1)
@@ -1947,9 +1953,16 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
+	auto screensize = GetScreenSize();
 	HWND hr2 = GetConsoleWindow();
 	if (res & 1)
+	{
+		if (rt1.left > screensize.cx)
+			rt1.MoveToX(400);
+		if (rt1.top > screensize.cy)
+			rt1.MoveToY(100);
 		MoveWindow(hr2, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
+	}
 	HMENU hMenu = GetSystemMenu(hr2, FALSE);
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	AppendMenu(hMenu, MF_STRING, 1010, "F1 does not work here. Use it in \"Settings & Variables\"");
@@ -1960,7 +1973,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	vector<string> in;
 	in.push_back(buf);
 	mainSpace.LogHistory(in);
-
 
 	CONSOLE_CURSOR_INFO concurinf;
 

@@ -19,6 +19,7 @@
 #include "audstr.h"
 #include "Objbase.h"
 #include "Shobjidl.h"
+#include "utils.h"
 
 #ifndef SIGPROC
 #include "sigproc.h"
@@ -115,13 +116,20 @@ BOOL CALLBACK debugDlgProc (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	return TRUE;
 }
 
-
 unsigned int WINAPI debugThread2 (PVOID var) 
 {
 	int res;
 	CRect *prt = (CRect *)var;
 	HWND hBase = CreateDialogParam (GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_DEBUG2), mShowDlg.hDlg, (DLGPROC)DebugBaseProc, (LPARAM)&debugBase);
-	if (prt)	res=debugBase.MoveWindow(*prt);
+	if (prt) 
+	{
+		auto screensize = GetScreenSize();
+		if (prt->left > screensize.cx)
+			prt->MoveToX(50);
+		if (prt->top > screensize.cy)
+			prt->MoveToY(150);
+		res = debugBase.MoveWindow(*prt);
+	}
 
 	MSG         msg ;
 	HACCEL hAccDebug = LoadAccelerators (GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_ACCEL_DEBUG));
@@ -135,7 +143,6 @@ unsigned int WINAPI debugThread2 (PVOID var)
 			{
 				fullfname[0] = fname[0] = 0;
 				fileDlg2.FileOpenDlg(fullfname, fname, "AUX UDF file (*.AUX)\0*.aux\0", "aux");
-		//		debugBase.FileOpen(fullfname);
 			}
 			else
 				strcpy(fullfname, (char*)msg.wParam);
