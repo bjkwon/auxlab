@@ -2110,8 +2110,19 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool 
 		// ptree points to LHS, no need for further processing. Skip
 		// (except that RHS involves .. or a compoud op connects LHS to RHS)
 
+		// Here, ppar->child is assumed to be RHS. That is valid only if ppar is the initial ptree
+		// Need something else to indicate RHS for cases like ax(1).pos(4) = .3
+		// once it goes down to ax(1), then the assumption that ppar->child is RHS is not true...
+		// In other words, currently, in ax(1).pos(4) = .3, the LHS is processed twice (not skipped before TID_RHS2LHS)
+		// 1/25/2021
 		if (!ppar->child || searchtree(ppar->child, T_REPLICA) )
 			np.tree_NARGS(ptree, ppar);
+		// BUT, for LHS is ax(1).pos(4) = .3, ax(1).pos should be processed before calling TID_RHS2LHS
+		// i.e., you can skip only if ptree->alt is NULL
+		else if (ptree->alt)
+			np.tree_NARGS(ptree, ppar);
+		else
+			return NULL;
 	}
 	else if (ptree->type == N_TIME_EXTRACT)
 		np.TimeExtract(ptree, ptree->child);

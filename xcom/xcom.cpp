@@ -857,7 +857,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		passingdown = true;
 	case TYPEBIT_STRUT:
 	case TYPEBIT_STRUT + TYPEBIT_STRUTS:
-		echo_strut(pvar, offset, varname, postscript);
+		echo_strut(pvar, offset, varname, postscript, passingdown);
 		break;
 	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
 		for (unsigned int k = 0; k < pvar->nSamples; k++)
@@ -871,11 +871,11 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		break;
 	}
 }
-void xcom::echo_strut(CVar* pvar, int offset, const char* varname, const char* postscript)
+void xcom::echo_strut(CVar* pvar, int offset, const char* varname, const char* postscript, bool passingdown)
 {
 	unsigned int j = 1;
 	CVar temp;
-	if (varname)
+	if (varname && !passingdown)
 	{
 		if (pvar->nSamples > 0)
 			echo(varname, pvar, offset, postscript);

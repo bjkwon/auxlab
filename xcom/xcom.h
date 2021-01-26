@@ -77,7 +77,7 @@ public:
 	int cleanup_debug();
 	void echo(const char *var, CVar *pvar, int offset = 1, const char *postscript = "");
 	void echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar=NULL);
-	void xcom::echo_strut(CVar* pvar, int offset, const char* varname = NULL, const char *postscript = NULL);
+	void xcom::echo_strut(CVar* pvar, int offset, const char* varname = NULL, const char *postscript = NULL, bool passingdown = false);
 
 	int load_axl(FILE *fp, char *errstr);
 
