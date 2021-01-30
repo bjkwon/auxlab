@@ -2075,7 +2075,7 @@ CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode, const AstNode* ppar)
 	return &Sig;
 }
 
-AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool &RHSpresent)
+AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool& RHSpresent)
 {
 	if (ptree->type == T_OP_CONCAT || ptree->type == '+' || ptree->type == '-' || ptree->type == T_TRANSPOSE || ptree->type == T_MATRIXMULT
 		|| ptree->type == '*' || ptree->type == '/' || ptree->type == T_OP_SHIFT || ptree->type == T_NEGATIVE || (ptree==np.root && IsConditional(ptree)))
@@ -2091,12 +2091,13 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool 
 	if (ptree->type == T_ID || ptree->type == N_STRUCT)
 	{
 		if (ptree->str[0] == '?' && this==xscope.front())
-			throw CAstException(USAGE, *this, ptree).proc("The caracter '?' cannot be used as a function or variable name in the base workspace.", ptree->str);
+			throw CAstException(USAGE, *this, ptree).proc("The character '?' cannot be used as a function or variable name in the base workspace.", ptree->str);
 	}
 	if (!emsg.empty())	throw CAstException(USAGE, *this, ptree).proc(emsg.c_str());
 	if (builtin_func_call(np, ptree))
 	{
-		if (ptree->child || RHSpresent)	throw_LHS_lvalue(ptree, false);
+		// In a top-level assignment e.g., a = 1; RHSpresent is not yet set, ptree->child should be checked instead
+		if (RHSpresent || ptree->child )	throw_LHS_lvalue(ptree, false);
 		np.psigBase = &Sig;
 		// if a function call follows N_ARGS, skip it for next_parsible_node
 		if (ptree->alt)
@@ -2108,18 +2109,8 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool 
 	else if (ptree->type == N_ARGS)
 	{
 		// ptree points to LHS, no need for further processing. Skip
-		// (except that RHS involves .. or a compoud op connects LHS to RHS)
-
-		// Here, ppar->child is assumed to be RHS. That is valid only if ppar is the initial ptree
-		// Need something else to indicate RHS for cases like ax(1).pos(4) = .3
-		// once it goes down to ax(1), then the assumption that ppar->child is RHS is not true...
-		// In other words, currently, in ax(1).pos(4) = .3, the LHS is processed twice (not skipped before TID_RHS2LHS)
-		// 1/25/2021
-		if (!ppar->child || searchtree(ppar->child, T_REPLICA) )
-			np.tree_NARGS(ptree, ppar);
-		// BUT, for LHS is ax(1).pos(4) = .3, ax(1).pos should be processed before calling TID_RHS2LHS
-		// i.e., you can skip only if ptree->alt is NULL
-		else if (ptree->alt)
+		// (except that RHS involves T_REPLICA (.. or a compoud op)
+		if (!RHSpresent || searchtree(np.root->child, T_REPLICA) || ptree->alt)
 			np.tree_NARGS(ptree, ppar);
 		else
 			return NULL;
@@ -2157,7 +2148,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool 
 		if (RHSpresent && !searchtree(np.root->child, T_REPLICA))
 		{
 			if (ptree->type == N_VECTOR && ptree->alt) throw_LHS_lvalue(ptree, false);
-			if (ptree->alt == nullptr) return nullptr;
+			if (ptree->alt == nullptr) return nullptr; // a.prop.more = (something) --> when ptree points to more, read_node() returns null (done with LHS) and proceed to RHS
 		}
 		if (IsConditional(ptree))
 		{
@@ -2192,6 +2183,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool 
 				}
 				else
 				{
+					if (RHSpresent) return nullptr; // a new variable or struct member being defined
 					if (emsg.empty())
 					{
 						string varname;
@@ -2305,7 +2297,7 @@ void CAstSig::bind_psig(AstNode *pn, CVar *psig)
 			CNodeProbe ndprob(this, pn, NULL);
 			// ndprob.psigBase should be prepared to do indexing
 			AstNode *lhs_now = read_nodes(ndprob, true); 
-			ndprob.TID_indexing(pn, pn->alt, NULL, psig);
+			ndprob.TID_indexing(pn, pn->alt, NULL);
 		}
 		else if (pn->alt->type == N_TIME_EXTRACT)
 		{
@@ -2368,7 +2360,7 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 			Script = pnode->str;
 			Script += np.varname;
 		}
-		pres = np.TID_RHS2LHS(pnode, pLast, pRHS, np.psigBase);
+		pres = np.TID_RHS2LHS(pnode, pLast, pRHS);
 		lhs = lhsCopy;
 		if (np.psigBase)
 			Script = np.varname;

@@ -147,12 +147,12 @@ CAstException &CAstException::proc(const char * _basemsg, const char * varname, 
 	if (strlen(varname) > 0)
 		msgonly += (tidstr = varname);
 	arrayindex = indexSpecified;
-//	cellindex = indexSpecifiedCell;
+	cellindex = indexSpecifiedCell;
 	ostringstream oss;
 	if (cellindex >= 0) // if cell index is invalid, it doesn't check indexSpecified
-		oss << msgonly << " cell index " << cellindex << " out of range.";
+		oss << "Out of range : " << msgonly << " cell index " << cellindex;
 	else
-		oss << msgonly << " index " << indexSpecified << " out of range.";
+		oss << "Out of range : " << msgonly << " index " << indexSpecified;
 	msgonly = oss.str().c_str();
 	addLineCol();
 	outstr = msgonly + sourceloc;

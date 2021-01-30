@@ -25,7 +25,7 @@ void CNodeProbe::tree_NARGS(const AstNode* ptree, AstNode* ppar)
 			pbase->replica_prep(&pbase->Sig);
 	}
 	if (psigBase->IsGO())
-		pbase->pgo = psigBase;
+		pbase->Sig = *(pbase->pgo = psigBase);
 }
 
 CVar* CNodeProbe::cell_indexing(CVar* pBase, AstNode* pn)
