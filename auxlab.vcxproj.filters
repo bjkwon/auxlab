@@ -48,6 +48,9 @@
     <ClCompile Include="$(SrcPath)xcom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="$(SrcPath)echo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)audio_capture_status.h">
@@ -78,6 +81,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="$(SrcPath)xcom.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="$(SrcPath)echo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1740,12 +1740,11 @@ CSignal *CTimeSeries::ChainOrd(unsigned int order)
 	return nullptr;
 }
 
-unsigned int CTimeSeries::CountChains(unsigned int *maxlength)
+unsigned int CTimeSeries::CountChains(unsigned int *maxlength) const
 {
 	// verify again all involved with this 9/18/2018
 	unsigned int maxy(-1), res(1);
-	CTimeSeries *p;
-	for (p = this; p->chain; p = p->chain, res++)
+	for (const CTimeSeries* p = this; p->chain; p = p->chain, res++)
 		maxy = max(p->nSamples, maxy);
 	if (maxlength) *maxlength = maxy;
 	return res;

@@ -2183,7 +2183,16 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 				}
 				else
 				{
-					if (RHSpresent) return nullptr; // a new variable or struct member being defined
+					if (RHSpresent)
+					{ // a new variable or struct member being defined
+					  // need to update varname here
+						for (auto q = ptree->alt; q; q = q->alt)
+						{
+							np.varname += '.';
+							np.varname += q->str;
+						}
+						return nullptr;
+					}
 					if (emsg.empty())
 					{
 						string varname;
@@ -2199,6 +2208,9 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 						throw CAstException(USAGE, *this, ptree).proc(emsg.c_str());
 				}
 			}
+			// Need a case where both cell and strut are used?
+			// Right now it's not prohibited, but not properly processed either.
+			// Only cell is processed even if a strut has been defined 1/31/2021
 			if (pres->IsGO()) // the variable ptree->str is a GO
 				Sig = *(np.psigBase = pgo = pres);
 			if (pgo && RHSpresent && ptree->alt)
@@ -2228,23 +2240,6 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 		}
 		else
 		{
-			p = ptree->alt;
-			if (p && p->type == N_STRUCT && !RHSpresent)
-			{
-				if (!pres->cell.empty() || (!pres->IsStruct() && !pres->IsEmpty()))
-				{
-					if (p->str[0] != '#' && !IsValidBuiltin(p->str))
-						if (!ReadUDF(emsg, p->str))
-							if (!emsg.empty())
-								throw CAstException(USAGE, *this, ptree).proc(emsg.c_str()); // check the message
-							else
-							{
-								out << "Unknown variable, function, or keyword identifier : " << p->str;
-								if (ptree->str) out << " for " << ptree->str;
-								throw CAstException(USAGE, *this, ptree).proc(out.str().c_str());
-							}
-				}
-			}
 			Sig = *(np.psigBase = pres);
 		}
 	}
@@ -2350,17 +2345,16 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 			lhsCopy = lhs = pLast;
 		else
 		{
+//			lhs = pnode;
 			if (np.psigBase && np.psigBase->IsGO())
 				return np.psigBase;
 			else	return &Sig;
 		}
 		CVar *pres;
 		if (!np.psigBase)
-		{
-			Script = pnode->str;
-			Script += np.varname;
-		}
+			Script = np.varname.empty() ? pnode->str : np.varname;
 		pres = np.TID_RHS2LHS(pnode, pLast, pRHS);
+		replica.Reset();
 		lhs = lhsCopy;
 		if (np.psigBase)
 			Script = np.varname;
@@ -3087,7 +3081,7 @@ string CAstSig::makefullfile(const string &fname, char *extension)
 	else
 		fullfilename = fname;
 	// if the target extension is not specified, add default extension
-	if (!ext[0])
+	if (!ext[0] && extension)
 		fullfilename += extension;
 	return fullfilename;
 }

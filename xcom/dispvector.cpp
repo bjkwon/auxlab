@@ -19,6 +19,7 @@
 #include "bjcommon_win.h"
 #include "audstr.h"
 #include "xcom.h"
+#include "echo.h"
 
 extern CWndDlg wnd;
 extern CShowvarDlg mShowDlg;
@@ -355,6 +356,34 @@ void CVectorsheetDlg::SetColumnTitles(vector<size_t> &nChars, HDC hdc, unsigned 
 	}
 }
 
+string outstream_value(double val, int offset)
+{
+	ostringstream out;
+	if (val == 0. || val > .001 || val < -.001)
+		out << val;
+	else
+	{
+		streamsize org_precision = out.precision();
+		out.setf(ios::scientific, ios::floatfield);
+		out << val;
+		out.precision(org_precision);
+	}
+	return out.str();
+}
+
+ostringstream outstream_complex(complex<double> cval)
+{
+	ostringstream out;
+	double im = imag(cval);
+	if (cval == 0.) { out << "0"; return out; }
+	if (real(cval) != 0.)	out << real(cval);
+	if (im == 0.) return out;
+	if (!out.str().empty() && im > 0) out << "+";
+	if (im != 1.)	out << im;
+	out << (char)161;
+	return out;
+}
+
 void CVectorsheetDlg::FillUp()
 { // width is updated in SetCell.
 	char buf[256] = {};
@@ -405,17 +434,17 @@ void CVectorsheetDlg::FillUp()
 			for (unsigned int q = id1; q <= id2; q++)
 			{
 				if (aud && !psig->body::IsComplex())
-					sprintf(buf, xcom::outstream_value(p->buf[q], 0).str().c_str());
+					sprintf(buf, outstream_value(p->buf[q], 0).c_str());
 				else if (aud && psig->body::IsComplex())
-					sprintf(buf, outstream_complex(p->cbuf[q]).str().c_str());
+					sprintf(buf, stream_for_echo::_complex(p->cbuf[q]).c_str());
 				else if (logical)
 					sprintf(buf, "%d", p->logbuf[q]);
 				else if (stringdata)
 					sprintf(buf, "%c(%u)", p->logbuf[q], (unsigned char)psig->logbuf[q]);
 				else if (compl)
-					sprintf(buf, outstream_complex(p->cbuf[q]).str().c_str());
+					sprintf(buf, stream_for_echo::_complex(p->cbuf[q]).c_str());
 				else
-					sprintf(buf, xcom::outstream_value(p->buf[q], 0).str().c_str());
+					sprintf(buf, outstream_value(p->buf[q], 0).c_str());
 				SetCell(k, q - id1 + 1, buf, !aud);
 				nCharRequired[q - id1 + 1] = max(nCharRequired[q - id1 + 1], strlen(buf));
 			}
@@ -463,7 +492,7 @@ void CVectorsheetDlg::FillUp()
 				else if (aud && psig->body::IsComplex())
 					sprintf(buf, outstream_complex(psig->cbuf[(k + jd1) * len + q]).str().c_str());
 				else if (aud && !psig->body::IsComplex())
-					sprintf(buf, xcom::outstream_value(psig->buf[(k + jd1) * len + q], 0).str().c_str());
+					sprintf(buf, outstream_value(psig->buf[(k + jd1) * len + q], 0).c_str());
 				else if (stringdata)
 					sprintf(buf, "%c(%u)", psig->logbuf[(k + jd1) * len + q], (unsigned char)psig->logbuf[(k + jd1) * len + q]);
 				else if (compl)

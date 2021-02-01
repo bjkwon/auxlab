@@ -20,6 +20,7 @@
 #include "histDlg.h"
 #include "TabCtrl.h"
 #include "audio_capture_status.h"
+#include "echo.h"
 
 #include <thread>
 #include <queue>
@@ -2499,22 +2500,13 @@ void CShowvarDlg::showcontent(CVar *pvar, char *outbuf, int digits)
 	uint16_t type = pvar->type();
 	if (!(type & 0x000F))
 	{
-		if (!type)
+		if (!type || type & 0xF000)
 			sprintf(outbuf, "----");
 		else // CSIG_NULL...set temporal but empty data
 			sprintf(outbuf, "NULL(0~%g)", pvar->tmark);
 	}
 	else if (pvar->IsString())
 		sprintf(outbuf, "\"%s\"", pvar->string().c_str());
-	//else if ((type & 0x000F) == 1) // CSIG_SCALAR
-	//{
-	//	if (pvar->IsLogical())
-	//		sprintf(outbuf, "%d", pvar->logbuf[0]);
-	//	else if (pvar->IsComplex())
-	//		showcomplex(outbuf, pvar->cbuf[0]);
-	//	else
-	//		sprintf(outbuf, "%s", pvar->valuestr(digits).c_str());
-	//}
 	else if ((type & 0x000F) < TYPEBIT_TEMPORAL) // vector or constant
 	{
 		if (pvar->nSamples>1)		arrout = "[";
@@ -2609,6 +2601,7 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	else if (pvar->IsGO()) strcpy(buf, "G");
 	else if (pvar->IsAudioObj()) strcpy(buf, "P");
 	else if (pvar->IsComplex()) strcpy(buf, "C");
+	else if (pvar->IsString()) strcpy(buf, "X");
 	else if (pvar->IsBool()) strcpy(buf, "B");
 	else strcpy(buf, "");
 	LvItem.iItem = ListView_GetItemCount(hList);
@@ -2652,11 +2645,11 @@ void CShowvarDlg::fillrowvar(CVar *pvar, string varname)
 	LvItem.iSubItem++;
 	if (pvar->IsAudio())
 	{
-		out = xcom::outstream_tmarks(pvar, true).str().c_str();
+		out = echo_object_time::tmarks(*pvar, true);
 		if (pvar->next) 
 		{ 
 			out += " ; "; 
-			out += xcom::outstream_tmarks(pvar->next, true).str();
+			out += echo_object_time::tmarks(*(pvar->next), true);
 		}
 		if (out.size()>256) out[255] = 0;
 		strcpy_s(buf, 256, out.c_str());
