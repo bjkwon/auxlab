@@ -999,6 +999,8 @@ AstNode *CAstSig::searchtree(AstNode *p, int type)
 { // if there's a node with "type" in the tree, return that node
 	if (p)
 	{
+		if (p->type == N_VECTOR || p->type == N_MATRIX) // for [  ], search must continue through p->str
+			return searchtree(((AstNode*)p->str)->alt, type);
 		if (p->type==type) return p;
 		if (p->child)
 			if (p->child->type == type) return p->child;
