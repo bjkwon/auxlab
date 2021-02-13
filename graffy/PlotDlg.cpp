@@ -378,14 +378,11 @@ void CPlotDlg::OnPaint()
 			if (hDlg == hwnd_AudioCapture)
 				sendtoEventLogger("(OnPaint) mtx4PlotDlg unlocked");
 
-			if (curRange == NO_SELECTION || pax->hPar->type != GRAFFY_figure)
-			{
-				// add ticks and ticklabels
-				dc.SetBkColor(gcf.color);
-				// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
-				// also when InvalidateRect(NULL) is called, always remake ticks
-				vector<double> _xlim = OnPaint_make_tics(dc, pax, drawvector);
-			}
+			// add ticks and ticklabels
+			dc.SetBkColor(gcf.color);
+			// For the very first call to onPaint, rct is not known so settics is skipped, and need to set it here
+			// also when InvalidateRect(NULL) is called, always remake ticks
+			vector<double> _xlim = OnPaint_make_tics(dc, pax, drawvector);
 			if (pax->hChild)
 			{
 				paxready = true;
