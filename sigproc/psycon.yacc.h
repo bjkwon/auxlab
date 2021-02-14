@@ -41,9 +41,9 @@ char *getAstNodeName(AstNode *p);
 int yyparse(AstNode **pproot, char **errmsg);
 int yydeleteAstNode(AstNode *p, int fSkipNext);
 
-int yysetNewStringToScan(const char *source);
+int yysetNewStringToScan(const char *source, char *mirror);
 int yysetNewFileToScan(FILE *source);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

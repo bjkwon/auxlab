@@ -585,7 +585,7 @@ void xcom::console()
 		getinput(buf); // this is a holding line.
 		SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf), (LPARAM)buf);
 		trimLeft(buf,"\xff");
-		trimRight(buf,"\r\n\xff");
+		trimRight(buf,"\xff");
 		if (mainSpace.computeandshow(buf)==-1) break;
 	}
 }
@@ -782,7 +782,8 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			cv_delay_closingfig.wait(lck);
 			pctx->wait4cv = false;
 		}
-		if (CAstSig::IsTID(pnode))
+		// pctx->xtree->alt indicates subsequent modifier of TID (e.e., x(10:20) x.sqrt, etc)
+		if (CAstSig::IsTID(pnode) && !pctx->xtree->alt)
 		{
 			string varname;
 			if (pctx->xtree->type == N_VECTOR)
@@ -811,6 +812,7 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	bool err(false);
 	size_t nItems, k(0);
 	string input(in);
+	char* str_autocorrect = NULL;
 	trim(input, " \t\r\n");
 	trimr(input, "\r\n");
 	if (input.size()>0)
@@ -828,7 +830,10 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			ShowWS_CommandPrompt(pContext);
 			return pTemp ? 1 : 0;
 		}
-		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg)))
+		// str_autocorrect is used to track the corrected version of input
+		// for example, if in is sqrt(2  str_autocorrect is sqrt(2)
+		str_autocorrect = (char*)calloc(strlen(in) * 2, 1);
+		if (!(pContext->xtree = pContext->parse_aux(in, emsg, str_autocorrect)))
 		{
 			if (emsg.empty())
 				throw 1; // continue down to dummy and ShowWS_CommandPrompt
@@ -925,10 +930,11 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		}
 	}
 	catch (int dummy)
-	{
+	{ // what's this? 02/13/2021
 		dummy++;
 	}
 	ShowWS_CommandPrompt(pContext, succ);
+	free(str_autocorrect);
 	return pTemp ? 1:0;
 }
 

@@ -23,6 +23,7 @@
 int LexStringLen = 0, LexStringMax = 0;
 char *LexString = NULL;
 int appendLexString(void);
+char *str_mirror;
 %}
 %pointer
 %option noyywrap
@@ -43,6 +44,7 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 {NUM}	{
 	yylloc.last_column += yyleng;
 	yylval.dval = strtod(yytext, NULL);
+    if (str_mirror) strcat(str_mirror, yytext);
 	return T_NUMBER;
 	}
 \[ {		/* opening bracket */
@@ -70,24 +72,37 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 	yy_pop_state();
 	return (unsigned char)yytext[0];
 	}
-\(	{	/* opening parenthesis */
+\(	{	/* opening parenthesis 8 */
 	yylloc.last_column += yyleng;
 	yy_push_state(PARENTH);
+    if (str_mirror) strcat(str_mirror, "(");
 	return (unsigned char)yytext[0];
 	}
 <PARENTH,BRACKET,BRACE>end {
 	yylloc.last_column += yyleng;
 	return T_ENDPOINT;
 	}
-<PARENTH>\) {	/* closing parenthesis */
+<PARENTH>\b\f\v { /* Force to close parenthesis*/
 	yylloc.last_column += yyleng;
 	yy_pop_state();
+    if (str_mirror) strcat(str_mirror, ")");
+	return (unsigned char)')';
+	}
+<PARENTH>\) {	/* closing parenthesis 11 */
+	yylloc.last_column += yyleng;
+	yy_pop_state();
+    if (str_mirror) strcat(str_mirror, ")");
 	return (unsigned char)yytext[0];
 	}
 \{	{	/* opening brace */
 	yylloc.last_column += yyleng;
 	yy_push_state(BRACE);
 	return (unsigned char)yytext[0];
+	}
+<BRACE>\b\f\v { /* Force to close brace*/
+	yylloc.last_column += yyleng;
+	yy_pop_state();
+	return (unsigned char)'}';
 	}
 <BRACE>\} {	/* closing brace */
 	yylloc.last_column += yyleng;
@@ -99,24 +114,26 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 	yy_push_state(TSEQ);
 	return (unsigned char)yytext[0];
 	}
-<TSEQ>\> {	/* closing tseq */
+<TSEQ>\> {	/* closing tseq 16 */
 	yylloc.last_column += yyleng;
 	yy_pop_state();
 	return (unsigned char)yytext[0];
 	}
 if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|static|return|sigma|try|catch|"=="|"!="|"<="|">="|"<>"|"->"|">>"|"&&"|"**"|"||"|"++"|"+="|"-="|"*="|"/="|"^="|"->="|"<>="|"#="|"~="|"@="|"@@="|"++="|".."|"->"|->=|">>="|"%=" {
 	yylloc.last_column += yyleng;
+    if (str_mirror) strcat(str_mirror, yytext);
 	return getTokenID(yytext);
 	}
 {ID}	{
 	yylloc.last_column += yyleng;
 	yylval.str = strdup(yytext);
+    if (str_mirror) strcat(str_mirror, yytext);
 	return T_ID;
 	}
-"//"[^\n]* {	/* eat up a comment line */
+"//"[^\r\n]* {	/* eat up a comment line 19 */
 	yylloc.last_column += yyleng;
 	}
-[[:blank:]]+ {	/* eat up whitespace */
+[[:blank:]]+ {	/* eat up whitespace 20 */
 	yylloc.last_column += yyleng;
 	}
 \r?\n	{
@@ -124,37 +141,46 @@ if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|stati
 	yylloc.last_column = 1;
 	return T_NEWLINE;
 	}
-\"	{	/* start of a string */
+\"	{	/* start of a string 22 */
 	yylloc.last_column += yyleng;
 	LexStringLen = 0;
 	LexString[0] = '\0';
 	yy_push_state(STR);
+    if (str_mirror) strcat(str_mirror, "\"");
 	}
-<STR>[^"\n]*	{
+<STR>[^"\b\f\v]*	{
 	yylloc.last_column += yyleng;
+    if (str_mirror) strcat(str_mirror, yytext);
 	if (appendLexString())
 		return -1;
 	}
-<STR>\n	{
-	++yylloc.last_line;
-	yylloc.last_column = 1;
-	if (appendLexString())
-		return -1;
-	}
-<STR>\"\"	{
+<STR>\b\f\v	{ /* force ending of a string 24 */
 	yylloc.last_column += yyleng;
-	yyleng = 1;
-	if (appendLexString())
-		return -1;
-	}
-<STR>\"	{	/* end of a string */
-	yylloc.last_column += yyleng;
+    if (str_mirror) strcat(str_mirror, "\"");
+    if (yy_top_state()==PARENTH)
+        unput(')');
 	yy_pop_state();
 	yylval.str = strdup(LexString);
 	return T_STRING;
 	}
+<STR>\"\"	{
+	yylloc.last_column += yyleng;
+	yyleng = 1;
+    if (str_mirror) strcat(str_mirror, "\"");
+	if (appendLexString())
+		return -1;
+	}
+<STR>\"	{	/* end of a string 26 */
+	yylloc.last_column += yyleng;
+	yy_pop_state();
+	yylval.str = strdup(LexString);
+    if (str_mirror) strcat(str_mirror, "\"");
+	return T_STRING;
+	}
+\b\f\v ; /* Now all command line input has this string at the end. Without this rule, syntax error will occur with a correct statement.*/
 .	{
 	yylloc.last_column += yyleng;
+    if (str_mirror) strcat(str_mirror, yytext);
 	return (unsigned char)yytext[0];
 	/* printf( "Unrecognized character: %s\n", yytext ); */
 	}
@@ -173,7 +199,7 @@ int appendLexString(void)
 	return 0;
 }
 
-int yysetNewStringToScan(const char *source)
+int yysetNewStringToScan(const char *source, char *mirror)
 {
 	if (LexStringMax != LEX_STRING_MAX_INITIAL) {
 		/* (re)initialize LexString and LexStringMax - can be shrinking for memory efficiency */
@@ -182,6 +208,7 @@ int yysetNewStringToScan(const char *source)
 		if (LexString == NULL)
 			return 2;
 	}
+    str_mirror = mirror;
 	yyrestart(NULL);
 	yy_delete_buffer(YY_CURRENT_BUFFER);
 	yy_scan_string(source);

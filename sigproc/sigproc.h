@@ -357,7 +357,7 @@ public:
 	CAstSig(CAstSigEnv *env);
 	~CAstSig();
 
-	AstNode * parse_aux(const char* str, string& emsg);
+	AstNode * parse_aux(const char* str, string& emsg, char* str_autocorrect = NULL);
 	vector<CVar*> Compute(void);
 	CVar * Compute(const AstNode *pnode);
 	CVar * InitCell(const AstNode *pnode, AstNode *p);

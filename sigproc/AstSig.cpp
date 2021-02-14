@@ -253,11 +253,12 @@ unsigned long CAstSig::toc(const AstNode *p)
 	return Tick1 = (GetTickCount0() - Tick0);
 }
 
-AstNode *CAstSig::parse_aux(const char *str, string& emsg)
+AstNode *CAstSig::parse_aux(const char *str, string& emsg, char *str_autocorrect)
 {
-	// New rules when using parse_aux 12/19/2017
 	// when it fails, it returns NULL and errstr should carry the message, so that the caller can throw an exception
 	// when it suceeds or just needs to return NULL, emsg is empty.
+	//
+	// str_autocorrect is used to track the "corrected" input string; used for command line input only, NULL otherwise.
 	emsg.clear();
 	int res;
 	char *errmsg;
@@ -267,7 +268,7 @@ AstNode *CAstSig::parse_aux(const char *str, string& emsg)
 		fAllocatedAst = false;
 	}
 	AstNode* out = NULL;
-	if ((res = yysetNewStringToScan(str)))
+	if ((res = yysetNewStringToScan(str, str_autocorrect)))
 	{
 		emsg = "yysetNewStringToScan() failed!";
 		return NULL;

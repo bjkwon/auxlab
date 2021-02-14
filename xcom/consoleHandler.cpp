@@ -23,6 +23,8 @@
 #include "utils.h"
 #include "xcom.h"
 
+#define EXP_AUTO_CORRECT_TAG "\b\f\v"
+
 extern double block;
 extern HANDLE hStdin, hStdout; 
 extern CShowvarDlg mShowDlg;
@@ -202,6 +204,9 @@ DEBUG_KEY xcom::getinput(char* readbuffer)
 	bool controlkeydown(false);
 	WORD vcode;
 	DEBUG_KEY retval;
+	char delimLogStr[64];
+	strcpy(delimLogStr, "\r\n");
+	strcat(delimLogStr, EXP_AUTO_CORRECT_TAG);
 
 try {
 	while (loop)
@@ -270,6 +275,7 @@ try {
 						num = (DWORD)ReadLines(hStdout, buf, coninfo0, coninfo, offset);
 					trimRight(buf, " ");
 					strcpy(readbuffer, buf);
+					strcat(readbuffer, EXP_AUTO_CORRECT_TAG);
 					buf1[0] = 0, histOffset = 0; 
 					WriteConsole (hStdout, "\r\n", 2, &dw2, NULL); // this is the real "action" of pressing the return/enter key, exiting from the loop and return out of getinput()
 					break;
@@ -492,7 +498,7 @@ try {
 	// if a block input is given (i.e., control-V), each line is separately saved/logged.
 	if (strlen(readbuffer) > 0)
 	{
-		size_t count = str2vect(tar, readbuffer, "\r\n");
+		size_t count = str2vect(tar, readbuffer, delimLogStr);
 		sendtoEventLogger("Enter pressed. Trying to logging %s", tar.front().c_str());
 		LogHistory(tar);
 		mHistDlg.AppendHist(tar);
