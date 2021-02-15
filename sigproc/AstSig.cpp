@@ -268,6 +268,7 @@ AstNode *CAstSig::parse_aux(const char *str, string& emsg, char *str_autocorrect
 		fAllocatedAst = false;
 	}
 	AstNode* out = NULL;
+	reset_stack_ptr();
 	if ((res = yysetNewStringToScan(str, str_autocorrect)))
 	{
 		emsg = "yysetNewStringToScan() failed!";
@@ -650,6 +651,10 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 		throw CAstException(INTERNAL, *this, pCalling).proc("p->str null pointer in PrepareAndCallUDF(p,...)");
 	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
+	// Checking the number of input args used in the call
+	size_t nargs = 0;
+	for (auto pp = pCalling->alt->child; pp; pp = pp->next)
+		nargs++;
 	CAstSigEnv tempEnv(*pEnv);
 	son.reset(new CAstSig(&tempEnv));
 	son->u = u;
@@ -731,6 +736,12 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 		else
 			son->SetVar(pf->str, &tsig); // variable pf->str is created in the context of son
 	}
+	if (nargs > son->u.nargin)
+	{
+		oss << "Excessive input arguments specified (expected " << son->u.nargin << ", given " << nargs << ") :";
+		throw CAstException(USAGE, *this, pCalling).proc(oss.str().c_str(), son->u.t_func->str);
+	}
+	//son->u.nargin is the number of args specified in udf
 	if (u.debug.status == stepping_in) son->u.debug.status = stepping;
 	xscope.push_back(son.get());
 	//son->SetVar("_________",pStaticVars); // how can I add static variables here???

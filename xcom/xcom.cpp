@@ -813,8 +813,9 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	size_t nItems, k(0);
 	string input(in);
 	char* str_autocorrect = NULL;
-	trim(input, " \t\r\n");
-	trimr(input, "\r\n");
+	trim(input, " \t\r\n");//be careful. EXP_AUTO_CORRECT_TAG should not contain any of these characters
+	auto pos = input.find(EXP_AUTO_CORRECT_TAG);
+	input = input.substr(0, pos);
 	if (input.size()>0)
 	try {
 		//if the line begins with #, it bypasses the usual parsing
@@ -832,8 +833,8 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		}
 		// str_autocorrect is used to track the corrected version of input
 		// for example, if in is sqrt(2  str_autocorrect is sqrt(2)
-		str_autocorrect = (char*)calloc(strlen(in) * 2, 1);
-		if (!(pContext->xtree = pContext->parse_aux(in, emsg, str_autocorrect)))
+		str_autocorrect = (char*)calloc(input.size() * 2, 1);
+		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg, str_autocorrect)))
 		{
 			if (emsg.empty())
 				throw 1; // continue down to dummy and ShowWS_CommandPrompt
@@ -928,10 +929,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		catch (const char *errmsg)				{
 			cout << "ERROR:" << errmsg << endl;	 }
 		}
-	}
-	catch (int dummy)
-	{ // what's this? 02/13/2021
-		dummy++;
 	}
 	ShowWS_CommandPrompt(pContext, succ);
 	free(str_autocorrect);

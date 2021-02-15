@@ -23,8 +23,6 @@
 #include "utils.h"
 #include "xcom.h"
 
-#define EXP_AUTO_CORRECT_TAG "\b\f\v"
-
 extern double block;
 extern HANDLE hStdin, hStdout; 
 extern CShowvarDlg mShowDlg;
