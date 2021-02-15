@@ -134,7 +134,7 @@ static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRec
 	CRect crTemp(0, 0, 500, 400);
 	if (ReadINI (errStr, fname, "WINDOW POS", strRead)>=0 && str2array (tar, 4, strRead.c_str(), " ")==4)
 	{
-		if ((tar[2] + tar[0]) < 0) 
+		if ((tar[2] + tar[0]) < 0)
 			*rtMain = crTemp;
 		else
 		{
@@ -793,7 +793,7 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			echo_object().print(varname, *pvar, 1);
 		}
 		else
-		{ // 1+a, 2^5, a' !a a>=1 ... 
+		{ // 1+a, 2^5, a' !a a>=1 ...
 			pctx->SetVar("ans", pvar);
 			echo_object().print("ans", *pvar, 1);
 		}
@@ -814,13 +814,13 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	string input(in);
 	char* str_autocorrect = NULL;
 	trim(input, " \t\r\n");//be careful. EXP_AUTO_CORRECT_TAG should not contain any of these characters
-	auto pos = input.find(EXP_AUTO_CORRECT_TAG);
-	input = input.substr(0, pos);
 	if (input.size()>0)
 	try {
 		//if the line begins with #, it bypasses the usual parsing
 		if (input[0] == '#')
 		{
+			auto pos = input.find(EXP_AUTO_CORRECT_TAG);
+			input = input.substr(0, pos);
 			string tar[2];
 			string input1 = input.substr(1);
 			nItems = str2array(tar, 2, input1.c_str(), " ");
@@ -837,13 +837,12 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg, str_autocorrect)))
 		{
 			if (emsg.empty())
-				throw 1; // continue down to dummy and ShowWS_CommandPrompt
+				throw 1; // // temporary, to be cleared 2/20/2021
 			else
 				throw emsg.c_str();
 		}
 		pContext->statusMsg.clear();
 		pContext->Compute();
-
 		string line;
 		CONSOLE_SCREEN_BUFFER_INFO coninfo;
 		GetConsoleScreenBufferInfo(hStdout, &coninfo);
@@ -894,6 +893,10 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		//Going back to the base scope only during the debugging (F10, F5,... etc)
 		Back2BaseScope(0);
 		if (pContext->baselevel.size()>1) pContext->baselevel.pop_back();
+	}
+	catch (int ecode)
+	{ // temporary, to be cleared 2/20/2021
+		cout << "ERROR: code" << ecode << endl;
 	}
 	catch (CAstSig *ast)
 	{ // this was thrown by aux_HOOK
