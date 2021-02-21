@@ -18,6 +18,7 @@
 #include <time.h>
 #include "aux_classes.h"
 #include "sigproc.h"
+#include "deque"
 
 #include <algorithm> // for lowercase
 #include <assert.h>
@@ -247,11 +248,11 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 	}
 }
 
-CVar * CNodeProbe::TID_indexing(const AstNode* pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_indexing(const AstNode* pnode, AstNode *pLHS, AstNode *pRHS)
 {
 	CVar isig, isigGhost;
 	CVar *tsig = NULL;
-	if (psig->type() & TYPEBIT_TEMPORAL && pLHS->child->next)
+	if (psigBase->type() & TYPEBIT_TEMPORAL && pLHS->child->next)
 	{
 		// 2-D indexing for audio, the first arg must be scalar 1 or two
 		// Don't call eval_indexing(). Just Compute();
@@ -262,20 +263,20 @@ CVar * CNodeProbe::TID_indexing(const AstNode* pnode, AstNode *pLHS, AstNode *pR
 	}
 	else
 		eval_indexing(pLHS->child, isig);
-	if (pRHS)
+	//Check if index is within range 
+	if (isig._max() > psigBase->nSamples)
+		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
+
+	// pRHS should be non-NULL
+	tsig = pbase->Compute(pRHS);
+	if (lhsref_single)
 	{
-		tsig = pbase->Compute(pRHS);
-		if (lhsref_single)
-		{
-			if (tsig->nSamples > 1)
-				throw CAstException(USAGE, *pbase, pLHS).proc("LHS indicates a scalar; RHS is not.");
-			*lhsref = tsig->value();
-			return psigBase;
-		}
-		insertreplace(pLHS, *tsig, isig);
+		if (tsig->nSamples > 1)
+			throw CAstException(USAGE, *pbase, pLHS).proc("LHS indicates a scalar; RHS is not.");
+		*lhsref = tsig->value();
+		return psigBase;
 	}
-	else
-		insertreplace(pLHS, *psig, isig);
+	insertreplace(pLHS, *tsig, isig);
 	if (isig.nSamples > 0)
 	{
 		ostringstream oss;
@@ -292,18 +293,24 @@ CVar * CNodeProbe::TID_indexing(const AstNode* pnode, AstNode *pLHS, AstNode *pR
 	return psigBase;
 }
 
-CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_assign(const AstNode *pnode, AstNode *p, AstNode *pRHS)
 {
-	CVar isig;
 	if (p->alt) // T-Y-2-1 
 	{
 		if (p->alt->type == N_CELL)
 		{ // This applies to a{m} = RHS only. a{m}(n) = RHS  should be taken care of by TID_RHS2LHS::N_ARGS
-			*psigBase = pbase->Compute(pRHS); // Updating Vars by directly accessing the pointer attached to the current cell
+			if (psigBase)
+				*psigBase = pbase->Compute(pRHS); // Updating Vars by directly accessing the pointer attached to the current cell
+			else // a{m} = RHS when a is undefined
+			{
+				ostringstream oss;
+				oss << "Variable " << p->str << " not defined";
+				throw CAstException(USAGE, *pbase, p).proc(oss.str().c_str());
+			}
 		}
 		else if (p->alt->type == N_ARGS) // regular indexing
 		{
-			TID_indexing(pnode, p->alt, pRHS, psig);
+			TID_indexing(pnode, p->alt, pRHS);
 			if (pbase->pgo)
 			{ // need to get the member name right before N_ARGS
 				if (p->alt->type==N_ARGS)
@@ -315,10 +322,36 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 				}
 			}
 		}
+		else if ( (p->type == T_ID || p->type == N_STRUCT) && p->alt->type == N_STRUCT) // Definition of a struct member variable, but the struct var hasn't beend initialized.
+		{ // Initialize the variable and define the member variable from the tip and go reverse
+			CVar* psigRHS = pbase->Compute(pRHS);
+			deque<string> strchain;
+			deque<CVar> cvarchain;
+			for (auto q = p->alt; q; q = q->alt)
+			{
+				strchain.push_back(q->str);
+				cvarchain.push_back(CVar());
+			}
+			auto pvar = psigRHS;
+			for (auto rit = cvarchain.end() ; !strchain.empty(); strchain.pop_back())
+			{
+				rit--;
+				auto str = strchain.back();
+				(*rit).strut[str] = pvar;
+				pvar = &(*rit);
+			}
+			if (pnode==p)
+				pbase->SetVar(p->str, pvar);
+			else
+			{
+				// At this point, pbase must have pnode->str in Vars
+				pbase->Vars[pnode->str].strut[p->str] = pvar;
+			}
+		}
 		else
 		{
 			ostringstream oss;
-			oss << "TYPE=" << p->type << " unknwon type in TID_tag()";
+			oss << "TYPE=" << p->type << " unknwon type in TID_assign()";
 			throw CAstException(INTERNAL, *pbase, p).proc(oss.str().c_str());
 		}
 	}
@@ -393,16 +426,7 @@ CVar * CNodeProbe::TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar
 		}
 		else
 		{
-			// if trying to retrieve a.var_not_existing Sig is NULL whereas psig is not
-			// is this possible? 1/17/2020
-			if (pbase->Sig.nSamples)
-				throw CAstException(USAGE, *pbase, p).proc("not available member variable or function.");
-			if (p->type == N_CALL) 
-				return &pbase->Sig;
-			if (psig)
-				return psig;
-			else
-				return &pbase->Sig;
+			throw CAstException(USAGE, *pbase, p).proc("Not expecting this.. 2.");
 		}
 	}
 	return psigBase;
@@ -514,7 +538,7 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 		eval_indexing(p->child, isig);
 		if (!(isig.type() & 1)) // has more than one element. 
 			lhsref_single = false;
-		if (isig._max() > pbase->Sig.nSamples)
+		if (isig._max() > pbase->Sig.nSamples) // can be replaced with psigBase->nSamples
 			throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
 		pbase->Sig = extract(pnode, isig);
 	}
@@ -523,37 +547,28 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 
 CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 {
-	// Improve--don't use out. Just return psigBase. 11/11/2019
-
-	//pinout comes with input and makes the output
-	//At the end, Sig is updated with pinout
-	//pinout always has the same or smaller buffer size, so let's not worry about calling UpdateBuffer() here
-	//Instead of throw an exception, errstr is copy'ed. Return value should be ignored.
-	// For success, errstr stays empty.
 	CSignals out((psigBase)->GetFs());
 	CTimeSeries *p = &out;
-	ostringstream outstream;
 	out.UpdateBuffer(isig.nSamples);
-	//CSignal::Min() makes a vector
-	//body::Min() makes a scalar.
 	if (isig._min() <= 0.)
 	{
+		ostringstream outstream;
 		outstream << "Invalid index " << "for " << varname << " : " << (int)isig._min() << " (must be positive)";
 		throw CAstException(USAGE, *pbase, pnode).proc(outstream.str().c_str());
 	}
-	if ((psigBase)->IsComplex())
+	if (psigBase->IsComplex())
 	{
 		out.SetComplex();
 		for (unsigned int i = 0; i < isig.nSamples; i++)
 			out.cbuf[i] = (psigBase)->cbuf[(int)isig.buf[i] - 1];
 	}
-	else if ((psigBase)->IsLogical())
+	else if (psigBase->IsLogical())
 	{
 		out.MakeLogical();
 		for (unsigned int i = 0; i < isig.nSamples; i++)
 			out.logbuf[i] = (psigBase)->logbuf[(int)isig.buf[i] - 1];
 	}
-	else if ((psigBase)->IsString())
+	else if (psigBase->IsString())
 	{
 		out.UpdateBuffer(isig.nSamples + 1); // make room for null 
 		for (unsigned int i = 0; i < isig.nSamples; i++)
@@ -562,9 +577,9 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 	}
 	else
 	{
-		if ((psigBase)->IsGO())
+		if (psigBase->IsGO())
 		{
-			if (isig._max() > (psigBase)->nSamples)
+			if (isig._max() > psigBase->nSamples)
 				throw CAstException(RANGE, pbase, pnode).proc("", "", (int)isig._max());
 			if (isig.nSamples == 1)
 			{
@@ -654,9 +669,6 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 			for (unsigned int k = 0; k < isig.nSamples; k++)
 			{
 				auto ind = (unsigned int)isig.buf[k];
-// redundant with range check in ExtractByIndex()
-//				if (ind > psigBase->nSamples)
-//					throw CAstException(RANGE, *pbase, pnode).proc(pnode->str, "", ind, -1);
 				out.buf[id++] = (psigBase)->buf[ind - 1];
 			}
 		}
@@ -717,7 +729,7 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 	return isig;
 }
 
-CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS)
 {
 	unsigned int id = 0;
 	CVar isig;
@@ -780,15 +792,27 @@ CVar * CNodeProbe::TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *p
 	return &pbase->Sig;
 }
 
-CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig)
+CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS)
 { // Computes pRHS, if available, and assign it to LHS.
 	// 2 cases where psig is not Sig: first, a(2), second, a.sqrt
+
+	// pnode: base ptree
+	// p: LHS; same as pnode for top-level LHS
+	// pRHS: RHS
+	// psig: same as psigBase; NULL if LHS is not yet realized into an object        
+	// 
+	// TID_assign handles
+	// a.val = (RHS) --> pnode: a, p: val, psigBase: pointer to a (directly from the pbase Vars)
+	//
+	// TID_indexing handles
+	// a.val(3) = (RHS) --> pnode: a, p: val, psigBase: pointer to a.val
+
 	if (pbase->IsConditional(pLHS))
-		return TID_condition(pnode, pLHS, pRHS, psig);
+		return TID_condition(pnode, pLHS, pRHS);
 	switch (pLHS->type)
 	{
 	case N_ARGS:
-		TID_indexing(pnode, pLHS, pRHS, psig);
+		TID_indexing(pnode, pLHS, pRHS);
 		if (pbase->pgo)
 		{ // need to get the member name right before N_ARGS
 			auto pp = pbase->findParentNode(pnode, pLHS, true);
@@ -800,7 +824,7 @@ CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 	case N_CALL:
 	case N_MATRIX:
 	case N_VECTOR:
-		TID_tag(pnode, pLHS, pRHS, psig);
+		TID_assign(pnode, pLHS, pRHS);
 		break;
 	case N_TIME_EXTRACT: // T-Y-4 
 		TID_time_extract(pnode, pLHS, pRHS);
@@ -808,7 +832,7 @@ CVar * CNodeProbe::TID_RHS2LHS(const AstNode *pnode, AstNode *pLHS, AstNode *pRH
 	case N_HOOK:
 		if (pbase->pEnv->pseudo_vars.find(pnode->str) == pbase->pEnv->pseudo_vars.end())
 		{
-			TID_tag(pnode, pLHS, pRHS, psig);
+			TID_assign(pnode, pLHS, pRHS);
 		}
 		else
 			throw CAstException(USAGE, *pbase, pLHS).proc("Pseudo variable cannot be modified.");

@@ -442,12 +442,12 @@ public:
 	string varname; // tracks the "full" name of variable including the index, the dot or { }, etc.
 	char status[8]; // limit to 7 characters
 
-	CVar * TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS, CVar *psig);
-	CVar * TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar * TID_condition(const AstNode *pnode, AstNode *pLHS, AstNode *pRHS);
+	CVar * TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS);
 	CVar &ExtractByIndex(const AstNode *pnode, AstNode *p);
 	CVar &eval_indexing(const AstNode *pInd, CVar &indSig);
-	CVar * TID_indexing(const AstNode* pnode, AstNode *p, AstNode *pRHS, CVar *psig);
-	CVar * TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar * TID_indexing(const AstNode* pnode, AstNode *p, AstNode *pRHS);
+	CVar * TID_assign(const AstNode *pnode, AstNode *p, AstNode *pRHS);
 	CVar * extract(const AstNode *pnode, CTimeSeries &isig);
 	CVar * TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);
 	CVar * TimeExtract(const AstNode *pnode, AstNode *p);

@@ -26,12 +26,18 @@ void _dir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 				_splitpath(ls.cFileName, drive, dir, fname, ext);
 			else
 				_splitpath(ls.cFileName, NULL, NULL, fname, ext);
-			char fullname[256];
 			CVar tp;
 			tp.strut["name"] = string(fname);
 			tp.strut["ext"] = string(ext);
-			if (fname[0] != '.' || fname[1] != '\0')
+			bool isdir = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+			if (strlen(ext) == 0 && isdir)
 			{
+				arg += "\\*.*";
+				hFind = FindFirstFile(arg.c_str(), &ls);
+			}
+			else if (fname[0] != '.' || fname[1] != '\0')
+			{
+				char fullname[256];
 				if (pathonly[0])
 					tp.strut["path"] = string(pathonly);
 				else

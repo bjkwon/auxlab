@@ -128,9 +128,16 @@ CSignal CSignal::iFFT(unsigned int id0, unsigned int len, void *parg) const
 	else
 	{
 		res.SetComplex();
-		fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fftsize + 1));
+		fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * fftsize);
 		in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * fftsize);
-		memcpy(in, cbuf + id0, sizeof(*cbuf) * fftsize);
+		if (IsComplex())
+			memcpy(in, cbuf + id0, sizeof(*in) * fftsize);
+		else
+			for (int k = 0; k < fftsize; k++)
+			{
+				memcpy(in + k, buf + k, sizeof(*buf));
+				memset((char*)(in + k) + sizeof(*buf), 0, sizeof(*buf));
+			}
 		p = fftw_plan_dft_1d(fftsize, in, out, FFTW_BACKWARD, FFTW_ESTIMATE);
 		fftw_execute(p);
 		memcpy(res.cbuf, out, sizeof(fftw_complex) * fftsize);

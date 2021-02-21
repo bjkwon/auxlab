@@ -149,7 +149,7 @@ public:
 	int fs;
 	double tmark;
 	short snap; // 0 for regular; 1 for time seq or an object where data stack up on the same tmark (vertically), like FFT
-	unsigned int Len() { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }
+	unsigned int Len() const { if (fs == 2) return (nSamples-1) / nGroups; else  return nSamples / nGroups; }
 	bool operator < (const CSignal &rhs) const;
 
 	// Signal generation (no stereo handling)
@@ -217,8 +217,8 @@ public:
 	inline bool IsScalar() const { return nSamples == 1; }
 	inline bool IsVector() const { return nSamples > 1; }
 	inline bool IsAudio() const {
-		uint16_t tp = type() & 0x000F;
-		return tp & TYPEBIT_AUDIO  && !(tp & TYPEBIT_SNAP);
+		uint16_t _type = type();
+		return _type & TYPEBIT_TEMPORAL && !(_type & TYPEBIT_SNAP);
 	}
 	bool IsString() const { return bufBlockSize == 1 && fs == 2; }
 
@@ -305,7 +305,7 @@ public:
 	CTimeSeries & AddChain(const CTimeSeries &sec);
 	CTimeSeries * GetDeepestChain();
 	CTimeSeries * ExtractDeepestChain(CTimeSeries *deepchain);
-	unsigned int CountChains(unsigned int *maxlength=NULL);
+	unsigned int CountChains(unsigned int *maxlength=NULL) const;
 	void AddMultChain(char type, CTimeSeries *forthis);
 	CTimeSeries * BreakChain(CTimeSeries *chainedout);
 	CTimeSeries & MergeChains();
@@ -438,7 +438,7 @@ public:
 	CSignals & operator|(const CSignals & RMS2adjust);
 
 	int IsTimeSignal() const;
-	int IsStereo() { return 0 + (next!=NULL); }
+	int IsStereo() const { return 0 + (next!=NULL); }
 
 	inline bool IsEmpty() const { return next == nullptr && CTimeSeries::IsEmpty(); }
 	bool IsScalar() const;

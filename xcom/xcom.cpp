@@ -23,6 +23,7 @@
 #include "histDlg.h"
 #include "consts.h"
 #include "xcom.h"
+#include "echo.h"
 #include "utils.h"
 #include "wavplay.h"
 #include "qlparse.h"
@@ -73,6 +74,11 @@ void init_aux_reserves()
 {
 	aux_reserves.push_back("sel");
 }
+
+void printf_tseries(const CTimeSeries sig, bool unit, int offset=0);
+int print(const string& name, const CVar& obj, int offset);
+
+
 
 //I could use these typedef for astsig_init--it won't hurt to use them..
 typedef void(*port1)(CAstSig *, DEBUG_STATUS);
@@ -594,7 +600,7 @@ int xcom::cleanup_debug()
 	// Do memory clean up of sub in CallUDF()
 	return 0;
 }
-
+/*
 ostringstream outstream_complex(complex<double> cval)
 {
 	ostringstream out;
@@ -608,9 +614,9 @@ ostringstream outstream_complex(complex<double> cval)
 	return out;
 }
 
-void printf_vector(CVar *pvar, unsigned int id0, int offset, const char *postscript)
+void print_vector(const CVar& var, unsigned int id0, int offset, const char *postscript)
 {
-	cout << xcom::outstream_vector(pvar, id0, offset).str();
+	cout << xcom::outstream_vector(var, id0, offset).str();
 	cout << postscript << endl;
 }
 
@@ -626,7 +632,7 @@ void printf_single(CVar *pvar)
 	}
 }
 
-ostringstream xcom::outstream_tmarks(CTimeSeries *psig, bool unit)
+ostringstream xcom::outstream_tmarks(const CTimeSeries& sig, bool unit)
 {
 	// unit is to be used in the future 8/15/2018
 	// Get the timepoints
@@ -634,8 +640,8 @@ ostringstream xcom::outstream_tmarks(CTimeSeries *psig, bool unit)
 	streamsize org_precision = out.precision();
 	out.setf(ios::fixed);
 	out.precision(1);
-	int kk(0), tint(psig->CountChains());
-	for (CTimeSeries *xp = psig; kk<tint; kk++, xp = xp->chain) {
+	int kk(0), tint(sig.CountChains());
+	for (const CTimeSeries *xp = &sig; kk<tint; kk++, xp = xp->chain) {
 		out << "(" << xp->tmark;
 		if (unit) out << "ms";
 		out << "~" << xp->tmark + 1000.* xp->nSamples / xp->GetFs();
@@ -663,244 +669,86 @@ ostringstream xcom::outstream_value(double val, int offset)
 	return out;
 }
 
-ostringstream xcom::outstream_vector(CSignal *pvar, unsigned int id0, int offset)
+ostringstream xcom::outstream_vector(const CSignal& var, unsigned int id0, int offset)
 {
 	ostringstream out;
 	streamsize org_precision = out.precision();
 //	out.setf(ios::fixed);
 //	out.precision(1);
 	unsigned int k = 0;
-	if (pvar->IsComplex())
-		for (; k < min(10, pvar->Len()); k++, out << " ")
+	if (var.IsComplex())
+		for (; k < min(10, var.Len()); k++, out << " ")
 		{
 			for (int m = 0; m < offset; m++) out << " ";
-			out << outstream_complex(pvar->cbuf[k + id0]).str();
+			out << outstream_complex(var.cbuf[k + id0]).str();
 		}
 	else
 	{
 		for (int m = 0; m < offset; m++) out << " ";
-		if (pvar->IsLogical())
+		if (var.IsLogical())
 		{
-			for (; k < min(10, pvar->Len()); k++, out << " ")
-				out << pvar->logbuf[k + id0];
+			for (; k < min(10, var.Len()); k++, out << " ")
+				out << var.logbuf[k + id0];
 		}
 		else
-			for (; k < min(10, pvar->Len()); k++, out << " ")
-				out << pvar->buf[k + id0];
+			for (; k < min(10, var.Len()); k++, out << " ")
+				out << var.buf[k + id0];
 	}
-	if (pvar->Len() > 10) // this means nSamples is greater than 10
-		out << " ... (length = " << pvar->Len() << ")";
+	if (var.Len() > 10) // this means nSamples is greater than 10
+		out << " ... (length = " << var.Len() << ")";
 //	out.unsetf(ios::floatfield);
 //	out.precision(org_precision);
 	return out;
 }
 
-ostringstream xcom::outstream_tseq(CTimeSeries *psig, bool unit)
+ostringstream xcom::outstream_tseq(const CTimeSeries& sig, bool unit, int offset)
 {
 	ostringstream out;
 	streamsize org_precision = out.precision();
 	out.setf(ios::fixed);
 	if (unit) out.precision(1);
 	else out.precision(2);
-	int kk(0), tint(psig->CountChains());
-	for (CTimeSeries *xp = psig; kk < tint; kk++, xp = xp->chain)
+	int kk(0), tint(sig.CountChains());
+	for (const CTimeSeries *xp = &sig; kk < tint; kk++, xp = xp->chain)
 	{
+		for (int k = 0; k < offset + 1; k++) out << " ";
 		out << "(" << xp->tmark;
 		if (unit) out << "ms";
 		out << ") ";
-		out << outstream_vector(xp, 0, 0).str() << endl;
+		out << outstream_vector(*xp, 0, 0).str() << endl;
 	}
 	out.unsetf(ios::floatfield);
 	out.precision(org_precision);
 	return out;
 }
 
-void printf_tseries(CTimeSeries *psig, bool unit)
+void printf_tseries(const CTimeSeries sig, bool unit, int offset)
 {
-	cout << xcom::outstream_tseq(psig,unit).str();
+	cout << xcom::outstream_tseq(sig, unit, offset).str();
 }
 
-void printf_vector(CVar *pvar, int offset, const char * postscript)
+void print_vector(const CVar& var, int offset, const char * postscript)
 {
 	unsigned int j;
-	if (pvar->IsLogical()) cout << "(bool) ";
-	if (pvar->nGroups > 1) cout << endl;
-	for (j = 0; j < min(10, pvar->nGroups); j++)
-		printf_vector(pvar, pvar->Len()*j, offset + 1, postscript);
+	if (var.IsLogical()) cout << "(bool) ";
+	for (j = 0; j < min(10, var.nGroups); j++)
+		print_vector(var, var.Len()*j, offset + 1, postscript);
 	if (j == 10)
-		cout << "\t" << "... (total rows) = " << pvar->nGroups << endl;
+		cout << "\t" << "... (total rows) = " << var.nGroups << endl;
 }
 
-void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscript)
+void print_null(const CVar& var, int offset, const char* postscript)
 {
-	ios_base::fmtflags org_flags;
-	unsigned int j = 1;
-	CVar temp;
-	streamsize org_precision(-1);
-	bool show_tpoints = true;
-	bool passingdown(false);
-	uint16_t dt = pvar->type();
-	switch (dt)
-	{
-	case TYPEBIT_NULL:
-		for (int k = 0; k < offset; k++) cout << " ";
-		cout << varname << " = ";
-		cout << "[]";
-		cout << postscript << endl;
-		break;
-	case TYPEBIT_LOGICAL+1:
-	case TYPEBIT_LOGICAL+2:
-	case TYPEBIT_STRUT + TYPEBIT_LOGICAL + 1:
-	case TYPEBIT_STRUT + TYPEBIT_LOGICAL + 2:
-		for (int k = 0; k < offset; k++) cout << " ";
-		cout <<  varname << " = ";
-		printf_vector(pvar, offset, postscript);
-//		echo_strut(pvar, offset, varname, postscript);
-		break;
-	case 1: //CSIG_SCALAR:
-	case TYPEBIT_COMPLEX + 1:
-		for (int k = 0; k < offset; k++) cout << " ";
-		cout << varname << " = ";
-		if (strstr(postscript, "[Handle]"))
-		{
-			org_precision = cout.precision();
-			org_flags = cout.flags();
-			cout.unsetf(ios::floatfield);
-			cout.precision(14);
-		}
-		printf_single(pvar);
-		cout << postscript << endl;
-		if (org_precision != -1)
-		{
-			cout.precision(org_precision);
-			cout.flags(org_flags);
-		}
-		break;
-	case TYPEBIT_STRING + 1:
-	case TYPEBIT_STRING + 2:
-		for (int k = 0; k < offset; k++) cout << " ";
-		cout << varname << " = ";
-		cout << "\"" << pvar->string() << "\"" << postscript << endl;
-		break;
-	case TYPEBIT_AUDIO + 1:
-	case TYPEBIT_TSEQ + 1:
-	case TYPEBIT_TSEQ + 2:
-	case TYPEBIT_COMPLEX + TYPEBIT_TSEQ + 1:
-	case TYPEBIT_COMPLEX + TYPEBIT_TSEQ + 2:
-		for (int k = 0; k < offset; k++) cout << " ";
-		cout << varname << " = " << endl;
-		if (pvar->next) cout << "[L] " << endl;
-		printf_tseries(pvar, pvar->GetFs()>0);
-		if (pvar->next)
-		{
-			cout << "[R] " << endl;
-			printf_tseries(pvar->next, pvar->next->GetFs() > 0);
-		}
-		break;
-	case 2: //CSIG_VECTOR:
-	case TYPEBIT_COMPLEX + 2:
-		for (int p = 0; p < offset; p++) cout << " ";
-		cout << varname << " = ";
-		printf_vector(pvar, offset, postscript);
-		break;
-	case TYPEBIT_AUDIO + 2:
-		// if the object to echo is not straightforward in time, don't show detail
-		if (strchr(varname, '~')) show_tpoints = false;
-		for (int k = 0; k < offset; k++) cout << " ";
-		cout << varname << " =" << endl;
-		if (pvar->IsStereo())
-		{
-			for (int k = 0; k < offset+1; k++) cout << " ";
-			cout << "audio(L) ";
-			if (show_tpoints) cout << xcom::outstream_tmarks(pvar, true).str();
-			else cout << ".." << endl;
-			for (int k = 0; k < offset + 1; k++) cout << " ";
-			cout << "audio(R) ";
-			if (show_tpoints) cout << xcom::outstream_tmarks(pvar->next, true).str();
-			else cout << ".." << endl;
-		}
-		else
-		{
-			for (int k = 0; k < offset + 1; k++) cout << " ";
-			cout << "audio ";
-			if (show_tpoints) cout << xcom::outstream_tmarks(pvar, true).str();
-			else cout << ".." << endl;
-		}
-		break;
-	case TYPEBIT_CELL:
-		for (vector<CVar>::iterator it = pvar->cell.begin(); it!= pvar->cell.end(); it++)
-		{
-			ostringstream _varname;
-			_varname << varname << '{' << j++ << '}';
-			echo(_varname.str().c_str(), &*it);
-		}
-		break;
-	case TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
-		for (unsigned int k = 0; k < pvar->nSamples; k++)
-		{
-			ostringstream varstr;
-			varstr << varname << '(' << k+1 << ')';
-			CVar *tp = (CVar*)(INT_PTR)pvar->buf[k];
-			echo(varstr.str().c_str(), tp, offset);
-		}
-		break;
-	case TYPEBIT_STRUT + 1: // audio recording handle
-	case TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
-	case TYPEBIT_STRUT + TYPEBIT_STRUTS + TYPEBIT_STRING + 2:
-	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 1:
-	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + TYPEBIT_STRING + 2:
-		for (int k = 0; k < offset; k++) cout << " ";
-		temp.UpdateBuffer(1);
-		memcpy(temp.buf, pvar->buf, pvar->bufBlockSize);
-		if (pvar->bufBlockSize == 1) { temp.SetFs(2); temp.bufBlockSize = 1; }
-		echo(varname, &temp, offset-1, " [Handle]");
-		passingdown = true;
-	case TYPEBIT_STRUT:
-	case TYPEBIT_STRUT + TYPEBIT_STRUTS:
-		echo_strut(pvar, offset, varname, postscript, passingdown);
-		break;
-	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
-		for (unsigned int k = 0; k < pvar->nSamples; k++)
-		{
-			ostringstream _varname;
-			_varname << varname << '(' << j++ << ')';
-			echo(_varname.str().c_str(), (CVar*)(INT_PTR)pvar->buf[k]);
-		}
-		break;
-	default:
-		break;
-	}
+	for (int k = 0; k < offset; k++) cout << " ";
+	cout << "[]" << postscript << endl;
 }
-void xcom::echo_strut(CVar* pvar, int offset, const char* varname, const char* postscript, bool passingdown)
+
+void print_string(const CVar& var, int offset, const char* postscript)
 {
-	unsigned int j = 1;
-	CVar temp;
-	if (varname && !passingdown)
-	{
-		if (pvar->nSamples > 0)
-			echo(varname, pvar, offset, postscript);
-		cout << varname << " [Structure]" << endl;
-	}
-	for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
-	{
-		ostringstream var0;
-		var0 << '.' << it->first;
-		echo(var0.str().c_str(), &it->second, offset);
-	}
-	for (map<string, vector<CVar*>>::iterator it = pvar->struts.begin(); it != pvar->struts.end(); it++)
-	{
-		ostringstream var0;
-		var0 << '.' << it->first;
-		if ((*it).second.empty())
-			echo(var0.str().c_str(), &CVar());
-		else
-			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end() && j < 10; jt++)
-			{
-				if (!CAstSig::HandleSig(&temp, *jt)) temp.SetString("(internal error)");
-				echo(var0.str().c_str(), &temp, offset, " [Handle]");
-			}
-	}
+	for (int k = 0; k < offset; k++) cout << " ";
+	cout << "\"" << var.string() << "\"" << postscript << endl;
 }
+*/
 
 void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 {
@@ -919,7 +767,6 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 	c{1}(3)=0 N_CELLASSIGN with 'child'
 	*/
 
-	AstNode *p;
 	if (!pnode->suppress)
 	{
 		if (!pvar)
@@ -935,50 +782,19 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			cv_delay_closingfig.wait(lck);
 			pctx->wait4cv = false;
 		}
-		if (!pctx->lhs && depth == 1)
+		if (CAstSig::IsTID(pnode))
 		{
-			pctx->SetVar("ans", pvar);
-			echo("ans", pvar);
+			string varname;
+			if (pctx->xtree->type == N_VECTOR)
+				varname = pnode->str;
+			else
+				varname = pctx->Script;
+			echo_object().print(varname, *pvar, 1);
 		}
 		else
-		{
-			if (CAstSig::IsTID(pnode))
-			{
-				p = pnode->alt;
-				if (pnode->child)
-					echo(pctx->Script.c_str(), pvar);
-				else if (p && p->type == N_ARGS)
-				{
-					echo(pnode->str, pvar);
-				}
-				else if (p && p->type == N_STRUCT)
-				{
-					string lhsvar = pnode->str;
-					CVar* pVarShow;
-					for (; p; p = p->next)
-					{
-						lhsvar += string(".") + p->str;
-						pVarShow = pctx->GetVariable(p->str, pvar);
-						if (pVarShow)
-							pvar = pVarShow;
-					}
-					echo(lhsvar.c_str(), pvar);
-				}
-				else if (p && CAstSig::IsCELL_STRUCT_pnode_TID_ARGS(pnode, p))
-				{
-					vector<string> parse;
-					str2vect(parse, pctx->Script.c_str(), "=+-*/@^#$%");
-					echo(parse.front().c_str(), pvar);
-				}
-				else
-					echo(pnode->str, pvar);
-			}
-			else // +-*/%^...
-			{
-				pctx->SetVar("ans", pvar);
-				echo("ans", pvar);
-				//				echo(pctx->Script.c_str(), pvar);
-			}
+		{ // 1+a, 2^5, a' !a a>=1 ... 
+			pctx->SetVar("ans", pvar);
+			echo_object().print("ans", *pvar, 1);
 		}
 	}
 }

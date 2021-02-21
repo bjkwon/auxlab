@@ -75,9 +75,7 @@ public:
 	bool IsNowDebugging(CAstSig *pcast);
 	int computeandshow(const char *input, CAstSig *pTemp=NULL);
 	int cleanup_debug();
-	void echo(const char *var, CVar *pvar, int offset = 1, const char *postscript = "");
 	void echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar=NULL);
-	void xcom::echo_strut(CVar* pvar, int offset, const char* varname = NULL, const char *postscript = NULL, bool passingdown = false);
 
 	int load_axl(FILE *fp, char *errstr);
 
@@ -86,11 +84,6 @@ public:
 	int hook(CAstSig *ast, string HookName, const char* args);
 	int SAVE_axl(CAstSig *ast, const char* filename, vector<string> varlist, char *errstr);
 	void LogHistory(vector<string> input);
-
-	static ostringstream outstream_tmarks(CTimeSeries *psig, bool unit);
-	static ostringstream outstream_tseq(CTimeSeries *psig, bool unit);
-	static ostringstream outstream_vector(CSignal*pvar, unsigned int id0, int offset);
-	static ostringstream outstream_value(double val, int offset);
 
 private:
 	int read_axl_block(FILE *fp, std::string &varname, CVar *pout, char *errstr, bool independent = true);

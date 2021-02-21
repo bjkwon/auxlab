@@ -19,7 +19,8 @@ void _matrix(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 	if (val != (double)(int)val)
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be an integer.");
 	double nCols = past->Sig.nSamples / val;
-	if (past->Sig.type() & TYPEBIT_AUDIO)
+	auto type = past->Sig.type();
+	if (past->Sig.IsAudio())
 	{
 		if (past->Sig.chain)
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "To make a matrix from an audio signal, null portions should be filled with zeros. Call contig().");
@@ -30,7 +31,7 @@ void _matrix(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 			past->Sig.UpdateBuffer(past->Sig.nSamples + nPtsNeeded);
 		}
 	}
-	else if (past->Sig.type() <= 2) // vector or constant
+	else if ((type & 0x0003) <= 2) // vector or constant
 	{
 		if (past->Sig.nSamples / val != (int)nCols)
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The length of array must be divisible by the requested the row count.");

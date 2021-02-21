@@ -39,6 +39,7 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 	yylloc.first_line = yylloc.last_line;
 	yylloc.first_column = yylloc.last_column;
 %}
+^[ \t;,]*   ; /*To ignore a line of empty content in a udf*/
 {NUM}	{
 	yylloc.last_column += yyleng;
 	yylval.dval = strtod(yytext, NULL);
@@ -74,7 +75,7 @@ NUM	[[:digit:]]+"."?[[:digit:]]*([eE][+-]?[[:digit:]]+)?|"."[[:digit:]]+
 	yy_push_state(PARENTH);
 	return (unsigned char)yytext[0];
 	}
-<PARENTH>end {
+<PARENTH,BRACKET,BRACE>end {
 	yylloc.last_column += yyleng;
 	return T_ENDPOINT;
 	}

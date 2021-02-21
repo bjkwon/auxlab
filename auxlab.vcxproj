@@ -30,6 +30,7 @@
     <ClCompile Include="$(SrcPath)TabCtrl.cpp" />
     <ClCompile Include="$(SrcPath)utils.cpp" />
     <ClCompile Include="$(SrcPath)xcom.cpp" />
+    <ClCompile Include="$(SrcPath)echo.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)audio_capture_status.h" />
@@ -42,6 +43,7 @@
     <ClInclude Include="$(SrcPath)TabCtrl.h" />
     <ClInclude Include="$(SrcPath)utils.h" />
     <ClInclude Include="$(SrcPath)xcom.h" />
+    <ClInclude Include="$(SrcPath)echo.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="$(SrcPath)xcom1.rc" />
