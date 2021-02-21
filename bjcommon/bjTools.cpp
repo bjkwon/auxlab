@@ -243,3 +243,57 @@ int mceil(double x)
 	else
 		return (int)ceiled;
 }
+
+size_t process_esc_chars(void* input, size_t len, char * errstr)
+{ // assume errstr has been allocated with size > 64
+  // returns number of bytes that were successfully converted
+  // (not the same as strlen(str) because of a null character
+  // returns 0 if an error occurs
+
+	char* buffer = new char[len+1];
+	char* str = (char*)input;
+	size_t res = 0;
+	for (char* pt0 = (char*)str,*pt = strchr((char*)str, '\\'); pt; )
+	{
+		memcpy(buffer, pt0, pt - pt0);
+		switch  (*(pt + 1))
+		{
+		case 0:
+			buffer[pt - pt0] = 0;
+			break;
+		case 'n':
+			buffer[pt - pt0] = '\n';
+			break;
+		case 'r':
+			buffer[pt - pt0] = '\r';
+			break;
+		case 't':
+			buffer[pt - pt0] = '\t';
+			break;
+		case '"':
+			buffer[pt - pt0] = '"';
+			break;
+		case '\'':
+			buffer[pt - pt0] = '\'';
+		break;		
+		case '\\':
+			buffer[pt - pt0] = '\\';
+			break;
+		}
+		res = (int)(pt - pt0);
+		char* pt2 = strchr(pt + 1, '\\');
+		if (!pt2)
+		{
+			pt += 2;
+			memcpy(buffer + res + 1, pt, strlen(pt));
+			res += strlen(pt) + 1; // adding 1 to include the converted character
+			break;
+		}
+		else
+			pt = pt2;
+	}
+	buffer[res] = 0;
+	memcpy(input, buffer, res + 1); // adding 1 to include the trailing null character
+	delete[] buffer;
+	return res;
+}

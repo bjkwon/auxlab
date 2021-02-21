@@ -1,4 +1,5 @@
 #include "sigproc.h"
+#include "bjcommon.h"
 #include "..\psycon.tab.h"
 
 bool isAllNodeT_NUM(const AstNode* p)
@@ -26,3 +27,15 @@ void _str2num(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 	past->Sig = res.back();
 }
 
+void _esc(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+{
+	if (!past->Sig.IsString())
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be a text string.");
+	char estr[256];
+	string str = past->Sig.string();
+	char* instr = new char[str.size()+1];
+	memcpy(instr, str.c_str(), str.size() + 1);
+	process_esc_chars(instr, str.size(), estr);
+	past->Sig.SetString(instr);
+	delete[] instr;
+}

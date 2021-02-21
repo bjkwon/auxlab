@@ -1,15 +1,15 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
-// Platform-independent (hopefully) 
-// 
+// Platform-independent (hopefully)
+//
 // Version: 1.7
 // Date: 5/24/2020
-// 
+//
 #include <sstream>
 #include <list>
 #include <algorithm>
@@ -184,10 +184,10 @@ CAstSig::CAstSig(const CAstSig *src)
 	inTryCatch = src->inTryCatch;
 }
 // Lateral copy (level not increased); used in eval_include.cpp
-CAstSig::CAstSig(const char *str, const CAstSig *src) 
+CAstSig::CAstSig(const char *str, const CAstSig *src)
 {
 	init();
-	if (src) 
+	if (src)
 	{
 		pEnv = src->pEnv;
 		level = src->level;
@@ -366,7 +366,7 @@ void CAstSig::hold_at_break_point(const AstNode *pnode)
 	// stepping: always hold
 	// continuing: hold if current line is checked in DebugBreaks
 	// Shift_F5: always call xcom::HoldAtBreakPoint and let it do the rest
-	// Ctrl_F10: hold if current line is "clicked" line 
+	// Ctrl_F10: hold if current line is "clicked" line
 	// stepping_in shouldn't appear here (it would have become stepping)
 	switch (u.debug.status)
 	{
@@ -572,7 +572,7 @@ string CAstSig::ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar
 		u.debug.GUI_running = true;
 		if (son->u.debug.status == stepping) // b.p. set in a local udf
 			u.debug.status = stepping;
-		else // b.p. set in other udf 
+		else // b.p. set in other udf
 			u.debug.status = progress;
 	}
 	// delete son; // not necessary
@@ -617,7 +617,7 @@ void CAstSig::outputbinding(const AstNode *pnode, size_t nArgout)
 	assert(lhs);
 	// lhs must be T_ID, N_VECTOR, or N_ARGS
 	AstNode *pp = lhs;
-	if (lhs->type == N_VECTOR) 
+	if (lhs->type == N_VECTOR)
 		pp = ((AstNode *)lhs->str)->alt;
 	for (auto varname : son->u.argout)
 	{
@@ -653,8 +653,9 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 
 	// Checking the number of input args used in the call
 	size_t nargs = 0;
-	for (auto pp = pCalling->alt->child; pp; pp = pp->next)
-		nargs++;
+    if (pCalling->alt)
+        for (auto pp = pCalling->alt->child; pp; pp = pp->next)
+            nargs++;
 	CAstSigEnv tempEnv(*pEnv);
 	son.reset(new CAstSig(&tempEnv));
 	son->u = u;
@@ -770,7 +771,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 			if (son->Vars.find(son->u.argout.front())!= son->Vars.end())
 				Sig = son->Vars[son->u.argout.front()];
 			else
-			{ 
+			{
 				if (son->GOvars[son->u.argout.front()].size() > 1)
 					Sig = *(pgo = MakeGOContainer(son->GOvars[son->u.argout.front()]));
 				else if (son->GOvars[son->u.argout.front()].size() == 1)
@@ -784,8 +785,8 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	{ // no b.p set in the main udf, but in these conditions, as the local udf is finishing, the stepping should continue in the main udf, or debug.status should be set progress, so that the debugger would be properly exiting as it finishes up in CallUDF()
 		u.debug.GUI_running = true;
 		if (son->u.debug.status == stepping) // b.p. set in a local udf
-			u.debug.status = stepping; 
-		else // b.p. set in other udf 
+			u.debug.status = stepping;
+		else // b.p. set in other udf
 			u.debug.status = progress;
 	}
 	if (son->GOvars.find("?foc") != son->GOvars.end()) GOvars["?foc"] = son->GOvars["?foc"];
@@ -797,10 +798,10 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	return true;
 }
 //FYI--hangs at hold_at_break_point and ...
-//FYI--Go to HoldAtBreakPoint in xcom if you want to see how things are handled during debugging when the execution hangs 
+//FYI--Go to HoldAtBreakPoint in xcom if you want to see how things are handled during debugging when the execution hangs
 
 size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
-{	
+{
 	// t_func: the T_FUNCTION node pointer for the current UDF call, created after ReadUDF ("formal" context--i.e., how the udf file was read with variables used in the file)
 	// pOutParam: AstNode for formal output variable (or LHS), just used inside of this function.
 	// Output parameter dispatching (sending the output back to the calling worksapce) is done with pOutParam and lhs at the bottom.
@@ -842,7 +843,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 	else
 	{ // probably entrance udf... First, check if current udfname (i.e., Script) is found in DebugBreaks
 		// if so, mark u.debug.status as progress and set next breakpoint
-		// and call debug_GUI 
+		// and call debug_GUI
 		vector<int> breakpoint = pEnv->udf[u.base].DebugBreaks;
 		for (vector<int>::iterator it = breakpoint.begin(); it != breakpoint.end(); it++)
 		{
@@ -894,7 +895,7 @@ size_t CAstSig::CallUDF(const AstNode *pnode4UDFcalled, CVar *pBase)
 }
 
 bool CAstSig::GOpresent(const AstNode *pnode, AstNode *p)
-{ // returns true if the statement 
+{ // returns true if the statement
 	string fname = pnode->str;
 	if (fname == "figure" || fname == "plot" || fname == "line" || fname == "axes" || fname == "text" || fname == "replicate")
 		return true;
@@ -926,7 +927,7 @@ bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
 	//Is this is a call made insde of a UDF?
 	//If so, pnode should appear in next of chlld
 
-	//This depends on the node structure made in psycon.y; 
+	//This depends on the node structure made in psycon.y;
 	//If you change it, this should be adjusted as well.
 	//look for T_IF, T_FOR and T_WHILE
 	if (!u.t_func) return false;
@@ -937,7 +938,7 @@ bool CAstSig::isthisUDFscope(const AstNode *pnode, AstNode *p)
 	}
 	while (p)
 	{
-		if (p == pnode) { 
+		if (p == pnode) {
 			u.pLastRead = p;  return true; }
 		if (p->type == T_IF)
 		{
@@ -1056,15 +1057,15 @@ bool CAstSig::checkcond(const AstNode *p)
 {
 	ConditionalOperation(p, p->child);
 	if (!Sig.IsScalar())	throw CAstException(USAGE, *this, p).proc("Logical operation applied to a non-scalar.");
-	if (Sig.IsLogical()) 
+	if (Sig.IsLogical())
 		return Sig.logbuf[0];
-	else				
+	else
 		return Sig.value()!=0.;
 }
 
 void CAstSig::checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned int id, string errstr)
 {
-	if (id>inout->nSamples) 
+	if (id>inout->nSamples)
 		throw CAstException(RANGE, *this, pnode).proc(errstr.c_str(), "", id, -1);
 }
 
@@ -1072,7 +1073,7 @@ AstNode* CAstSigEnv::checkin_udf(const string& udfname, const string& fullpath, 
 {
 	AstNode* pout = NULL;
 	CAstSig qscope(this);
-	qscope.Script = udfname; 
+	qscope.Script = udfname;
 	transform(qscope.Script.begin(), qscope.Script.end(), qscope.Script.begin(), ::tolower);
 	udf[qscope.Script].newrecruit = true;
 	auto udftree = qscope.parse_aux(filecontent.c_str(), emsg);
@@ -1114,10 +1115,10 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 {
 	PF pt = (PF)GetProcAddress(h, (LPCSTR)MAKELONG(1, 0)); // ReadAUXP
 	string read;
-	size_t res = pt(id, read); 
+	size_t res = pt(id, read);
 	CAstSig qscope(pEnv);
 	AstNode *tempX = qscope.parse_aux(read.c_str(), emsg);
-	if (tempX) 
+	if (tempX)
 	{
 		qscope.xtree = tempX;
 		char *newname = (char*)malloc(strlen(qscope.xtree->str) + 1);
@@ -1200,7 +1201,7 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename)
 		if (jt != udf_finder->second.local.end())
 			return jt->second.uxtree;
 	}
-	//Search for the file 
+	//Search for the file
 	string fullpath;
 	FILE *auxfile = fopen_from_path(udf_filename, "aux", fullpath);
 	if (!auxfile)
@@ -1243,7 +1244,7 @@ AstNode *CAstSig::ReadUDF(string &emsg, const char *udf_filename)
 }
 
 AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, const string &filecontent)
-{ 
+{
 	//Deregistering takes place during cleaning out of pEnv i.e., ~CAstSigEnv()
 	char udf_filename[256];
 	_splitpath(fullfilename, NULL, NULL, udf_filename, NULL);
@@ -1260,12 +1261,12 @@ AstNode *CAstSig::RegisterUDF(const AstNode *p, const char *fullfilename, const 
 	vector<int> undefined;
 	auto vv = register_switch_cvars(pnode4Func->child->next->next, undefined);
 
-	pEnv->udf[udf_filename].uxtree = pnode4Func;	
+	pEnv->udf[udf_filename].uxtree = pnode4Func;
 	pEnv->udf[udf_filename].fullname = fullfilename;
 	pEnv->udf[udf_filename].content = filecontent.c_str();
 	pEnv->udf[udf_filename].switch_case = vv;
 	pEnv->udf[udf_filename].switch_case_undefined = undefined;
-	
+
 	for (AstNode *pp = pnode4Func->next; pp; pp = pp->next)
 	{// if one or more local functions exists
 		UDF loc;
@@ -1341,7 +1342,7 @@ CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 
 void CAstSig::prepare_endpoint(const AstNode *p, CVar *pvar)
 {  // p is the node the indexing starts (e.g., child of N_ARGS... wait is it also child of conditional p?
-	if (p->next) // first index in 2D 
+	if (p->next) // first index in 2D
 		endpoint = (double)pvar->nGroups;
 	else
 		endpoint = (double)pvar->nSamples;
@@ -1391,7 +1392,7 @@ void CAstSig::index_array_satisfying_condition(CVar &isig)
 
 
 CVar * CAstSig::TSeq(const AstNode *pnode, AstNode *p)
-{ 
+{
 	//For now (6/12/2018) only [vector1][vector2] where two vectors have the same length.
 	CVar tsig2, tsig = Compute(p);
 	int type1 = tsig.GetType();
@@ -1407,7 +1408,7 @@ CVar * CAstSig::TSeq(const AstNode *pnode, AstNode *p)
 			strcpy(pnode->str, "TSEQ"), throw CAstException(USAGE, *this, pnode).proc("Invalid t-sequence value array");
 		if (tsig2.nGroups == 1)
 		{
-			//if 
+			//if
 			if (pnode->child->next->type == N_VECTOR)
 			{
 				if (tsig2.nSamples != tsig.nSamples)
@@ -1523,7 +1524,7 @@ CVar * CAstSig::pseudoVar(const AstNode *pnode, AstNode *p, CSignals *pout)
 			}
 		}
 	}
-	return &Sig; // nominal return value 
+	return &Sig; // nominal return value
 }
 
 CVar * CAstSig::NodeMatrix(const AstNode *pnode)
@@ -1605,7 +1606,7 @@ CVar * CAstSig::NodeVector(const AstNode *pn)
 	// Inspect each element. After the first element, nRows is established
 	// If any subsequent element produces different nRows, throw
 	// If the first element is bool, all the other must be bool
-	// If the first element is real, continue as real. 
+	// If the first element is real, continue as real.
 	//    (if any subsequent element is complex, make a new vector as a complex)
 	// If the first element is complex, continue as complex
 	// If the first element is a GO, all must be GO.
@@ -1624,12 +1625,12 @@ CVar * CAstSig::NodeVector(const AstNode *pn)
 		blockString(pn, *psig);
 //		blockTemporal(pn, *psig);
 		GO = blockCell_allowGO(pn, *psig);
-		ngroups = psig->nGroups; // first number of rows 
+		ngroups = psig->nGroups; // first number of rows
 		auto type = psig->type();
 		if (!nCount) {
 			if (!p->next) return &(Sig = *psig); // if only single item, return here
 			if (psig->IsGO()) {
-				if (psig->GetFs() == 3) 
+				if (psig->GetFs() == 3)
 					for (unsigned int k = 0; k < psig->nSamples; k++) dbuf.push_back(psig->buf[k]);
 				else
 					dbuf.push_back((double)(INT_PTR)pgo); // psig is the address of Sig, which is a copy; pgo is correct 9/28/2020
@@ -1766,7 +1767,7 @@ vector<AstNode *> copy_AstNode(const AstNode *psrc, AstNode *ptarget)
 }
 
 vector<CVar *> CAstSig::Compute(void)
-{ 
+{
 	// There are many reasons to use this function as a Gateway function in the application, avoiding calling Compute(xtree) directly.
 	// Call Compute(xtree) only if you know exactly what's going on. 11/8/2017 bjk
 	vector<CVar*> res;
@@ -1900,7 +1901,7 @@ CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar
 		{
 			(*it).second.func(this, pnode, NULL, dummy);
 		}
-		else 
+		else
 		{
 			map<string, vector<CVar*>>::iterator jt = CAstSigEnv::glovar.find(varname);
 			if (jt == CAstSigEnv::glovar.end())
@@ -1919,7 +1920,7 @@ CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar
 }
 
 CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
-{ // To retrieve a GO variable. 
+{ // To retrieve a GO variable.
   // For a single element, returns its pointer
   // For a array GO, create a container showing the pointers of the elements and return its pointer
 	try {
@@ -1929,7 +1930,7 @@ CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
 			GOs = pvar->struts.at(varname);
 		else
 			GOs = GOvars.at(varname);
-		// If the retrieved GOs is a size of 1, return the front element pointer 
+		// If the retrieved GOs is a size of 1, return the front element pointer
 		// OK to return it even if the retrieved GOs is a GO container
 		if (GOs.size() == 1)
 			return GOs.front();
@@ -1944,7 +1945,7 @@ CVar *CAstSig::GetGOVariable(const char *varname, CVar *pvar)
 
 CVar *CAstSig::GetVariable(const char *varname, CVar *pvar)
 { //To retrive a variable from a workspace pvar is NULL (default)
-  //To retrive a member variable, specify pvar as the base variable 
+  //To retrive a member variable, specify pvar as the base variable
  // For multiple GO's, calls GetGOVariable()
 	string fullvarname = "";
 	CVar *pout(NULL);
@@ -2021,7 +2022,7 @@ CVar *CAstSig::eval_RHS(AstNode *pnode)
 inline void CAstSig::throw_LHS_lvalue(const AstNode *pn, bool udf)
 {
 	ostringstream out;
-	out << "LHS must be an l-value. "; 
+	out << "LHS must be an l-value. ";
 	if (udf)
 	{
 		out << "Name conflict between the LHS variable " << endl;
@@ -2060,7 +2061,7 @@ CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode, const AstNode* ppar)
 	{ // T_FULLRANGE is treated separately, avoiding all the indexing handling
 		if (tsig.value() == 1.) // left channel
 		{
-			Sig <= pin; // ghost copying 
+			Sig <= pin; // ghost copying
 			delete Sig.next;
 			Sig.next = NULL;
 		}
@@ -2270,7 +2271,7 @@ AstNode *CAstSig::read_nodes(CNodeProbe &np, bool bRHS)
 	while (pn)
 	{
 		// Sig gets the info on the last node after this call.
-		// when np.root->child is not NULL, 
+		// when np.root->child is not NULL,
 		// if pn->alt is terminal (not null), it doesn't have to go thru getvariable.
 		p = read_node(np, pn, pPrev, RHSpresent);
 		if (!p) return pn;
@@ -2292,20 +2293,20 @@ The difference:
 
 void CAstSig::bind_psig(AstNode *pn, CVar *psig)
 { // update psig with newsig
-	// if pn is T_ID without alt-->SetVar 
-	// if pn is N_AGRS or N_STRUCT --> update psig with newsig according to the indices or dot 
+	// if pn is T_ID without alt-->SetVar
+	// if pn is N_AGRS or N_STRUCT --> update psig with newsig according to the indices or dot
 	assert(pn->type==T_ID);
 	if (!pn->alt)
 	{
 		SetVar(pn->str, psig);
 	}
-	else 
+	else
 	{
 		if (pn->alt->type == N_ARGS)
 		{
 			CNodeProbe ndprob(this, pn, NULL);
 			// ndprob.psigBase should be prepared to do indexing
-			AstNode *lhs_now = read_nodes(ndprob, true); 
+			AstNode *lhs_now = read_nodes(ndprob, true);
 			ndprob.TID_indexing(pn, pn->alt, NULL);
 		}
 		else if (pn->alt->type == N_TIME_EXTRACT)
@@ -2373,7 +2374,7 @@ CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 		if (np.psigBase)
 			Script = np.varname;
 		// At this point, Sig should be it
-		// psig : the base content of Sig 
+		// psig : the base content of Sig
 		// pLast: the node corresponding to psig
 		setgo.frozen = true;
 		if (setgo.type)
@@ -2409,7 +2410,7 @@ CVar * CAstSig::Dot(AstNode *p)
 
 CVar * CAstSig::ConditionalOperation(const AstNode *pnode, AstNode *p)
 {
-//	why pgo = NULL; ? 
+//	why pgo = NULL; ?
 // pgo should be reset right after all Compute calls so upon exiting ConditionalOperation
 // it shouldn't have any lingering pgo.
 // pgo is supposed to be used only temporarily-- to relay go to the next step and it shouldn't linger too long.
@@ -2499,7 +2500,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 {
 	CVar tsig, isig, lsig, rsig;
 	bool trinary(false);
-	if (!pnode) 
+	if (!pnode)
 	{	Sig.Reset(1); return &Sig; }
 	AstNode *p = pnode->child;
 	if (GfInterrupted)
@@ -2508,7 +2509,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_ID:
 		return TID((AstNode*)pnode, p);
 	case T_TRY:
-		inTryCatch++; 
+		inTryCatch++;
 		Try_here(pnode, p);
 		break;
 	case T_CATCH:
@@ -2553,7 +2554,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 				funcname = p->alt->str;
 			if (!ReadUDF(emsg, funcname.c_str()) && !IsValidBuiltin(funcname) && emsg.empty())
 				throw_LHS_lvalue(pnode, false);
-			// Now, evaluate RHS 
+			// Now, evaluate RHS
 			// why not TID(((AstNode*)pnode->str), p), which might be more convenient? (that's the "inner" N_VECTOR node)
 			// Because then there's no way to catch [out1 out2].sqrt = func
 			return TID((AstNode*)pnode, p);
@@ -2664,7 +2665,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		pLast = p;
 		if (checkcond(p))
 			Compute(p->next);
-		else if (pnode->alt) 
+		else if (pnode->alt)
 			Compute(pnode->alt);
 		break;
 	case T_SWITCH:
@@ -2713,13 +2714,13 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		//isig must be a vector
 		if (isig.type()>2)
 			throw CAstException(USAGE, *this, p).proc("For-loop index variable must be a vector.");
-		for (unsigned int i=0; i<isig.nSamples && !fExit && !fBreak; i++) 
+		for (unsigned int i=0; i<isig.nSamples && !fExit && !fBreak; i++)
 		{
 			SetVar(p->str, &CVar(isig.buf[i]));
-			//	assuming that (pnode->alt->type == N_BLOCK) 
+			//	assuming that (pnode->alt->type == N_BLOCK)
 			// Now, not going through N_BLOCK 1/4/2020
-			// 1) When running in a debugger, it must go through N_BLOCK 
-			// 2) check if looping through pa->next is bullet-proof 
+			// 1) When running in a debugger, it must go through N_BLOCK
+			// 2) check if looping through pa->next is bullet-proof
 			for (AstNode *pa = pnode->alt->next; pa; pa = pa->next)
 			{
 				pLast = pa;
@@ -3011,8 +3012,8 @@ CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
 	{
 		if (psig->IsGO()) // name and psig should be fed to struts
 		{
-			// Previous one should be cleared.  
-			// I wonder if this clear() would cause an issue 
+			// Previous one should be cleared.
+			// I wonder if this clear() would cause an issue
 			// What has the SetVar convention been for GO 1/3/2021
 			pBase->struts[name].clear();
 			pBase->struts[name].push_back(psig);
@@ -3185,9 +3186,9 @@ bool CAstSig::IsCELL_STRUCT_pnode_TID_ARGS(const AstNode *pnode, const AstNode *
 
 bool CAstSig::IsTID(const AstNode *p)
 { return p->type == T_ID; }
-bool CAstSig::IsBLOCK(const AstNode *p) 
+bool CAstSig::IsBLOCK(const AstNode *p)
 { return p->type == N_BLOCK; }
-bool CAstSig::IsVECTOR(const AstNode *p) 
+bool CAstSig::IsVECTOR(const AstNode *p)
 { return p->type == N_VECTOR; }
 bool CAstSig::IsSTRUCT(const AstNode *p)
 {
@@ -3233,7 +3234,7 @@ int CAstSig::updateGO(CVar &goref)
 {
 	CVar *pp;
 	map<std::string, CVar>::iterator it = Vars.begin();
-	
+
 	try {
 		for (it; it != Vars.end(); it++)
 		{
@@ -3244,7 +3245,7 @@ int CAstSig::updateGO(CVar &goref)
 					continue; // throw pp;
 				// if the variable is in the genealogy of goref, update the variable
 				godeep(&it->second, pp);
-				if (goref.struts.find("parent") == goref.struts.end()) 
+				if (goref.struts.find("parent") == goref.struts.end())
 					continue;
 				pp = goref.struts["parent"].front();
 				while (pp && !pp->IsEmpty())
@@ -3346,7 +3347,7 @@ vector<string> CAstSig::ClearVar(const char *var, CVar *psigBase)
 				else
 				{
 					auto it = GOvars.find(v);
-					if (it != GOvars.end()) 
+					if (it != GOvars.end())
 					{
 						out.push_back((*it).first);
 						GOvars.erase(it);
@@ -3448,7 +3449,7 @@ CVar *CAstSig::GetSig(const char *var)
 
 vector<CVar*> CAstSig::get_GO_children(const vector<CVar*> & obj)
 {	// If obj is a figure, add its axes's
-	// Add 
+	// Add
 	vector<CVar*> out;
 	for (auto jt : obj)
 		for (auto it = jt->struts.begin(); it != jt->struts.end(); it++)
@@ -3526,7 +3527,7 @@ UDF& UDF::operator=(const UDF& rhs)
 
 CAstSigEnv& CAstSigEnv::operator=(const CAstSigEnv& rhs)
 {
-	if (this != &rhs) 
+	if (this != &rhs)
 	{
 		Fs = rhs.Fs;
 		AuxPath = rhs.AuxPath;
