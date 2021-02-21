@@ -1,12 +1,12 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: audfret
 // Miscellaneous Support Library
-// 
-// 
+//
+//
 // Version: 1.4951
 // Date: 12/14/2018
 // Change from 1.495: CString, CRect not used-->no need to include wxx_wincore.h
@@ -87,6 +87,7 @@ void GetLocalTimeStr(string &strOut);
 int GetFileText(FILE* fp, string& strOut);
 int GetFileText(const char *fname, const char *mod, string &strOut);
 int mceil(double x);
+size_t process_esc_chars(void* str, size_t len, char * errstr);
 
 
 //Obsolete....for compatibility only

@@ -30,3 +30,8 @@ x=[2 1 0 8 10]
 str="bk",ff=sqrt(2); x.max
 
 Crash in _minmax()
+================================================================
+9:07 PM 2/10/2021
+f7d97962c1204a114cda0839bbbabd407194498c
+
+plot... xlim not appearing if a range is selected and moved left-right-zoomin-zoomout

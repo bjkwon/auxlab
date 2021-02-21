@@ -1,0 +1,182 @@
+input:
+	2	(null)
+	3	block_func	/* can be NULL */
+block_func:
+	4	line_func
+	5	block_func line_func
+block:
+	6	line
+	7	block line
+line:
+	8	T_NEWLINE
+	9	error T_NEWLINE
+	10	stmt eol
+	11	stmt eol2
+line_func:
+	12	line
+	13	funcdef
+eol:
+	14 ',' 
+	15 T_NEWLINE 
+	16 T_EOF
+eol2:
+	17	';'
+func_end:
+	18	(null)
+	19	T_EOF
+func_decl:
+	20	T_FUNCTION
+	21	T_STATIC T_FUNCTION
+funcdef:
+	22	func_decl T_ID block func_end
+	23	func_decl varblock '=' T_ID block func_end
+	24	func_decl T_ID '(' id_list ')' block func_end
+	25	func_decl varblock '=' T_ID '(' id_list ')' block func_end
+case_list:
+	26	(null)
+	27	T_NEWLINE
+	28	case_list T_CASE exp T_NEWLINE block
+	29	case_list T_CASE '{' arg_list '}' T_NEWLINE block
+stmt:
+	30	expcondition
+	31	assign
+	32	initcell
+	33	T_IF conditional block elseif_list T_END
+	34	T_SWITCH exp case_list T_END
+	35	T_SWITCH exp case_list T_OTHERWISE block T_END
+	36	T_TRY block T_CATCH T_ID block T_END
+	37	T_WHILE conditional block T_END
+	38	T_FOR T_ID '=' exp_range block T_END
+	39	T_FOR T_ID '=' exp_range ',' block T_END
+	40	T_RETURN
+	41	T_BREAK
+	42	T_CONTINUE
+conditional:
+	43 condition	
+	44 condition eol	
+	45 exp	
+	46 exp eol
+elseif_list:
+	47	(null)
+	48	T_ELSEIF conditional block elseif_list
+	49	elseif_list T_ELSE block
+expcondition:
+	50	csig
+csig:
+	51	exp_range
+initcell:
+	52	'{' arg_list '}'
+condition:
+	53	'(' condition ')'
+	54	exp '<' exp
+	55	exp '>' exp
+	56	exp T_LOGIC_EQ exp
+	57	exp T_LOGIC_NE exp
+	58	exp T_LOGIC_GE exp
+	59	exp T_LOGIC_LE exp
+	60	'!' expcondition %prec T_LOGIC_NOT
+	61	expcondition T_LOGIC_AND expcondition
+	62	expcondition T_LOGIC_OR expcondition
+id_list:
+	63	(null)
+	64	T_ID
+	65	id_list ',' T_ID
+arg:
+	66	':'
+	67	exp_range
+	68	initcell
+arg_list:
+	69	arg
+	70	arg_list ',' arg
+matrix:
+	71	(null)
+	72	vector
+	73	matrix ';' vector
+	74	matrix ';'
+vector:
+	75	exp_range
+	76	vector exp_range
+	77	vector ',' exp_range
+range:
+	78	exp ':' exp
+	79	exp ':' exp ':' exp
+exp_range:
+	80 exp	
+	81 range 	
+	82 condition
+compop:
+	83	"+="
+	84	"-="
+	85	"*="
+	86	"/="
+	87	"@="
+	88	"@@="
+	89	">>="
+	90	"%="
+	91	"->="
+	92	"~="
+	93	"<>="
+	94	"#="
+assign2this:
+	95	'=' exp_range
+	96	"++=" condition
+	97	"++=" exp
+	98	compop exp_range
+varblock:
+	99	T_ID
+	100	tid '.' T_ID
+	101	varblock '{' exp '}'
+	102	'[' vector ']'
+	103	'$' varblock
+tid:
+	104	varblock
+	105	T_ID '(' arg_list ')'
+	106	T_ID '{' exp '}'
+	107	T_ID '{' exp '}' '(' arg_list ')'
+	108	varblock '(' arg_list ')'
+	109	varblock '(' ')'
+	110	T_REPLICA
+	111	T_REPLICA '(' arg_list ')'
+	112	T_REPLICA '{' exp '}'
+	113	T_REPLICA '{' exp '}' '(' arg_list ')'
+	114	tid '\''
+	115	'[' vector ']' '[' ']'
+	116	'[' vector ']' '[' vector ']'
+	117	'[' vector ']' '[' matrix ']'
+	118	'[' matrix ']' '[' vector ']'
+	119	'[' matrix ']' '[' matrix ']'
+	120	'[' matrix ']'
+	121	'(' exp_range ')'
+assign:
+	122	tid assign2this
+	123	varblock assign2this
+	124	varblock '=' assign
+	125	tid '=' assign
+	126	varblock '=' initcell
+exp:
+	127	initcell
+	128	tid
+	129	T_NUMBER
+	130	T_STRING
+	131	T_ENDPOINT
+	132	'-' exp %prec T_NEGATIVE
+	133	'+' exp %prec T_POSITIVE
+	134	T_SIGMA '(' tid '=' exp_range ',' exp ')'
+	135	exp '+' exp
+	136	exp '-' exp
+	137	exp '*' exp
+	138	exp '/' exp
+	139	exp T_MATRIXMULT exp
+	140	exp '^' exp
+	141	exp '%' exp
+	142	exp '~' exp
+	143	exp '#' exp
+	144	exp "<>" exp
+	145	exp "->" exp
+	146	exp '@' exp
+	147	exp T_OP_SHIFT exp
+	148	exp T_OP_CONCAT exp
+//tseq:
+	149	(null)
+	150	//
+	151	

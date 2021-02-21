@@ -163,6 +163,7 @@ void _tsq_gettimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::s
 void _tsq_settimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
 void _tsq_isrel(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
 void _str2num(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
+void _esc(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
 void _datatype(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
 void _veq(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
 void _varcheck(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
@@ -1130,6 +1131,10 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	builtin[name] = ft;
 	name = "throw";
 	ft.func = &udf_rethrow;
+	builtin[name] = ft;
+	name = "esc";
+	ft.funcsignature = "(string)";
+	ft.func = &_esc;
 	builtin[name] = ft;
 
 

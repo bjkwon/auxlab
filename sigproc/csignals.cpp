@@ -1668,17 +1668,20 @@ CSignal& CSignal::operator>>=(double delta)
 	double newtmark = quantizetmark(tmark + delta, fs);
 	if (newtmark < 0) // cut off negative time domain
 	{
-		double pts2remove = newtmark / 1000. * fs;
-		if (pts2remove > nSamples) {	// nothing left
-			Reset();
+		auto remainingDur = quantizetmark(endt() + delta, fs);
+		if (remainingDur<=0.)
+		{ // nothing left
+			Reset(1); // needs to specify 1 to make it NULL with fs=1
 			return *this;
 		}
+		// at this point, pts2remove cannot exceed nSamples
+		auto pts2remove = (unsigned int)(nSamples - remainingDur / 1000. * fs + .5);
 		tmark = 0;
-		nSamples -= (unsigned int)pts2remove;
-		for (unsigned int k = 0; k < nSamples; k++)
-			buf[k] = buf[k + (unsigned int)pts2remove];
+		nSamples -= pts2remove;
+		memmove(logbuf, logbuf + pts2remove * bufBlockSize, nSamples * bufBlockSize);
 	}
-	tmark += delta;
+	else
+		tmark += delta;
 	return *this;
 }
 
@@ -2744,15 +2747,6 @@ CSignals::CSignals(const CTimeSeries& src)
 }
 
 CSignals::CSignals(double* y, int len)
-	: next(NULL)
-{
-	SetFs(1);
-	SetComplex();
-	UpdateBuffer(len);
-	memcpy(buf, y, sizeof(double) * len);
-}
-
-CSignals::CSignals(complex<double> *y, int len)
 	: next(NULL)
 {
 	SetFs(1);

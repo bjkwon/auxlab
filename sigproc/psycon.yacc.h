@@ -40,10 +40,11 @@ int getTokenID(const char *str);
 char *getAstNodeName(AstNode *p);
 int yyparse(AstNode **pproot, char **errmsg);
 int yydeleteAstNode(AstNode *p, int fSkipNext);
+void reset_stack_ptr();
 
-int yysetNewStringToScan(const char *source);
+int yysetNewStringToScan(const char *source, char *mirror);
 int yysetNewFileToScan(FILE *source);
 
 #ifdef __cplusplus
 }
-#endif 
+#endif

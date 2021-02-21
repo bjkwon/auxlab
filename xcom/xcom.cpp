@@ -134,7 +134,7 @@ static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRec
 	CRect crTemp(0, 0, 500, 400);
 	if (ReadINI (errStr, fname, "WINDOW POS", strRead)>=0 && str2array (tar, 4, strRead.c_str(), " ")==4)
 	{
-		if ((tar[2] + tar[0]) < 0) 
+		if ((tar[2] + tar[0]) < 0)
 			*rtMain = crTemp;
 		else
 		{
@@ -585,7 +585,7 @@ void xcom::console()
 		getinput(buf); // this is a holding line.
 		SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf), (LPARAM)buf);
 		trimLeft(buf,"\xff");
-		trimRight(buf,"\r\n\xff");
+		trimRight(buf,"\xff");
 		if (mainSpace.computeandshow(buf)==-1) break;
 	}
 }
@@ -750,6 +750,13 @@ void print_string(const CVar& var, int offset, const char* postscript)
 }
 */
 
+void print_string(const CVar& var, int offset, const char* postscript)
+{
+	for (int k = 0; k < offset; k++) cout << " ";
+	cout << "\"" << var.string() << "\"" << postscript << endl;
+}
+*/
+
 void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 {
 	/*
@@ -782,7 +789,8 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			cv_delay_closingfig.wait(lck);
 			pctx->wait4cv = false;
 		}
-		if (CAstSig::IsTID(pnode))
+		// pctx->xtree->alt indicates subsequent modifier of TID (e.e., x(10:20) x.sqrt, etc)
+		if (CAstSig::IsTID(pnode) && !pctx->xtree->alt)
 		{
 			string varname;
 			if (pctx->xtree->type == N_VECTOR)
@@ -792,7 +800,7 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			echo_object().print(varname, *pvar, 1);
 		}
 		else
-		{ // 1+a, 2^5, a' !a a>=1 ... 
+		{ // 1+a, 2^5, a' !a a>=1 ...
 			pctx->SetVar("ans", pvar);
 			echo_object().print("ans", *pvar, 1);
 		}
@@ -811,13 +819,15 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	bool err(false);
 	size_t nItems, k(0);
 	string input(in);
-	trim(input, " \t\r\n");
-	trimr(input, "\r\n");
+	char* str_autocorrect = NULL;
+	trim(input, " \t\r\n");//be careful. EXP_AUTO_CORRECT_TAG should not contain any of these characters
 	if (input.size()>0)
 	try {
 		//if the line begins with #, it bypasses the usual parsing
 		if (input[0] == '#')
 		{
+			auto pos = input.find(EXP_AUTO_CORRECT_TAG);
+			input = input.substr(0, pos);
 			string tar[2];
 			string input1 = input.substr(1);
 			nItems = str2array(tar, 2, input1.c_str(), " ");
@@ -828,16 +838,18 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			ShowWS_CommandPrompt(pContext);
 			return pTemp ? 1 : 0;
 		}
-		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg)))
+		// str_autocorrect is used to track the corrected version of input
+		// for example, if in is sqrt(2  str_autocorrect is sqrt(2)
+		str_autocorrect = (char*)calloc(input.size() * 2, 1);
+		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg, str_autocorrect)))
 		{
 			if (emsg.empty())
-				throw 1; // continue down to dummy and ShowWS_CommandPrompt
+				throw 1; // // temporary, to be cleared 2/20/2021
 			else
 				throw emsg.c_str();
 		}
 		pContext->statusMsg.clear();
 		pContext->Compute();
-
 		string line;
 		CONSOLE_SCREEN_BUFFER_INFO coninfo;
 		GetConsoleScreenBufferInfo(hStdout, &coninfo);
@@ -889,6 +901,10 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		Back2BaseScope(0);
 		if (pContext->baselevel.size()>1) pContext->baselevel.pop_back();
 	}
+	catch (int ecode)
+	{ // temporary, to be cleared 2/20/2021
+		cout << "ERROR: code" << ecode << endl;
+	}
 	catch (CAstSig *ast)
 	{ // this was thrown by aux_HOOK
 		if (ast->u.debug.status == aborting)
@@ -924,11 +940,8 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			cout << "ERROR:" << errmsg << endl;	 }
 		}
 	}
-	catch (int dummy)
-	{
-		dummy++;
-	}
 	ShowWS_CommandPrompt(pContext, succ);
+	free(str_autocorrect);
 	return pTemp ? 1:0;
 }
 
