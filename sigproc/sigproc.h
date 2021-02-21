@@ -293,7 +293,7 @@ private:
 	void Concatenate(const AstNode *pnode, AstNode *p);
 	AstNode *read_node(CNodeProbe &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);
 	AstNode *read_nodes(CNodeProbe &diggy, bool bRHS = false);
-	CVar * getchannel(CVar *pin, const AstNode *pnode);
+	CVar * getchannel(CVar *pin, const AstNode *pnode, const AstNode* ppar);
 	void interweave_indices(CVar &isig, CVar &isig2, unsigned int len);
 	void index_array_satisfying_condition(CVar &isig);
 	void replica_prep(CVar *psig);
@@ -446,7 +446,7 @@ public:
 	CVar * TID_RHS2LHS(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar &ExtractByIndex(const AstNode *pnode, AstNode *p);
 	CVar &eval_indexing(const AstNode *pInd, CVar &indSig);
-	CVar * TID_indexing(AstNode *p, AstNode *pRHS, CVar *psig);
+	CVar * TID_indexing(const AstNode* pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar * TID_tag(const AstNode *pnode, AstNode *p, AstNode *pRHS, CVar *psig);
 	CVar * extract(const AstNode *pnode, CTimeSeries &isig);
 	CVar * TID_time_extract(const AstNode *pnode, AstNode *p, AstNode *pRHS);

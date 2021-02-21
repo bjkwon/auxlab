@@ -2029,26 +2029,49 @@ inline void CAstSig::throw_LHS_lvalue(const AstNode *pn, bool udf)
 	throw CAstException(USAGE, *this, pn).proc(out.str().c_str());
 }
 
-CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode)
+CVar * CAstSig::getchannel(CVar *pin, const AstNode *pnode, const AstNode* ppar)
 {
-	if (pnode->child->next->type != T_FULLRANGE)
-		throw CAstException(USAGE, *this, pnode).proc("2-D style extraction of audio signal not implemented yet.");
+	// 2-D indexing for audio, the first arg must be scalar 1 or two.
+	// Don't call eval_indexing(). Just Compute();
 	CVar tsig = Compute(pnode->child);
-	checkScalar(pnode, tsig, "first arg should be either 1 or 2.");
-	if (tsig.value() == 2.)
-	{
-		if (!pin->next)
-			Sig.Reset(1);
-		else
-			Sig = *pin->next;
-	}
-	else if (tsig.value() == 1.)
-	{
-		delete Sig.next;
-		Sig.next = NULL;
+	checkScalar(pnode, tsig, "First arg should be integer.");
+	if (tsig.value()!=1. && tsig.value()!=2.)
+		throw CAstException(USAGE, *this, pnode).proc("First arg should be either 1 (left chan) or 2 (right chan).");
+	// pnode->child->next shouldn't be NULL to come here.
+	if (!pin->next && tsig.value() == 2.)
+		throw CAstException(USAGE, *this, pnode).proc("2nd chan referenced in a mono audio.");
+	CNodeProbe np(this, (AstNode*)pnode, pin);
+	CVar isig;
+	if (pnode->child->next->type == T_FULLRANGE)
+	{ // T_FULLRANGE is treated separately, avoiding all the indexing handling
+		if (tsig.value() == 1.) // left channel
+		{
+			Sig <= pin; // ghost copying 
+			delete Sig.next;
+			Sig.next = NULL;
+		}
+		else // right channel
+		{
+			// pin->bringnext(); somewhere???
+			Sig <= (CSignals*)((pin->next));
+		}
 	}
 	else
-		throw CAstException(USAGE, *this, pnode).proc("x(1,:) for left, x(2,:) for right");
+	{
+		if (tsig.value() == 1.) // left channel
+		{
+			np.eval_indexing(pnode->child->next, isig);
+			Sig = np.extract(ppar, isig);
+		}
+		else
+		{
+			CVar temp;
+			temp <= (CSignals*)((pin->next));
+			np.psigBase = &temp;
+			np.eval_indexing(pnode->child->next, isig);
+			Sig = np.extract(ppar, isig);
+		}
+	}
 	return &Sig;
 }
 
@@ -2083,7 +2106,24 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool 
 		}
 	}
 	else if (ptree->type == N_ARGS)
-		np.tree_NARGS(ptree, ppar);
+	{
+		// ptree points to LHS, no need for further processing. Skip
+		// (except that RHS involves .. or a compoud op connects LHS to RHS)
+
+		// Here, ppar->child is assumed to be RHS. That is valid only if ppar is the initial ptree
+		// Need something else to indicate RHS for cases like ax(1).pos(4) = .3
+		// once it goes down to ax(1), then the assumption that ppar->child is RHS is not true...
+		// In other words, currently, in ax(1).pos(4) = .3, the LHS is processed twice (not skipped before TID_RHS2LHS)
+		// 1/25/2021
+		if (!ppar->child || searchtree(ppar->child, T_REPLICA) )
+			np.tree_NARGS(ptree, ppar);
+		// BUT, for LHS is ax(1).pos(4) = .3, ax(1).pos should be processed before calling TID_RHS2LHS
+		// i.e., you can skip only if ptree->alt is NULL
+		else if (ptree->alt)
+			np.tree_NARGS(ptree, ppar);
+		else
+			return NULL;
+	}
 	else if (ptree->type == N_TIME_EXTRACT)
 		np.TimeExtract(ptree, ptree->child);
 	else if (ptree->type == T_REPLICA || ptree->type == T_ENDPOINT)
@@ -2265,7 +2305,7 @@ void CAstSig::bind_psig(AstNode *pn, CVar *psig)
 			CNodeProbe ndprob(this, pn, NULL);
 			// ndprob.psigBase should be prepared to do indexing
 			AstNode *lhs_now = read_nodes(ndprob, true); 
-			ndprob.TID_indexing(pn->alt, NULL, psig);
+			ndprob.TID_indexing(pn, pn->alt, NULL, psig);
 		}
 		else if (pn->alt->type == N_TIME_EXTRACT)
 		{

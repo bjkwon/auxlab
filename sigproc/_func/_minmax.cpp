@@ -17,7 +17,12 @@ void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 	// 2) child 
 	// 3) N_BLOCK
 	// 4) T_IF, T_FOR, T_WHILE, or T_SWITCH
-	int nOutVars;
+
+	// Check the logic for cases 
+	// i) command line: x=[2 1 0 8 10]\n x.max
+	// ii) command line in block: x=[2 1 0 8 10]\n str="bk",ff=sqrt(2); x.max
+	// iii) used in udf
+	int nOutVars = 0;
 	if (pnode->type == N_STRUCT)
 	{
 		auto ss = CAstSig::findDadNode(ptree_thisline, pnode);
@@ -26,8 +31,8 @@ void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 			nOutVars = 0;
 		else if (ssp->type == N_VECTOR)
 			nOutVars = countVectorItems(ssp);
-		else
-			throw "unchecked logic flow";
+//		else
+//			throw "unchecked logic flow";
 	}
 	else
 	{
@@ -36,8 +41,8 @@ void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 			nOutVars = 0;
 		else if (ss->type == N_VECTOR)
 			nOutVars = countVectorItems(ss);
-		else
-			throw "unchecked logic flow";
+//		else
+//			throw "unchecked logic flow";
 	}
 	
 	CVar* popt = NULL;

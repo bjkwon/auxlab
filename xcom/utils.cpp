@@ -30,6 +30,23 @@ CWndDlg * Find_cellviewdlg(const char *name)
 	return NULL;
 }
 
+SIZE GetScreenSize()
+{
+	//auto nMonitors = GetSystemMetrics(SM_CMONITORS);
+	//auto screenWidth = GetSystemMetrics(SM_CXFULLSCREEN);
+	//auto screenWidth2 = GetSystemMetrics(SM_CXMAXIMIZED);
+	//auto screenWidth3 = GetSystemMetrics(SM_CXSCREEN);
+	auto screenWidth4 = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+	//auto screenHeight = GetSystemMetrics(SM_CYFULLSCREEN);
+	//auto screenHeight2 = GetSystemMetrics(SM_CYMAXIMIZED);
+	//auto screenHeight3 = GetSystemMetrics(SM_CYSCREEN);
+	auto screenHeight4 = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+	//HDC hdc = GetDC(GetConsoleWindow());
+	//auto size_x = GetDeviceCaps(hdc, HORZSIZE);
+	//auto size_y = GetDeviceCaps(hdc, VERTSIZE);
+	return CSize(screenWidth4, screenHeight4);
+}
+
 static int writeINIs(const char *fname, char *estr, int fs, const char *path)
 {
 	char errStr[256];
@@ -64,6 +81,7 @@ void closeXcom()
 	// At that point, whatever was happening inside WinMain doesn't seem to matter.
 
 	CAstSig *pcast = xscope.front();
+	auto fs_session = pcast->GetFs();
 	char estr[256], buffer[256];
 	delete pcast->pEnv;
 
@@ -73,6 +91,15 @@ void closeXcom()
 	mHistDlg.GetWindowRect(rt3);
 	int res = writeINI_pos(mainSpace.iniFile, estr, rt1, rt2, rt3);
 
+	char dummy[256];
+	string strRead;
+	int fs;
+	res = ReadINI(dummy, mainSpace.iniFile, INI_HEAD_SRATE, strRead);
+	if (res > 0 && sscanf(strRead.c_str(), "%d", &fs) != EOF)
+	{
+		if (fs != fs_session)
+			printfINI(dummy, mainSpace.iniFile, INI_HEAD_SRATE, "%d", fs_session);
+	}
 	string debugudfs("");
 	for (unordered_map<string, CDebugDlg*>::iterator it = dbmap.begin(); it != dbmap.end(); it++)
 	{

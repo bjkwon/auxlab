@@ -230,8 +230,15 @@ unsigned int WINAPI histThread (PVOID var)
 
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
+	auto screensize = GetScreenSize();
 	if (res & 4)
+	{
+		if (rt3.left > screensize.cx)
+			rt3.MoveToX(0);
+		if (rt3.top > screensize.cy)
+			rt3.MoveToY(450);
 		mHistDlg.MoveWindow(rt3);
+	}
 	else
 	{
 		CRect rcConsole(30, 450, 700, 900);
@@ -286,11 +293,18 @@ unsigned int WINAPI showvarThread (PVOID var) // Thread for variable show
 	SetClassLongPtr (mShowDlg.hDlg, GCLP_HICON, (LONG)(LONG_PTR)LoadImage(hModule, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, 0, 0, 0));
 	mShowDlg.win7 = win7;
 
+	auto screensize = GetScreenSize();
 	RECT rc;
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
 	if (res & 2)
+	{
+		if (rt2.left > screensize.cx)
+			rt2.MoveToX(50);
+		if (rt2.top > screensize.cy)
+			rt2.MoveToY(150);
 		mShowDlg.MoveWindow(rt2);
+	}
 	else
 	{
 		CRect rcConsole(30, 450, 700, 900);
@@ -736,9 +750,12 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		break;
 	case TYPEBIT_LOGICAL+1:
 	case TYPEBIT_LOGICAL+2:
+	case TYPEBIT_STRUT + TYPEBIT_LOGICAL + 1:
+	case TYPEBIT_STRUT + TYPEBIT_LOGICAL + 2:
 		for (int k = 0; k < offset; k++) cout << " ";
 		cout <<  varname << " = ";
 		printf_vector(pvar, offset, postscript);
+//		echo_strut(pvar, offset, varname, postscript);
 		break;
 	case 1: //CSIG_SCALAR:
 	case TYPEBIT_COMPLEX + 1:
@@ -840,33 +857,7 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		passingdown = true;
 	case TYPEBIT_STRUT:
 	case TYPEBIT_STRUT + TYPEBIT_STRUTS:
-	{
-		if (!passingdown)
-		{
-			if (pvar->nSamples > 0)
-				echo(varname, pvar, offset, postscript);
-			cout << varname << " [Structure]" << endl;
-		}
-		for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
-		{
-			ostringstream var0;
-			var0 << '.' << it->first;
-			echo(var0.str().c_str(), &it->second, offset);
-		}
-		for (map<string, vector<CVar*>>::iterator it = pvar->struts.begin(); it != pvar->struts.end(); it++)
-		{
-			ostringstream var0;
-			var0 << '.' << it->first;
-			if ((*it).second.empty())
-				echo(var0.str().c_str(), &CVar());
-			else
-			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end() && j < 10; jt++)
-			{
-				if (!CAstSig::HandleSig(&temp, *jt)) temp.SetString("(internal error)");
-				echo(var0.str().c_str(), &temp, offset, " [Handle]");
-			}
-		}
-	}
+		echo_strut(pvar, offset, varname, postscript, passingdown);
 		break;
 	case TYPEBIT_GO + TYPEBIT_STRUT + TYPEBIT_STRUTS + 2:
 		for (unsigned int k = 0; k < pvar->nSamples; k++)
@@ -878,6 +869,36 @@ void xcom::echo(const char *varname, CVar *pvar, int offset, const char *postscr
 		break;
 	default:
 		break;
+	}
+}
+void xcom::echo_strut(CVar* pvar, int offset, const char* varname, const char* postscript, bool passingdown)
+{
+	unsigned int j = 1;
+	CVar temp;
+	if (varname && !passingdown)
+	{
+		if (pvar->nSamples > 0)
+			echo(varname, pvar, offset, postscript);
+		cout << varname << " [Structure]" << endl;
+	}
+	for (map<string, CVar>::iterator it = pvar->strut.begin(); it != pvar->strut.end(); it++)
+	{
+		ostringstream var0;
+		var0 << '.' << it->first;
+		echo(var0.str().c_str(), &it->second, offset);
+	}
+	for (map<string, vector<CVar*>>::iterator it = pvar->struts.begin(); it != pvar->struts.end(); it++)
+	{
+		ostringstream var0;
+		var0 << '.' << it->first;
+		if ((*it).second.empty())
+			echo(var0.str().c_str(), &CVar());
+		else
+			for (vector<CVar*>::iterator jt = (*it).second.begin(); jt != (*it).second.end() && j < 10; jt++)
+			{
+				if (!CAstSig::HandleSig(&temp, *jt)) temp.SetString("(internal error)");
+				echo(var0.str().c_str(), &temp, offset, " [Handle]");
+			}
 	}
 }
 
@@ -1932,9 +1953,16 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	CRect rt1, rt2, rt3, rt4;
 	int res = readINI_pos(mainSpace.iniFile, &rt1, &rt2, &rt3, &rt4);
+	auto screensize = GetScreenSize();
 	HWND hr2 = GetConsoleWindow();
 	if (res & 1)
+	{
+		if (rt1.left > screensize.cx)
+			rt1.MoveToX(400);
+		if (rt1.top > screensize.cy)
+			rt1.MoveToY(100);
 		MoveWindow(hr2, rt1.left, rt1.top, rt1.Width(), rt1.Height(), TRUE);
+	}
 	HMENU hMenu = GetSystemMenu(hr2, FALSE);
 	AppendMenu(hMenu, MF_SEPARATOR, 0, "");
 	AppendMenu(hMenu, MF_STRING, 1010, "F1 does not work here. Use it in \"Settings & Variables\"");
@@ -1945,7 +1973,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	vector<string> in;
 	in.push_back(buf);
 	mainSpace.LogHistory(in);
-
 
 	CONSOLE_CURSOR_INFO concurinf;
 

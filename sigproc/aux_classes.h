@@ -32,7 +32,7 @@ using namespace std;
 #define TYPEBIT_SIZE1		(uint16_t)0x0010
 #define TYPEBIT_FS2 		(uint16_t)0x0020
 #define TYPEBIT_SIZE16		(uint16_t)0x0040 // 16 bytes -- 8 bytes times 2
-#define TYPEBIT_LOGICAL		(TYPEBIT_SIZE1 + TYPEBIT_NULL) // 0x0080
+#define TYPEBIT_LOGICAL		(TYPEBIT_SIZE1 + TYPEBIT_NULL) // 0x0010
 // DO NOT MASK THIS WITH type() to detect string; Use IsString() instead.
 #define TYPEBIT_STRING		(TYPEBIT_SIZE1 + TYPEBIT_FS2)
 #define TYPEBIT_COMPLEX		TYPEBIT_SIZE16
@@ -128,7 +128,7 @@ public:
 	body& MakeLogical();
 	body& LogOp(body &rhs, int type);
 	body &insert(body &sec, int id);
-	body& replacebyindex(const vector<unsigned int>& ind, const body& RHS);
+	body& replacebyindex(vector<unsigned int>::iterator idBegin, vector<unsigned int>::iterator idEnd, const body& RHS);
 	body& replacebyindex(unsigned int id0, unsigned int len, const body& RHS);
 
 	body & interp1(body &that, body &qp);
@@ -569,6 +569,8 @@ public:
 	int GetTypePlus();
 	bool IsGO() const;
 	void set_class_head(const CSignals & rhs);
+	
+	CVar & bringnext();
 
 	CVar & operator=(const CSignals & rhs);
 	CVar & operator=(const CVar& rhs);

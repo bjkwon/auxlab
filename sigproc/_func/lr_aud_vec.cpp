@@ -13,10 +13,11 @@ void _audio(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& 
 	{
 		past->Sig.SetFs(past->GetFs());
 		past->Sig.nSamples /= 2;
-		CSignals next = CSignal(past->Sig.GetFs(), past->Sig.nSamples);
-		memcpy(next.logbuf, past->Sig.logbuf + past->Sig.nSamples * past->Sig.bufBlockSize, past->Sig.nSamples * past->Sig.bufBlockSize);
-		past->Sig.SetNextChan(&next);
 		past->Sig.nGroups = 1;
+		CSignals nextgh(past->Sig.GetFs());
+		nextgh <= past->Sig;
+		nextgh.buf += past->Sig.nSamples;
+		past->Sig.SetNextChan(&nextgh);
 	}
 		break;
 	default:
@@ -51,14 +52,6 @@ void _left(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& f
 void _right(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
 {
 	past->checkAudioSig(pnode, past->Sig);
-	CTimeSeries* right = past->Sig.DetachNextChan();
-	if (right == NULL) {
-		past->Sig.Reset();
-		return;
-	}
-	past->Sig.SwapContents1node(*right);
-	delete right;	// deleting left channel since 'right' now points to the left channel
-	delete past->Sig.next;
-	past->Sig.next = NULL;
+	past->Sig.bringnext();
 }
 
