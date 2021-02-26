@@ -748,7 +748,7 @@ void print_string(const CVar& var, int offset, const char* postscript)
 	for (int k = 0; k < offset; k++) cout << " ";
 	cout << "\"" << var.string() << "\"" << postscript << endl;
 }
-*/
+
 
 void print_string(const CVar& var, int offset, const char* postscript)
 {
@@ -848,6 +848,8 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			else
 				throw emsg.c_str();
 		}
+		auto pos = pContext->Script.find(EXP_AUTO_CORRECT_TAG);
+		pContext->Script = pContext->Script.substr(0, pos);
 		pContext->statusMsg.clear();
 		pContext->Compute();
 		string line;
