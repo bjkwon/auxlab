@@ -131,7 +131,6 @@ public:
 	body& replacebyindex(vector<unsigned int>::iterator idBegin, vector<unsigned int>::iterator idEnd, const body& RHS);
 	body& replacebyindex(unsigned int id0, unsigned int len, const body& RHS);
 
-	body & interp1(body &that, body &qp);
 	double _max FARGS const;
 	double _min FARGS const;
 	double sum FARGS const;

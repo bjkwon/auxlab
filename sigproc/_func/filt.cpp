@@ -42,8 +42,19 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			coeffs.push_back(den);
 			if (fourth.nSamples > 0)
 			{
-				for (unsigned int k = 0; k < fourth.nSamples; k++) initial.push_back(fourth.buf[k]);
+				auto tp = fourth.ToVector();
+				if (fourth.IsComplex())
+				{
+					for (unsigned int k = 0; k < fourth.nSamples; k++)
+						initial.push_back(fourth.cbuf[k]);
+				}
+				else
+				{
+					for (unsigned int k = 0; k < fourth.nSamples; k++)
+						initial.push_back(fourth.buf[k]);
+				}
 				coeffs.push_back(initial);
+				//as of 02/28/2021, processing of complex input data not ready in CSignal::filter
 			}
 			if (fname == "filt")
 				sig.fp_mod(&CSignal::filter, &coeffs);
