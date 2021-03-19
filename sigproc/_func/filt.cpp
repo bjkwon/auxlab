@@ -118,7 +118,11 @@ void _conv(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, vector<double>& state, unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	if (state.empty()) state.push_back(0.);
+	if (state.size() < max(num.size(), den.size()) - 1)
+	{
+		for (auto k = state.size(); k < max(num.size(), den.size()) - 1; k++)
+			state.push_back(0.);
+	}
 	if (IsComplex())
 	{
 		complex<double>* out = new complex<double>[len];
