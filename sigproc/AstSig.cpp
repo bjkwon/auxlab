@@ -642,6 +642,7 @@ void CAstSig::outputbinding(const AstNode *pnode, size_t nArgout)
 		}
 		if (--nArgout == 0) break;
 		pp = pp->next;
+		if (!pp) break;
 	}
 	lhs = nullptr;
 }
@@ -2552,8 +2553,6 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 				funcname = p->str;
 			if (p->alt && p->alt->type == N_STRUCT)
 				funcname = p->alt->str;
-			if (!ReadUDF(emsg, funcname.c_str()) && !IsValidBuiltin(funcname) && emsg.empty())
-				throw_LHS_lvalue(pnode, false);
 			// Now, evaluate RHS
 			// why not TID(((AstNode*)pnode->str), p), which might be more convenient? (that's the "inner" N_VECTOR node)
 			// Because then there's no way to catch [out1 out2].sqrt = func

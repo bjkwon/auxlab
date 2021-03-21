@@ -1,0 +1,11 @@
+crash fix:
+outputbinding of multiple args from udf crashes if not enough args are specified
+-->DONE
+===========
+crash fix:
+if gcf figure object is closed while a udf is running
+-->DONE in CShowvarDlg::OnPlotDlgDestroyed()
+(when "?foc" is closed, it searches an GOvar named ?foc across xscope and erase it)
+==================
+feature improv
+named plot of x updated even when  [x,y]=udf is called

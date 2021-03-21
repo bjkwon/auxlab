@@ -130,6 +130,7 @@ public:
 	void OnPlotDlgCreated(const char *varname, GRAFWNDDLGSTRUCT *pin);
 	void OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot);
 	void OnVarChanged(const char *varname=NULL);
+	void OnVarChanged(vector<const char*> varnames);
 	void OnCloseFig(int figID);
 	void Fillup(map<string, CVar> *Tags=NULL, CSignals *cell=NULL);
 	void fillrowvar(CVar *pvar, string varname);

@@ -8,6 +8,7 @@ void _zeros(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsig
 	past->Sig.Reset(1);
 	if (n <= 0) return;
 	past->Sig.UpdateBuffer(n);
+//	memset(past->Sig.buf, 0, n * sizeof(double)); // tried this; not sure if this speeds up. 3/20/2021
 	for (int i = 0; i < n; ++i)
 		past->Sig.buf[i] = 0;
 }

@@ -1420,6 +1420,24 @@ static bool same_trimmed_string(const string &_s1, const string &_s2)
 	return s1 == s2;
 }
 
+static void ss(const AstNode* p, vector<const char*> & vars)
+{
+	if (p->str && ((AstNode*)p->str)->type == N_VECTOR)
+	{
+		p = (AstNode*)p->str;
+		for (p = p->alt; p; p = p->next)
+			vars.push_back(p->str);
+	}
+}
+
+static inline bool plotable(const CVar & sig)
+{
+	auto type = sig.type();
+	if ((type & 3) < 2) return false;
+	if (sig.IsString()) return false;
+	return true;
+}
+
 void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 {
 	if (success && pcast && pcast->xtree)
@@ -1469,31 +1487,66 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		mShowDlg.pVars = &pcast->Vars;
 		mShowDlg.pGOvars = &pcast->GOvars;
 		mShowDlg.Fillup();
+		vector<const char*> vars2plot_update;
 		//if during debugging, redraw all figure windows with the varname in the debugging scope
 		if (!pcast->u.title.empty()) // For debugging or N_BLOCK
 			mShowDlg.OnVarChanged();
 		else if (pcast->xtree->type == N_BLOCK)
 		{
-			mShowDlg.OnVarChanged();
+			// if the variable is audio, vector, tseq,
+			for (auto p = pcast->xtree->next; p; p = p->next)
+			{
+				if (p->type != N_VECTOR)
+				{
+					auto type = pcast->Vars[p->str].type();
+					if (plotable(pcast->Vars[p->str]))
+						vars2plot_update.push_back(p->str); // at this point, a variable named p->str exists in Vars
+				}
+				else
+				{
+					auto q = (AstNode*)p->str;
+					for (q = q->alt; q; q = q->next)
+					{
+						if (plotable(pcast->Vars[q->str]))
+							vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
+					}
+				}
+			}
+			mShowDlg.OnVarChanged(vars2plot_update);
 		}
 		else //if (pcast->u.title.empty()) // For non-debugging
 		{
-			AstNode *p = (pcast->xtree->type==N_BLOCK) ? pcast->xtree->next : pcast->xtree;
-			for (; p; p = p->next)
-				if (!CAstSig::Var_never_updated(p))
+			AstNode *p = pcast->xtree;
+			if (p->str && ((AstNode*)p->str)->type == N_VECTOR)
+			{
+				AstNode* q = (pcast->xtree->type == N_BLOCK) ? pcast->xtree->next : pcast->xtree;
+				q = (AstNode*)q->str;
+				for (q = q->alt; q; q = q->next)
 				{
-					const char *pt;
-					if (CAstSig::IsTID(p))
-					{
-						pt = p->str;
-						if (!pt) continue; // for multiple output, pt is NULL and p->alt->type is N_VECTOR
-					}
-					else if (CAstSig::IsSTRUCT(p))
-						pt = pcast->statusMsg.c_str();
-					else
-						pt = p->str ? p->str : "ans";
-					mShowDlg.OnVarChanged(pt);
+					if (plotable(pcast->Vars[q->str]))
+						vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
 				}
+				mShowDlg.OnVarChanged(vars2plot_update);
+			}
+			else
+			{
+				for (; p; p = p->next)
+					if (!CAstSig::Var_never_updated(p))
+					{
+						const char* pt;
+						if (CAstSig::IsTID(p))
+						{
+							pt = p->str;
+							if (!pt) continue; // for multiple output, pt is NULL and p->alt->type is N_VECTOR
+						}
+						else if (CAstSig::IsSTRUCT(p))
+							pt = pcast->statusMsg.c_str();
+						else
+							pt = p->str ? p->str : "ans";
+						if (plotable(pcast->Vars[pt]))
+							mShowDlg.OnVarChanged(pt);
+					}
+			}
 		}
 		if (pcast->statusMsg.length() > 0 && pcast->statusMsg.substr(0, 6) == "(NOTE)")
 		{
