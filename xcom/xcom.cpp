@@ -752,21 +752,6 @@ void print_string(const CVar& var, int offset, const char* postscript)
 
 void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 {
-	/*
-	c=10 '='
-	c>1 '>'
-	c T_ID
-	a.member T_ID
-	a.member=0 '='
-	c(3)=0 N_IXASSIGN
-	v(4) N_CALL
-	sqrt(4) N_CALL
-	c{1} N_CELL
-	c{1}(2) N_CELL
-	c{1}=0 N_CELLASSIGN
-	c{1}(3)=0 N_CELLASSIGN with 'child'
-	*/
-
 	if (!pnode->suppress)
 	{
 		if (!pvar)
@@ -785,11 +770,23 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 		// pctx->xtree->alt indicates subsequent modifier of TID (e.e., x(10:20) x.sqrt, etc)
 		if (CAstSig::IsTID(pnode) && !pctx->xtree->alt)
 		{
+			auto body = CAstSig::findDadNode(pctx->xtree, pnode);
+			auto lhs = CAstSig::findDadNode(pctx->xtree, body);
+			bool variablenameset = false;
+			if (pnode == pctx->xtree)
+				variablenameset = true;
+			else if (pnode->child)
+				variablenameset = true; // pnode is LHS
+			else if (lhs->type==N_VECTOR)
+				variablenameset = true; // c=1; [a,b]=x.max
 			string varname;
-			if (pctx->xtree->type == N_VECTOR)
+			if (variablenameset)
 				varname = pnode->str;
 			else
-				varname = pctx->Script;
+			{//c=1, x.max
+				varname = "ans";
+				pctx->SetVar(varname.c_str(), pvar);
+			}
 			echo_object().print(varname, *pvar, 1);
 		}
 		else
@@ -867,6 +864,11 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 				{// For a block statement, screen echoing applies only to the last item. The statements in the middle are not echoed regardless of suppress (;)
 					((AstNode *)pp)->suppress = true;
 					echo(dt, pContext, pp);
+				}
+				else if (CAstSig::IsVECTOR(pp))
+				{
+					for (AstNode* p2 = ((AstNode*)pp->str)->alt; !pp->suppress && p2; p2 = p2->next, dt++)
+						echo(dt, pContext, p2);
 				}
 				else
 					echo(dt, pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig);
@@ -1496,19 +1498,28 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 			// if the variable is audio, vector, tseq,
 			for (auto p = pcast->xtree->next; p; p = p->next)
 			{
+				if (!p->str) continue; // to skip direct expression in the block
 				if (p->type != N_VECTOR)
 				{
-					auto type = pcast->Vars[p->str].type();
-					if (plotable(pcast->Vars[p->str]))
-						vars2plot_update.push_back(p->str); // at this point, a variable named p->str exists in Vars
+					auto it = pcast->Vars.find(p->str);
+					if (it != pcast->Vars.end())
+					{
+						auto type = pcast->Vars[p->str].type();
+						if (plotable(pcast->Vars[p->str]))
+							vars2plot_update.push_back(p->str); // at this point, a variable named p->str exists in Vars
+					}
 				}
 				else
 				{
-					auto q = (AstNode*)p->str;
-					for (q = q->alt; q; q = q->next)
+					auto it = pcast->Vars.find(p->str);
+					if (it != pcast->Vars.end())
 					{
-						if (plotable(pcast->Vars[q->str]))
-							vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
+						auto q = (AstNode*)p->str;
+						for (q = q->alt; q; q = q->next)
+						{
+							if (plotable(pcast->Vars[q->str]))
+								vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
+						}
 					}
 				}
 			}

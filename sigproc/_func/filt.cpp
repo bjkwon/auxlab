@@ -1,8 +1,6 @@
 #include "sigproc.h"
 
-// support.cpp
-int countVectorItems(const AstNode* pnode); 
-const AstNode* get_line_astnode(const AstNode* root, const AstNode* pnode);
+int get_output_count(const AstNode* ptree, const AstNode* pnode);  // support.cpp
 
 void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
@@ -56,8 +54,8 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
-		auto linehead = get_line_astnode(past->xtree, pnode);
-		if (countVectorItems(linehead) > 1)
+		int nOutVars = get_output_count(past->xtree, pnode);
+		if (nOutVars > 1)
 		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
 			CVar* newpointer = new CVar(sig.GetFs());
@@ -93,8 +91,8 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
-		auto linehead = get_line_astnode(past->xtree, pnode);
-		if (countVectorItems(linehead) > 1)
+		int nOutVars = get_output_count(past->xtree, pnode);
+		if (nOutVars > 1)
 		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
 			CVar* newpointer = new CVar(sig.GetFs());

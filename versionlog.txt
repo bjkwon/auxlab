@@ -9,3 +9,5 @@ if gcf figure object is closed while a udf is running
 ==================
 feature improv
 named plot of x updated even when  [x,y]=udf is called
+===========================
+Function calls with multiple outputs in a block working properly (both for echoing and output args assignment) 

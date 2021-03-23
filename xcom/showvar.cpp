@@ -918,7 +918,7 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 		}
 	}
 	// If ?foc is deleted, erase it across all xscope
-	if (((CGobj*)p)->type == 'f')
+	if (p && ((CGobj*)p)->type == 'f')
 	{
 		for (auto m : xscope)
 		{

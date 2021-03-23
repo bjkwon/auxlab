@@ -1,6 +1,6 @@
 #include "sigproc.h"
 
-int countVectorItems(const AstNode* pnode); // support.cpp
+int get_output_count(const AstNode* ptree, const AstNode* pnode);  // support.cpp
 
 void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
@@ -9,42 +9,8 @@ void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsi
 	past->blockString(pnode, past->Sig, "max() or min()");
 	string fname = pnode->str;
 	CVar sig = past->Sig;
-	//we need tree pointer to the one calling the current statement
-	auto ptree_thisline = CAstSig::goto_line(past->xtree, pnode->line);
-	// To do...check the logic flow----12/29/2020
-	// ptree_thisline should be one of the following:
-	// 1) no child 
-	// 2) child 
-	// 3) N_BLOCK
-	// 4) T_IF, T_FOR, T_WHILE, or T_SWITCH
+	int nOutVars = get_output_count(past->xtree, pnode);
 
-	// Check the logic for cases 
-	// i) command line: x=[2 1 0 8 10]\n x.max
-	// ii) command line in block: x=[2 1 0 8 10]\n str="bk",ff=sqrt(2); x.max
-	// iii) used in udf
-	int nOutVars = 0;
-	if (pnode->type == N_STRUCT)
-	{
-		auto ss = CAstSig::findDadNode(ptree_thisline, pnode);
-		auto ssp = CAstSig::findDadNode(ptree_thisline, ss);
-		if (ssp->type == N_ARGS)
-			nOutVars = 0;
-		else if (ssp->type == N_VECTOR)
-			nOutVars = countVectorItems(ssp);
-//		else
-//			throw "unchecked logic flow";
-	}
-	else
-	{
-		auto ss = CAstSig::findDadNode(ptree_thisline, pnode);
-		if (ss->type == N_ARGS)
-			nOutVars = 0;
-		else if (ss->type == N_VECTOR)
-			nOutVars = countVectorItems(ss);
-//		else
-//			throw "unchecked logic flow";
-	}
-	
 	CVar* popt = NULL;
 	if (nOutVars > 1)
 		popt = new CVar(sig.GetFs());
