@@ -190,42 +190,6 @@ if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|stati
     if (str_mirror) strcat(str_mirror, "\"");
 	return T_STRING;
 	}
-'	{	/* start of a string 27 */
-	yylloc.last_column += yyleng;
-	LexStringLen = 0;
-	LexString[0] = '\0';
-	yy_push_state(STR2);
-    if (str_mirror) strcat(str_mirror, "\"");
-	}
-<STR2>[^'\b\f\v]*	{
-	yylloc.last_column += yyleng;
-    if (str_mirror) strcat(str_mirror, yytext);
-	if (appendLexString())
-		return -1;
-	}
-<STR2>\b\f\v	{ /* Auto-complete a string 29 */
-	yylloc.last_column += yyleng;
-    if (str_mirror) strcat(str_mirror, "'");
-    if (yy_top_state()==PARENTH)
-        unput(')');
-	yy_pop_state();
-	yylval.str = strdup(LexString);
-	return T_STRING;
-	}
-<STR2>''	{
-	yylloc.last_column += yyleng;
-	yyleng = 1;
-    if (str_mirror) strcat(str_mirror, "'");
-	if (appendLexString())
-		return -1;
-	}
-<STR2>'	{	/* end of a string 31 */
-	yylloc.last_column += yyleng;
-	yy_pop_state();
-	yylval.str = strdup(LexString);
-    if (str_mirror) strcat(str_mirror, "'");
-	return T_STRING;
-	}
 \b\f\v ; /* Now all command line input has this string at the end. Without this rule, syntax error will occur with a correct statement.*/
 .	{
 	yylloc.last_column += yyleng;

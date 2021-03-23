@@ -2609,7 +2609,8 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		Compute(p);
 		blockCell(pnode, Sig);
 		blockString(pnode, Sig);
-		blockEmpty(pnode, Sig);
+		if (Sig.type() == 0) Sig.SetValue(0.);
+		if (tsig.type() == 0) tsig.SetValue(0.);
 		Sig += tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case '*':
@@ -2627,8 +2628,10 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 			Sig = (CSignals)tsig.matrixmult(&Sig);
 			return TID((AstNode*)pnode, NULL, &Sig);
 		}
+		blockCell(pnode, Sig);
 		blockString(pnode,  Sig);
-		blockEmpty(pnode, Sig);
+		if (Sig.type() == 0) Sig.SetValue(0.);
+		if (tsig.type() == 0) tsig.SetValue(0.);
 		// reciprocal should be after blocking string (or it would corrupt the heap) 6/3/2020
 		if (pnode->type == '/') Sig.reciprocal();
 		Sig *= tsig;
