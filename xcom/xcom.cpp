@@ -748,32 +748,10 @@ void print_string(const CVar& var, int offset, const char* postscript)
 	for (int k = 0; k < offset; k++) cout << " ";
 	cout << "\"" << var.string() << "\"" << postscript << endl;
 }
-
-
-void print_string(const CVar& var, int offset, const char* postscript)
-{
-	for (int k = 0; k < offset; k++) cout << " ";
-	cout << "\"" << var.string() << "\"" << postscript << endl;
-}
 */
 
 void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 {
-	/*
-	c=10 '='
-	c>1 '>'
-	c T_ID
-	a.member T_ID
-	a.member=0 '='
-	c(3)=0 N_IXASSIGN
-	v(4) N_CALL
-	sqrt(4) N_CALL
-	c{1} N_CELL
-	c{1}(2) N_CELL
-	c{1}=0 N_CELLASSIGN
-	c{1}(3)=0 N_CELLASSIGN with 'child'
-	*/
-
 	if (!pnode->suppress)
 	{
 		if (!pvar)
@@ -792,11 +770,23 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 		// pctx->xtree->alt indicates subsequent modifier of TID (e.e., x(10:20) x.sqrt, etc)
 		if (CAstSig::IsTID(pnode) && !pctx->xtree->alt)
 		{
+			auto body = CAstSig::findDadNode(pctx->xtree, pnode);
+			auto lhs = CAstSig::findDadNode(pctx->xtree, body);
+			bool variablenameset = false;
+			if (pnode == pctx->xtree)
+				variablenameset = true;
+			else if (pnode->child)
+				variablenameset = true; // pnode is LHS
+			else if (lhs->type==N_VECTOR)
+				variablenameset = true; // c=1; [a,b]=x.max
 			string varname;
-			if (pctx->xtree->type == N_VECTOR)
+			if (variablenameset)
 				varname = pnode->str;
 			else
-				varname = pctx->Script;
+			{//c=1, x.max
+				varname = "ans";
+				pctx->SetVar(varname.c_str(), pvar);
+			}
 			echo_object().print(varname, *pvar, 1);
 		}
 		else
@@ -848,8 +838,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 			else
 				throw emsg.c_str();
 		}
-		auto pos = pContext->Script.find(EXP_AUTO_CORRECT_TAG);
-		pContext->Script = pContext->Script.substr(0, pos);
 		pContext->statusMsg.clear();
 		pContext->Compute();
 		string line;
@@ -876,6 +864,11 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 				{// For a block statement, screen echoing applies only to the last item. The statements in the middle are not echoed regardless of suppress (;)
 					((AstNode *)pp)->suppress = true;
 					echo(dt, pContext, pp);
+				}
+				else if (CAstSig::IsVECTOR(pp))
+				{
+					for (AstNode* p2 = ((AstNode*)pp->str)->alt; !pp->suppress && p2; p2 = p2->next, dt++)
+						echo(dt, pContext, p2);
 				}
 				else
 					echo(dt, pContext, pp, pContext->Sig.IsGO() ? pContext->pgo : &pContext->Sig);
@@ -1429,6 +1422,24 @@ static bool same_trimmed_string(const string &_s1, const string &_s2)
 	return s1 == s2;
 }
 
+static void ss(const AstNode* p, vector<const char*> & vars)
+{
+	if (p->str && ((AstNode*)p->str)->type == N_VECTOR)
+	{
+		p = (AstNode*)p->str;
+		for (p = p->alt; p; p = p->next)
+			vars.push_back(p->str);
+	}
+}
+
+static inline bool plotable(const CVar & sig)
+{
+	auto type = sig.type();
+	if ((type & 3) < 2) return false;
+	if (sig.IsString()) return false;
+	return true;
+}
+
 void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 {
 	if (success && pcast && pcast->xtree)
@@ -1478,31 +1489,75 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 		mShowDlg.pVars = &pcast->Vars;
 		mShowDlg.pGOvars = &pcast->GOvars;
 		mShowDlg.Fillup();
+		vector<const char*> vars2plot_update;
 		//if during debugging, redraw all figure windows with the varname in the debugging scope
 		if (!pcast->u.title.empty()) // For debugging or N_BLOCK
 			mShowDlg.OnVarChanged();
 		else if (pcast->xtree->type == N_BLOCK)
 		{
-			mShowDlg.OnVarChanged();
+			// if the variable is audio, vector, tseq,
+			for (auto p = pcast->xtree->next; p; p = p->next)
+			{
+				if (!p->str) continue; // to skip direct expression in the block
+				if (p->type != N_VECTOR)
+				{
+					auto it = pcast->Vars.find(p->str);
+					if (it != pcast->Vars.end())
+					{
+						auto type = pcast->Vars[p->str].type();
+						if (plotable(pcast->Vars[p->str]))
+							vars2plot_update.push_back(p->str); // at this point, a variable named p->str exists in Vars
+					}
+				}
+				else
+				{
+					auto it = pcast->Vars.find(p->str);
+					if (it != pcast->Vars.end())
+					{
+						auto q = (AstNode*)p->str;
+						for (q = q->alt; q; q = q->next)
+						{
+							if (plotable(pcast->Vars[q->str]))
+								vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
+						}
+					}
+				}
+			}
+			mShowDlg.OnVarChanged(vars2plot_update);
 		}
 		else //if (pcast->u.title.empty()) // For non-debugging
 		{
-			AstNode *p = (pcast->xtree->type==N_BLOCK) ? pcast->xtree->next : pcast->xtree;
-			for (; p; p = p->next)
-				if (!CAstSig::Var_never_updated(p))
+			AstNode *p = pcast->xtree;
+			if (p->str && ((AstNode*)p->str)->type == N_VECTOR)
+			{
+				AstNode* q = (pcast->xtree->type == N_BLOCK) ? pcast->xtree->next : pcast->xtree;
+				q = (AstNode*)q->str;
+				for (q = q->alt; q; q = q->next)
 				{
-					const char *pt;
-					if (CAstSig::IsTID(p))
-					{
-						pt = p->str;
-						if (!pt) continue; // for multiple output, pt is NULL and p->alt->type is N_VECTOR
-					}
-					else if (CAstSig::IsSTRUCT(p))
-						pt = pcast->statusMsg.c_str();
-					else
-						pt = p->str ? p->str : "ans";
-					mShowDlg.OnVarChanged(pt);
+					if (plotable(pcast->Vars[q->str]))
+						vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
 				}
+				mShowDlg.OnVarChanged(vars2plot_update);
+			}
+			else
+			{
+				for (; p; p = p->next)
+					if (!CAstSig::Var_never_updated(p))
+					{
+						const char* pt;
+						if (CAstSig::IsTID(p))
+						{
+							pt = p->str;
+							if (!pt) continue; // for multiple output, pt is NULL and p->alt->type is N_VECTOR
+						}
+						else if (CAstSig::IsSTRUCT(p))
+							pt = pcast->statusMsg.c_str();
+						else
+							pt = p->str ? p->str : "ans";
+						if (plotable(pcast->Vars[pt]))
+							mShowDlg.OnVarChanged(pt);
+					}
+			}
 		}
 		if (pcast->statusMsg.length() > 0 && pcast->statusMsg.substr(0, 6) == "(NOTE)")
 		{

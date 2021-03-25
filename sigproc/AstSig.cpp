@@ -124,14 +124,45 @@ unsigned long GetTickCount0()
 
 const AstNode* CAstSig::findDadNode(const AstNode* p, const AstNode* pME)
 {
-	if (p)
+	if (!p) return NULL;
+	if (p == pME) return p;
+	if (p->type == N_BLOCK) 
 	{
-		if (!p->child && !p->alt) return NULL;
-		if (p->child == pME || p->alt) return p;
-		if (p->child)
-			return findParentNode(p->child, pME);
+		p = p->next;
+		const AstNode* res = findDadNode(p, pME);
+		while (!res)
+		{
+			if (!p) break;
+			p = p->next;
+			res = findDadNode(p, pME);
+		}
+		return res;
+	}
+	if (!p->child && !p->alt) return NULL;
+	if (p->child == pME) return p;
+	const AstNode * res = NULL;
+	if (p->child)
+		res = findParentNode(p->child, pME);
+	else
+		res = findParentNode(p->alt, pME);
+	if (res) return res;
+	if (p->type == N_VECTOR)
+	{
+		auto pp = (const AstNode*)(p->str);
+		if (!pp) 
+		{// p is "true" N_VECTOR -- where p->alt and the success on nexts are actual elements
+			for (auto p2 = p->alt; p2; p2 = p2->next)
+			{
+				if (p2 == pME) return p;
+			}
+			return NULL;
+		}
 		else
-			return findParentNode(p->alt, pME);
+		{
+			if (pp == pME) return p;
+			res = findDadNode(pp, pME);
+			if (res) return res;
+		}
 	}
 	return NULL;
 }
@@ -642,6 +673,7 @@ void CAstSig::outputbinding(const AstNode *pnode, size_t nArgout)
 		}
 		if (--nArgout == 0) break;
 		pp = pp->next;
+		if (!pp) break;
 	}
 	lhs = nullptr;
 }
@@ -1766,7 +1798,7 @@ vector<AstNode *> copy_AstNode(const AstNode *psrc, AstNode *ptarget)
 	return out;
 }
 
-vector<CVar *> CAstSig::Compute(void)
+vector<CVar *> CAstSig::Compute()
 {
 	// There are many reasons to use this function as a Gateway function in the application, avoiding calling Compute(xtree) directly.
 	// Call Compute(xtree) only if you know exactly what's going on. 11/8/2017 bjk
@@ -2552,8 +2584,6 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 				funcname = p->str;
 			if (p->alt && p->alt->type == N_STRUCT)
 				funcname = p->alt->str;
-			if (!ReadUDF(emsg, funcname.c_str()) && !IsValidBuiltin(funcname) && emsg.empty())
-				throw_LHS_lvalue(pnode, false);
 			// Now, evaluate RHS
 			// why not TID(((AstNode*)pnode->str), p), which might be more convenient? (that's the "inner" N_VECTOR node)
 			// Because then there's no way to catch [out1 out2].sqrt = func
@@ -2579,7 +2609,8 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 		Compute(p);
 		blockCell(pnode, Sig);
 		blockString(pnode, Sig);
-		blockEmpty(pnode, Sig);
+		if (Sig.type() == 0) Sig.SetValue(0.);
+		if (tsig.type() == 0) tsig.SetValue(0.);
 		Sig += tsig;
 		return TID((AstNode*)pnode->alt, NULL, &Sig);
 	case '*':
@@ -2597,8 +2628,10 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 			Sig = (CSignals)tsig.matrixmult(&Sig);
 			return TID((AstNode*)pnode, NULL, &Sig);
 		}
+		blockCell(pnode, Sig);
 		blockString(pnode,  Sig);
-		blockEmpty(pnode, Sig);
+		if (Sig.type() == 0) Sig.SetValue(0.);
+		if (tsig.type() == 0) tsig.SetValue(0.);
 		// reciprocal should be after blocking string (or it would corrupt the heap) 6/3/2020
 		if (pnode->type == '/') Sig.reciprocal();
 		Sig *= tsig;

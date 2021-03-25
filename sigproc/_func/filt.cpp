@@ -1,8 +1,6 @@
 #include "sigproc.h"
 
-// support.cpp
-int countVectorItems(const AstNode* pnode); 
-const AstNode* get_line_astnode(const AstNode* root, const AstNode* pnode);
+int get_output_count(const AstNode* ptree, const AstNode* pnode);  // support.cpp
 
 void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 {
@@ -42,19 +40,8 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			coeffs.push_back(den);
 			if (fourth.nSamples > 0)
 			{
-				auto tp = fourth.ToVector();
-				if (fourth.IsComplex())
-				{
-					for (unsigned int k = 0; k < fourth.nSamples; k++)
-						initial.push_back(fourth.cbuf[k]);
-				}
-				else
-				{
-					for (unsigned int k = 0; k < fourth.nSamples; k++)
-						initial.push_back(fourth.buf[k]);
-				}
+				for (unsigned int k = 0; k < fourth.nSamples; k++) initial.push_back(fourth.buf[k]);
 				coeffs.push_back(initial);
-				//as of 02/28/2021, processing of complex input data not ready in CSignal::filter
 			}
 			if (fname == "filt")
 				sig.fp_mod(&CSignal::filter, &coeffs);
@@ -67,8 +54,8 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
-		auto linehead = get_line_astnode(past->xtree, pnode);
-		if (countVectorItems(linehead) > 1)
+		int nOutVars = get_output_count(past->xtree, pnode);
+		if (nOutVars > 1)
 		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
 			CVar* newpointer = new CVar(sig.GetFs());
@@ -104,8 +91,8 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
-		auto linehead = get_line_astnode(past->xtree, pnode);
-		if (countVectorItems(linehead) > 1)
+		int nOutVars = get_output_count(past->xtree, pnode);
+		if (nOutVars > 1)
 		{ // in this case coeffs carries the final condition array (for stereo, the size is 2)
 			past->Sigs.push_back(move(make_unique<CVar*>(&past->Sig)));
 			CVar* newpointer = new CVar(sig.GetFs());
@@ -129,7 +116,11 @@ void _conv(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, vector<double>& state, unsigned int id0, unsigned int len)
 {
 	if (len == 0) len = nSamples;
-	if (state.empty()) state.push_back(0.);
+	if (state.size() < max(num.size(), den.size()) - 1)
+	{
+		for (auto k = state.size(); k < max(num.size(), den.size()) - 1; k++)
+			state.push_back(0.);
+	}
 	if (IsComplex())
 	{
 		complex<double>* out = new complex<double>[len];

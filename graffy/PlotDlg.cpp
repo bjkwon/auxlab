@@ -1487,15 +1487,20 @@ void CPlotDlg::OnMenu(UINT nID)
 	case IDM_ZOOMSELECT:
 		if (!cax->m_ln.size()) break;
 		if (curRange != NO_SELECTION)
-		{ // need jst, because the moment you update cax->xlim[], you can't call pix2timepoint it any more.
-			double jst = cax->pix2timepoint(curRange.px1);
-			cax->xlim[1] = cax->pix2timepoint(curRange.px2);
-			cax->xlim[0] = jst;
-			cax->xtick.tics1.clear();
-			cax->ytick.tics1.clear();
-			InvalidateRect(NULL);
-			if (gcf.ax.front()->hChild) OnMenu(IDM_SPECTRUM_INTERNAL); // do this later.
-			cax->struts["x"].front()->strut["lim"] = (CSignals)CSignal(cax->xlim, 2);
+		{ // need tpoint1 and tpoint2--the moment you update cax->xlim[], you can't call pix2timepoint it any more.
+			double tpoint1 = cax->pix2timepoint(curRange.px1);
+			double tpoint2 = cax->pix2timepoint(curRange.px2);
+			//Apply Zoomselect to all axes in gcf.ax...may need to revise 3/22/2021
+			for (auto ax : gcf.ax)
+			{
+				ax->xlim[1] = tpoint2;
+				ax->xlim[0] = tpoint1;
+				ax->xtick.tics1.clear();
+				ax->ytick.tics1.clear();
+				InvalidateRect(NULL);
+				if (gcf.ax.front()->hChild) OnMenu(IDM_SPECTRUM_INTERNAL); // do this later.
+				cax->struts["x"].front()->strut["lim"] = (CSignals)CSignal(cax->xlim, 2);
+			}
 		}
 		curRange.reset();
 		::SendMessage (sbar->hStatusbar, SB_SETTEXT, 4, (LPARAM)"");

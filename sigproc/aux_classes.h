@@ -131,6 +131,7 @@ public:
 	body& replacebyindex(vector<unsigned int>::iterator idBegin, vector<unsigned int>::iterator idEnd, const body& RHS);
 	body& replacebyindex(unsigned int id0, unsigned int len, const body& RHS);
 
+	body & interp1(body &that, body &qp);
 	double _max FARGS const;
 	double _min FARGS const;
 	double sum FARGS const;
@@ -208,6 +209,8 @@ public:
 	CSignal & filter FARGS;
 	CSignal & filtfilt FARGS;
 	CSignal & resample FARGS;
+	CSignal& _filter(const vector<double>& num, const vector<double>& den, vector<double>& initialfinal, unsigned int id0 = 0, unsigned int len = 0);
+
 #ifndef NO_IIR
 	CSignal & IIR FARGS;
 #endif // NO_IIR
@@ -279,7 +282,6 @@ protected:
 	bool operate(const CSignal & sec, char op);
 
 private:
-	CSignal & _filter(const vector<double> & num, const vector<double> & den, vector<double> &initialfinal, unsigned int id0 = 0, unsigned int len = 0);
 	int operator_prep(const CSignal & sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset);
 
 };

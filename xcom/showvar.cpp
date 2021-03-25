@@ -647,6 +647,12 @@ CShowvarDlg::~CShowvarDlg(void)
 	use void CShowvarDlg::OnVarChanged(const char *varname, CSignals *sig)
 */
 
+void CShowvarDlg::OnVarChanged(vector<const char*> varnames)
+{
+	for (auto v : varnames)
+		OnVarChanged(v);
+}
+
 void CShowvarDlg::OnVarChanged(const char *varname)
 {
 	for (auto figdlg : plots)
@@ -656,12 +662,10 @@ void CShowvarDlg::OnVarChanged(const char *varname)
 		if (scopename != pcast->u.title) continue; // skip if not in the same scope
 		if (figdlg->namedvar.find("Figure ")==0) continue; //skip numbered window
 		figdlg->pcast = pcast; // need to update; figdlg->pcast might be obsolete lingering from the last udf call
-//		if (!varname || !strlen(varname))
-//			PostThreadMessage(figdlg->threadID, WM__VAR_CHANGED, (WPARAM)figdlg, 0);
 		if (find(figdlg->varnames.begin(), figdlg->varnames.end(), varname) != figdlg->varnames.end())
 		{
 			PostThreadMessage(figdlg->threadID, WM__VAR_CHANGED, (WPARAM)figdlg, 0);
-//			return;
+			return;
 		}
 	}
 }
@@ -877,9 +881,6 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 //	cv_closeFig.wait(lck);
 
 	vector<string> varname2delete = pcast->erase_GO(varname);
-
-
-
 	CVar *p = (CVar *)FindFigure(hDlgPlot);
 	//scan pVars and pGOvars and delete p if found
 	CVar dummy;
@@ -914,6 +915,20 @@ void CShowvarDlg::OnPlotDlgDestroyed(const char *varname, HWND hDlgPlot)
 			}
 			else
 				it++;
+		}
+	}
+	// If ?foc is deleted, erase it across all xscope
+	if (p && ((CGobj*)p)->type == 'f')
+	{
+		for (auto m : xscope)
+		{
+			for (auto it = m->GOvars.begin(); it != m->GOvars.end(); )
+			{
+				if ((*it).first == "?foc")
+					it = m->GOvars.erase(it);
+				else
+					it++;
+			}
 		}
 	}
 	for (auto figdlg=plots.begin(); figdlg!=plots.end(); figdlg++)

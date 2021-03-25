@@ -875,6 +875,37 @@ body &body::transpose()
 	return *this;
 }
 
+
+body & body::interp1(body &that, body &qx)
+{
+	vector<double> v1 = ToVector();
+	vector<double> v2 = that.ToVector();
+	vector<double>::iterator it = v1.begin();
+	int k = 0;
+	body out;
+	out.UpdateBuffer(qx.nSamples);
+	for (unsigned int q = 0; q < qx.nSamples; q++)
+	{
+		it = upper_bound(it, v1.end(), qx.buf[q]); //because qx is sorted, having the iterator (previous searched result, if any) as the first argument will save time.
+		ptrdiff_t pos;
+		double valueAlready, preVal;
+		if (it != v1.end())
+		{
+			pos = it - v1.begin();
+			pos = max(1, pos);
+			preVal = *(it - 1);
+		}
+		else
+		{
+			pos = that.nSamples;
+			preVal = v1.back();
+		}
+		valueAlready = that.buf[pos - 1];
+		out.buf[k++] = valueAlready + (that.buf[pos] - that.buf[pos - 1]) / (buf[pos] - buf[pos - 1]) * (qx.buf[q] - preVal);
+	}
+	return *this = out;
+}
+
 CSignal::CSignal()
 	:fs(1), tmark(0.), snap(0)
 {
@@ -973,29 +1004,13 @@ CSignal::CSignal(double *y, int len)
 vector<double> body::ToVector() const
 {
 	vector<double> out;
-	if (bufBlockSize == 8)
-	{
-		out.resize((size_t)nSamples);
-		int k = 0;
-		double *pt = buf;
-		for_each(out.begin(), out.end(), [pt, &k](double &v) {v = *(pt + k++); });
-	}
-	else if (bufBlockSize == 16)
-	{
-		out.resize((size_t)nSamples * 2);
-		int k = 0;
-		double *pt = buf;
-		for_each(out.begin(), out.end(), [pt, &k](double &v) {v = *(pt + k++); });
-	}
-	else
-	{ // boolean or string
-		out.resize((size_t)nSamples);
-		int k = 0;
-		char *pt = strbuf;
-		for_each(out.begin(), out.end(), [pt, &k](double &v) {v = (double)*(pt + k++); });
-	}
+	out.resize((size_t)nSamples);
+	int k = 0;
+	for (vector<double>::iterator it = out.begin(); it != out.end(); it++)
+		*it = buf[k++];
 	return out;
 }
+
 
 CSignal::~CSignal()
 {
