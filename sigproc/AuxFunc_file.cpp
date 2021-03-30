@@ -22,7 +22,17 @@ map<double, FILE *> file_ids;
 #include "bjcommon.h"
 #include "audstr.h"
 #include "lame_bj.h"
+#include "samplerate.h"
+#include "sndfile.h"
+#include "sigplus_internal.h"
 
+void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
+
+static inline int _double_to_24bit(double x) // called inside makebuffer
+{
+	// This maps a double variable raning -1 to 1, to a short variable ranging -16388608 to 16388607.
+	return (int)(max(min(x, 1), -1) * MAX_24BIT - .5);
+}
 
 static inline bool isnumeric(const char *buf)
 {
@@ -42,11 +52,9 @@ static inline bool isnumeric(const char *buf)
 static void EnumAudioVariables(CAstSig *past, vector<string> &var)
 {
 	var.clear();
-	for (map<string, CVar>::iterator what = past->Vars.begin(); what != past->Vars.end(); what++)
-		if (what->second.GetType() == CSIG_AUDIO) var.push_back(what->first);
+	for (map<string, CVar>::iterator it = past->Vars.begin(); it != past->Vars.end(); it++)
+		if (it->second.GetType() == CSIG_AUDIO) var.push_back(it->first);
 }
-
-void _sprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
 
 void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
 {
@@ -503,19 +511,8 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		throw CAstException(USAGE, *past, p).proc("unknown audio file extension. Must be .wav or .mp3");
 }
 
-void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{
-	/*! \brief wave(filename)
-	*         Open .wav file
-	*
-	*  Input: filename: string
-	*  Output: audio_signal
-	*/
-	past->checkString(pnode, past->Sig);
-	string filename = past->makefullfile(past->Sig.string(), ".wav");
-	char errStr[256];
-	if (!past->Sig.Wavread(filename.c_str(), errStr))
-		throw CAstException(USAGE, *past, p).proc(errStr);
+static void resample_if_fs_different(CAstSig* past, const AstNode* p, string& fnsigs)
+{ // call this function only if past->Sig still has the active signal
 	vector<string> audiovars;
 	EnumAudioVariables(past, audiovars);
 	if (past->FsFixed || audiovars.size() > 0)
@@ -539,6 +536,22 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		past->pEnv->Fs = past->Sig.GetFs();
 		sformat(past->statusMsg, "(NOTE)Sample Rate of AUXLAB Environment is now set to %d Hz.", past->pEnv->Fs);
 	}
+}
+
+void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+{
+	/*! \brief wave(filename)
+	*         Open .wav file
+	*
+	*  Input: filename: string
+	*  Output: audio_signal
+	*/
+	past->checkString(pnode, past->Sig);
+	string filename = past->makefullfile(past->Sig.string(), ".wav");
+	char errStr[256];
+	if (!past->Sig.Wavread(filename.c_str(), errStr))
+		throw CAstException(USAGE, *past, p).proc(errStr);
+	resample_if_fs_different(past, p, fnsigs);
 }
 
 void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
@@ -577,6 +590,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, errStr);
 			past->Sig.nSamples = res;
 			if (nChans > 1) past->Sig.next->nSamples = res;
+			resample_if_fs_different(past, p, fnsigs);
 		}
 		else if (string(_strlwr(ext)) == ".aiff")
 		{
@@ -588,6 +602,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 				past->Sig.SetNextChan(&past->Sig);
 			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
 				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, errStr);
+			resample_if_fs_different(past, p, fnsigs);
 		}
 		else if (GetFileText(fullpath.c_str(), "rb", content))
 		{
@@ -627,6 +642,129 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	}
 	else
 		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "cannot open file");
+}
+
+int CSignals::Wavread(const char* wavname, char* errstr)
+{
+	SNDFILE* wavefileID;
+	SF_INFO sfinfo;
+	sf_count_t count;
+	if ((wavefileID = sf_open(wavname, SFM_READ, &sfinfo)) == NULL)
+	{
+		sprintf(errstr, "Unable to open audio file '%s'\n", wavname);
+		sf_close(wavefileID);
+		return NULL;
+	}
+	if (sfinfo.channels > 2) { strcpy(errstr, "Up to 2 channels (L R) are allowed in AUX--we have two ears, dude!"); return NULL; }
+	Reset(sfinfo.samplerate);
+	SetNextChan(NULL); // Cleans up existing next
+	if (sfinfo.channels == 1)
+	{
+		UpdateBuffer((int)sfinfo.frames);
+		count = sf_read_double(wavefileID, buf, sfinfo.frames);  // common.h
+	}
+	else
+	{
+		double* buffer = new double[(unsigned int)sfinfo.channels * (int)sfinfo.frames];
+		count = sf_read_double(wavefileID, buffer, sfinfo.channels * sfinfo.frames);  // common.h
+		double(*buf3)[2];
+		next = new CSignals(sfinfo.samplerate);
+		int m(0);
+		buf3 = (double(*)[2]) & buffer[m++];
+		UpdateBuffer((int)sfinfo.frames);
+		for (unsigned int k = 0; k < sfinfo.frames; k++)			buf[k] = buf3[k][0];
+		buf3 = (double(*)[2]) & buffer[m++];
+		next->UpdateBuffer((int)sfinfo.frames);
+		for (unsigned int k = 0; k < sfinfo.frames; k++)			next->buf[k] = buf3[k][0];
+		delete[] buffer;
+	}
+	sf_close(wavefileID);
+	return 1;
+}
+
+int CSignals::mp3write(const char* filename, char* errstr, std::string wavformat)
+{
+	MakeChainless();
+	char errStr[256];
+	int res = write_mp3(nSamples, buf, next ? next->buf : NULL, fs, filename, errStr);
+	if (res == 0)
+		sprintf(errstr, "error in write_mp3");
+	return res;
+}
+
+int CSignals::Wavwrite(const char* wavname, char* errstr, std::string wavformat)
+{
+	SF_INFO sfinfo;
+	SNDFILE* wavefileID;
+	sfinfo.channels = (next) ? 2 : 1;
+	if (wavformat.length() == 0)
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_16; // default
+	else if (wavformat == "8")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_U8;
+	else if (wavformat == "16")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_16;
+	else if (wavformat == "24")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_24;
+	else if (wavformat == "32")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_32;
+	else if (wavformat == "ulaw")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_ULAW;
+	else if (wavformat == "alaw")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_ALAW;
+	else if (wavformat == "adpcm1")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_IMA_ADPCM;
+	else if (wavformat == "adpcm2")
+		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_MS_ADPCM;
+	//	else if (wavformat=="vorbis")
+	//		sfinfo.format = SF_FORMAT_OGG + SF_FORMAT_VORBIS; // not available ...  ogg.c requires external lib which I don't have yet. bjkwon 03/19/2016
+	else
+	{
+		sprintf(errstr, "Supported waveformat---8, 16, 24, 32, ulaw, alaw, adpcm1 or adpcm2.\n");
+		return 0;
+	}
+	sfinfo.frames = nSamples;
+	sfinfo.samplerate = fs;
+	sfinfo.sections = sfinfo.seekable = 1;
+	if ((wavefileID = sf_open(wavname, SFM_WRITE, &sfinfo)) == NULL)
+	{
+		sprintf(errstr, "Unable to open/write audio file to '%s'\n", wavname);
+		sf_close(wavefileID);
+		return 0;
+	}
+	double* dbuffer = nullptr;
+	int lengthAllocated = -1, length = -1;
+	CSignals nextblock, nextblock2;
+	nextblock <= *this;
+	int nChan = next == NULL ? 1 : 2;
+	while (!nextblock.IsEmpty())
+	{
+		double* buffer;
+		double tp1, tp2;
+		length = nextblock.getBufferLength(tp1, tp2, CAstSig::play_block_ms);
+		if (tp1 == 0. && tp2 == 0. || nChan > 1)
+		{
+			if (length > lengthAllocated)
+			{
+				if (dbuffer) delete[] dbuffer;
+				dbuffer = new double[length * nChan];
+				lengthAllocated = length;
+			}
+			buffer = dbuffer;
+			if (!nextblock.makebuffer<double>(dbuffer, length, tp1, tp2, nextblock2)) // sig is empty
+				return 0;
+		}
+		else
+		{
+			buffer = nextblock.buf;
+			nextblock2 <= nextblock;
+			nextblock.nextCSignals(tp1, tp2, nextblock2);
+		}
+		sf_writef_double(wavefileID, buffer, length);
+		nextblock = nextblock2;
+	}
+	if (dbuffer) delete[] dbuffer;
+	sf_close(wavefileID);
+	return 1;
 }
 
 #endif // NO_FILES

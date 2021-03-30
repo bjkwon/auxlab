@@ -1225,7 +1225,6 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 	complex<double>(*cfn2)(complex<double>, complex<double>) = NULL;
 	string fname = pnode->str;
 	auto ft = pEnv->builtin.find(fname);
-	auto type = Sig.type();
 	bool structCall = pnode->type == N_STRUCT;
 	AstNode * p(NULL);
 	if (pnode->alt)
@@ -1243,6 +1242,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		Compute(p);
 		compl = Sig.IsComplex();
 	}
+	auto type = Sig.type();
 	res = HandleMathFunc(compl, fname, &fn0, &fn1, &fn2, &cfn0, &cfn1, &cfn2);
 	//HandleMathFunc returns 1 for sqrt, log and log10, 2 for ^ and mode, -1 for functions for complex numbers (fn2 available), 10 for any other math functions; 0 otherwise (not a math function on my list)
 	

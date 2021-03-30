@@ -1,6 +1,6 @@
 #include "sigproc.h"
 
-int countVectorItems(const AstNode* pnode)
+static int countVectorItems(const AstNode* pnode)
 {
 	if (pnode->type != N_VECTOR) return 0;
 	AstNode* p = ((AstNode*)pnode->str)->alt;
@@ -11,7 +11,6 @@ int countVectorItems(const AstNode* pnode)
 }
 
 // get_output_count: needed to handle a statment with a function with multiple output vars
-
 int get_output_count(const AstNode* proot, const AstNode* pnode)
 {
 	//we need tree pointer to the one calling the current statement
@@ -39,7 +38,14 @@ int get_output_count(const AstNode* proot, const AstNode* pnode)
 
 	auto pCurLine = CAstSig::goto_line(proot, pnode->line);
 	int nOutVars = 0;
-	if (pnode->type == N_STRUCT)
+	// if pCurLine is looping such as T_IF, T_FOR, or T_WHILE
+	if (CAstSig::IsLooping(pCurLine))
+	{
+		// if a.max == val, output should be one 
+		// if b = a.max == val or if [a,b] = a.max should have been rejected as a syntax error in psycon.l
+			nOutVars = 1;
+	}
+	else if (pnode->type == N_STRUCT)
 	{
 		auto body = CAstSig::findDadNode(pCurLine, pnode);
 		auto lhs = CAstSig::findDadNode(pCurLine, body);

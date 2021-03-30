@@ -152,7 +152,14 @@ CSignal& CSignal::_filter(const vector<double>& num, const vector<double>& den, 
 			int k = 1;
 			for (auto& v : state)
 			{
-				v = num[k] * buf[m] - den[k] * out[m - id0];
+				// den and num may have different size
+				if (k < num.size())
+				{
+					v = num[k] * buf[m];
+					if (k < den.size()) v += -den[k] * out[m - id0];
+				}
+				else
+					v = -den[k] * out[m - id0]; // should be k < den.size()
 				if (k < state.size())
 					v += *((&v) + 1);
 				k++;

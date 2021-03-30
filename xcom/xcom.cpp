@@ -773,7 +773,7 @@ void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 			auto body = CAstSig::findDadNode(pctx->xtree, pnode);
 			auto lhs = CAstSig::findDadNode(pctx->xtree, body);
 			bool variablenameset = false;
-			if (pnode == pctx->xtree)
+			if (pnode == pctx->xtree && body == lhs && CAstSig::IsTID(lhs) && pctx->Vars.find(lhs->str) != pctx->Vars.end())
 				variablenameset = true;
 			else if (pnode->child)
 				variablenameset = true; // pnode is LHS
@@ -1554,7 +1554,8 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 							pt = pcast->statusMsg.c_str();
 						else
 							pt = p->str ? p->str : "ans";
-						if (plotable(pcast->Vars[pt]))
+						// possible that pt is a udf name, keep it from adding that to pcast->Vars
+						if (pcast->Vars.find(pt) != pcast->Vars.end() && plotable(pcast->Vars[pt]))
 							mShowDlg.OnVarChanged(pt);
 					}
 			}

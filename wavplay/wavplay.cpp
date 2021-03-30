@@ -60,8 +60,8 @@ HWND GetHWND_WAVPLAY()
 
 #define FINISHED_PLAYING_CLEANUP	11
 #define PI 3.141592
-double _24bit_to_double(int x); // from csignals.cpp
-int _double_to_24bit(double x); // from csignals.cpp
+double _24bit_to_double(int x); // auxplay.cpp
+int _double_to_24bit(double x); // auxplay.cpp
 
 DWORD threadIDs[64]; // to track thread handle in the present thread (e.g., to track history)  
 int len_threadIDs(0); // to track thread handle in the present thread (e.g., to track history) 
