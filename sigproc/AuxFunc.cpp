@@ -148,7 +148,9 @@ void _eval(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 void _zeros(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
 void _ones(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
 void _cell(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _matrix(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
+void _group(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
+void _ungroup(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
+void _buffer(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
 void _interp1(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
 void _fdelete(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
 void _ismember(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
@@ -786,10 +788,22 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	builtin[name] = ft;
 
 	ft.narg1 = 2;	ft.narg2 = 2;
-	name = "matrix";
+	name = "group";
 	ft.funcsignature = "(array, nGroups)";
-	ft.func =  &_matrix;
+	ft.func =  &_group;
 	builtin[name] = ft;
+	name = "ungroup";
+	ft.funcsignature = "(array, overlap)";
+	ft.func = &_ungroup;
+	builtin[name] = ft;
+	name = "matrix"; // kept for backward compatibility
+	builtin[name] = ft; // kept for backward compatibility
+	ft.narg1 = 2;	ft.narg2 = 3;
+	name = "buffer";
+	ft.funcsignature = "(array, blocklen[, overlap=0])";
+	ft.func = &_buffer;
+	builtin[name] = ft;
+
 
 	ft.narg1 = 2;	ft.narg2 = 2;
 	name = "respeed";
