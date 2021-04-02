@@ -32,7 +32,7 @@ void _tparamonly(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "duration must be a scalar.");
 	if (dur.value() < 0.)
 		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "duration must be a non-negative number.");
-	past->Sig.SetFs(past->GetFs());
+	past->Sig.Reset(past->GetFs());
 	unsigned int nSamplesNeeded = (unsigned int)round(dur.value() / 1000. * past->GetFs());
 	past->Sig.UpdateBuffer(nSamplesNeeded); //allocate memory if necessary
 	if (!strcmp(pnode->str, "noise"))

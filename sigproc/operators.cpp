@@ -22,7 +22,7 @@ bool CSignal::overlap(const CSignal &sec)
 
 int CSignal::operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned int &idx4op2, unsigned int &offset)
 {//The case of scalar sec is handled separately. Here we only separately allow the case of *this scalar.
-	if (nSamples > 1 && fs != sec.fs) throw "lhs and rhs must have the same fs";
+	if (nSamples > 1 && fs != sec.fs) throw "Both operands must have the same fs.";
 	// if this and sec are do not overlap, return here
 	if (sec.grid().first > grid().second || sec.grid().second < grid().first)
 		return 0;

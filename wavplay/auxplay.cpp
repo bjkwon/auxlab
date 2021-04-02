@@ -17,23 +17,24 @@
 
 WPARAM wavBuffer2snd(UINT DevID, SHORT *dataBuffer, int length, int nChan, int fs, UINT userDefinedMsgID, HWND hApplWnd, int nProgReport, int playcount, char *errstr);
 
+inline int _double_to_24bit(double x) // called inside makebuffer
+{
+	// This maps a double variable raning -1 to 1, to a short variable ranging -16388608 to 16388607.
+	return (int)(max(min(x, 1), -1) * MAX_24BIT - .5);
+}
 double _24bit_to_double(int x)
 { // converts a short variable into double in a scale of 16388608.
 	return ((double)x + .5) / MAX_24BIT;
 }
+
+// Not used, just keeping for future references.
 void _short_to_24bit(short* pshort, int* pint, int len)
 { // Assumes that memory blocks have been prepared.
 	for (int i = 0; i < len; i++) pint[i] = pshort[i] << 8;
 }
-
 void _24bit_to_short(int* pint, short* pshort, int len)
 { // Assumes that memory blocks have been prepared.
 	for (int i = 0; i < len; i++) pshort[i] = (short)(pint[i] >> 8);
-}
-int _double_to_24bit(double x)
-{
-	// This maps a double variable raning -1 to 1, to a short variable ranging -16388608 to 16388607.
-	return (int)(max(min(x, 1), -1)*MAX_24BIT - .5);
 }
 void _double_to_short(double* dint, short* pshort, int len)
 {
@@ -44,6 +45,7 @@ void _double_to_short(double* dint, short* pshort, int len)
 		pshort[i] = (short)(_double_to_24bit(dint[i]) >> 8);
 	}
 }
+// End of // Not used, just keeping for future references.
 
 INT_PTR _continuePlay(INT_PTR pWP, const CSignals &sig, int DevID, UINT userDefinedMsgID, 
 	int length, int nSamples4Block, double blockDurMs, char *errstr, int loop)

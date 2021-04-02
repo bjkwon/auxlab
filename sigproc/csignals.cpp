@@ -31,20 +31,12 @@
 #include "bjcommon.h"
 #include "sigplus_internal.h"
 #include "samplerate.h"
-#include "sndfile.h"
 
 #include <complex>
 
 #include <math.h> // ceil
 
-#ifndef CISIGPROC
 #include "psycon.tab.h"
-#else
-#include "cipsycon.tab.h"
-#endif
-
-#include "lame_bj.h"
-
 
 /* To-do
 All of these
@@ -3173,128 +3165,6 @@ CSignals::CSignals(const char* wavname)
 	Wavread(wavname, errstr);
 }
 
-int CSignals::Wavread(const char *wavname, char *errstr)
-{
-	SNDFILE *wavefileID;
-	SF_INFO sfinfo;
-	sf_count_t count;
-	if ((wavefileID = sf_open(wavname, SFM_READ, &sfinfo)) == NULL)
-	{
-		sprintf(errstr, "Unable to open audio file '%s'\n", wavname);
-		sf_close(wavefileID);
-		return NULL;
-	}
-	if (sfinfo.channels > 2) { strcpy(errstr, "Up to 2 channels (L R) are allowed in AUX--we have two ears, dude!"); return NULL; }
-	Reset(sfinfo.samplerate);
-	SetNextChan(NULL); // Cleans up existing next
-	if (sfinfo.channels == 1)
-	{
-		UpdateBuffer((int)sfinfo.frames);
-		count = sf_read_double(wavefileID, buf, sfinfo.frames);  // common.h
-	}
-	else
-	{
-		double *buffer = new double[(unsigned int)sfinfo.channels*(int)sfinfo.frames];
-		count = sf_read_double(wavefileID, buffer, sfinfo.channels*sfinfo.frames);  // common.h
-		double(*buf3)[2];
-		next = new CSignals(sfinfo.samplerate);
-		int m(0);
-		buf3 = (double(*)[2])&buffer[m++];
-		UpdateBuffer((int)sfinfo.frames);
-		for (unsigned int k = 0; k < sfinfo.frames; k++)			buf[k] = buf3[k][0];
-		buf3 = (double(*)[2])&buffer[m++];
-		next->UpdateBuffer((int)sfinfo.frames);
-		for (unsigned int k = 0; k < sfinfo.frames; k++)			next->buf[k] = buf3[k][0];
-		delete[] buffer;
-	}
-	sf_close(wavefileID);
-	return 1;
-}
-
-int CSignals::mp3write(const char *filename, char *errstr, std::string wavformat)
-{
-	MakeChainless();
-	char errStr[256];
-	int res = write_mp3(nSamples, buf, next ? next->buf : NULL, fs, filename, errStr);
-	if (res==0)
-		sprintf(errstr, "error in write_mp3");
-	return res;
-}
-
-int CSignals::Wavwrite(const char *wavname, char *errstr, std::string wavformat)
-{
-	SF_INFO sfinfo;
-	SNDFILE *wavefileID;
-	sfinfo.channels = (next) ? 2 : 1;
-	if (wavformat.length() == 0)
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_16; // default
-	else if (wavformat == "8")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_U8;
-	else if (wavformat == "16")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_16;
-	else if (wavformat == "24")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_24;
-	else if (wavformat == "32")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_PCM_32;
-	else if (wavformat == "ulaw")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_ULAW;
-	else if (wavformat == "alaw")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_ALAW;
-	else if (wavformat == "adpcm1")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_IMA_ADPCM;
-	else if (wavformat == "adpcm2")
-		sfinfo.format = SF_FORMAT_WAV + SF_FORMAT_MS_ADPCM;
-	//	else if (wavformat=="vorbis")
-	//		sfinfo.format = SF_FORMAT_OGG + SF_FORMAT_VORBIS; // not available ...  ogg.c requires external lib which I don't have yet. bjkwon 03/19/2016
-	else
-	{
-		sprintf(errstr, "Supported waveformat---8, 16, 24, 32, ulaw, alaw, adpcm1 or adpcm2.\n");
-		return 0;
-	}
-	sfinfo.frames = nSamples;
-	sfinfo.samplerate = fs;
-	sfinfo.sections = sfinfo.seekable = 1;
-	if ((wavefileID = sf_open(wavname, SFM_WRITE, &sfinfo)) == NULL)
-	{
-		sprintf(errstr, "Unable to open/write audio file to '%s'\n", wavname);
-		sf_close(wavefileID);
-		return 0;
-	}
-	double *dbuffer = nullptr;
-	int lengthAllocated = -1, length = -1;
-	CSignals nextblock, nextblock2;
-	nextblock <= *this;
-	int nChan = next == NULL ? 1 : 2;
-	while (!nextblock.IsEmpty())
-	{
-		double *buffer;
-		double tp1, tp2;
-		length = nextblock.getBufferLength(tp1, tp2, CAstSig::play_block_ms);
-		if ( tp1 == 0. && tp2 == 0. || nChan > 1)
-		{
-			if (length > lengthAllocated)
-			{
-				if (dbuffer) delete[] dbuffer;
-				dbuffer = new double[length * nChan];
-				lengthAllocated = length;
-			}
-			buffer = dbuffer;
-			if (!nextblock.makebuffer<double>(dbuffer, length, tp1, tp2, nextblock2)) // sig is empty
-				return 0;
-		}
-		else
-		{
-			buffer = nextblock.buf;
-			nextblock2 <= nextblock;
-			nextblock.nextCSignals(tp1, tp2, nextblock2);
-		}
-		sf_writef_double(wavefileID, buffer, length);
-		nextblock = nextblock2;
-	}
-	if (dbuffer) delete[] dbuffer;
-	sf_close(wavefileID);
-	return 1;
-}
 #endif // NO_SF
 
 #ifdef _WINDOWS
@@ -3504,12 +3374,6 @@ int CVar::GetTypePlus()
 void CVar::set_class_head(const CSignals & rhs)
 {
 	CSignals::operator=(rhs);
-}
-
-static inline int _double_to_24bit(double x)
-{
-	// This maps a double variable raning -1 to 1, to a short variable ranging -16388608 to 16388607.
-	return (int)(max(min(x, 1), -1)*MAX_24BIT - .5);
 }
 
 int CSignals::getBufferLength(double & lasttp, double & lasttp_with_silence, double blockDur) const

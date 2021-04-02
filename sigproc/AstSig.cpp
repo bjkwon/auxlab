@@ -141,10 +141,14 @@ const AstNode* CAstSig::findDadNode(const AstNode* p, const AstNode* pME)
 	if (!p->child && !p->alt) return NULL;
 	if (p->child == pME) return p;
 	const AstNode * res = NULL;
-	if (p->child)
-		res = findParentNode(p->child, pME);
-	else
-		res = findParentNode(p->alt, pME);
+	do
+	{
+		if (p->child)
+			res = findParentNode(p->child, res);
+		else
+			res = findParentNode(p->alt, res);
+		if (!res) break;
+	} while (res->type == N_STRUCT);
 	if (res) return res;
 	if (p->type == N_VECTOR)
 	{
@@ -347,12 +351,17 @@ AstNode *CAstSig::goto_line(const AstNode *pnode, int line)
 	AstNode *pp, *p = (AstNode *)pnode;
 	for (; p; p = p->next)
 	{
-		if (p->type==T_IF || p->type == T_FOR || p->type == T_WHILE) // line should be inside of block, i.e., T_FOR T_IF or T_WHILE
+		if (p->line == line) return p;
+		if (p->type == T_FOR || p->type == T_WHILE) // line should be inside of block, i.e., T_FOR T_IF or T_WHILE
+		{
+			pp = CAstSig::goto_line((const AstNode*)p->alt, line);
+			if (pp) return pp;
+		}
+		else if (p->type == T_IF)
 		{
 			pp = CAstSig::goto_line((const AstNode*)p->child->next, line);
 			if (pp) return pp;
 		}
-		if (p->line == line) return p;
 	}
 	return p;
 }
