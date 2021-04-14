@@ -1,8 +1,9 @@
 #include <algorithm>
 #include "sigproc.h"
 
-void _interp1(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _interp1(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	//Need to add qualifers at some point.
 	// Probably allow only vectors... 
 	// Assume qp is non-decreasing sequence.

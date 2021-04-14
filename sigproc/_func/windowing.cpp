@@ -1,13 +1,15 @@
 #include "sigproc.h"
 
-void _hamming(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _hamming(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkSignal(pnode, past->Sig);
 	past->Sig.fp_mod(&CSignal::Hamming);
 }
 
-void _blackman(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _blackman(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkSignal(pnode, past->Sig);
 	double alpha;
 	string fname = pnode->str;
@@ -25,8 +27,9 @@ void _blackman(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fn
 	past->Sig.fp_mod(&CSignal::Blackman, &alpha);
 }
 
-void _ramp(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _ramp(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(pnode, past->Sig);
 	CVar param;
 	try {
@@ -34,15 +37,16 @@ void _ramp(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& f
 		tp.Compute(p);
 		param = tp.Compute(p);
 	}
-	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	if (!param.IsScalar())
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Ramp_duration must be a scalar.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("Ramp_duration must be a scalar.");
 	double ramptime = param.value();
 	past->Sig.fp_mod(&CSignal::dramp, &ramptime);
 }
 
-void _sam(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _sam(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	double modRate, amDepth(1.), initPhase(0.);
 	CVar rate, depth, initphase;
 	past->checkAudioSig(pnode, past->Sig);
@@ -50,7 +54,7 @@ void _sam(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fn
 		CAstSig tp(past);
 		rate = tp.Compute(p);
 		if (!rate.IsScalar())
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "AM_rate must be a scalar.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("AM_rate must be a scalar.");
 		modRate = rate.value();
 		int nArgs(0);
 		for (const AstNode* cp = p; cp; cp = cp->next)
@@ -59,18 +63,18 @@ void _sam(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fn
 		{
 			depth = tp.Compute(p->next);
 			if (!depth.IsScalar())
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "AM_depth_m must be a scalar.");
+				throw CAstException(FUNC_SYNTAX, *past, p).proc("AM_depth_m must be a scalar.");
 			amDepth = depth.value();
 			if (nArgs == 3)
 			{
 				initphase = tp.Compute(p->next->next);
 				if (!initphase.IsScalar())
-					throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "initial_phase must be a scalar.");
+					throw CAstException(FUNC_SYNTAX, *past, p).proc("initial_phase must be a scalar.");
 				initPhase = initphase.value();
 			}
 		}
 	}
-	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	past->Sig.SAM(modRate, amDepth, initPhase);
 }
 

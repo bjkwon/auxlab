@@ -2,8 +2,9 @@
 #include "fftw3.h"
 #include "sigproc.h"
 
-void _fft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _fft(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->blockCell(pnode, past->Sig);
 	past->blockScalar(pnode, past->Sig);
 	past->blockString(pnode, past->Sig);
@@ -18,15 +19,16 @@ void _fft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 				throw CAstException(USAGE, *past, p).proc("argument must be a positive integer.");
 		}
 		catch (const CAstException & e) {
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str());
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str());
 		}
 	}
 	past->Sig = past->Sig.fp_getsig(&CSignal::FFT, (void*)&param);
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
-void _ifft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _ifft(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->blockCell(pnode, past->Sig);
 	past->blockScalar(pnode, past->Sig);
 	past->blockString(pnode, past->Sig);
@@ -41,7 +43,7 @@ void _ifft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 				throw CAstException(USAGE, *past, p).proc("argument must be a positive integer.");
 		}
 		catch (const CAstException & e) {
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str());
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str());
 		}
 	}
 	past->Sig = past->Sig.fp_getsig(&CSignal::iFFT, (void*)&param);

@@ -25,13 +25,14 @@ static inline void __gnoise(double* buf, unsigned int length, int fs)
 	}
 }
 
-void _tparamonly(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _tparamonly(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar dur = past->Sig;
 	if (!dur.IsScalar())
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "duration must be a scalar.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("duration must be a scalar.");
 	if (dur.value() < 0.)
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "duration must be a non-negative number.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("duration must be a non-negative number.");
 	past->Sig.Reset(past->GetFs());
 	unsigned int nSamplesNeeded = (unsigned int)round(dur.value() / 1000. * past->GetFs());
 	past->Sig.UpdateBuffer(nSamplesNeeded); //allocate memory if necessary
@@ -44,5 +45,5 @@ void _tparamonly(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 	else if (!strcmp(pnode->str, "dc"))
 		for_each(past->Sig.buf, past->Sig.buf + nSamplesNeeded, [](double& v) {v = 1.; });
 	else
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Internal error 3426.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("Internal error 3426.");
 }

@@ -22,8 +22,9 @@ int __datatype(const CVar& sig, WORD& out)
 	return 1;
 }
 
-void _datatype(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _datatype(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	uint16_t out;
 	if ((out = past->Sig.type()) == 0xffff)
 		throw CAstException(INTERNAL, *past, pnode).proc("this particular data type has not been ready to handle.");
@@ -35,8 +36,9 @@ void _datatype(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fn
 	past->Sig.SetValue((double)out);
 }
 
-void _veq(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _veq(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CAstSig br(past);
 	WORD type1, type2;
 	CVar arg1, arg2;

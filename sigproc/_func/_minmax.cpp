@@ -2,8 +2,9 @@
 
 int get_output_count(const AstNode* ptree, const AstNode* pnode);  // support.cpp
 
-void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _minmax(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (past->Sig.IsEmpty()) return; //for empty input, empty output
 	past->blockLogical(pnode, past->Sig, "max() or min()");
 	past->blockString(pnode, past->Sig, "max() or min()");

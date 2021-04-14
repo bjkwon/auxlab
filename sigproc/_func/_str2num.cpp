@@ -13,10 +13,11 @@ bool isAllNodeT_NUM(const AstNode* p)
 	return false;
 }
 
-void _str2num(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _str2num(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsString())
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be a text string.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be a text string.");
 	string emsg;
 	CAstSig tast(past->pEnv);
 	if (!tast.parse_aux((string("[") + past->Sig.string() + "]").c_str(), emsg))
@@ -27,10 +28,11 @@ void _str2num(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 	past->Sig = res.back();
 }
 
-void _esc(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _esc(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsString())
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be a text string.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be a text string.");
 	char estr[256];
 	string str = past->Sig.string();
 	char* instr = new char[str.size()+1];

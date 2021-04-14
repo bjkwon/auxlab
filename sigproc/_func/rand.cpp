@@ -1,12 +1,13 @@
 #include "sigproc.h"
 #include <time.h>
 
-void _rand(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _rand(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkScalar(pnode, past->Sig);
 	double val = past->Sig.value();
 	if (val < 0)
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be positive.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be positive.");
 	int ival = (int)round(val);
 	static bool initialized(false);
 	if (!initialized)
@@ -19,12 +20,13 @@ void _rand(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 		past->Sig.buf[k] = (double)rand() / RAND_MAX;
 }
 
-void _irand(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _irand(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkScalar(pnode, past->Sig);
 	double val = past->Sig.value();
 	if (val < 0)
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be positive.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be positive.");
 	static bool initialized(false);
 	if (!initialized)
 	{
@@ -35,12 +37,13 @@ void _irand(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsig
 	past->Sig.SetValue((double)ceil((double)rand() / (double)RAND_MAX * val));
 }
 
-void _randperm(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _randperm(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkScalar(pnode, past->Sig);
 	int ival = (int)round(past->Sig.value());
 	if (ival < 1)
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be positive.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be positive.");
 	static bool initialized(false);
 	if (!initialized)
 	{

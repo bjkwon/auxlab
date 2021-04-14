@@ -7,8 +7,9 @@ inline static double _getdB(double x)
 	return 20 * log10(x) + 3.0103;
 }
 
-void _arraybasic(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _arraybasic(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar additionalArg(past->Sig.GetFs());
 	string fname = pnode->str;
 	if (fname == "sum")	past->Sig = past->Sig.fp_getval(&CSignal::sum);
@@ -63,8 +64,9 @@ void _arraybasic(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
-void _std(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _std(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar arg(0.);
 	if (p)
 	{
@@ -74,16 +76,17 @@ void _std(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 			tp.checkScalar(pnode, arg);
 			double flag = tp.Sig.value();
 			if (flag != 0. && flag != 1.)
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Invalid parameter: should be either 0 (divided by n-1; default) or 1 (divided by n).");
+				throw CAstException(FUNC_SYNTAX, *past, p).proc("Invalid parameter: should be either 0 (divided by n-1; default) or 1 (divided by n).");
 		}
-		catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+		catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	}
 		past->Sig = past->Sig.fp_getval(&CSignal::stdev, &arg);
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 
-void _size(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _size(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar arg(0.);
 	if (p)
 	{
@@ -92,7 +95,7 @@ void _size(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			arg = tp.Compute(p);
 			tp.checkScalar(pnode, arg);
 		}
-		catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+		catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	}
 	double tp1 = past->Sig.nGroups;
 	double tp2 = past->Sig.Len();
@@ -110,7 +113,7 @@ void _size(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	else if (arg.value() == 2.)
 		past->Sig.SetValue(tp2);
 	else
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Invalid parameter: should be either 1 or 2.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Invalid parameter: should be either 1 or 2.");
 	if (past->Sig.type() & TYPEBIT_TEMPORAL) past->Sig.setsnap();
 }
 

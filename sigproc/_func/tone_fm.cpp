@@ -33,26 +33,27 @@ static inline void __fm(double* buf, int fs, double midFreq, double fmWidth, dou
 		});
 }
 
-void _tone(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _tone(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	double initPhase(0.);
 	int nArgs = 0;
 	for (const AstNode* cp = p; cp; cp = cp->next)
 		++nArgs;
 	if (!past->Sig.IsScalar() && (!past->Sig.IsVector() || past->Sig.nSamples > 2))
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Frequency must be either a constant or two-element array.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("Frequency must be either a constant or two-element array.");
 	body freq = past->Sig; //should be same as tp.Compute(p);
 	if (freq._max() >= past->GetFs() / 2)
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Frequency exceeds Nyquist frequency.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("Frequency exceeds Nyquist frequency.");
 	CVar duration = past->Compute(p->next);
 	past->checkScalar(pnode, duration);
 	if (duration.value() <= 0)
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Duration must be positive.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("Duration must be positive.");
 	if (nArgs == 3)
 	{
 		CVar _initph = past->Compute(p->next->next);
 		if (!_initph.IsScalar())
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Initial_phase must be a scalar.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("Initial_phase must be a scalar.");
 		initPhase = _initph.value();
 	}
 	past->Sig.Reset(past->GetFs());
@@ -70,18 +71,19 @@ void _tone(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	}
 }
 
-void _fm(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _fm(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar fifth, second = past->Compute(p->next);
 	CVar third = past->Compute(p->next->next);
 	CVar fourth = past->Compute(p->next->next->next);
-	if (!second.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "freq2 must be a scalar.");
-	if (!third.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "mod_rate must be a scalar.");
-	if (!fourth.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "duration must be a scalar.");
-	if (fourth.value() <= 0) throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "duration must be positive.");
+	if (!second.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc("freq2 must be a scalar.");
+	if (!third.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc("mod_rate must be a scalar.");
+	if (!fourth.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc("duration must be a scalar.");
+	if (fourth.value() <= 0) throw CAstException(FUNC_SYNTAX, *past, p).proc("duration must be positive.");
 	if (p->next->next->next->next) {	// 5 args
 		fifth = past->Compute(p->next->next->next->next);
-		if (!fifth.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "init_phase must be a scalar.");
+		if (!fifth.IsScalar()) throw CAstException(FUNC_SYNTAX, *past, p).proc("init_phase must be a scalar.");
 	}
 	else fifth.SetValue(0);
 

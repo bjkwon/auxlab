@@ -1,11 +1,12 @@
 #include "sigproc.h"
 
-void _dir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _dir(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->Sig.Reset(1);
 	past->Compute(p);
 	if (!past->Sig.IsString())
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "argument must be a string.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("argument must be a string.");
 	string arg = past->Sig.string();
 	char drive[MAX_PATH], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH], pathonly[MAX_PATH] = {};
 	_splitpath(arg.c_str(), drive, dir, fname, ext);
@@ -17,7 +18,7 @@ void _dir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 	HANDLE hFind = FindFirstFile(arg.c_str(), &ls);
 	if (hFind == INVALID_HANDLE_VALUE)
 		//	if ((hFile = _findfirst(, &c_file)) == -1L)
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "No files in the specified directory");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("No files in the specified directory");
 	else
 	{
 		past->Sig.Reset();

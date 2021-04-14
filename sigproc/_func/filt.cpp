@@ -2,8 +2,9 @@
 
 int get_output_count(const AstNode* ptree, const AstNode* pnode);  // support.cpp
 
-void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _filt(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	// CSignal::filter and CSignal::filtfilt
 	// pargs 
 	past->checkSignal(pnode, past->Sig);
@@ -15,11 +16,11 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 			fourth = past->Compute(p->next->next); // 4 args
 		third = past->Compute(p->next); // 3 args
 		if (fourth.nSamples >= third.nSamples)
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The length of the initial condition vector must be less than the length of denominator coefficients.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The length of the initial condition vector must be less than the length of denominator coefficients.");
 	}
 	else {				// 2 args
 		if (second.nSamples <= 1)
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "2nd argument must be a vector(the numerator array for filtering).");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("2nd argument must be a vector(the numerator array for filtering).");
 		third.SetValue(1);
 	}
 	unsigned int len = max(second.nSamples, third.nSamples);
@@ -51,7 +52,7 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 		}
 		else
 		{
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
 		int nOutVars = get_output_count(past->xtree, pnode);
@@ -88,7 +89,7 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 		}
 		else
 		{
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Internal error--leftover from Dynamic filtering");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Internal error--leftover from Dynamic filtering");
 		}
 		past->Sig = sig;
 		int nOutVars = get_output_count(past->xtree, pnode);
@@ -104,8 +105,9 @@ void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	}
 }
 
-void _conv(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _conv(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	//For only real (double) arrays 3/4/2019
 	//p should be non NULL
 	CVar sig = past->Sig;

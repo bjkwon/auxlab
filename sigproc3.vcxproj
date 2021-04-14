@@ -223,7 +223,6 @@
     <ClCompile Include="$(SrcPath)AstSig2.cpp" />
     <ClCompile Include="$(SrcPath)AstExceptions.cpp" />
     <ClCompile Include="$(SrcPath)AuxFunc.cpp" />
-    <ClCompile Include="$(SrcPath)AuxFunc_file.cpp" />
     <ClCompile Include="$(SrcPath)csignals.cpp" />
     <ClCompile Include="$(SrcPath)matOperations.cpp" />
     <ClCompile Include="$(SrcPath)psycon.tab.c" />
@@ -234,6 +233,7 @@
     <ClCompile Include="$(SrcPath)support.cpp" />
     <ClCompile Include="$(SrcPath)_func\filt.cpp" />
     <ClCompile Include="$(SrcPath)_func\_iir.cpp" />
+    <ClCompile Include="$(SrcPath)_func\_file.cpp" />
     <ClCompile Include="$(SrcPath)_func\_minmax.cpp" />
     <ClCompile Include="$(SrcPath)_func\_tparamonly.cpp" />
     <ClCompile Include="$(SrcPath)_func\and_or_sort.cpp" />

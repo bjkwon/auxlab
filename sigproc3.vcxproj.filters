@@ -141,7 +141,7 @@
     <ClCompile Include="$(SrcPath)_func\sharps.cpp">
       <Filter>Source Files\_functions</Filter>
     </ClCompile>
-    <ClCompile Include="$(SrcPath)AuxFunc_file.cpp">
+    <ClCompile Include="$(SrcPath)_file.cpp">
       <Filter>Source Files\_functions</Filter>
     </ClCompile>
     <ClCompile Include="$(SrcPath)AstSig_read_xtree.cpp">

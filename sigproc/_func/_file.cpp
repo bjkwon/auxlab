@@ -1,18 +1,18 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
-// Platform-independent (hopefully) 
-// 
+// Platform-independent (hopefully)
+//
 // Version: 1.7
 // Date: 5/24/2020
 
 #include <string.h> // aux_file
 #include "sigproc.h"
-#include "sigproc_internal.h"
+#include "..\sigproc_internal.h"
 
 map<double, FILE *> file_ids;
 
@@ -24,9 +24,9 @@ map<double, FILE *> file_ids;
 #include "lame_bj.h"
 #include "samplerate.h"
 #include "sndfile.h"
-#include "sigplus_internal.h"
+#include "..\sigplus_internal.h"
 
-void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
+void _sprintf(CAstSig* past, const AstNode* pnode);
 
 static inline int _double_to_24bit(double x) // called inside makebuffer
 {
@@ -56,8 +56,9 @@ static void EnumAudioVariables(CAstSig *past, vector<string> &var)
 		if (it->second.GetType() == CSIG_AUDIO) var.push_back(it->first);
 }
 
-void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _fopen(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	string filename = past->makefullfile(past->ComputeString(p));
 	char mode[8];
 	strcpy(mode, past->ComputeString(p->next).c_str());
@@ -65,7 +66,7 @@ void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	if (!(fl = fopen(filename.c_str(), mode)))
 	{
 		if (past->level > 1)
-		{ // if fopen is called inside UDF, the file is searched in the same directory as the udf 
+		{ // if fopen is called inside UDF, the file is searched in the same directory as the udf
 		  // (which may be part of path or not) unless the path for the file is specified
 			char drive[MAX_PATH], dir[MAX_PATH];
 			// does p include the path?
@@ -94,10 +95,11 @@ void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	}
 }
 
-void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _fclose(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsScalar())
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be a file identifider");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("First arg must be a file identifider");
 	double fl = past->Sig.value();
 	FILE *file = file_ids[fl];
 	if (!file || fclose(file) == EOF)
@@ -110,7 +112,7 @@ void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		file_ids.erase(fl);
 	}
 }
-/* fwrite: audio signal --> rescale from -1 to 1 to each integer range corresponding to the format, 
+/* fwrite: audio signal --> rescale from -1 to 1 to each integer range corresponding to the format,
    e.g., -32768 to 32767 for int16, 0 to 65535 for uint16
    if it is stereo, writes the data in an interleaved manner for each channel
    nonaudio signal --> write as is.. don't care whether it is outside of the range.
@@ -120,9 +122,9 @@ void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
    if the last arg is "a2" or "audio2," it rescales in the range and makes the object audio (stereo)
 */
 
-FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, int &bytes, string &prec, char *additional = NULL);
+FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, int &bytes, string &prec, char *additional = NULL);
 
-FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs, int &bytes, string &prec, char *additional)
+FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, int &bytes, string &prec, char *additional)
 {
 	//first arg is always file identifier
 	//second arg is the signal to write to file
@@ -131,7 +133,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 	if (past->Sig.IsScalar())
 		file = file_ids[past->Sig.value()];
 	if (!file)
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be either a file identifider");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("First arg must be either a file identifider");
 	CVar second, addition;
 	string estr;
 	if (!strcmp(pnode->str, "fread"))
@@ -145,7 +147,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 		estr = "Third arg must be a string";
 	}
 	if (!past->Sig.IsString())
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, estr.c_str());
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(estr.c_str());
 	prec = past->Sig.string();
 	if (prec == "int8" || prec == "uint8" || prec == "char")
 		bytes = 1;
@@ -158,7 +160,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 	else if (prec == "double")
 		bytes = 8;
 	else
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Second arg must be either ....");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Second arg must be either ....");
 	if (!strcmp(pnode->str, "fread"))
 	{
 		if (p->next)
@@ -167,7 +169,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, strin
 			if (!addition.IsString())
 			{
 				estr = "Third arg must be a string--either \"a\" \"audio\" \"a2\" or \"audio2\" ";
-				throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, estr.c_str());
+				throw CAstException(FUNC_SYNTAX, *past, pnode).proc(estr.c_str());
 			}
 			else
 				strcpy(additional, addition.string().c_str());
@@ -230,13 +232,14 @@ size_t fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uin
 	return sig.nSamples;
 }
 
-void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _fwrite(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar firstarg = past->Sig;
 	int bytes;
 	string prec;
 	size_t res;
-	FILE * file = __freadwrite(past, pnode, p, fnsigs, bytes, prec);
+	FILE * file = __freadwrite(past, pnode, p, bytes, prec);
 	past->Compute(p);
 	if (prec == "char")
 	{
@@ -254,7 +257,7 @@ void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x80);
 	}
 	else if (prec == "uint8")
-	{ 
+	{
 		uint8_t temp = 0;
 		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 	}
@@ -318,7 +321,7 @@ void fread_general(T var, CVar &sig, FILE * file, int bytes, char *addarg, uint6
 		CSignals next = CSignal(sig.GetFs(), sig.nSamples);
 		sig.SetNextChan(&next);
 		double *buf2 = sig.next->buf;
-		for_each(sig.buf, sig.buf + sig.nSamples, 
+		for_each(sig.buf, sig.buf + sig.nSamples,
 			[buf2, pvar, bytes, file, factor, &k](double &v) {
 				fread(pvar, bytes, 1, file); v = *pvar / (double)factor;
 				fread(pvar, bytes, 1, file); buf2[k++] = *pvar / (double)factor; });
@@ -328,12 +331,13 @@ void fread_general(T var, CVar &sig, FILE * file, int bytes, char *addarg, uint6
 			[pvar, bytes, file](double &v) { fread(pvar, bytes, 1, file); v = *pvar; });
 }
 
-void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _fread(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	int bytes;
 	string prec;
 	char addarg[16] = {};
-	FILE * file = __freadwrite(past, pnode, p, fnsigs, bytes, prec, addarg);
+	FILE * file = __freadwrite(past, pnode, p, bytes, prec, addarg);
 
 	fseek(file, 0L, SEEK_END);
 	size_t sz = ftell(file);
@@ -424,8 +428,9 @@ static void write2textfile(FILE * fid, CVar *psig)
 	}
 }
 
-void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _wavwrite(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(p, past->Sig);
 	string option;
 	string filename;
@@ -444,7 +449,7 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 			option = third.string();
 		}
 	}
-	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 
 	string fullfilename = past->makefullfile(filename, ".wav");
 	char errStr[256];
@@ -452,8 +457,9 @@ void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fn
 		throw CAstException(USAGE, *past, p).proc(errStr);
 }
 
-void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _write(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(p, past->Sig);
 	string option;
 	string filename;
@@ -472,7 +478,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 			option = third.string();
 		}
 	}
-	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	trim(filename, ' ');
 	size_t pdot = filename.rfind('.');
 	string extension = filename.substr(pdot + 1);
@@ -497,7 +503,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 	}
 	else if (extension == "wav")
 	{
-		_wavwrite(past, pnode, p, fnsigs);
+		_wavwrite(past, pnode);
 	}
 	else if (extension == "txt")
 	{
@@ -511,7 +517,7 @@ void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		throw CAstException(USAGE, *past, p).proc("unknown audio file extension. Must be .wav or .mp3");
 }
 
-static void resample_if_fs_different(CAstSig* past, const AstNode* p, string& fnsigs)
+static void resample_if_fs_different(CAstSig* past, const AstNode* p)
 { // call this function only if past->Sig still has the active signal
 	vector<string> audiovars;
 	EnumAudioVariables(past, audiovars);
@@ -524,7 +530,7 @@ static void resample_if_fs_different(CAstSig* past, const AstNode* p, string& fn
 			ratio.SetValue(past->Sig.GetFs() / (double)oldFs);
 			past->Sig.fp_mod(&CSignal::resample, &ratio);
 			if (ratio.IsString()) // this means there was an error during resample
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, ratio.string().c_str());
+				throw CAstException(FUNC_SYNTAX, *past, p).proc(ratio.string().c_str());
 			sformat(past->statusMsg, "(NOTE)File fs=%d Hz. The audio data resampled to %d Hz.", past->Sig.GetFs(), oldFs);
 			past->Sig.SetFs(oldFs);
 			if (past->Sig.next)
@@ -538,8 +544,9 @@ static void resample_if_fs_different(CAstSig* past, const AstNode* p, string& fn
 	}
 }
 
-void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _wave(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	/*! \brief wave(filename)
 	*         Open .wav file
 	*
@@ -551,11 +558,13 @@ void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	char errStr[256];
 	if (!past->Sig.Wavread(filename.c_str(), errStr))
 		throw CAstException(USAGE, *past, p).proc(errStr);
-	resample_if_fs_different(past, p, fnsigs);
+	resample_if_fs_different(past, p);
 }
 
-void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{ // Decide the convention when multiple lines input is coming... currently making cell array output... do I want to keep it this way? 2/21/2018 bjk
+void _file(CAstSig *past, const AstNode *pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+	// Decide the convention when multiple lines input is coming... currently making cell array output... do I want to keep it this way? 2/21/2018 bjk
 	past->checkString(pnode, past->Sig);
 	string fullpath, content;
 	char fname[MAX_PATH], ext[MAX_PATH], errStr[256] = { 0 };
@@ -570,7 +579,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		if (string(_strlwr(ext)) == ".wav")
 		{
 #ifndef NO_SF
-			_wave(past, pnode, p, fnsigs);
+			_wave(past, pnode);
 #endif // NO_SF
 		}
 		else if (string(_strlwr(ext)) == ".mp3")
@@ -587,10 +596,10 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			}
 			int res = read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr);
 			if (!res)
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, errStr);
+				throw CAstException(FUNC_SYNTAX, *past, p).proc(errStr);
 			past->Sig.nSamples = res;
 			if (nChans > 1) past->Sig.next->nSamples = res;
-			resample_if_fs_different(past, p, fnsigs);
+			resample_if_fs_different(past, p);
 		}
 		else if (string(_strlwr(ext)) == ".aiff")
 		{
@@ -601,8 +610,8 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 			if (nChans > 1)
 				past->Sig.SetNextChan(&past->Sig);
 			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, errStr);
-			resample_if_fs_different(past, p, fnsigs);
+				throw CAstException(FUNC_SYNTAX, *past, p).proc(errStr);
+			resample_if_fs_different(past, p);
 		}
 		else if (GetFileText(fullpath.c_str(), "rb", content))
 		{
@@ -641,7 +650,7 @@ void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		}
 	}
 	else
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "cannot open file");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("cannot open file");
 }
 
 int CSignals::Wavread(const char* wavname, char* errstr)

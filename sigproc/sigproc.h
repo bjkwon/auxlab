@@ -131,7 +131,7 @@ public:
 	bool alwaysstatic; // true means the function cannot be called as a member function
 	bool opaque;
 	int narg1, narg2;
-	void(*func)(CAstSig *, const AstNode *, const AstNode *, string &);
+	void(*func)(CAstSig *, const AstNode *);
 };
 class CAstSigEnv
 {
@@ -399,8 +399,7 @@ class CAstException
 {
 public:
 	CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *pnode);
-	CAstException &proc(string fnsig, const char * _basemsg); //FUNC_SYNTAX
-	CAstException &proc(const char * _basemsg, const char * tidname = "", string extra = ""); //invalid usage; internal
+	CAstException &proc(const char * _basemsg, const char * tidname = "", string extra = ""); //FUNC_SYNTAX; INTERNAL; invalid usage
 	CAstException &proc(const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell); //range
 	CAstException &proc(const char * _basemsg, const char * funcname, int argIndex); // arg
 	CAstException() {
@@ -460,6 +459,7 @@ public:
 	CVar* cell_indexing(CVar* pBase, AstNode* pn);
 };
 
+const AstNode* get_first_arg(const AstNode* pnode, bool staticfunc = false);
 
 
 #endif // SIGPRO;C

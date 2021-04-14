@@ -1,9 +1,10 @@
 #include "sigproc.h"
 
-void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
+void _sprintf(CAstSig* past, const AstNode* pnode);
 
-void aux_input(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void aux_input(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkString(pnode, past->Sig);
 	printf("%s ", past->Sig.string().c_str());
 	string user_input;
@@ -11,19 +12,22 @@ void aux_input(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fn
 	past->Sig.SetString(user_input.c_str());
 }
 
-void udf_error(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void udf_error(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkString(pnode, past->Sig);
 	throw CAstException(USAGE, *past, pnode).proc(past->Sig.string().c_str());
 }
 
-void udf_warning(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void udf_warning(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkString(pnode, past->Sig);
 	printf("WARNING: %s\n", past->Sig.string().c_str());
 }
-void udf_rethrow(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void udf_rethrow(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkString(pnode, past->Sig);
 }
 
@@ -31,8 +35,9 @@ void udf_rethrow(CAstSig* past, const AstNode* pnode, const AstNode* p, string& 
 #include "bjcommon_win.h"
 #endif
 
-void _inputdlg(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _inputdlg(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	ostringstream caption;
 	if (past->xtree->type == N_BLOCK && !past->Script.empty())
 	{
@@ -40,7 +45,7 @@ void _inputdlg(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fn
 		caption << "Line " << pnode->line;
 	}
 	caption << past->Sig.string();
-	_sprintf(past, pnode, p, fnsigs);
+	_sprintf(past, pnode);
 
 	char buf[64] = {};
 #ifdef _WINDOWS
@@ -54,15 +59,16 @@ void _inputdlg(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fn
 #endif
 }
 
-void _msgbox(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _msgbox(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	ostringstream caption;
 	caption << "Line " << pnode->line;
 	if (pnode->type != N_STRUCT)
 	{
 		p = pnode->alt;
 		if (p->type == N_ARGS) p = p->child;
-		_sprintf(past, pnode, p, fnsigs);
+		_sprintf(past, pnode);
 	}
 	past->fpmsg.ShowVariables(past);
 #ifdef _WINDOWS

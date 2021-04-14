@@ -1,15 +1,15 @@
-// AUXLAB 
+// AUXLAB
 //
 // Copyright (c) 2009-2019 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: sigproc
 // Signal Generation and Processing Library
-// Platform-independent (hopefully) 
-// 
+// Platform-independent (hopefully)
+//
 // Version: 1.7
 // Date: 5/17/2020
-// 
+//
 #include <math.h>
 #include <stdlib.h>
 #include <string.h> // aux_file
@@ -36,30 +36,30 @@
 #include "cipsycon.tab.h"
 #endif
 
-// 10/1/2020 TO DO-----separate these graffy function somehow to add its own features 
+// 10/1/2020 TO DO-----separate these graffy function somehow to add its own features
 // such as blockNULL etc.
 
 #ifndef NO_FILES
 //these functions are defined in AuxFunc_file.cpp
-void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _fopen(CAstSig *past, const AstNode *pnode);
+void _fclose(CAstSig *past, const AstNode *pnode);
+void _fprintf(CAstSig *past, const AstNode *pnode);
+void _fread(CAstSig *past, const AstNode *pnode);
+void _fwrite(CAstSig *past, const AstNode *pnode);
+void _write(CAstSig *past, const AstNode *pnode);
+void _wavwrite(CAstSig *past, const AstNode *pnode);
+void _wave(CAstSig *past, const AstNode *pnode);
+void _file(CAstSig *past, const AstNode *pnode);
 #else
-void _fopen(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _fclose(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _fprintf(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _fread(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _fwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _write(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _wavwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _wave(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
-void _file(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs) {}
+void _fopen(CAstSig *past, const AstNode *pnode) {}
+void _fclose(CAstSig *past, const AstNode *pnode) {}
+void _fprintf(CAstSig *past, const AstNode *pnode) {}
+void _fread(CAstSig *past, const AstNode *pnode) {}
+void _fwrite(CAstSig *past, const AstNode *pnode) {}
+void _write(CAstSig *past, const AstNode *pnode) {}
+void _wavwrite(CAstSig *past, const AstNode *pnode) {}
+void _wave(CAstSig *past, const AstNode *pnode) {}
+void _file(CAstSig *past, const AstNode *pnode) {}
 
 #endif
 
@@ -74,21 +74,21 @@ map<string, Cfunction> CAstSigEnv::pseudo_vars = dummy_pseudo_vars;
 //#endif
 
 
-void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _text(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _showrms(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
-void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs);
+void _figure(CAstSig *past, const AstNode *pnode);
+void _axes(CAstSig *past, const AstNode *pnode);
+void _text(CAstSig *past, const AstNode *pnode);
+void _plot(CAstSig *past, const AstNode *pnode);
+void _line(CAstSig *past, const AstNode *pnode);
+void _delete_graffy(CAstSig *past, const AstNode *pnode);
+void _repaint(CAstSig *past, const AstNode *pnode);
+void _showrms(CAstSig *past, const AstNode *pnode);
+void _replicate(CAstSig *past, const AstNode *pnode);
 
 /* 10/10/2018
 In all of these pEnv->inFunc, I have been using a temporary variable of CAstSig like
 	CAstSig tp(past);
 to shield already evaluated past->Sig.
-In the past, tp->dad is set to dad, which ends up creating a situation where dad's son is not oneself. 
+In the past, tp->dad is set to dad, which ends up creating a situation where dad's son is not oneself.
 This is a problem as it causes a crash during the clean up of pAst insie of CallUDF()
 Therefore, now, dad of these temporary variables is set to NULL to avoid it.
 Also, CAstSig tp(past); in pEnv->inFunc should have a separate, temporary exception catcher, which relays the exception to the main AstSig.
@@ -97,7 +97,7 @@ not creating CAstSig tp(past); but just make a copied version of past->Sig and p
 */
 
 // Don't do past->Compute(p) inside _function for non-static functions
-// Because the first argument has been computed when the function is called. 
+// Because the first argument has been computed when the function is called.
 
 /*
 7/24/2018
@@ -121,82 +121,82 @@ Additional parameter is passed through parg, which is a void pointer, mostly use
 /* 11/28/2019
 output binding for built-in function:
 	Sig has the first (primary) output.
-	
+
 */
 
-void _minmax(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _filt(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _iir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _tparamonly(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _rand(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _irand(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _randperm(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _record(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _play(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _pause_resume(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _stop(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _inputdlg(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void aux_input(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void udf_error(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void udf_warning(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void udf_rethrow(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _msgbox(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _dir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _include(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _eval(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _zeros(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _ones(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _cell(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _group(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _ungroup(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _buffer(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _interp1(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _fdelete(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _ismember(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _isaudioat(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _fft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _ifft(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _tone(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _fm(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _tsq_getvalues(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _tsq_setvalues(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _tsq_gettimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _tsq_settimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _tsq_isrel(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _str2num(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _esc(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _datatype(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _veq(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _varcheck(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _and(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _or(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _sort(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _arraybasic(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs);
-void _hamming(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _blackman(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _envelope(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _hilbert(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _sam(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _ramp(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _audio(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _vector(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _left(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _right(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _std(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _size(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _mostleast(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _setnextchan(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _getfs(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _setfs(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _erase(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _head(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _cumsum(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _diff(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _conv(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _imaginary_unit(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _pi(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
-void _natural_log_base(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs);
+void _minmax(CAstSig* past, const AstNode* pnode);
+void _filt(CAstSig* past, const AstNode* pnode);
+void _iir(CAstSig* past, const AstNode* pnode);
+void _tparamonly(CAstSig* past, const AstNode* pnode);
+void _rand(CAstSig* past, const AstNode* pnode);
+void _irand(CAstSig* past, const AstNode* pnode);
+void _randperm(CAstSig* past, const AstNode* pnode);
+void _sprintf(CAstSig* past, const AstNode* pnode);
+void _record(CAstSig* past, const AstNode* pnode);
+void _play(CAstSig* past, const AstNode* pnode);
+void _pause_resume(CAstSig* past, const AstNode* pnode);
+void _stop(CAstSig* past, const AstNode* pnode);
+void _inputdlg(CAstSig* past, const AstNode* pnode);
+void aux_input(CAstSig* past, const AstNode* pnode);
+void udf_error(CAstSig* past, const AstNode* pnode);
+void udf_warning(CAstSig* past, const AstNode* pnode);
+void udf_rethrow(CAstSig* past, const AstNode* pnode);
+void _msgbox(CAstSig* past, const AstNode* pnode);
+void _dir(CAstSig* past, const AstNode* pnode);
+void _include(CAstSig* past, const AstNode* pnode);
+void _eval(CAstSig* past, const AstNode* pnode);
+void _zeros(CAstSig* past, const AstNode* pnode);
+void _ones(CAstSig* past, const AstNode* pnode);
+void _cell(CAstSig* past, const AstNode* pnode);
+void _group(CAstSig* past, const AstNode* pnode);
+void _ungroup(CAstSig* past, const AstNode* pnode);
+void _buffer(CAstSig* past, const AstNode* pnode);
+void _interp1(CAstSig* past, const AstNode* pnode);
+void _fdelete(CAstSig* past, const AstNode* pnode);
+void _ismember(CAstSig* past, const AstNode* pnode);
+void _isaudioat(CAstSig* past, const AstNode* pnode);
+void _fft(CAstSig* past, const AstNode* pnode);
+void _ifft(CAstSig* past, const AstNode* pnode);
+void _tone(CAstSig* past, const AstNode* pnode);
+void _fm(CAstSig* past, const AstNode* pnode);
+void _tsq_getvalues(CAstSig* past, const AstNode* pnode);
+void _tsq_setvalues(CAstSig* past, const AstNode* pnode);
+void _tsq_gettimes(CAstSig* past, const AstNode* pnode);
+void _tsq_settimes(CAstSig* past, const AstNode* pnode);
+void _tsq_isrel(CAstSig* past, const AstNode* pnode);
+void _str2num(CAstSig* past, const AstNode* pnode);
+void _esc(CAstSig* past, const AstNode* pnode);
+void _datatype(CAstSig* past, const AstNode* pnode);
+void _veq(CAstSig* past, const AstNode* pnode);
+void _varcheck(CAstSig* past, const AstNode* pnode);
+void _and(CAstSig* past, const AstNode* pnode);
+void _or(CAstSig* past, const AstNode* pnode);
+void _sort(CAstSig* past, const AstNode* pnode);
+void _arraybasic(CAstSig* past, const AstNode* pnode);
+void _hamming(CAstSig* past, const AstNode* pnode);
+void _blackman(CAstSig* past, const AstNode* pnode);
+void _envelope(CAstSig* past, const AstNode* pnode);
+void _hilbert(CAstSig* past, const AstNode* pnode);
+void _sam(CAstSig* past, const AstNode* pnode);
+void _ramp(CAstSig* past, const AstNode* pnode);
+void _audio(CAstSig* past, const AstNode* pnode);
+void _vector(CAstSig* past, const AstNode* pnode);
+void _left(CAstSig* past, const AstNode* pnode);
+void _right(CAstSig* past, const AstNode* pnode);
+void _std(CAstSig* past, const AstNode* pnode);
+void _size(CAstSig* past, const AstNode* pnode);
+void _mostleast(CAstSig* past, const AstNode* pnode);
+void _setnextchan(CAstSig* past, const AstNode* pnode);
+void _getfs(CAstSig* past, const AstNode* pnode);
+void _setfs(CAstSig* past, const AstNode* pnode);
+void _erase(CAstSig* past, const AstNode* pnode);
+void _head(CAstSig* past, const AstNode* pnode);
+void _cumsum(CAstSig* past, const AstNode* pnode);
+void _diff(CAstSig* past, const AstNode* pnode);
+void _conv(CAstSig* past, const AstNode* pnode);
+void _imaginary_unit(CAstSig* past, const AstNode* pnode);
+void _pi(CAstSig* past, const AstNode* pnode);
+void _natural_log_base(CAstSig* past, const AstNode* pnode);
 
 
 bool CAstSig::IsValidBuiltin(string funcname)
@@ -317,7 +317,8 @@ void CAstSig::blockString(const AstNode* pnode, const CVar &checkthis, string ad
 
 void CAstSig::blockLogical(const AstNode* pnode, const CVar &checkthis, string addmsg)
 {
-	if (checkthis.type() == TYPEBIT_LOGICAL) {
+	auto type = checkthis.type();
+	if (type & TYPEBIT_LOGICAL) {
 		string msg("Not valid with a logical object; ");
 		throw CAstException(USAGE, *this, pnode).proc((msg + addmsg).c_str());
 	}
@@ -339,8 +340,9 @@ void CAstSig::blockComplex(const AstNode* pnode, const CVar &checkthis, string a
 	}
 }
 
-void _nullin(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _nullin(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(pnode, past->Sig);
 	CVar sig = past->Sig;
 	past->Compute(p);
@@ -349,13 +351,15 @@ void _nullin(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	past->Sig = sig;
 }
 
-void _contig(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _contig(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->Sig.MakeChainless();
 }
 
-void _tictoc(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _tictoc(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	string fname = pnode->str;
 	if (fname == "tic")
 	{
@@ -367,8 +371,9 @@ void _tictoc(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	}
 }
 
-void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _time_freq_manipulate(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	//check qualifers
 	past->checkAudioSig(pnode, past->Sig);
 	CVar param, paramopt;
@@ -380,11 +385,11 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 		{
 			paramopt = tp.Compute(p->next);
 			if (paramopt.strut.empty())
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Third parameter, if used, must be a struct variable.");
+				throw CAstException(FUNC_SYNTAX, *past, p).proc("Third parameter, if used, must be a struct variable.");
 		}
 		int type = param.GetType();
 		if (type!= CSIG_TSERIES && type != CSIG_SCALAR)
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "parameter must be either a scalar or a time sequence.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("parameter must be either a scalar or a time sequence.");
 		if (param.GetType() == CSIG_TSERIES)
 		{
 			double audioDur = past->Sig.dur();
@@ -407,7 +412,7 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 			//If the last tmark is not the end of the signal, make one with 0 tmark and bring the value at zero
 			CTimeSeries *pLast;
 			for (CTimeSeries *p = &param; p; p = p->chain)
-				if (!p->chain) 
+				if (!p->chain)
 					pLast = p;
 			if (pLast->tmark != past->Sig.dur())
 			{
@@ -435,15 +440,16 @@ void _time_freq_manipulate(CAstSig *past, const AstNode *pnode, const AstNode *p
 		if (param.IsString())
 			throw CAstException(USAGE, *past, pnode).proc(("Error in respeed:" + param.string()).c_str());
 	}
-	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException &e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	if (fname == "respeed")
 	{ // Take care of overlapping chains after processing
 		past->Sig.MergeChains();
 	}
 }
 
-void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _colon(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar first = past->Sig;
 	if (!first.IsScalar()) throw CAstException(USAGE, *past, pnode).proc("Colon: All arguments must be scalars (check 1st arg).");
 	double val1, val2, step;
@@ -456,7 +462,7 @@ void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		if (!third.IsScalar()) throw CAstException(USAGE, *past, pnode).proc("Colon: All arguments must be scalars (check 3rd arg).");
 		step = third.value();
 	}
-	else 
+	else
 		step = (val1>val2) ? -1. : 1.;
 	past->Sig.Reset(1);
 	int nItems = max(1, (int)((val2-val1)/step)+1);
@@ -465,14 +471,16 @@ void _colon(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsig
 		past->Sig.buf[i] = val1 + step*i;
 }
 
-void _clear(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _clear(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->ClearVar((AstNode *)past->xtree, &past->Sig);
 	past->Sig.Reset();
 }
 
-void _squeeze(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _squeeze(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->Sig.Squeeze();
 }
 
@@ -574,7 +582,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.alwaysstatic = true;
 	name = ":";
 	ft.funcsignature = "(scalar:scalar) or (scalar:scalar:scalar)";
-	ft.func =  &_colon; 
+	ft.func =  &_colon;
 	builtin[name] = ft;
 
 	name = "wave";
@@ -612,7 +620,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.func =  &_audio;
 	builtin[name] = ft;
 
-	name = "squeeze"; 
+	name = "squeeze";
 	ft.alwaysstatic = false;
 	ft.funcsignature = "() ... to remove the null interval";
 	ft.narg1 = 0;	ft.narg2 = 0;
@@ -673,18 +681,18 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.narg1 = 1;	ft.narg2 = 1;
 	ft.funcsignature = "(stereo_signal)";
 	name = "left";
-	ft.func =  &_left; // check 
+	ft.func =  &_left; // check
 	builtin[name] = ft;
 	name = "right";
-	ft.func =  &_right; // check 
+	ft.func =  &_right; // check
 	builtin[name] = ft;
 
 	ft.narg1 = 1;	ft.narg2 = 2;
 	name = "std";
 	ft.funcsignature = "(length, [, bias])";
-	ft.func =  &_std; 
+	ft.func =  &_std;
 	builtin[name] = ft;
-	
+
 	ft.narg1 = 2;	ft.narg2 = 2;
 	name = "setnextchan";
 	ft.func = &_setnextchan;
@@ -847,7 +855,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	name = "fopen";
 	ft.alwaysstatic = true;
 	ft.funcsignature = "(filename, mode)";
-	ft.func = &_fopen; // check 
+	ft.func = &_fopen; // check
 	builtin[name] = ft;
 
 	ft.narg1 = 0;	ft.narg2 = 0;
@@ -1117,7 +1125,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.alwaysstatic = false;
 	ft.funcsignature = "(graphic_handle)";
 	ft.func = &_delete_graffy;
-	builtin[name] = ft;	
+	builtin[name] = ft;
 	name = "repaint";
 	ft.funcsignature = "(graphic_handle)";
 	ft.func = &_repaint;
@@ -1207,7 +1215,7 @@ bool CAstSig::HandlePseudoVar(const AstNode *pnode)
 	string dummy;
 	auto it = pEnv->pseudo_vars.find(fname);
 	if (it != pEnv->pseudo_vars.end())
-		(*it).second.func(this, pnode, NULL, dummy);
+		(*it).second.func(this, pnode);
 	else
 		return false;
 	return true;
@@ -1259,7 +1267,7 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 	auto type = Sig.type();
 	res = HandleMathFunc(compl, fname, &fn0, &fn1, &fn2, &cfn0, &cfn1, &cfn2);
 	//HandleMathFunc returns 1 for sqrt, log and log10, 2 for ^ and mode, -1 for functions for complex numbers (fn2 available), 10 for any other math functions; 0 otherwise (not a math function on my list)
-	
+
 	// To do-----6/3/2018
 	//1) Groupizing this part
 	//2) _minmax return complex if complex...
@@ -1356,7 +1364,9 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 		break;
 	default: // res should be 0
 		if (ft != pEnv->builtin.end())
-		{
+		{   // Regardless of traditional call or dot call
+			// when (*ft).second.func is called, Sig is the object to apply the function to
+			// and the 3rd argument is the first arg for the function
 			fnsigs = fname + (*ft).second.funcsignature;
 			if (structCall)
 			{
@@ -1364,16 +1374,12 @@ void CAstSig::HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot)
 					throw CAstException(USAGE, *this, pnode).proc("Cannot be a member function. ", fname.c_str());
 				firstparamtrim(fnsigs);
 				nArgs = checkNumArgs(pnode, p, fnsigs, (*ft).second.narg1 - 1, (*ft).second.narg2 - 1);
-				(*ft).second.func(this, pnode, p, fnsigs);
 			}
 			else
 			{
 				nArgs = checkNumArgs(pnode, p, fnsigs, (*ft).second.narg1, (*ft).second.narg2);
-				if ((*ft).second.alwaysstatic)
-					(*ft).second.func(this, pnode, p, fnsigs);
-				else
-					(*ft).second.func(this, pnode, p->next, fnsigs);
 			}
+			(*ft).second.func(this, pnode);
 		}
 		else
 			throw CAstException(USAGE, *this, p).proc("HandleAuxFunctions()--Not a built-in function?", fname.c_str());
