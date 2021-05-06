@@ -97,21 +97,13 @@ void CHistDlg::OnTimer(UINT id)
 	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", AppPath, AppName, HISTORY_FILENAME, buf);
 	sendtoEventLogger("CHistDlg::OnTimer begins");
 
+	string strRead;
+	auto ress = GetFileText(logfilename, "rt", strRead);
 	vector<string> lines;
-	FILE *fp = fopen(logfilename, "rt");
-	if (fp!=NULL)
+	size_t res2;
+	if (ress>0)
 	{
-		fseek (fp, 0, SEEK_END);
-		int filesize=ftell(fp);
-		fseek (fp, 0, SEEK_SET);
-		char *buf = new char[filesize+1];
-		size_t res = fread(buf, 1, (size_t)filesize, fp);
-		buf[res]=0;
-		fclose(fp);
-		sendtoEventLogger("str2vect begins");
-		size_t res2 = str2vect(lines, buf, "\r\n");
-		sendtoEventLogger("str2vect ends");
-		delete[] buf;
+		res2 = str2vect(lines, strRead.c_str(), "\r\n");
 	}
 	FillupHist(lines);
 	sendtoEventLogger("CHistDlg::OnTimer ends");

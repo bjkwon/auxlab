@@ -209,16 +209,27 @@ int GetFileText(FILE* fp, string& strOut)
 	int filesize = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 	char* buf = new char[filesize + 1];
-	size_t ret = fread(buf, 1, filesize, fp);
+	size_t pos = fread(buf, 1, (size_t)filesize, fp);
+	// In case logfile contains EOF character in the middle (even accidentially)
+	// making sure fread continues beyond the position of EOF
+	size_t res = 1;
+	while (pos > 0 && pos < filesize && res)
+	{
+		buf[pos++] = '\n';
+		fseek(fp, (long)pos + 1 + 1, SEEK_SET);
+		res = fread(buf + pos, 1, (size_t)(filesize-pos), fp);
+		pos += res;
+	}
 	fclose(fp);
-	if (ret < 0)
+	if (pos <= 0)
 		return -2;
 	else
 	{
-		buf[ret] = 0;
+		buf[pos] = 0;
 		strOut = buf;
+		delete[] buf;
 	}
-	return (int)ret;
+	return (int)pos;
 }
 
 int GetFileText(const char *fname, const char *mod, string &strOut)

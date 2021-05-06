@@ -643,7 +643,8 @@ void CAstSig::outputbinding(const AstNode *plhs)
 		{
 			auto pp = *it->release();
 			bind_psig(p, pp);
-			if (it != Sigs.begin()) delete pp; // most likely pp was created in _func() in _functions
+			if (it != Sigs.begin()) 
+				delete pp; // most likely pp was created in _func() in _functions
 			it++;
 			if (it==Sigs.end() && p->next)
 				throw CAstException(USAGE, *this, p).proc("Too many output arguments.");

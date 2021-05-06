@@ -161,8 +161,11 @@ size_t ReadLines(HANDLE hCon, char *buf, CONSOLE_SCREEN_BUFFER_INFO coninfo0, CO
 	}
 	for (short k = coninfo0.dwCursorPosition.Y + 1; k < coninfo.dwCursorPosition.Y + 1; k++)
 	{
-		if (last!=coninfo0.dwMaximumWindowSize.X)
-			readCount++, strcat(buf, "\n");
+		if (last != coninfo0.dwMaximumWindowSize.X)
+		{
+			readCount++;
+			strcat(buf, "\n");
+		}
 		readCount += res = ReadThisLine(line, hStdout, coninfo0, k, 0);
 		if (res > 0)
 		{
@@ -172,7 +175,6 @@ size_t ReadLines(HANDLE hCon, char *buf, CONSOLE_SCREEN_BUFFER_INFO coninfo0, CO
 	}
 	return readCount;
 }
-
 
 DEBUG_KEY xcom::getinput(char* readbuffer)
 {
@@ -209,20 +211,8 @@ DEBUG_KEY xcom::getinput(char* readbuffer)
 try {
 	while (loop)
 	{		
-		//for (int k = 0; k<1; k++)
-		//		fprintf(fp, "%d: down=%d, vcode=%d(0x%2x), Char=%s(%d), dwControlKeyState=%d\n", k, in[k].Event.KeyEvent.bKeyDown, in[k].Event.KeyEvent.wVirtualKeyCode, in[k].Event.KeyEvent.wVirtualKeyCode, buf1, in[k].Event.KeyEvent.uChar.AsciiChar, in[k].Event.KeyEvent.dwControlKeyState);
 		ReadConsoleInput(hStdin, in, INRECORD_SIZE, &nRec);
 		SendMessage(hLog, WM__RCI, (WPARAM)nRec, (LPARAM)0);
-/* To track console inputs (keyboard, mouse, menu, etc), this use. It may work on one machine and show a different behavior on a different machine. 11/23/2017
-		fp=fopen("in_record","at");
-		fprintf(fp,"nRec=%d\n", nRec);
-		for (int k=0; k<nRec; k++) 
-			if (in[k].EventType == KEY_EVENT)
-				fprintf(fp, "%d: down=%d, vcode=%d(0x%2x), Char=%s(%d), dwControlKeyState=%d\n", k, in[k].Event.KeyEvent.bKeyDown, in[k].Event.KeyEvent.wVirtualKeyCode, in[k].Event.KeyEvent.wVirtualKeyCode, buf1, in[k].Event.KeyEvent.uChar.AsciiChar, in[k].Event.KeyEvent.dwControlKeyState);
-			else
-				fprintf(fp, "in[].EventType = %d\n", in[k].EventType);
-		fclose(fp);
-*/
 		if (xscope.size()>1)
 			checkdebugkey(in, nRec);
 		//nRec can be greater than one when 1) control-v is pressed (for processed input), or 2) debug command string is dispatched from OnNotify of debugDlg, or 3) maybe in other occassions
@@ -230,9 +220,6 @@ try {
 		{
 			if (in[k].EventType !=	KEY_EVENT) 	continue;
 			code = in[k].Event.KeyEvent.uChar.AsciiChar;			vcode = in[k].Event.KeyEvent.wVirtualKeyCode;
-//			if (vcode>=0x30 && vcode<=0x5a) sprintf(buf1, "%c", vcode);
-//			else strcpy(buf1, "");
-//			fprintf(fp,"down=%d, vcode=%d(0x%2x), Char=%s(%d), dwControlKeyState=%d\n", in[k].Event.KeyEvent.bKeyDown, in[k].Event.KeyEvent.wVirtualKeyCode, in[k].Event.KeyEvent.wVirtualKeyCode, buf1, in[k].Event.KeyEvent.uChar.AsciiChar, in[k].Event.KeyEvent.dwControlKeyState );
 			if (CONTROLKEY) 
 				controlkeydown = !(in[k].Event.KeyEvent.bKeyDown==0);
 			if (vcode==0x56 && (in[k].Event.KeyEvent.dwControlKeyState & (LEFT_CTRL_PRESSED+RIGHT_CTRL_PRESSED)) && in[k].Event.KeyEvent.bKeyDown ) //control-V 
@@ -243,13 +230,11 @@ try {
 			//Pasting by right mouse click (or right mouse click to invoke the Menu and choose "Paste") will only paste the first line, even if multiple lines were copied... fix it 9/21/2017 bjk
 			else if ( in[k].Event.KeyEvent.bKeyDown)
 			{
-//				fprintf(fp,"down=%d, vcode=%d(0x%2x), Char=%s(%d), dwControlKeyState=%d\n", in[k].Event.KeyEvent.bKeyDown, in[k].Event.KeyEvent.wVirtualKeyCode, in[k].Event.KeyEvent.wVirtualKeyCode, buf1, in[k].Event.KeyEvent.uChar.AsciiChar, in[k].Event.KeyEvent.dwControlKeyState );
 				read = in[k].Event.KeyEvent.uChar.AsciiChar;
 				GetConsoleScreenBufferInfo(hStdout, &coninfo);
 				off = (coninfo.dwCursorPosition.Y-coninfo0.dwCursorPosition.Y)*coninfo0.dwMaximumWindowSize.Y + coninfo.dwCursorPosition.X-coninfo0.dwCursorPosition.X;
-				if (showscreen && off!=num) // This is likely ENTER key from histDlg 
+				if (showscreen && num == 0 /*&& off!=num*/) // This is likely ENTER key from histDlg
 					num = (DWORD)ReadLines(hStdout, buf, coninfo0, coninfo, offset);
-	//				ReadTheseLines(buf, num, hStdout, coninfo0, coninfo);
 				COORD      now;
 				switch(vcode)
 				{ 
@@ -279,19 +264,19 @@ try {
 					break;
 				case VK_CONTROL:
 			GetConsoleScreenBufferInfo(hStdout, &coninfo);
-//			fprintf(fp," VK_CONTROL current cursor x=%d, y=%d\n", coninfo.dwCursorPosition.X, coninfo.dwCursorPosition.Y);
 					break;
 				case VK_DELETE:
+					if (controlkeydown)
+					{
+						//Do something here if you want a feature of Ctrl-Delete 
+					}
 					if (!offset) break;
 					memcpy(buf1, buf + num - offset + 1, offset);
 					memcpy(buf + num-- - offset--, buf1, offset + 1);
-					SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf1), (LPARAM)buffer);
-					SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf), (LPARAM)buffer);
 					if (showscreen)
 					{
 						WriteConsole(hStdout, buf1, (DWORD)strlen(buf1) + 1, &dw2, NULL);
 						sendtoEventLogger("(VK_DELETE:buf)WriteConsole wrote %d bytes", dw2);
-						SendMessage(hLog, WM__LOG, -1, (LPARAM)buffer);
 					}
 					SetConsoleCursorPosition(hStdout, coninfo.dwCursorPosition);
 					break;
@@ -301,19 +286,11 @@ try {
 					buf1[0] = '\b';
 					memcpy(buf1+1, buf+num-offset, offset+1);
 					memcpy(buf+num---offset-1, buf1+1, offset+1);
-					sprintf(buffer, "(VK_BACK:buf1)%s", buf1);
-					SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf1), (LPARAM)buffer);
-					sprintf(buffer, "(VK_BACK:buf)%s", buf);
-					SendMessage(hLog, WM__LOG, (WPARAM)strlen(buf), (LPARAM)buffer);
 					if (showscreen)
 					{
 						WriteConsole(hStdout, buf1, (DWORD)strlen(buf1 + 1)+2, &dw2, NULL); // normally +2 is OK for backspace, but putting more char to cover the case where the line number is reduced
-						sprintf(buffer, "(VK_BACK:buf)WriteConsole wrote %d bytes", dw2);
-						SendMessage(hLog, WM__LOG, -1, (LPARAM)buffer);
 					}
 				case VK_LEFT:
-//					fprintf(fp,"wVirtualKeyCode=%d,num=%d,offset=%d\n",vcode, num,offset);
-//					if (num) fprintf(fp,"num:%s\n",buf);
 					if (vcode==VK_LEFT && !(num-offset)) break;
 					if (in[k].Event.KeyEvent.dwControlKeyState & LEFT_CTRL_PRESSED || in[k].Event.KeyEvent.dwControlKeyState & RIGHT_CTRL_PRESSED)
 						delta = (SHORT)( strlen(buf) - ctrlshiftleft(buf, (DWORD)offset) - offset );
@@ -380,7 +357,7 @@ try {
 							res2 = (DWORD)ReadThisLine(linebuf, hStdout, coninfo0, res, res==0? mainSpace.comPrompt.size(): 0 );
 						else
 							res2 = num;
-						WriteConsole (hStdout, buf, min(res2,(DWORD)coninfo0.dwMaximumWindowSize.X), &dw2, NULL);
+						WriteConsole (hStdout, buf, res2, &dw2, NULL);
 						if (res<res1) 
 						{
 							now.X=0; now.Y=coninfo0.dwCursorPosition.Y+res+1;
@@ -390,7 +367,6 @@ try {
 					SetConsoleCursorPosition (hStdout, coninfo0.dwCursorPosition);
 					histOffset=offset=0;
 					num=0;
-					sprintf(buffer, "(VK_ESCAPE)Cursor moved to %d", coninfo.dwCursorPosition.X);
 					break;
 
 				case VK_UP:
@@ -424,11 +400,6 @@ try {
 					coninfo = coninfo0;
 					res = SetConsoleCursorPosition (hStdout, coninfo.dwCursorPosition);
 					offset = num;
-					if (res)
-						sprintf(buffer, "(VK_HOME)Cursor moved to %d", coninfo.dwCursorPosition.X);
-					else
-						sprintf(buffer, "(VK_HOME)SetConsoleCursorPosition failed");
-					SendMessage(hLog, WM__LOG, -1, (LPARAM)buffer);
 					break;
 				case VK_END:
 					line=0;
@@ -442,11 +413,6 @@ try {
 					coninfo.dwCursorPosition.Y += line;
 					res = SetConsoleCursorPosition (hStdout, coninfo.dwCursorPosition);
 					offset = 0;
-					if (res)
-						sprintf(buffer, "(VK_END)Cursor moved to %d", coninfo.dwCursorPosition.X);
-					else
-						sprintf(buffer, "(VK_END)SetConsoleCursorPosition failed");
-					SendMessage(hLog, WM__LOG, -1, (LPARAM)buffer);
 					break;
 				case VK_INSERT:
 					replacemode = !replacemode;
