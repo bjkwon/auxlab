@@ -20,8 +20,9 @@ void processEscapes(string& str)
 		}
 }
 
-void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _sprintf(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CAtlRegExp<> regexp;
 	REParseError status = regexp.Parse("%([-+ #0]+)?({\\z|\\*})?(\\.{\\z|\\*})?[hlL]?{[cuoxXideEgGfs]}");
 	if (status != REPARSE_ERROR_OK)
@@ -44,13 +45,13 @@ void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 			mcFormat.GetMatch(nGroupIndex, &szStart, &szEnd);
 			if (nGroupIndex == 2 || (nGroupIndex < 2 && szStart && *szStart == '*')) {	// condition for consuming an argument
 				if ((p = p->next) == NULL)
-					throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Not enough arguments.");
+					throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Not enough arguments.");
 				if (nGroupIndex == 2 && *szStart == 's')
 					vstring = tast.ComputeString(p);
 				else if (tast.Compute(p)->IsScalar())
 					v = tast.Sig.value();
 				else
-					throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Scalar value expected for this argument.");
+					throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Scalar value expected for this argument.");
 				if (nGroupIndex != 2) {
 					char width[20];
 					sprintf(width, "%d", round(v));
@@ -87,10 +88,11 @@ void _sprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 
 #ifndef NO_FILES
 
-void _fprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _fprintf(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar firstarg = past->Sig;
-	_sprintf(past, pnode, p, fnsigs);
+	_sprintf(past, pnode);
 	string buffer;
 	buffer = past->Sig.string();
 	bool openclosehere(1);
@@ -119,7 +121,7 @@ void _fprintf(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 	}
 	if (!file)
 	{
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "First arg must be either a file identifider, filename or 0 (for console)");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("First arg must be either a file identifider, filename or 0 (for console)");
 	}
 	if (fprintf(file, buffer.c_str()) < 0)
 		past->Sig.SetValue(-3.);

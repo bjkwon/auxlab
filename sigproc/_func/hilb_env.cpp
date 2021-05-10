@@ -2,14 +2,16 @@
 #include "fftw3.h"
 #include "sigproc.h"
 
-void _envelope(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _envelope(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(pnode, past->Sig);
 	past->Sig.fp_mod(&CSignal::HilbertEnv);
 }
 
-void _hilbert(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _hilbert(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(pnode, past->Sig);
 	past->Sig.fp_mod(&CSignal::Hilbert);
 }

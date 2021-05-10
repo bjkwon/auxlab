@@ -7,8 +7,8 @@
 // Main Application. Based on Windows API  
 // 
 // 
-// Version: 1.4951
-// Date: 12/14/2018
+// Version: 1.7075
+// Date: 5/8/2021
 // 
 #include "wxx_wincore.h" // Win32++ 8.2. This must be placed prior to <windows.h> to avoid including winsock.h
 #include "histDlg.h"
@@ -87,7 +87,7 @@ void CHistDlg::lvInit()
 	LoadString (hInst, IDS_HELP_HISTORY, buf, sizeof(buf));
 	CreateTT(hInst, hList, rt, buf, 270);
 }
-
+#include <fstream>
 void CHistDlg::OnTimer(UINT id)
 {
 	KillTimer(id);
@@ -96,24 +96,17 @@ void CHistDlg::OnTimer(UINT id)
 	GetComputerName(buf, &dw);
 	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", AppPath, AppName, HISTORY_FILENAME, buf);
 	sendtoEventLogger("CHistDlg::OnTimer begins");
-
-	vector<string> lines;
-	FILE *fp = fopen(logfilename, "rt");
-	if (fp!=NULL)
+	fstream logfile;
+	logfile.open(mHistDlg.logfilename, ios::in);
+	if (logfile.is_open())
 	{
-		fseek (fp, 0, SEEK_END);
-		int filesize=ftell(fp);
-		fseek (fp, 0, SEEK_SET);
-		char *buf = new char[filesize+1];
-		size_t res = fread(buf, 1, (size_t)filesize, fp);
-		buf[res]=0;
-		fclose(fp);
-		sendtoEventLogger("str2vect begins");
-		size_t res2 = str2vect(lines, buf, "\r\n");
-		sendtoEventLogger("str2vect ends");
-		delete[] buf;
+		vector<string> lines;
+		string line;
+		while (getline(logfile, line))
+			lines.push_back(line);
+		logfile.close();
+		FillupHist(lines);
 	}
-	FillupHist(lines);
 	sendtoEventLogger("CHistDlg::OnTimer ends");
 }
 
@@ -169,8 +162,9 @@ int char2INPUT_RECORD(const char *buf, INPUT_RECORD ir[])
 	ir[k].EventType = KEY_EVENT;
 	ir[k].Event.KeyEvent.bKeyDown = TRUE;
 	ir[k].Event.KeyEvent.dwControlKeyState = 0;
-	ir[k].Event.KeyEvent.uChar.AsciiChar = VK_RETURN;
-	ir[k].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+	// 0x98 is in the "unassigned" range in	https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+	ir[k].Event.KeyEvent.uChar.AsciiChar = 0x98;// VK_RETURN;
+	ir[k].Event.KeyEvent.wVirtualKeyCode = 0x98;// VK_RETURN;
 	ir[k].Event.KeyEvent.wRepeatCount = 1;
 	ir[k].Event.KeyEvent.wVirtualScanCode = MapVirtualKey (VK_RETURN, MAPVK_VK_TO_VSC);
 	return k+1;

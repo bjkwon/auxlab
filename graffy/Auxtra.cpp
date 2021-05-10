@@ -274,7 +274,7 @@ DWORD double2RGB(double color[3])
 	return out;
 }
 
-static map<CFigure*, CAxes*> get_gcf_gca(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs, int callingfunction)
+static map<CFigure*, CAxes*> get_gcf_gca(CAstSig* past, const AstNode* pnode, const AstNode* p, int callingfunction)
 { // callingfunction: 1 for plot or line, 2 for axes, 3 for text, 4 for replicate
 	map<CFigure*, CAxes*> out;
 	CAxes* pax = NULL;
@@ -283,7 +283,7 @@ static map<CFigure*, CAxes*> get_gcf_gca(CAstSig* past, const AstNode* pnode, co
 	{
 		CVar* pgo = past->pgo; // pgo is the actual go, past->Sig is only the mirroring one.
 		if (!pgo)
-			throw CAstException(USAGE, *past, p).proc(fnsigs, "A Graffy function called with a NULL base GO.");
+			throw CAstException(USAGE, *past, p).proc("A Graffy function called with a NULL base GO.");
 		switch (GOtype(*pgo))
 		{
 		case GRAFFY_figure:
@@ -305,9 +305,9 @@ static map<CFigure*, CAxes*> get_gcf_gca(CAstSig* past, const AstNode* pnode, co
 			pgo->struts["gca"].push_back(pax);
 			break;
 		default:
-			throw CAstException(USAGE, *past, p).proc(fnsigs, "A non-graphic object nor a data array is given as the first argument.");
+			throw CAstException(USAGE, *past, p).proc("A non-graphic object nor a data array is given as the first argument.");
 		}
-		
+
 
 		out[(CFigure*)pgo] = pax;
 	}
@@ -323,7 +323,7 @@ static map<CFigure*, CAxes*> get_gcf_gca(CAstSig* past, const AstNode* pnode, co
 			//	pax = (CAxes*)AddAxes(cfig, .08, .18, .86, .72);
 			//	RegisterAx((CVar*)cfig, pax, true);
 			//}
-			//else 
+			//else
 				if (!cfig->struts["gca"].empty()) // use existing axes
 				pax = (CAxes*)cfig->struts["gca"].front();
 		}
@@ -386,8 +386,9 @@ void delete_toDelete(CAstSig *past, CVar *delThis)
 	}
 }
 
-GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _repaint(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsGO())
 		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
 	if (GOtype(past->Sig) == GRAFFY_figure)
@@ -485,11 +486,11 @@ static void deep_erase(CVar *Govar, CVar* const del)
 
 // Go through every GOvar and its derivatives. If it is same as del, erase from it
 // derivatives: children (all types), x or y (axes), userdata
-// 
+//
 static void deep_erase(CAstSig* past, CVar * const del)
 {
 	for (auto gov = past->GOvars.begin(); gov != past->GOvars.end(); gov++)
-	{ // gov is either single (you can/should use .front() or multiGO 
+	{ // gov is either single (you can/should use .front() or multiGO
 		if ((*gov).second.size()==1)
 			deep_erase((*gov).second.front(), del);
 		else
@@ -500,8 +501,11 @@ static void deep_erase(CAstSig* past, CVar * const del)
 }
 
 
-GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{ // Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
+GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+
+// Not only the current past, but also all past's from xscope should be handlded. Or, the GO deleted in a udf goes astray in the main scope and crashes in xcom when displaying with showvar (FillUp)
 //
 // The following are OK:
 // delete(1:3) --- equivalent to delete(figure(1:3))
@@ -567,8 +571,9 @@ GRAPHY_EXPORT void _delete_graffy(CAstSig *past, const AstNode *pnode, const Ast
 	past->pgo = NULL;
 }
 
-GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	static GRAFWNDDLGSTRUCT in;
 	CRect rt(0, 0, 500, 310);
 	int nArgs(0);
@@ -648,12 +653,13 @@ GRAPHY_EXPORT void _figure(CAstSig *past, const AstNode *pnode, const AstNode *p
 
 }
 
-GRAPHY_EXPORT void _text(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+GRAPHY_EXPORT void _text(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CAxes* pax = NULL;
 	CFigure* cfig = NULL;
 	CText* ctxt = NULL;
-	map<CFigure*, CAxes*> objects = get_gcf_gca(past, pnode, p, fnsigs, 2);
+	map<CFigure*, CAxes*> objects = get_gcf_gca(past, pnode, p, 2);
 	//different cases:
 	// 1) text(xpos,ypos,string);  // no gcf available
 	// 2) text(xpos,ypos,string);  // gcf available
@@ -683,7 +689,7 @@ GRAPHY_EXPORT void _text(CAstSig* past, const AstNode* pnode, const AstNode* p, 
 	}
 	else
 	{
-		_figure(past, pnode, NULL, fnsigs);
+		_figure(past, pnode);
 		cfig = (CFigure*)past->pgo;
 	}
 
@@ -706,12 +712,13 @@ GRAPHY_EXPORT void _text(CAstSig* past, const AstNode* pnode, const AstNode* p, 
 
 CAstSig *mainast;
 
-GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	mainast = past;
 	CAxes* pax = NULL;
 	CFigure* cfig = NULL;
-	map<CFigure*, CAxes*> objects = get_gcf_gca(past, pnode, p, fnsigs, 2);
+	map<CFigure*, CAxes*> objects = get_gcf_gca(past, pnode, p, 2);
 	if ((*objects.begin()).first)
 	{
 		if (p) past->Compute(p);
@@ -734,7 +741,7 @@ GRAPHY_EXPORT void _axes(CAstSig *past, const AstNode *pnode, const AstNode *p, 
 		if (past->Sig.type() != 2)
 			throw CAstException(USAGE, *past, pnode).proc("arg should be either a fig or axes handle or a 4-element vector in axes(arg))");
 		CPosition pos(past->Sig.buf[0], past->Sig.buf[1], past->Sig.buf[2], past->Sig.buf[3]);
-		_figure(past, pnode, NULL, fnsigs);
+		_figure(past, pnode);
 		cfig = (CFigure*)past->pgo;
 		pax = (CAxes*)AddAxes(cfig, pos);
 	}
@@ -808,8 +815,9 @@ void __plot(CAxes *pax, CAstSig *past, const AstNode *pnode, const CVar &arg1, c
 #include <thread>
 extern mutex mtx_OnPaint;
 
-void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	/* a plot call is one of the following---
 	plot(handle, x)
 	plot(handle, x, options)
@@ -831,7 +839,7 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	CVar arg2; // y in plot(x,y) or plot(h,x,y)
 	CVar arg3; // "o" in plot(x,y,"o") or plot(h,x,y,"o")
 	//First, check whether a graphic handle is given as the first param
-	map<CFigure*, CAxes*> objects = get_gcf_gca(past, pnode, p, fnsigs, 1);
+	map<CFigure*, CAxes*> objects = get_gcf_gca(past, pnode, p, 1);
 	if (past->Sig.IsGO()) // update 8/23/2020
 	{
 		// p should be the CVar object to plot, in plot(h,x,...) and subsequently next'ed.
@@ -887,10 +895,10 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 	else
 	{
 		CVar temp = past->Sig;
-		_figure(past, pnode, NULL, fnsigs);
+		_figure(past, pnode);
 		cfig = (CFigure *)past->pgo;
 	}
-	if (!pax) 
+	if (!pax)
 	{
 		pax = (CAxes*)AddAxes(cfig, .08, .18, .86, .72);
 		sendtoEventLogger("(_plot_line) AddAxes called.");
@@ -969,18 +977,21 @@ void _plot_line(bool isPlot, CAstSig *past, const AstNode *pnode, const AstNode 
 //	if (hEvent==NULL) 	hEvent = CreateEvent(NULL, FALSE, FALSE, TEXT("AUXCONScriptEvent"));
 }
 
-GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _line(CAstSig *past, const AstNode *pnode)
 {
-	_plot_line(0, past, pnode, p, fnsigs);
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+	_plot_line(0, past, pnode);
 }
 
-GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _plot(CAstSig *past, const AstNode *pnode)
 {
-	_plot_line(1, past, pnode, p, fnsigs);
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+	_plot_line(1, past, pnode);
 }
 
-GRAPHY_EXPORT void _showrms(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+GRAPHY_EXPORT void _showrms(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsGO())
 		throw CAstException(USAGE, *past, p).proc("The argument must be a graphic handle.");
 	if (GOtype(past->Sig) != GRAFFY_figure)
@@ -990,8 +1001,10 @@ GRAPHY_EXPORT void _showrms(CAstSig *past, const AstNode *pnode, const AstNode *
 }
 
 
-GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
-{ // RegisterAx should be incorporated. 10/11/2019
+GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+	// RegisterAx should be incorporated. 10/11/2019
 	CVar out;
 	CFigure *cfig;
 	CAxes *cax;
@@ -1068,7 +1081,7 @@ GRAPHY_EXPORT void _replicate(CAstSig *past, const AstNode *pnode, const AstNode
 	}
 	break;
 	}
-	// Revise these lines til the end and remove InvalidateRect from GRAFFY_axes 
+	// Revise these lines til the end and remove InvalidateRect from GRAFFY_axes
 	// 1/14/2021
 	if (past->isthisUDFscope(pnode))
 		addRedrawCue(cfig->m_dlg->hDlg, CRect(0, 0, 0, 0));

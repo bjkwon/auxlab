@@ -1,7 +1,8 @@
 #include "sigproc.h"
 
-void _audio(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _audio(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->blockString(pnode, past->Sig);
 	past->blockCell(pnode, past->Sig);
 	switch (past->Sig.nGroups)
@@ -26,8 +27,9 @@ void _audio(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& 
 	}
 }
 
-void _vector(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _vector(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(pnode, past->Sig);
 	//	past->Sig.MakeChainless(); // if this is on, you can't easily display values from an audio obj 6/29/2020
 	past->Sig.SetFs(1);
@@ -42,15 +44,17 @@ void _vector(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string&
 	}
 }
 
-void _left(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _left(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(pnode, past->Sig);
 	delete past->Sig.next;
 	past->Sig.next = NULL;
 }
 
-void _right(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _right(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkAudioSig(pnode, past->Sig);
 	past->Sig.bringnext();
 }

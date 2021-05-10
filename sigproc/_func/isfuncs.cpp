@@ -1,14 +1,15 @@
 #include "sigproc.h"
 
-void _ismember(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _ismember(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsStruct())
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Must be applied to a class/struct object.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("Must be applied to a class/struct object.");
 	try {
 		CAstSig tp(past);
 		CVar param = tp.Compute(p);
 		if (!param.IsString())
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Argument must be a string.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("Argument must be a string.");
 		auto it = past->Sig.strut.find(param.string());
 		if (it == past->Sig.strut.end())
 			past->Sig.SetValue(0.);
@@ -16,23 +17,26 @@ void _ismember(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fn
 			past->Sig.SetValue(1.);
 		past->Sig.MakeLogical();
 	}
-	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 }
 
-void _isaudioat(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
-{ // if the signal is null at specified time_pt
+void _isaudioat(CAstSig* past, const AstNode* pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+    // if the signal is null at specified time_pt
 	past->checkAudioSig(pnode, past->Sig);
 	CAstSig tp(past);
 	tp.Compute(p);
 	if (tp.Sig.GetType() != CSIG_SCALAR)
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be a scalar.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be a scalar.");
 	double vv = tp.Sig.value();
 	past->Sig.SetValue(past->Sig.IsAudioOnAt(vv));
 	past->Sig.MakeLogical();
 }
 
-void _varcheck(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _varcheck(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	string fname = pnode->str;
 	int type = past->Sig.GetType();
 	CVar out;

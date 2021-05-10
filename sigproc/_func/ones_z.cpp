@@ -1,9 +1,10 @@
 #include "sigproc.h"
 
-void _zeros(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _zeros(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsScalar())
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "argument must be a scalar.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("argument must be a scalar.");
 	int n = (int)round(past->Sig.value());
 	past->Sig.Reset(1);
 	if (n <= 0) return;
@@ -13,10 +14,11 @@ void _zeros(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsig
 		past->Sig.buf[i] = 0;
 }
 
-void _ones(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _ones(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (!past->Sig.IsScalar())
-		throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "argument must be a scalar.");
+		throw CAstException(FUNC_SYNTAX, *past, p).proc("argument must be a scalar.");
 	int n = (int)round(past->Sig.value());
 	past->Sig.Reset(1);
 	if (n <= 0) return;
@@ -25,14 +27,16 @@ void _ones(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 		past->Sig.buf[i] = 1;
 }
 
-void _cumsum(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _cumsum(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkVector(pnode, past->Sig);
 	past->Sig.Cumsum();
 }
 
-void _diff(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _diff(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkSignal(pnode, past->Sig);
 	CVar sig = past->Sig;
 	int order = 1;

@@ -4,8 +4,9 @@
 //from ellf.c
 extern "C" int design_iir(double* num, double* den, int fs, int kind, int type, int n, double* freqs, double dbr /*rippledB*/, double dbd /*stopEdgeFreqORattenDB*/);
 
-void _iir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _iir(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	int type(0), kind(1), norder(4);
 	double freqs[2], rippledB(0.5), stopbandFreqORAttenDB(-40.);
 	const AstNode* args = p;
@@ -78,7 +79,7 @@ void _iir(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 	catch (const char* estr)
 	{
 		sformat(emsg, "Invalid argument---%s\nFor more of ELLF Digital Filter Calculator, check http://www.moshier.net/index.html.", estr);
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, emsg.c_str());
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(emsg.c_str());
 	}
 }
 

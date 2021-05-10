@@ -1,8 +1,9 @@
 #include "sigproc.h"
 
 
-void _and(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _and(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->blockCell(pnode, past->Sig);
 	past->blockString(pnode, past->Sig);
 	past->blockComplex(pnode, past->Sig);
@@ -27,7 +28,7 @@ void _and(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 		CVar x1 = past->Sig;
 		CVar x2 = past->Compute(p);
 		if (!x2.IsLogical())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be a logical variable.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be a logical variable.");
 		past->Sig.Reset(1);
 		past->Sig.UpdateBuffer(min(x1.nSamples, x2.nSamples));
 		past->Sig.MakeLogical();
@@ -36,8 +37,9 @@ void _and(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 	}
 }
 
-void _or(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _or(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->blockCell(pnode, past->Sig);
 	past->blockString(pnode, past->Sig);
 	past->blockComplex(pnode, past->Sig);
@@ -62,7 +64,7 @@ void _or(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 		CVar x1 = past->Sig;
 		CVar x2 = past->Compute(p);
 		if (!x2.IsLogical())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "argument must be a logical variable.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be a logical variable.");
 		past->Sig.Reset(1);
 		past->Sig.UpdateBuffer(min(x1.nSamples, x2.nSamples));
 		past->Sig.MakeLogical();
@@ -71,8 +73,9 @@ void _or(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
 	}
 }
 
-void _sort(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _sort(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar sig = past->Sig;
 	past->checkVector(pnode, sig, "sort() ");
 	past->blockComplex(pnode, sig);
@@ -87,8 +90,9 @@ void _sort(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	past->Sig = sig.fp_mod(&CSignal::sort, &order);
 }
 
-void _mostleast(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _mostleast(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	if (past->Sig.IsEmpty()) return; //for empty input, empty output
 	past->checkVector(pnode, past->Sig);
 	string func = pnode->str;

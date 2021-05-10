@@ -1,15 +1,17 @@
 #include "sigproc.h"
 
-void _tsq_isrel(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _tsq_isrel(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	int type = past->Sig.GetType();
 	bool res = (type == CSIG_TSERIES) && (past->Sig.GetFs() == 0);
 	double dres = res ? 1. : 0.;
 	past->Sig.SetValue(dres);
 }
 
-void _tsq_gettimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _tsq_gettimes(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkTSeq(pnode, past->Sig);
 	//get the item count; i.e., the number of chains
 	int nItems = past->Sig.CountChains();
@@ -26,17 +28,18 @@ void _tsq_gettimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::s
 	delete[] dbuf;
 }
 
-void _tsq_settimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _tsq_settimes(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkTSeq(pnode, past->Sig);
 	int nItems = past->Sig.CountChains();
 	try {
 		CAstSig tp(past);
 		CVar newtime = tp.Compute(p);
 		if (newtime.GetType() != CSIG_VECTOR)
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Argument must be a vector of time points.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("Argument must be a vector of time points.");
 		if (newtime.nSamples != nItems)
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Argument vector must have the same number of elements as the TSEQ.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("Argument vector must have the same number of elements as the TSEQ.");
 		int id = 0;
 		for (CTimeSeries* p = &past->Sig; p; p = p->chain)
 		{
@@ -44,13 +47,14 @@ void _tsq_settimes(CAstSig* past, const AstNode* pnode, const AstNode* p, std::s
 			if (newtime.GetFs() == 0) p->SetFs(0);
 		}
 	}
-	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	const AstNode* pRoot = past->findParentNode(past->xtree, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
 }
 
-void _tsq_getvalues(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _tsq_getvalues(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkTSeq(pnode, past->Sig);
 	int k = 0, nItems = past->Sig.CountChains();
 	CTimeSeries out(1);
@@ -61,17 +65,18 @@ void _tsq_getvalues(CAstSig* past, const AstNode* pnode, const AstNode* p, std::
 	past->Sig = out;
 }
 
-void _tsq_setvalues(CAstSig* past, const AstNode* pnode, const AstNode* p, std::string& fnsigs)
+void _tsq_setvalues(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	past->checkTSeq(pnode, past->Sig);
 	int nItems = past->Sig.CountChains();
 	try {
 		CAstSig tp(past);
 		CVar newvalues = tp.Compute(p);
 		if (newvalues.GetType() != CSIG_VECTOR)
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Argument must be a vector.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("Argument must be a vector.");
 		if (newvalues.nGroups != nItems)
-			throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Argument vector must have the same number of groups as the TSEQ length.");
+			throw CAstException(FUNC_SYNTAX, *past, p).proc("Argument vector must have the same number of groups as the TSEQ length.");
 		int id = 0;
 		for (CTimeSeries* p = &past->Sig; p; p = p->chain)
 		{
@@ -79,7 +84,7 @@ void _tsq_setvalues(CAstSig* past, const AstNode* pnode, const AstNode* p, std::
 			memcpy(p->buf, newvalues.buf + id++ * newvalues.Len(), sizeof(double) * newvalues.Len());
 		}
 	}
-	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, e.getErrMsg().c_str()); }
+	catch (const CAstException & e) { throw CAstException(FUNC_SYNTAX, *past, pnode).proc(e.getErrMsg().c_str()); }
 	const AstNode* pRoot = past->findParentNode(past->xtree, (AstNode*)pnode, true);
 	past->SetVar(pRoot->str, &past->Sig);
 }

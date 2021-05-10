@@ -1,8 +1,9 @@
 #include "sigproc.h"
 #include "bjcommon.h"
 
-void _include(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
+void _include(CAstSig* past, const AstNode* pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	string dummy, emsg;
 	string filename = past->ComputeString(p);
 	if (FILE* auxfile = past->fopen_from_path(filename, "", dummy)) {
@@ -35,8 +36,10 @@ void _include(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fns
 		throw CAstException(USAGE, *past, pnode).proc("Cannot read file: ", "", filename);
 }
 
-void _eval(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
-{ // eval() is one of the functions where echoing in the xcom command window doesn't make sense.
+void _eval(CAstSig* past, const AstNode* pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+    // eval() is one of the functions where echoing in the xcom command window doesn't make sense.
   // but the new variables created or modified within the eval call should be transported back to the calling scope
 	// As of 5/17/2020, there is no return of eval (null returned if assigned) for when there's no error
 	// If there's an error, exception handling (not error handling) is done and it returns the error message
@@ -45,7 +48,7 @@ void _eval(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs
 	try {
 		qscope.xtree = qscope.parse_aux(str.c_str(), emsg);
 		qscope.Compute(qscope.xtree);
-		//transporting variables 
+		//transporting variables
 		for (map<string, CVar>::iterator it = qscope.Vars.begin(); it != qscope.Vars.end(); it++)
 			past->SetVar(it->first.c_str(), &it->second);
 		past->Sig = qscope.Sig; // temp hack; just to port out the last result during the eval call

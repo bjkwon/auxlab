@@ -811,7 +811,7 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	string input(in);
 	char* str_autocorrect = NULL;
 	trim(input, " \t\r\n");//be careful. EXP_AUTO_CORRECT_TAG should not contain any of these characters
-	if (input.size()>0)
+	if (input.size()>0 && input != EXP_AUTO_CORRECT_TAG)
 	try {
 		//if the line begins with #, it bypasses the usual parsing
 		if (input[0] == '#')
@@ -833,10 +833,8 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		str_autocorrect = (char*)calloc(input.size() * 2, 1);
 		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg, str_autocorrect)))
 		{
-			if (emsg.empty())
-				throw 1; // // temporary, to be cleared 2/20/2021
-			else
-				throw emsg.c_str();
+			free(str_autocorrect);
+			throw emsg.c_str();
 		}
 		pContext->statusMsg.clear();
 		pContext->Compute();
@@ -895,10 +893,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		//Going back to the base scope only during the debugging (F10, F5,... etc)
 		Back2BaseScope(0);
 		if (pContext->baselevel.size()>1) pContext->baselevel.pop_back();
-	}
-	catch (int ecode)
-	{ // temporary, to be cleared 2/20/2021
-		cout << "ERROR: code" << ecode << endl;
 	}
 	catch (CAstSig *ast)
 	{ // this was thrown by aux_HOOK

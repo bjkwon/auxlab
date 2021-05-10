@@ -9,8 +9,9 @@
 
 
 extern HWND hShowDlg;
-void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _record(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	int nArgs = 0, devID = 0, nChans = 1;
 	if (pnode->type != N_STRUCT)
 	{ // If not class calling
@@ -36,25 +37,25 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 		(AstNode *)pnode->alt = nullptr; // check
 	}
 	for (const AstNode *cp = p; cp; cp = cp->next)
-		++nArgs; 
+		++nArgs;
 	switch (nArgs)
 	{
 	case 4:
 		past->Compute(p->next->next->next);
 		if (!past->Sig.IsScalar())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The fourth argument must be a constant representing the block size for the callback in milliseconds.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The fourth argument must be a constant representing the block size for the callback in milliseconds.");
 		block = past->Sig.value();
 	case 3:
 		past->Compute(p->next->next);
 		if (!past->Sig.IsScalar())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The third argument is either 1 (mono) or 2 (stereo) for recording.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The third argument is either 1 (mono) or 2 (stereo) for recording.");
 		nChans = (int)past->Sig.value();
 		if (nChans != 1 && nChans != 2)
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The third argument is either 1 (mono) or 2 (stereo) for recording.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The third argument is either 1 (mono) or 2 (stereo) for recording.");
 	case 2:
 		past->Compute(p->next);
 		if (!past->Sig.IsScalar())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The second argument must be a constant representing the duration to record, -1 means indefinite duration until stop is called.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The second argument must be a constant representing the duration to record, -1 means indefinite duration until stop is called.");
 		duration = past->Sig.value();
 	case 1:
 		past->Compute(p);
@@ -85,7 +86,7 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 				block = (int)pobj->strut[objname].value();
 		}
 		else
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The first argument must be an audio_recorder object or a constant (integer) representing the device ID.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The first argument must be an audio_recorder object or a constant (integer) representing the device ID.");
 		break;
 	case 0:
 		break;
@@ -105,10 +106,10 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	char errstr[256] = {};
 	int newfs, recordID = (int)handle.value();
 	if ((newfs = Capture(devID, WM__AUDIOEVENT2, past->pEnv->Fs, nChans, CAstSig::record_bytes, cbnode, duration, block, recordID, errstr)) < 0)
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, errstr);
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(errstr);
 	handle.strut["active"] = CVar((double)(1 == 1));
 	past->Sig.strut["h"] = handle;
-	//output binding 
+	//output binding
 	if (past->lhs)
 	{
 		if (past->lhs->type == N_VECTOR)
@@ -131,8 +132,9 @@ void _record(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsi
 	}
 	past->Sig.Reset(); // to shield the first LHS variable (callback output) from Sig // ??? 11/29/2019
 }
-void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _play(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar sig = past->Sig;
 	//sig must be either an audio signal or an audio handle.
 	char errstr[256] = {};
@@ -141,14 +143,14 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	if (sig.GetType() != CSIG_AUDIO)
 	{
 		if (!sig.IsScalar())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The base must be an audio signal or an audio handle (1)");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The base must be an audio signal or an audio handle (1)");
 		if (sig.strut.find("type")== sig.strut.end())
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The base must be an audio signal or an audio handle (2)");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The base must be an audio signal or an audio handle (2)");
 		CVar type = sig.strut["type"];
 		if (type.GetType()!=CSIG_STRING || type.string() != "audio_playback")
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "The base must be an audio signal or an audio handle (3)");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("The base must be an audio signal or an audio handle (3)");
 		if (!p)
-			throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Audio signal not given.");
+			throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Audio signal not given.");
 		past->Compute(p);
 		past->checkAudioSig(p, past->Sig);
 		CVar audio = past->Sig;
@@ -156,10 +158,10 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		{
 			past->Compute(p->next);
 			if (!past->Sig.IsScalar())
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Argument must be a scalar.");
+				throw CAstException(FUNC_SYNTAX, *past, p).proc("Argument must be a scalar.");
 			nRepeats = (int)past->Sig.value();
 			if (nRepeats<1)
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Repeat counter must be equal or greater than one.");
+				throw CAstException(FUNC_SYNTAX, *past, p).proc("Repeat counter must be equal or greater than one.");
 		}
 		INT_PTR h = PlayCSignals((INT_PTR)sig.value(), audio, 0, WM__AUDIOEVENT1, &block, errstr, nRepeats);
 		if (!h)
@@ -185,10 +187,10 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		{
 			past->Compute(p);
 			if (!past->Sig.IsScalar())
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Argument must be a scalar.");
+				throw CAstException(FUNC_SYNTAX, *past, p).proc("Argument must be a scalar.");
 			nRepeats = (int)past->Sig.value();
 			if (nRepeats<1)
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(fnsigs, "Repeat counter must be equal or greater than one.");
+				throw CAstException(FUNC_SYNTAX, *past, p).proc("Repeat counter must be equal or greater than one.");
 		}
 		int devID = 0;
 		INT_PTR h = PlayCSignals(sig, devID, WM__AUDIOEVENT1, GetHWND_WAVPLAY(), &block, errstr, nRepeats);
@@ -217,12 +219,13 @@ void _play(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 	}
 }
 
-void _stop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _stop(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	char errstr[256];
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Argument must be a scalar.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Argument must be a scalar.");
 	string fname = past->xtree->str;
 	if (!p)
 		fname = past->xtree->alt->str;
@@ -239,14 +242,15 @@ void _stop(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs
 		StopRecord((int)sig.value(), errstr);
 	}
 	else
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "stop() applies only to audio_playback or audio_record.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("stop() applies only to audio_playback or audio_record.");
 }
 
-void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string &fnsigs)
+void _pause_resume(CAstSig *past, const AstNode *pnode)
 {
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
 	CVar sig = past->Sig;
 	if (!sig.IsScalar())
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "Argument must be a scalar.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Argument must be a scalar.");
 	string fname = past->xtree->str;
 	if (!p)
 		fname = past->xtree->alt->str;
@@ -263,7 +267,7 @@ void _pause_resume(CAstSig *past, const AstNode *pnode, const AstNode *p, string
 
 	}
 	else
-		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(fnsigs, "pause() or resume() applies only to audio_playback or audio_record.");
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("pause() or resume() applies only to audio_playback or audio_record.");
 }
 
 #endif // NO_PLAYSND

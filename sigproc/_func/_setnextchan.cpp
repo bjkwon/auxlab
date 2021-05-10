@@ -1,7 +1,9 @@
 #include "sigproc.h"
 
-void _setnextchan(CAstSig* past, const AstNode* pnode, const AstNode* p, string& fnsigs)
-{ // current this is used only when a right channel is added to a mono (and it becomes left)
+void _setnextchan(CAstSig* past, const AstNode* pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+    // current this is used only when a right channel is added to a mono (and it becomes left)
 	if (past->Sig.next)
 		throw CAstException(USAGE, *past, pnode).proc("This function should be used only for a mono signal.");
 	CVar sig = past->Sig;
