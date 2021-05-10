@@ -111,7 +111,7 @@ CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstN
 CAstException &CAstException::proc(const char * _basemsg, const char* tidname, string extra)
 { //FUNC_SYNTAX; INTERNAL
 	assert(type == FUNC_SYNTAX || type == INTERNAL || type == USAGE);
-	string fnsigs;
+	string fnsigs = pnode->str;
 	auto ft = pCtx->pEnv->builtin.find(pnode->str);
 	if (ft != pCtx->pEnv->builtin.end())
 		fnsigs += (*ft).second.funcsignature;
