@@ -108,33 +108,23 @@ CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstN
 	col = pnode->col;
 }
 
-CAstException &CAstException::proc(string fnsig, const char * _basemsg)
-{ //FUNC_SYNTAX
-	assert(type == FUNC_SYNTAX);
+CAstException &CAstException::proc(const char * _basemsg, const char* tidname, string extra)
+{ //FUNC_SYNTAX; INTERNAL
+	assert(type == FUNC_SYNTAX || type == INTERNAL || type == USAGE);
+	string fnsigs = pnode->str;
+	auto ft = pCtx->pEnv->builtin.find(pnode->str);
+	if (ft != pCtx->pEnv->builtin.end())
+		fnsigs += (*ft).second.funcsignature;
 	msgonly = basemsg = _basemsg;
-	if (!fnsig.empty())
-		msgonly += string("\n  Usage: ") + fnsig;
-	arrayindex = cellindex = -1;
-	addLineCol();
-	outstr = msgonly + sourceloc;
-	return *this;
-}
-
-CAstException &CAstException::proc(const char * _basemsg, const char * tidname, string extra)
-{ //invalid usage
-	assert(type == USAGE || type == INTERNAL);
 	if (type == INTERNAL)
-	{
-		msgonly = basemsg = string("[INTERNAL] ") + _basemsg;
-	}
-	else
-	{
-		msgonly = basemsg = _basemsg;
+		msgonly = string("[INTERNAL] ") + _basemsg;
+	else if (!fnsigs.empty())
+		msgonly += string("\n  Usage: ") + fnsigs;
+	else if (strlen(tidname) > 0)
 		msgonly += string(" ") + (tidstr = tidname);
-		if (!extra.empty())
-			msgonly += string("\n") + extra;
-		arrayindex = cellindex = -1;
-	}
+	if (!extra.empty())
+		msgonly += string("\n") + extra;
+	arrayindex = cellindex = -1;
 	addLineCol();
 	outstr = msgonly + sourceloc;
 	return *this;

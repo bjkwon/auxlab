@@ -126,7 +126,7 @@ const AstNode* CAstSig::findDadNode(const AstNode* p, const AstNode* pME)
 {
 	if (!p) return NULL;
 	if (p == pME) return p;
-	if (p->type == N_BLOCK) 
+	if (p->type == N_BLOCK)
 	{
 		p = p->next;
 		const AstNode* res = findDadNode(p, pME);
@@ -153,7 +153,7 @@ const AstNode* CAstSig::findDadNode(const AstNode* p, const AstNode* pME)
 	if (p->type == N_VECTOR)
 	{
 		auto pp = (const AstNode*)(p->str);
-		if (!pp) 
+		if (!pp)
 		{// p is "true" N_VECTOR -- where p->alt and the success on nexts are actual elements
 			for (auto p2 = p->alt; p2; p2 = p2->next)
 			{
@@ -643,7 +643,8 @@ void CAstSig::outputbinding(const AstNode *plhs)
 		{
 			auto pp = *it->release();
 			bind_psig(p, pp);
-			if (it != Sigs.begin()) delete pp; // most likely pp was created in _func() in _functions
+			if (it != Sigs.begin()) 
+				delete pp; // most likely pp was created in _func() in _functions
 			it++;
 			if (it==Sigs.end() && p->next)
 				throw CAstException(USAGE, *this, p).proc("Too many output arguments.");
@@ -1936,11 +1937,10 @@ CVar *CAstSig::GetGlobalVariable(const AstNode *pnode, const char *varname, CVar
 	}
 	else
 	{
-		string dummy;
 		auto it = pEnv->pseudo_vars.find(varname);
 		if ( it != pEnv->pseudo_vars.end())
 		{
-			(*it).second.func(this, pnode, NULL, dummy);
+			(*it).second.func(this, pnode);
 		}
 		else
 		{
@@ -2143,7 +2143,6 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 	int ind(0);
 	CVar *pres;
 	ostringstream out;
-	AstNode *t_func;
 	if (ptree->type == T_ID || ptree->type == N_STRUCT)
 	{
 		if (ptree->str[0] == '?' && this==xscope.front())
@@ -2223,6 +2222,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 			np.varname += ptree->str;
 			if (!(pres = GetVariable(ptree->str, np.psigBase)))
 			{
+				AstNode *t_func;
 				if ((t_func = ReadUDF(emsg, ptree->str)))
 				{
 					if (ptree->child || RHSpresent)	throw_LHS_lvalue(ptree, true);
@@ -2365,9 +2365,6 @@ void CAstSig::bind_psig(AstNode *pn, CVar *psig)
 
 CVar * CAstSig::TID(AstNode *pnode, AstNode *pRHS, CVar *psig)
 {
-	//CVar *tmp;
-	//if (tmp = dfast(pnode, 0)) return tmp;
-
 	CNodeProbe np(this, pnode, psig); // psig is NULL except for T_REPLICA
 	if (pnode)
 	{
@@ -3471,7 +3468,7 @@ int CAstSig::checkNumArgs(const AstNode *pnode, const AstNode *p, string &FuncSi
 		else
 			return nArgs;
 	}
-	throw CAstException(FUNC_SYNTAX, *this, pnode).proc(FuncSigs, msg.str().c_str());
+	throw CAstException(FUNC_SYNTAX, *this, pnode).proc(msg.str().c_str());
 }
 
 CVar *CAstSig::GetSig(const char *var)

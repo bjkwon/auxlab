@@ -72,3 +72,18 @@ int get_output_count(const AstNode* proot, const AstNode* pnode)
 	}
 	return nOutVars;
 }
+
+const AstNode* get_first_arg(const AstNode* pnode, bool staticfunc)
+{
+	const AstNode* p = NULL;
+	if (pnode->alt)
+	{
+		if (pnode->alt->type == N_ARGS)
+			p = pnode->alt->child;
+		else if (pnode->alt->type == N_HOOK)
+			p = pnode->alt;
+		if (pnode->type != N_STRUCT && !staticfunc)
+			p = p->next;
+	}
+	return p;
+}
