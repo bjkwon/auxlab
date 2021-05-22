@@ -833,7 +833,6 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 		str_autocorrect = (char*)calloc(input.size() * 2, 1);
 		if (!(pContext->xtree = pContext->parse_aux(input.c_str(), emsg, str_autocorrect)))
 		{
-			free(str_autocorrect);
 			throw emsg.c_str();
 		}
 		pContext->statusMsg.clear();
