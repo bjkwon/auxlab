@@ -800,12 +800,12 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.funcsignature = "(array, nGroups)";
 	ft.func =  &_group;
 	builtin[name] = ft;
+	name = "matrix"; // kept for backward compatibility
+	builtin[name] = ft; // kept for backward compatibility
 	name = "ungroup";
 	ft.funcsignature = "(array, overlap)";
 	ft.func = &_ungroup;
 	builtin[name] = ft;
-	name = "matrix"; // kept for backward compatibility
-	builtin[name] = ft; // kept for backward compatibility
 	ft.narg1 = 2;	ft.narg2 = 3;
 	name = "buffer";
 	ft.funcsignature = "(array, blocklen[, overlap=0])";
