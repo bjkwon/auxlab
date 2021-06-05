@@ -265,7 +265,7 @@ CVar * CNodeProbe::TID_indexing(const AstNode* pnode, AstNode *pLHS, AstNode *pR
 		eval_indexing(pLHS->child, isig);
 	//Check if index is within range 
 	if (isig._max() > psigBase->nSamples)
-		throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
+		throw CAstException(RANGE, *pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
 
 	// pRHS should be non-NULL
 	tsig = pbase->Compute(pRHS);
@@ -539,7 +539,7 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 		if (!(isig.type() & 1)) // has more than one element. 
 			lhsref_single = false;
 		if (isig._max() > pbase->Sig.nSamples) // can be replaced with psigBase->nSamples
-			throw CAstException(RANGE, pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
+			throw CAstException(RANGE, *pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
 		pbase->Sig = extract(pnode, isig);
 	}
 	return pbase->Sig;
@@ -580,7 +580,7 @@ CVar * CNodeProbe::extract(const AstNode *pnode, CTimeSeries &isig)
 		if (psigBase->IsGO())
 		{
 			if (isig._max() > psigBase->nSamples)
-				throw CAstException(RANGE, pbase, pnode).proc("", "", (int)isig._max());
+				throw CAstException(RANGE, *pbase, pnode).proc("", "", (int)isig._max());
 			if (isig.nSamples == 1)
 			{
 				size_t did = (size_t)isig.value() - 1;
@@ -719,7 +719,7 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 			auto nx = psigBase->Len();
 			if (isig2.IsLogical()) pbase->index_array_satisfying_condition(isig2);
 			else if (isig2._max() > (double)psigBase->Len())
-				throw CAstException(RANGE, pbase, pInd).proc("2nd index ", "", psigBase->Len(), (int)isig2._max());
+				throw CAstException(RANGE, *pbase, pInd).proc("2nd index ", "", psigBase->Len(), (int)isig2._max());
 			pbase->interweave_indices(isig, isig2, psigBase->Len());
 		}
 	}
