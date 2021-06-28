@@ -103,6 +103,9 @@ void EditPrintfFileBackup(const char * filename)
 	strcpy(backupfile, filename);
 }
 
+/* DO NOT CALL with a single character of \n , e.g.,
+  EditPrintf(h, "\n"); --> It'll cause an infinite loop 6/28/2021
+*/
 void EditPrintf (HWND hwndEdit, const char * szFormat, ...)
 {
 	// If hwndEdit already has illegit CRLF (e.g., \r or \n only)
