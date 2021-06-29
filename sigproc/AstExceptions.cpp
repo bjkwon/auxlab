@@ -69,34 +69,6 @@ string GetNodeType(int type)
 	}
 }
 
-
-void adjust_AstNode(const AstNode *p)
-{
-	//if (p)
-	//{
-	//	AstNode *pp = (AstNode *)p;
-	//	pp->line--;
-	//	if (p->child) adjust_AstNode(p->child);
-	//	if (p->next) adjust_AstNode(p->next);
-	//	if (p->alt) adjust_AstNode(p->alt);
-	//}
-}
-
-// as long as CAstSig *past is used to construct CAstException, cleanup_sons() is called
-// and necessary clean up is taken care of, upon exception thrown (error)
-// Take care of CAstException constructors not using CAstSig *past... 
-
-/**/
-// The only reason pnode is left is for auxcon stuff, but otherwise they can go 3/15/2019
-//CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const string s2)
-//{
-//	return CAstException(pnode, this, s1, s2);
-//}
-//CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
-//{
-//	return CAstException(pnode, this, msg);
-//}
-
 CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *_pnode)
 {
 	type = extp;

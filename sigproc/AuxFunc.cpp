@@ -882,6 +882,7 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 	ft.func =  &_fdelete; // check
 	builtin[name] = ft;
 
+	ft.narg1 = 0;	ft.narg2 = 1;
 	ft.funcsignature = "(directory_name)";
 	name = "dir";
 	ft.func =  &_dir;

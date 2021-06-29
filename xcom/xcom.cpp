@@ -1009,6 +1009,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 				ast->pEnv->AppPath = AppPath;
 				printf("changed to %s\n", AppPath);
 			}
+			SetCurrentDirectory(AppPath);
 		}
 		else
 		{
@@ -1031,6 +1032,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 					strcpy(AppPath, buffer);
 					ast->pEnv->AppPath = AppPath;
 					printf("changed to %s\n", AppPath);
+					SetCurrentDirectory(AppPath);
 				}
 				else
 					printf("invalid directory %s\n", argstr);
@@ -1061,6 +1063,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	}
 	else if (HookName == "pwd")
 	{
+		GetCurrentDirectory(sizeof(buffer), buffer);
 		printf("%s\n", ast->pEnv->AppPath.c_str());
 	}
 	else if (HookName=="quit")
@@ -1710,6 +1713,7 @@ CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 	GetModuleFileName(h, fullmoduleName, MAX_PATH);
 	_splitpath(fullmoduleName, drive, dir, fname, ext);
 	sprintf(mainSpace.AppPath, "%s%s", drive, dir);
+	SetCurrentDirectory(mainSpace.AppPath);
 	sprintf(moduleName, "%s%s", fname, ext);
 	getVersionString(fullmoduleName, mainSpace.AppVersion, sizeof(mainSpace.AppVersion));
 	strcpy(auxextdllname, mainSpace.AppPath);
