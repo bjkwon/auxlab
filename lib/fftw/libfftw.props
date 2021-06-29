@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <DropDev>c:\Users\bjehk\Dropbox\dev\</DropDev>
+    <SourceDir>$(DropDev)$(ProjectName)\</SourceDir>
+    <SourceLoc>$(DropDev)$(SolutionName)\</SourceLoc>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <DisableSpecificWarnings>4996</DisableSpecificWarnings>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="DropDev">
+      <Value>$(DropDev)</Value>
+    </BuildMacro>
+    <BuildMacro Include="SourceDir">
+      <Value>$(SourceDir)</Value>
+    </BuildMacro>
+    <BuildMacro Include="SourceLoc">
+      <Value>$(SourceLoc)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>
