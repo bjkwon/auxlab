@@ -600,155 +600,6 @@ int xcom::cleanup_debug()
 	// Do memory clean up of sub in CallUDF()
 	return 0;
 }
-/*
-ostringstream outstream_complex(complex<double> cval)
-{
-	ostringstream out;
-	double im = imag(cval);
-	if (cval == 0.) { out << "0"; return out; }
-	if (real(cval) != 0.)	out << real(cval);
-	if (im == 0.) return out;
-	if (!out.str().empty() && im>0) out << "+";
-	if (im != 1.)	out << im;
-	out << (char) 161;
-	return out;
-}
-
-void print_vector(const CVar& var, unsigned int id0, int offset, const char *postscript)
-{
-	cout << xcom::outstream_vector(var, id0, offset).str();
-	cout << postscript << endl;
-}
-
-void printf_single(CVar *pvar)
-{
-	if (pvar->IsComplex())
-		cout << outstream_complex(pvar->cvalue()).str();
-	else if (pvar->IsLogical())
-		cout << pvar->logbuf[0];
-	else
-	{
-		cout << pvar->valuestr();
-	}
-}
-
-ostringstream xcom::outstream_tmarks(const CTimeSeries& sig, bool unit)
-{
-	// unit is to be used in the future 8/15/2018
-	// Get the timepoints
-	ostringstream out;
-	streamsize org_precision = out.precision();
-	out.setf(ios::fixed);
-	out.precision(1);
-	int kk(0), tint(sig.CountChains());
-	for (const CTimeSeries *xp = &sig; kk<tint; kk++, xp = xp->chain) {
-		out << "(" << xp->tmark;
-		if (unit) out << "ms";
-		out << "~" << xp->tmark + 1000.* xp->nSamples / xp->GetFs();
-		if (unit) out << "ms";
-		out << ") ";
-	}
-	out << endl;
-	out.unsetf(ios::floatfield);
-	out.precision(org_precision);
-	return out;
-}
-
-ostringstream xcom::outstream_value(double val, int offset)
-{
-	ostringstream out;
-	if (val == 0. || val > .001 || val < -.001)
-		out << val;
-	else
-	{
-		streamsize org_precision = out.precision();
-		out.setf(ios::scientific, ios::floatfield);
-		out << val;
-		out.precision(org_precision);
-	}
-	return out;
-}
-
-ostringstream xcom::outstream_vector(const CSignal& var, unsigned int id0, int offset)
-{
-	ostringstream out;
-	streamsize org_precision = out.precision();
-//	out.setf(ios::fixed);
-//	out.precision(1);
-	unsigned int k = 0;
-	if (var.IsComplex())
-		for (; k < min(10, var.Len()); k++, out << " ")
-		{
-			for (int m = 0; m < offset; m++) out << " ";
-			out << outstream_complex(var.cbuf[k + id0]).str();
-		}
-	else
-	{
-		for (int m = 0; m < offset; m++) out << " ";
-		if (var.IsLogical())
-		{
-			for (; k < min(10, var.Len()); k++, out << " ")
-				out << var.logbuf[k + id0];
-		}
-		else
-			for (; k < min(10, var.Len()); k++, out << " ")
-				out << var.buf[k + id0];
-	}
-	if (var.Len() > 10) // this means nSamples is greater than 10
-		out << " ... (length = " << var.Len() << ")";
-//	out.unsetf(ios::floatfield);
-//	out.precision(org_precision);
-	return out;
-}
-
-ostringstream xcom::outstream_tseq(const CTimeSeries& sig, bool unit, int offset)
-{
-	ostringstream out;
-	streamsize org_precision = out.precision();
-	out.setf(ios::fixed);
-	if (unit) out.precision(1);
-	else out.precision(2);
-	int kk(0), tint(sig.CountChains());
-	for (const CTimeSeries *xp = &sig; kk < tint; kk++, xp = xp->chain)
-	{
-		for (int k = 0; k < offset + 1; k++) out << " ";
-		out << "(" << xp->tmark;
-		if (unit) out << "ms";
-		out << ") ";
-		out << outstream_vector(*xp, 0, 0).str() << endl;
-	}
-	out.unsetf(ios::floatfield);
-	out.precision(org_precision);
-	return out;
-}
-
-void printf_tseries(const CTimeSeries sig, bool unit, int offset)
-{
-	cout << xcom::outstream_tseq(sig, unit, offset).str();
-}
-
-void print_vector(const CVar& var, int offset, const char * postscript)
-{
-	unsigned int j;
-	if (var.IsLogical()) cout << "(bool) ";
-	for (j = 0; j < min(10, var.nGroups); j++)
-		print_vector(var, var.Len()*j, offset + 1, postscript);
-	if (j == 10)
-		cout << "\t" << "... (total rows) = " << var.nGroups << endl;
-}
-
-void print_null(const CVar& var, int offset, const char* postscript)
-{
-	for (int k = 0; k < offset; k++) cout << " ";
-	cout << "[]" << postscript << endl;
-}
-
-void print_string(const CVar& var, int offset, const char* postscript)
-{
-	for (int k = 0; k < offset; k++) cout << " ";
-	cout << "\"" << var.string() << "\"" << postscript << endl;
-}
-*/
 
 void xcom::echo(int depth, CAstSig *pctx, const AstNode *pnode, CVar *pvar)
 {
@@ -814,19 +665,29 @@ int xcom::computeandshow(const char *in, CAstSig *pTemp)
 	if (input.size()>0 && input != EXP_AUTO_CORRECT_TAG)
 	try {
 		//if the line begins with #, it bypasses the usual parsing
-		if (input[0] == '#')
+		while (input[0] == '#')
 		{
 			auto pos = input.find(EXP_AUTO_CORRECT_TAG);
 			input = input.substr(0, pos);
+			auto line = input;
+			// Truncate \n \r
+			auto posNR = input.find_first_of("\n\r");
+			if (posNR != string::npos)
+				line = input.substr(0, posNR);
 			string tar[2];
-			string input1 = input.substr(1);
+			string input1 = line.substr(1);
 			nItems = str2array(tar, 2, input1.c_str(), " ");
 			if (nItems == 0) return 0;
 			if (hook(pContext, tar[0], tar[1].c_str()) == -1)
 				return -1;
 			// hook returned 0
 			ShowWS_CommandPrompt(pContext);
-			return pTemp ? 1 : 0;
+			if (posNR == string::npos)
+				return pTemp ? 1 : 0;
+			input = input.substr(posNR+1);
+			while ((posNR=input.find_first_of("\n\r"))==0)
+				input = input.substr(posNR + 1);
+			input += EXP_AUTO_CORRECT_TAG;
 		}
 		// str_autocorrect is used to track the corrected version of input
 		// for example, if in is sqrt(2  str_autocorrect is sqrt(2)
