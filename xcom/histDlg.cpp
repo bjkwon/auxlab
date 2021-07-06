@@ -176,7 +176,7 @@ void CHistDlg::OnNotify(HWND hwnd, int idcc, LPARAM lParam)
 	int res2, res(0);
 	DWORD dw;
 	static char buf[256];
-	static	string str2conv;
+	static string str2conv;
 	LPNMHDR pnm = (LPNMHDR)lParam;
 	LPNMLISTVIEW pview = (LPNMLISTVIEW)lParam;
 	LPNMLVKEYDOWN lvnkeydown;

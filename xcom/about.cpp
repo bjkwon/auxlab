@@ -65,15 +65,14 @@ BOOL AboutDlg (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
  		_splitpath(fullmoduleName, drive, dir, buffer, ext);
  		sprintf (AppPath, "%s%s", drive, dir);
 		getVersionString(fullmoduleName, buffer, sizeof(buffer));
-		swprintf(wbuf, 128, L"AUXLAB %s © 2009--2019", makewidechar(buffer));
+		swprintf(wbuf, 128, L"AUXLAB %s © 2009--2021", makewidechar(buffer));
 		SetDlgItemTextW(hDlg, IDC_VERSTR, wbuf);
 		for (int k(IDS_STRING109); k<=IDS_STRING111; k++)
 		{
 			LoadString (hInst, k, buf, sizeof(buf));
 			EditPrintf(GetDlgItem(hDlg, IDC_DISCLAIMER), "%s\n", buf);
-			EditPrintf(GetDlgItem(hDlg, IDC_DISCLAIMER), "\n");
 		}
-		for (int k(IDS_CREDIT1); k<=IDS_CREDIT8; k++)
+		for (int k(IDS_CREDIT1); k<=IDS_CREDIT4; k++)
 		{
 			LoadString (hInst, k, buf, sizeof(buf));
 			EditPrintf(GetDlgItem(hDlg, IDC_CREDITS), "%s\n", buf);

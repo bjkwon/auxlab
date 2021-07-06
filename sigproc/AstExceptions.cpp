@@ -69,34 +69,6 @@ string GetNodeType(int type)
 	}
 }
 
-
-void adjust_AstNode(const AstNode *p)
-{
-	//if (p)
-	//{
-	//	AstNode *pp = (AstNode *)p;
-	//	pp->line--;
-	//	if (p->child) adjust_AstNode(p->child);
-	//	if (p->next) adjust_AstNode(p->next);
-	//	if (p->alt) adjust_AstNode(p->alt);
-	//}
-}
-
-// as long as CAstSig *past is used to construct CAstException, cleanup_sons() is called
-// and necessary clean up is taken care of, upon exception thrown (error)
-// Take care of CAstException constructors not using CAstSig *past... 
-
-/**/
-// The only reason pnode is left is for auxcon stuff, but otherwise they can go 3/15/2019
-//CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const string s1, const string s2)
-//{
-//	return CAstException(pnode, this, s1, s2);
-//}
-//CAstException CAstSig::ExceptionMsg(const AstNode *pnode, const char *msg)
-//{
-//	return CAstException(pnode, this, msg);
-//}
-
 CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *_pnode)
 {
 	type = extp;
@@ -111,10 +83,14 @@ CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstN
 CAstException &CAstException::proc(const char * _basemsg, const char* tidname, string extra)
 { //FUNC_SYNTAX; INTERNAL
 	assert(type == FUNC_SYNTAX || type == INTERNAL || type == USAGE);
-	string fnsigs = pnode->str;
-	auto ft = pCtx->pEnv->builtin.find(pnode->str);
-	if (ft != pCtx->pEnv->builtin.end())
-		fnsigs += (*ft).second.funcsignature;
+	string fnsigs;
+	if (pnode->str)
+	{
+		fnsigs = pnode->str; // 5/23/2021 11:36AM
+		auto ft = pCtx->pEnv->builtin.find(pnode->str);
+		if (ft != pCtx->pEnv->builtin.end())
+			fnsigs += (*ft).second.funcsignature;
+	}
 	msgonly = basemsg = _basemsg;
 	if (type == INTERNAL)
 		msgonly = string("[INTERNAL] ") + _basemsg;
