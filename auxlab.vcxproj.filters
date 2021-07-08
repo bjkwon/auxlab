@@ -51,6 +51,9 @@
     <ClCompile Include="$(SrcPath)echo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="xcom\args.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)audio_capture_status.h">

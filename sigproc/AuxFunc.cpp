@@ -526,16 +526,19 @@ int findcol(AstNode *past, const char* pstr, int line)
 	return -1;
 }
 
-void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
+void CAstSigEnv::InitBuiltInFunctionsExt(const vector<string>& externalModules)
 {
-	HANDLE hLib = LoadLibrary(dllname);
-	if (hLib)
+	for (auto libname : externalModules)
 	{
-		auto pt = (map<string, Cfunction>(_cdecl *)()) GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
-		map<string, Cfunction> res = pt();
-		for (auto it = res.begin(); it != res.end(); it++)
+		HANDLE hLib = LoadLibrary(libname.c_str());
+		if (hLib)
 		{
-			builtin[(*it).first] = (*it).second;
+			auto pt = (map<string, Cfunction>(_cdecl*)()) GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
+			map<string, Cfunction> res = pt();
+			for (auto it = res.begin(); it != res.end(); it++)
+			{
+				builtin[(*it).first] = (*it).second;
+			}
 		}
 	}
 }

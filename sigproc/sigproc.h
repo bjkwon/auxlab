@@ -147,7 +147,7 @@ public:
 	void InitBuiltInFunctions(HWND h);
 	void InitErrorCodes();
 	string path_delimited_semicolon();
-	void InitBuiltInFunctionsExt(const char *dllname);
+	void InitBuiltInFunctionsExt(const vector<string>& externalModules);
 	map<string, Cfunction> builtin;
 
 	CAstSigEnv(const int fs = 1);
@@ -305,7 +305,7 @@ private:
 	CVar * NodeMatrix(const AstNode *pnode);
 	CVar * Dot(AstNode *p);
 	void switch_case_handler(const AstNode *pnode);
-	size_t CAstSig::udfcompx(AstNode* pfirst);
+	size_t udfcompx(AstNode* pfirst);
 
 public:
 	string ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar*>> &inVars, vector<unique_ptr<CVar*>> &outVars, bool defaultcallback);
@@ -343,7 +343,7 @@ public:
 	vector<string> erase_GO(const char* varname);
 	vector<string> erase_GO(CVar* obj);
 	vector<CVar*> get_GO_children(const vector<CVar*>& obj);
-	CVar* CAstSig::Try_here(const AstNode* pnode, AstNode* p);
+	CVar* Try_here(const AstNode* pnode, AstNode* p);
 
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);

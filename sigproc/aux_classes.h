@@ -402,6 +402,8 @@ private:
 	void sort_by_tmark();
 };
 
+inline int _double_to_24bit(double x);
+
 class CSignals : public CTimeSeries
 {
 public:

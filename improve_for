@@ -1,0 +1,11 @@
+1) An object is going into a for loop
+2) An object is created inside a for loop
+
+Inside a for loop, an object is to be modified
+
+forvar
+vector<CVar*> imp
+vector<CVar*> nat
+
+Do this way---
+When entering a for loop, forvar, imp, nat 

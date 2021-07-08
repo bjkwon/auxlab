@@ -1,0 +1,14 @@
+AstNode *p;
+CVar a = Compute(copyAstNode("3"));
+CVar b = Compute(copyAstNode("5"));
+CVar c = Compute(copyAstNode("\"bjk\""));
+CVar x = Compute(copyAstNode("[2 1 0 8 10]"));
+updateCVar(x, NULL, "100:55");
+CVar x2 = Compute(copyAstNode("x(2:5)"));
+CVar x3 = Compute(copyAstNode("x([2 3 4])"));
+updateCVar(x, "12:15", "sin(10:13)");
+updateCVar(x, "20:2:24", "sin(10:12)");
+CVar y = Compute(copyAstNode("6:5:47"));
+CVar ff = Compute(copyAstNode("sqrt(2)"));
+CVar fx = Compute(copyAstNode("y.log10"));
+CVar d = Compute(copyAstNode("unknown, type=64 "));

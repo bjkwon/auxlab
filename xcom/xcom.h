@@ -89,6 +89,7 @@ public:
 private:
 	int read_axl_block(FILE *fp, std::string &varname, CVar *pout, char *errstr, bool independent = true);
 	int write_axl_block(FILE *fp, std::string varname, CVar *pout, char *errstr, bool independent = true);
+	int args(const vector<string>& str);
 };
 
 extern HWND hLog;

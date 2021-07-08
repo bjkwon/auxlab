@@ -31,6 +31,7 @@
     <ClCompile Include="$(SrcPath)utils.cpp" />
     <ClCompile Include="$(SrcPath)xcom.cpp" />
     <ClCompile Include="$(SrcPath)echo.cpp" />
+    <ClCompile Include="xcom\args.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)audio_capture_status.h" />

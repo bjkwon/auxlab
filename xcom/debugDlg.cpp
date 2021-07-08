@@ -67,27 +67,9 @@ int getID4hDlg(HWND hDlg)
 
 #define m_THIS  debugVct[id]
 
-extern vector<UINT> exc;
 
 BOOL CALLBACK debugDlgProc (HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
-	if (exc.size()==0)
-	{
-		exc.push_back(WM_NCHITTEST);
-		exc.push_back(WM_SETCURSOR);
-		exc.push_back(WM_MOUSEMOVE);
-		exc.push_back(WM_NCMOUSEMOVE);
-		exc.push_back(WM_WINDOWPOSCHANGING);
-		exc.push_back(WM_WINDOWPOSCHANGED);
-		exc.push_back(WM_CTLCOLORDLG);
-		exc.push_back(WM_NCPAINT);
-		exc.push_back(WM_GETMINMAXINFO);
-		exc.push_back(WM_MOVE);
-		exc.push_back(WM_MOVING);
-		exc.push_back(WM_NCMOUSEMOVE);
-		exc.push_back(WM_ERASEBKGND);
-	}
-	
 	CDebugDlg *p_db(NULL); 
 	int line(-1);
 	for (unordered_map<string, CDebugDlg*>::iterator it = dbmap.begin(); it!=dbmap.end(); it++)

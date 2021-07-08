@@ -1,0 +1,15 @@
+function [a,b]=test_optima(len)
+a=zeros(len)
+b=zeros(len)
+for k=1:2:len-1
+    a(k:k+1) = (k:k+1).sqrt.sum*ones(2)
+    b(k) = rand(1) * sin(k/100)
+end
+c=[];//tone(100,10)
+for k=1:50
+    c = c++tone(100,10)
+end
+d=[];//tone(100,10)
+for k=1:50
+    c ++= tone(100,10)
+end

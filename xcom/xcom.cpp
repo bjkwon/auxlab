@@ -16,7 +16,7 @@
 #include <string.h>
 #include <process.h>
 #include <vector>
-#include "sigproc.h"
+//#include "sigproc.h"
 #include "audstr.h"
 #include "resource1.h"
 #include "showvar.h"
@@ -46,8 +46,6 @@ extern HANDLE hEventRecordingCallBack;
 HWND hEventLogger;
 
 uintptr_t hAuxconThread;
-
-vector<UINT> exc; // temp
 
 HWND hShowDlg;
 HANDLE hE;
@@ -1549,9 +1547,9 @@ LRESULT CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 
 #include "wavplay.h"
 
-CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
+CAstSigEnv * initializeAUXLAB(vector<string>& extmodules, char *fname)
 {
-	char buf[256];
+	char buf[256], auxextdllname[256];
 	int fs;
 	INITCOMMONCONTROLSEX InitCtrls;
 	InitCtrls.dwICC = ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS; // ICC_LINK_CLASS will not work without common control 6.0 which I opted not to use
@@ -1596,16 +1594,20 @@ CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 	CAstSigEnv::AppPath = mainSpace.AppPath;
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	assert(pglobalEnv);
+	extmodules.push_back(auxextdllname);
+	strcpy(auxextdllname, mainSpace.AppPath);
+	strcat(auxextdllname, "garminbmwscomp");
+	extmodules.push_back(auxextdllname);
 	return pglobalEnv;
 }
 
-void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
+void initializeAUXLAB2(CAstSigEnv *pglobalEnv, const vector<string> &extmodules, char *fname)
 {
 	char estr[256];
 	string strRead;
 	vector<string> tar;
 	pglobalEnv->InitBuiltInFunctions(hShowDlg);
-	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
+	pglobalEnv->InitBuiltInFunctionsExt(extmodules);
 
 	if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
 		pglobalEnv->SetPath(strRead.c_str());
@@ -1669,8 +1671,9 @@ int initializeAUXLAB3(CAstSig *pcast)
 }
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
-	char buf[256], auxextdllname[256], fname[256];
-	CAstSigEnv *pglobalEnv = initializeAUXLAB(auxextdllname, fname);
+	char buf[256], fname[256];
+	vector<string> extmodules;
+	CAstSigEnv *pglobalEnv = initializeAUXLAB(extmodules, fname);
 
 	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
 		::MessageBox(NULL, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
@@ -1685,7 +1688,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	setHWNDEventLogger(hEventLogger);
 	sendtoEventLogger("AUXLAB begins.");
 
-	initializeAUXLAB2(pglobalEnv, auxextdllname, fname);
+	initializeAUXLAB2(pglobalEnv, extmodules, fname);
 	CAstSig cast(pglobalEnv);
 	initializeAUXLAB3(&cast);
 
