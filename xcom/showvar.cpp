@@ -524,7 +524,6 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
 	static int nPlaybackCount(0);
-//	spyWM(hDlg, umsg, wParam, lParam, "c:\\temp\\rec", exc, "[showvarDlg]");
 	CShowvarDlg *cvDlg(NULL);
 	for (vector<CWndDlg*>::iterator it=cellviewdlg.begin(); it!=cellviewdlg.end(); it++)
 	{
@@ -537,13 +536,6 @@ BOOL CALLBACK showvarDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 		// 3/30/2018		
 		if ( !(*it)->hDlg || (*it)->hDlg == hDlg)
 		{	cvDlg = (CShowvarDlg *)*it; break;}
-	}
-	if (!cvDlg)
-	{
-//		return 0;
-//		FILE *fp = fopen("c:\\temp\\rec", "at");
-//		fprintf(fp, "NULL----");
-//		fclose(fp);
 	}
 	switch (umsg)
 	{
@@ -1338,7 +1330,7 @@ void CShowvarDlg::OnCommand(int idc, HWND hwndCtl, UINT event)
 	//	DialogBoxParam (hInst, MAKEINTRESOURCE(IDD_ABOUT), GetConsoleWindow(), (DLGPROC)AboutDlg, (LPARAM)hInst);
 	//	break;
 	case IDC_SETPATH: 
-		DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PATHDLG), hDlg, (DLGPROC)AuxPathDlg, NULL);
+		DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_PATHDLG), hDlg, (DLGPROC)AuxPathDlgProc, NULL);
 		break;
 
 	case IDC_STOP2:

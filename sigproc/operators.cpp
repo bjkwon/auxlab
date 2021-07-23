@@ -149,9 +149,21 @@ bool CSignal::operate(const CSignal& sec, char op)
 					for_each(buf, buf + nSamples, [val](double& v) { v /= val; });
 			}
 		}
+		snap += sec.snap;
+		if (snap) snap = 1;
 	}
 	else
 	{
+		if (IsScalar()) 
+		{
+			snap += sec.snap;
+			if (snap) snap = 1;
+		}
+		else
+		{
+			if (snap & sec.snap)
+				throw "Operation between two TSEQ not allowed.";
+		}
 		unsigned int offset, idBegin, idEnd;
 		if (!operator_prep(sec, idBegin, idEnd, offset)) // if not overlapping, just skip
 			return false;

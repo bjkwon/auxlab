@@ -47,7 +47,7 @@ SIZE GetScreenSize()
 	return CSize(screenWidth4, screenHeight4);
 }
 
-static int writeINIs(const char *fname, char *estr, int fs, const char *path)
+static int writeINIs(const char *fname, char *estr, int fs)
 {
 	char errStr[256];
 	if (!printfINI(errStr, fname, INI_HEAD_SRATE, "%d", fs)) { strcpy(estr, errStr); 	return 0; }
@@ -55,7 +55,6 @@ static int writeINIs(const char *fname, char *estr, int fs, const char *path)
 	if (!printfINI(errStr, fname, INI_HEAD_RECBLOCK, "%.1f", CAstSig::record_block_ms)) { strcpy(estr, errStr);	return 0; }
 	if (!printfINI(errStr, fname, INI_HEAD_PLAYBYTES, "%d", CAstSig::play_bytes)) { strcpy(estr, errStr);	return 0; }
 	if (!printfINI(errStr, fname, INI_HEAD_RECBYTES, "%d", CAstSig::record_bytes)) { strcpy(estr, errStr);	return 0; }
-	if (!printfINI(errStr, fname, "PATH", "%s", path)) { strcpy(estr, errStr); return 0; }
 	return 1;
 }
 
@@ -89,8 +88,8 @@ void closeXcom()
 	GetWindowRect(GetConsoleWindow(), &rt1);
 	mShowDlg.GetWindowRect(rt2);
 	mHistDlg.GetWindowRect(rt3);
+	writeINIs(mainSpace.iniFile, estr, fs_session);
 	int res = writeINI_pos(mainSpace.iniFile, estr, rt1, rt2, rt3);
-
 	char dummy[256];
 	string strRead;
 	int fs;
@@ -138,7 +137,7 @@ void closeXcom()
 	fclose(stdin);
 }
 
-BOOL CALLBACK AuxPathDlg(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK AuxPathDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 {
 	string str;
 	char pathPrev[4096], errstr[256];
@@ -158,12 +157,18 @@ BOOL CALLBACK AuxPathDlg(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 			str = xscope.front()->pEnv->path_delimited_semicolon();
 			if (str != pathPrev)
 			{
-				xscope.front()->pEnv->SetPath(pathPrev);
+				vector<string> paths;
+				str2vector(paths, pathPrev, ";\r\n \t");
+				for (auto str : paths)
+				{
+					xscope.front()->pEnv->AddPath(str);
+				}
 				if (!printfINI(errstr, mainSpace.iniFile, "PATH", "%s", pathPrev)) {
 					MessageBox(hDlg, "Path updated, but unable to update the ini file.", errstr, MB_OK);
 					return 0;
 				}
 			}
+			EndDialog(hDlg, 1);
 			break;
 		case IDCANCEL:
 			EndDialog(hDlg, 0);

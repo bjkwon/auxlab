@@ -223,13 +223,16 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 	MMRESULT	rc;
 	char errmsg[256], errstr[256];
 	unsigned int remainingSamples;
-	double lastPlayedDuration = (double)playBufferLen / hPlayStruct.fs / wfx.nChannels;
-	//Assume that hPlayStruct.sig.strut["durLeft"] is CSIG_SCALAR
-	double *dbuf = hPlayStruct.sig.strut["durLeft"].buf;
-	//Directly update the content of the dbuffer
-	*dbuf -= lastPlayedDuration;
-	dbuf = hPlayStruct.sig.strut["durPlayed"].buf;
-	*dbuf += lastPlayedDuration;
+	if (hPlayStruct.sig.type())
+	{
+		double lastPlayedDuration = (double)playBufferLen / hPlayStruct.fs / wfx.nChannels;
+		//Assume that hPlayStruct.sig.strut["durLeft"] is CSIG_SCALAR
+		double* dbuf = hPlayStruct.sig.strut["durLeft"].buf;
+		//Directly update the content of the dbuffer
+		*dbuf -= lastPlayedDuration;
+		dbuf = hPlayStruct.sig.strut["durPlayed"].buf;
+		*dbuf += lastPlayedDuration;
+	}
 
 	if (!blockMode)
 		SendMessage(hWnd_calling, msgID, (WPARAM)&hPlayStruct.sig, playedCount);

@@ -148,8 +148,8 @@
     </Link>
     <PreBuildEvent>
       <Command>call copy_headers.bat sigproc
-		call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\
-		call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
+		call copy_header.bat aux_classes $(MSBuildProjectDirectory)\sigproc\
+		call copy_header.bat psycon.yacc $(MSBuildProjectDirectory)\sigproc\
 	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -175,8 +175,8 @@
     </Lib>
     <PreBuildEvent>
       <Command>call copy_headers.bat sigproc
-		call copy_header.bat aux_classes $(AuxlabRepoDir)sigproc\
-		call copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\
+		call copy_header.bat aux_classes $(MSBuildProjectDirectory)\sigproc\
+		call copy_header.bat psycon.yacc $(MSBuildProjectDirectory)\sigproc\
 	  </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>

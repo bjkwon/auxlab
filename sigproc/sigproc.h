@@ -71,6 +71,8 @@ enum EXCEPTIONTYPE
 	RANGE,
 	ARGS,
 	INTERNAL,
+	ERR_POST_FNC,
+	UNDEFINED_TID,
 };
 
 //End of Used for communication bet sigproc and xcom (i.e., AstSig.cpp and showvar.cpp)
@@ -144,16 +146,15 @@ public:
 	int curLine; // used for control F10
 	vector<string> AuxPath;
 	bool shutdown;
-	void InitBuiltInFunctions(HWND h);
+	void InitBuiltInFunctions();
 	void InitErrorCodes();
 	string path_delimited_semicolon();
-	void InitBuiltInFunctionsExt(const char *dllname);
+	vector<string> InitBuiltInFunctionsExt(const vector<string>& externalModules);
 	map<string, Cfunction> builtin;
 
 	CAstSigEnv(const int fs = 1);
 	virtual ~CAstSigEnv();
 	CAstSigEnv& operator=(const CAstSigEnv& rhs);
-	int SetPath(const char *path);
 	void AddPath(string path);
 	AstNode* checkout_udf(const string& udf_filename, const string& filecontent);
 	AstNode* checkin_udf(const string& udf_filename, const string& fullpath, const string& filecontent, string& emsg);
@@ -211,9 +212,9 @@ public:
 	map<string, CVar*> static_vars;
 	CDebugStatus debug;
 	map<HWND, RECT> rt2validate;
-	const char* application;
+	string application;
 	bool repaint;
-	CUDF() {	application = nullptr;  nextBreakPoint = currentLine = -1; pLastRead = NULL; repaint = false;	};
+	CUDF() {	nextBreakPoint = currentLine = -1; pLastRead = NULL; repaint = false;	};
 	virtual ~CUDF() {};
 	AstNode *pLastRead; //used for isthisUDFscope only, to mark the last pnode processed in 
 };
@@ -278,9 +279,9 @@ public:
 	goaction setgo;
 
 private:
+	int HandleMathFunc(bool , string& fname, double(**)(double), double(**)(double), double(**)(double, double), double(**)(complex<double>), complex<double>(**)(complex<double>), complex<double>(**)(complex<double>, complex<double>));
 	void HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot = NULL);
 	bool HandlePseudoVar(const AstNode *pnode);
-	int HandleMathFunc(bool compl, string &fname, double(**)(double), double(**)(double), double(**)(double, double), double(**)(complex<double>), complex<double>(**)(complex<double>), complex<double>(**)(complex<double>, complex<double>));
 	bool IsValidBuiltin(string funcname);
 	void checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned int id, string errstr);
 	bool isContiguous(body &id, unsigned int &begin,unsigned int &end);
@@ -305,7 +306,7 @@ private:
 	CVar * NodeMatrix(const AstNode *pnode);
 	CVar * Dot(AstNode *p);
 	void switch_case_handler(const AstNode *pnode);
-	size_t CAstSig::udfcompx(AstNode* pfirst);
+	size_t udfcompx(AstNode* pfirst);
 
 public:
 	string ExcecuteCallback(const AstNode *pCalling, vector<unique_ptr<CVar*>> &inVars, vector<unique_ptr<CVar*>> &outVars, bool defaultcallback);
@@ -343,7 +344,7 @@ public:
 	vector<string> erase_GO(const char* varname);
 	vector<string> erase_GO(CVar* obj);
 	vector<CVar*> get_GO_children(const vector<CVar*>& obj);
-	CVar* CAstSig::Try_here(const AstNode* pnode, AstNode* p);
+	CVar* Try_here(const AstNode* pnode, AstNode* p);
 
 #ifdef _WINDOWS
 	string LoadPrivateUDF(HMODULE h, int id, string &emsg);
@@ -400,6 +401,7 @@ class CAstException
 public:
 	CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *pnode);
 	CAstException &proc(const char * _basemsg, const char * tidname = "", string extra = ""); //FUNC_SYNTAX; INTERNAL; invalid usage
+	CAstException& proc(const string &tidstr, const string &errmsg); //Error post func
 	CAstException &proc(const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell); //range
 	CAstException &proc(const char * _basemsg, const char * funcname, int argIndex); // arg
 	CAstException() {

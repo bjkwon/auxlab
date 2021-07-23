@@ -1828,7 +1828,7 @@ vector<CVar *> CAstSig::Compute()
 		}
 		fBreak = false;
 		GfInterrupted = false;
-		if (xtree->type == N_BLOCK && u.application &&  !strcmp(u.application,"xcom")) {
+		if (xtree->type == N_BLOCK && ( u.application=="xcom" || u.application == "auxlib" ) ) {
 			AstNode *p = xtree->next;
 			while (p)
 			{
@@ -2256,9 +2256,9 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 						if (ptree->type == N_STRUCT) varname = '.';
 						varname += ptree->str;
 						if (strlen(ptree->str) < 256)
-							throw CAstException(USAGE, *this, ptree).proc(ex_msg.c_str(), varname.c_str());
+							throw CAstException(UNDEFINED_TID, *this, ptree).proc(ex_msg.c_str(), varname.c_str());
 						else
-							throw CAstException(USAGE, *this, ptree).proc(ex_msg.c_str(), varname.c_str(), string("A UDF name cannot be longer than 255 characters."));
+							throw CAstException(UNDEFINED_TID, *this, ptree).proc(ex_msg.c_str(), varname.c_str(), string("A UDF name cannot be longer than 255 characters."));
 					}
 					else
 						throw CAstException(USAGE, *this, ptree).proc(emsg.c_str());
@@ -3088,28 +3088,6 @@ void CAstSigEnv::AddPath(string path)
 		if (fd == AuxPath.end())
 			AuxPath.push_back(path);
 	}
-}
-
-int CAstSigEnv::SetPath(const char *path)
-{
-	string _path = path;
-	size_t pos = _path.find_first_of(';');
-	size_t off = 0;
-	string pcs;
-	int count = 0;
-	while (1)
-	{
-		if (pos == string::npos)
-			pcs = _path.substr(off);
-		else
-			pcs = _path.substr(off, pos - off);
-		AddPath(pcs);
-		count++;
-		if (pos == string::npos) break;
-		off = pos + 1;
-		pos = _path.find_first_of(';', off);
-	}
-	return count;
 }
 
 #if !defined(MAX_PATH)

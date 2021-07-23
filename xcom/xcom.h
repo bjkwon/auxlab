@@ -17,13 +17,13 @@
 #define MAIN_PROMPT "AUX> "
 #define DEBUG_PROMPT "k> "
 #define EXP_AUTO_CORRECT_TAG "\b\f\v"
-#define AUX_EXT_NAME "aux_ext"
 
 #define INI_HEAD_SRATE "SAMPLE RATE"
 #define INI_HEAD_PLAYBLOCK "PLAYBACK BLOCK SIZE MILLISEC"
 #define INI_HEAD_RECBLOCK "RECORDING BLOCK SIZE MILLISEC"
 #define INI_HEAD_PLAYBYTES "WAVEOUT FORMAT PLAY BYTES 1 2 OR 3"
 #define INI_HEAD_RECBYTES "WAVEIN FORMAT RECORD BYTES 1 2 OR 3"
+#define INI_HEAD_EXTDLLS "EXT MODULES"
 
 enum DEBUG_KEY
 {
@@ -66,8 +66,8 @@ public:
 	string comPrompt;
 	bool need2validate;
 
-	xcom();
-	virtual ~xcom();
+	xcom() :nHistFromFile(50), comPrompt(MAIN_PROMPT), need2validate(false) {}
+	virtual ~xcom() {};
 	void console();
 	void checkdebugkey(INPUT_RECORD *in, int len);
 	DEBUG_KEY getinput(char* readbuffer);
@@ -89,6 +89,7 @@ public:
 private:
 	int read_axl_block(FILE *fp, std::string &varname, CVar *pout, char *errstr, bool independent = true);
 	int write_axl_block(FILE *fp, std::string varname, CVar *pout, char *errstr, bool independent = true);
+	int args(const vector<string>& str);
 };
 
 extern HWND hLog;

@@ -82,7 +82,7 @@ CAstException::CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstN
 
 CAstException &CAstException::proc(const char * _basemsg, const char* tidname, string extra)
 { //FUNC_SYNTAX; INTERNAL
-	assert(type == FUNC_SYNTAX || type == INTERNAL || type == USAGE);
+	assert(type == FUNC_SYNTAX || type == INTERNAL || type == USAGE || type == UNDEFINED_TID);
 	string fnsigs;
 	if (pnode->str)
 	{
@@ -94,14 +94,29 @@ CAstException &CAstException::proc(const char * _basemsg, const char* tidname, s
 	msgonly = basemsg = _basemsg;
 	if (type == INTERNAL)
 		msgonly = string("[INTERNAL] ") + _basemsg;
+	else if (type == UNDEFINED_TID)
+		msgonly += string(" ") + (tidstr = tidname);
 	else if (!fnsigs.empty())
 		msgonly += string("\n  Usage: ") + fnsigs;
-	else if (strlen(tidname) > 0)
-		msgonly += string(" ") + (tidstr = tidname);
 	if (!extra.empty())
 		msgonly += string("\n") + extra;
 	arrayindex = cellindex = -1;
 	addLineCol();
+	outstr = msgonly + sourceloc;
+	return *this;
+}
+
+CAstException& CAstException::proc(const string &tidstr, const string &errmsg)
+{ //Handling errors after function processing; no need to display the usage help, but only display the error message from the function
+	assert(type == ERR_POST_FNC);
+	msgonly = errmsg;
+	addLineCol();
+	ostringstream oss;
+	if (msgonly.back()=='\n')
+		oss << errmsg << "From: " << tidstr << "(...) ";
+	else
+		oss << errmsg << endl << "From: " << tidstr << "(...)  ";
+	msgonly = oss.str().c_str();
 	outstr = msgonly + sourceloc;
 	return *this;
 }

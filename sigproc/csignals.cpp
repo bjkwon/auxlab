@@ -2269,6 +2269,11 @@ CSignal& CSignal::resample(unsigned int id0, unsigned int len, void *parg)
 	float *data_out, *data_in = new float[nSamples];
 	int errcode;
 	SRC_STATE* handle = src_new(SRC_SINC_MEDIUM_QUALITY, 1, &errcode);
+	if (errcode)
+	{
+		pratio->SetString(src_strerror(errcode));
+		return *this;
+	}
 	for (unsigned int k = 0; k < nSamples; k++) data_in[k] = (float)buf[k];
 	conv.data_in = data_in;
 	if (pratio->GetType() != CSIG_TSERIES)
@@ -3162,7 +3167,7 @@ CSignals::CSignals(const char* wavname)
 	:next(NULL)
 {
 	char errstr[256];
-	Wavread(wavname, errstr);
+	Wavread(wavname, 0, -1, errstr);
 }
 
 #endif // NO_SF

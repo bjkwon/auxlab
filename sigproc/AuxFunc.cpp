@@ -40,7 +40,7 @@
 // such as blockNULL etc.
 
 #ifndef NO_FILES
-//these functions are defined in AuxFunc_file.cpp
+//these functions are defined in _file.cpp
 void _fopen(CAstSig *past, const AstNode *pnode);
 void _fclose(CAstSig *past, const AstNode *pnode);
 void _fprintf(CAstSig *past, const AstNode *pnode);
@@ -526,20 +526,38 @@ int findcol(AstNode *past, const char* pstr, int line)
 	return -1;
 }
 
-void CAstSigEnv::InitBuiltInFunctionsExt(const char *dllname)
+vector<string> CAstSigEnv::InitBuiltInFunctionsExt(const vector<string>& externalModules)
 {
-	HANDLE hLib = LoadLibrary(dllname);
-	if (hLib)
+	// If there's an error (including file not found), it's reported back to the caller.
+	vector<string> out;
+	char ext[256];
+	for (auto libname : externalModules)
 	{
-		auto pt = (map<string, Cfunction>(_cdecl *)()) GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
-		map<string, Cfunction> res = pt();
-		for (auto it = res.begin(); it != res.end(); it++)
+		string fname = libname;
+		_splitpath(libname.c_str(), NULL, NULL, NULL, ext);
+		if (!strcmp(ext,""))
+			fname += ".dll";
+		HANDLE hLib = LoadLibrary(fname.c_str());
+		if (hLib)
 		{
-			builtin[(*it).first] = (*it).second;
+			auto pt = (map<string, Cfunction>(_cdecl*)()) GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
+			if (pt)
+			{
+				map<string, Cfunction> res = pt();
+				for (auto it = res.begin(); it != res.end(); it++)
+				{
+					builtin[(*it).first] = (*it).second;
+				}
+			}
+			else
+				out.push_back(fname + string(" does not have Init()."));
 		}
+		else
+			out.push_back(fname + string(" not found."));
 	}
+	return out;
 }
-void CAstSigEnv::InitBuiltInFunctions(HWND h)
+void CAstSigEnv::InitBuiltInFunctions()
 {
 	srand((unsigned)time(0) ^ (unsigned int)GetCurrentThreadId());
 
@@ -587,8 +605,8 @@ void CAstSigEnv::InitBuiltInFunctions(HWND h)
 
 	name = "wave";
 	ft.alwaysstatic = true;
-	ft.funcsignature = "(filename)";
-	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(filename,starttime_ms[=0],dur2read_ms[=entire_dur])";
+	ft.narg1 = 1;	ft.narg2 = 3;
 	ft.func =  &_wave;
 	builtin[name] = ft;
 

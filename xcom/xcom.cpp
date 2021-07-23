@@ -16,7 +16,6 @@
 #include <string.h>
 #include <process.h>
 #include <vector>
-#include "sigproc.h"
 #include "audstr.h"
 #include "resource1.h"
 #include "showvar.h"
@@ -46,8 +45,6 @@ extern HANDLE hEventRecordingCallBack;
 HWND hEventLogger;
 
 uintptr_t hAuxconThread;
-
-vector<UINT> exc; // temp
 
 HWND hShowDlg;
 HANDLE hE;
@@ -190,16 +187,21 @@ static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRec
 	return ret;
 }
 
-static int readINI1(const char *fname, char *estr_dummy, int &fs)
+static int readINI1(const char *fname, vector<string> &extmodules, int &fs)
 {//in, in, out, in/out
+	char auxextdllname[256], estr_dummy[256];
 	string strRead;
-	int val;
 	int res = ReadINI (estr_dummy, fname, INI_HEAD_SRATE, strRead);
+	if (res == AUD_ERR_FILE_NOT_FOUND)
+	{
+		fs = CAstSig::DefaultFs;
+		return res;
+	}
+	int val;
 	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF && val > 500)
 		fs = val;
 	else
 		fs = CAstSig::DefaultFs;
-
 	double dval;
 	res = ReadINI (estr_dummy, fname, INI_HEAD_PLAYBLOCK, strRead);
 	if (res>0 && sscanf(strRead.c_str(), "%lf", &dval)!=EOF && dval > 20.)
@@ -213,6 +215,22 @@ static int readINI1(const char *fname, char *estr_dummy, int &fs)
 	res = ReadINI(estr_dummy, fname, INI_HEAD_RECBYTES, strRead);
 	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF)
 		CAstSig::record_bytes = val;
+
+	res = ReadINI(estr_dummy, fname, INI_HEAD_EXTDLLS, strRead);
+	if (res > 0)
+	{
+		vector<string> paths;
+		str2vector(paths, strRead, "\r\n \t,;");
+		for (auto str : paths)
+		{
+			strcpy(auxextdllname, mainSpace.AppPath);
+			strcat(auxextdllname, str.c_str());
+			extmodules.push_back(auxextdllname);
+		}
+	}
+	else if (res == AUD_ERR_HEADING_NOT_FOUND)
+		printfINI(estr_dummy, fname, INI_HEAD_EXTDLLS, "%s", "");
+
 	return 1;
 }
 
@@ -401,16 +419,6 @@ bool need2echo(const AstNode *pnode)
 	return true;
 }
 
-xcom::xcom()
-:nHistFromFile(50), comPrompt(MAIN_PROMPT), need2validate(false)
-{
-//	comPrompt += (char)175;
-}
-
-xcom::~xcom()
-{
-
-}
 
 bool isUpperCase(char c)
 {
@@ -1248,7 +1256,7 @@ bool xcom::IsNowDebugging(CAstSig *pcast)
 {// Check if it is running on debugging mode
  // Assumption: pcast must be a part of vecast vector
  // if pcast is not the base instance, which isn't necessarily xscope.front()--because module such as auxcon may put its own as the front point right behind xcom front
-	if (!strcmp(pcast->u.application, "xcom"))
+	if (pcast->u.application == "xcom")
 		return xscope.front()!=pcast;
 	else
 		return (xscope.size() > 2);
@@ -1549,9 +1557,9 @@ LRESULT CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam)
 
 #include "wavplay.h"
 
-CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
+CAstSigEnv * initializeAUXLAB(vector<string>& extmodules, char *fname)
 {
-	char buf[256];
+	char buf[256], auxextdllname[256];
 	int fs;
 	INITCOMMONCONTROLSEX InitCtrls;
 	InitCtrls.dwICC = ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS; // ICC_LINK_CLASS will not work without common control 6.0 which I opted not to use
@@ -1577,8 +1585,6 @@ CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 	SetCurrentDirectory(mainSpace.AppPath);
 	sprintf(moduleName, "%s%s", fname, ext);
 	getVersionString(fullmoduleName, mainSpace.AppVersion, sizeof(mainSpace.AppVersion));
-	strcpy(auxextdllname, mainSpace.AppPath);
-	strcat(auxextdllname, AUX_EXT_NAME);
 #ifndef WIN64
 	sprintf(buf, "AUXLAB %s [AUdio syntaX Console]", mainSpace.AppVersion);
 	strcat(auxextdllname, "32");
@@ -1592,25 +1598,40 @@ CAstSigEnv * initializeAUXLAB(char *auxextdllname, char *fname)
 	GetComputerName(buf, &dw);
 	sprintf(mainSpace.iniFile, "%s%s_%s.ini", mainSpace.AppPath, fname, buf);
 	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", mainSpace.AppPath, fname, HISTORY_FILENAME, buf);
-	int res = readINI1(mainSpace.iniFile, buf, fs);
+	int res = readINI1(mainSpace.iniFile, extmodules, fs);
 	CAstSigEnv::AppPath = mainSpace.AppPath;
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	assert(pglobalEnv);
+	if (res != AUD_ERR_FILE_NOT_FOUND)
+	{
+		char estr[256];
+		string strRead;
+		if ((res=ReadINI(estr, mainSpace.iniFile, "PATH", strRead)) > 0)
+		{
+			vector<string> paths;
+			str2vector(paths, strRead, ";\r\n \t");
+			for (auto str : paths)
+			{
+				pglobalEnv->AddPath(str);
+			}
+		}
+		else if (res == AUD_ERR_HEADING_NOT_FOUND)
+			printfINI(estr, mainSpace.iniFile, "PATH", "%s", "");
+	}
+	else
+		cout << "ini file not found. Default values used." << endl;
+
 	return pglobalEnv;
 }
 
-void initializeAUXLAB2(CAstSigEnv *pglobalEnv, char *auxextdllname, char *fname)
+void initializeAUXLAB2(CAstSigEnv *pglobalEnv, const vector<string> &extmodules)
 {
-	char estr[256];
 	string strRead;
 	vector<string> tar;
-	pglobalEnv->InitBuiltInFunctions(hShowDlg);
-	pglobalEnv->InitBuiltInFunctionsExt(auxextdllname);
-
-	if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
-		pglobalEnv->SetPath(strRead.c_str());
-	else
-		cout << "PATH information not available in " << mainSpace.iniFile << endl;
+	pglobalEnv->InitBuiltInFunctions();
+	auto res = pglobalEnv->InitBuiltInFunctionsExt(extmodules);
+	for (auto line : res)
+		cout << line << endl;
 
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
@@ -1669,8 +1690,9 @@ int initializeAUXLAB3(CAstSig *pcast)
 }
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
-	char buf[256], auxextdllname[256], fname[256];
-	CAstSigEnv *pglobalEnv = initializeAUXLAB(auxextdllname, fname);
+	char buf[256], fname[256];
+	vector<string> extmodules;
+	CAstSigEnv *pglobalEnv = initializeAUXLAB(extmodules, fname);
 
 	if ((hShowvarThread = _beginthreadex(NULL, 0, showvarThread, NULL, 0, NULL)) == -1)
 		::MessageBox(NULL, "Showvar Thread Creation Failed.", "AUXLAB mainSpace", 0);
@@ -1685,11 +1707,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	setHWNDEventLogger(hEventLogger);
 	sendtoEventLogger("AUXLAB begins.");
 
-	initializeAUXLAB2(pglobalEnv, auxextdllname, fname);
+	initializeAUXLAB2(pglobalEnv, extmodules);
 	CAstSig cast(pglobalEnv);
 	initializeAUXLAB3(&cast);
 
-	int _fs = cast.Sig.GetFs();
 	DWORD dw;
 	WriteConsole(hStdout, mainSpace.comPrompt.c_str(), (DWORD)mainSpace.comPrompt.size(), &dw, NULL);
 
