@@ -66,8 +66,8 @@ public:
 	string comPrompt;
 	bool need2validate;
 
-	xcom();
-	virtual ~xcom();
+	xcom() :nHistFromFile(50), comPrompt(MAIN_PROMPT), need2validate(false) {}
+	virtual ~xcom() {};
 	void console();
 	void checkdebugkey(INPUT_RECORD *in, int len);
 	DEBUG_KEY getinput(char* readbuffer);

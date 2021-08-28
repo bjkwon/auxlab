@@ -40,7 +40,7 @@
 // such as blockNULL etc.
 
 #ifndef NO_FILES
-//these functions are defined in AuxFunc_file.cpp
+//these functions are defined in _file.cpp
 void _fopen(CAstSig *past, const AstNode *pnode);
 void _fclose(CAstSig *past, const AstNode *pnode);
 void _fprintf(CAstSig *past, const AstNode *pnode);
@@ -542,7 +542,7 @@ void CAstSigEnv::InitBuiltInFunctionsExt(const vector<string>& externalModules)
 		}
 	}
 }
-void CAstSigEnv::InitBuiltInFunctions(HWND h)
+void CAstSigEnv::InitBuiltInFunctions()
 {
 	srand((unsigned)time(0) ^ (unsigned int)GetCurrentThreadId());
 

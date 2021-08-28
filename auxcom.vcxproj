@@ -122,13 +122,14 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NO_FILES;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sigproc.lib;auxlab$(PlatformArchitecture).lib;bjcommon_win.lib;bjcommon.lib</AdditionalDependencies>
+      <AdditionalDependencies>sigproc.lib;auxlab$(PlatformArchitecture)IMP.lib;graffy$(PlatformArchitecture).lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.9_$(PlatformArchitecture)st.lib;libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;bjcommon_win.lib;bjcommon.lib;libsamplerate$(PlatformArchitecture)st.lib;wavplay.lib;winmm.lib;iir.lib;version.lib;gdi32.lib;comdlg32.lib</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>LIBCMT</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

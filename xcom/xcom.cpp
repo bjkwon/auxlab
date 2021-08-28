@@ -399,16 +399,6 @@ bool need2echo(const AstNode *pnode)
 	return true;
 }
 
-xcom::xcom()
-:nHistFromFile(50), comPrompt(MAIN_PROMPT), need2validate(false)
-{
-//	comPrompt += (char)175;
-}
-
-xcom::~xcom()
-{
-
-}
 
 bool isUpperCase(char c)
 {
@@ -1606,7 +1596,7 @@ void initializeAUXLAB2(CAstSigEnv *pglobalEnv, const vector<string> &extmodules,
 	char estr[256];
 	string strRead;
 	vector<string> tar;
-	pglobalEnv->InitBuiltInFunctions(hShowDlg);
+	pglobalEnv->InitBuiltInFunctions();
 	pglobalEnv->InitBuiltInFunctionsExt(extmodules);
 
 	if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
@@ -1692,7 +1682,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	CAstSig cast(pglobalEnv);
 	initializeAUXLAB3(&cast);
 
-	int _fs = cast.Sig.GetFs();
 	DWORD dw;
 	WriteConsole(hStdout, mainSpace.comPrompt.c_str(), (DWORD)mainSpace.comPrompt.size(), &dw, NULL);
 

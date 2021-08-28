@@ -168,6 +168,7 @@
       <AdditionalDependencies>sigproc.lib;libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;Htmlhelp.lib;qlparse$(PlatformArchitecture).lib;wavplay.lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.9_$(PlatformArchitecture)st.lib;libsamplerate$(PlatformArchitecture)st.lib;iir.lib;bjcommon_win.lib;bjcommon.lib;graffy$(PlatformArchitecture).lib;version.lib;Comctl32.LIB;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>libcmtd;libcmt</IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <ImportLibrary>$(OutDir)$(TargetName)IMP.lib</ImportLibrary>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)lib\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib libmp3lame$(PlatformArchitecture)st.lib mpglib$(PlatformArchitecture)st.lib </Command>

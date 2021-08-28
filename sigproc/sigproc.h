@@ -144,7 +144,7 @@ public:
 	int curLine; // used for control F10
 	vector<string> AuxPath;
 	bool shutdown;
-	void InitBuiltInFunctions(HWND h);
+	void InitBuiltInFunctions();
 	void InitErrorCodes();
 	string path_delimited_semicolon();
 	void InitBuiltInFunctionsExt(const vector<string>& externalModules);
