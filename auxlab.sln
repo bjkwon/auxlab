@@ -44,6 +44,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lame", "lame.vcxproj", "{0DBAB8C2-B9D2-46C9-91E3-75C925A96009}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "auxcom", "auxcom.vcxproj", "{976007E1-AD8B-4226-80B4-4B9803E342B3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8CF1562D-8918-46EC-B0C2-A41C3A87D448} = {8CF1562D-8918-46EC-B0C2-A41C3A87D448}
+		{769713CA-80DC-4EC2-AA45-B5551FE32132} = {769713CA-80DC-4EC2-AA45-B5551FE32132}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

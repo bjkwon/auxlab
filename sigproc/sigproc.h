@@ -278,9 +278,9 @@ public:
 	goaction setgo;
 
 private:
+	int HandleMathFunc(bool , string& fname, double(**)(double), double(**)(double), double(**)(double, double), double(**)(complex<double>), complex<double>(**)(complex<double>), complex<double>(**)(complex<double>, complex<double>));
 	void HandleAuxFunctions(const AstNode *pnode, AstNode *pRoot = NULL);
 	bool HandlePseudoVar(const AstNode *pnode);
-	int HandleMathFunc(bool compl, string &fname, double(**)(double), double(**)(double), double(**)(double, double), double(**)(complex<double>), complex<double>(**)(complex<double>), complex<double>(**)(complex<double>, complex<double>));
 	bool IsValidBuiltin(string funcname);
 	void checkindexrange(const AstNode *pnode, CTimeSeries *inout, unsigned int id, string errstr);
 	bool isContiguous(body &id, unsigned int &begin,unsigned int &end);

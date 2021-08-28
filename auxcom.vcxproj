@@ -128,7 +128,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sigproc.lib;auxlab$(PlatformArchitecture)IMP.lib;graffy$(PlatformArchitecture).lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.9_$(PlatformArchitecture)st.lib;libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;bjcommon_win.lib;bjcommon.lib;libsamplerate$(PlatformArchitecture)st.lib;wavplay.lib;winmm.lib;iir.lib;version.lib;gdi32.lib;comdlg32.lib</AdditionalDependencies>
+      <AdditionalDependencies>sigproc.lib;graffy$(PlatformArchitecture).lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.9_$(PlatformArchitecture)st.lib;libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;bjcommon_win.lib;bjcommon.lib;libsamplerate$(PlatformArchitecture)st.lib;wavplay.lib;winmm.lib;iir.lib;version.lib;gdi32.lib;comdlg32.lib</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>LIBCMT</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
@@ -138,7 +138,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NO_FILES;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -146,7 +146,14 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>sigproc.lib;graffy$(PlatformArchitecture).lib;sndfile1.0.28_$(PlatformArchitecture)st.lib;fftw3.3.9_$(PlatformArchitecture)st.lib;libmp3lame$(PlatformArchitecture)st.lib;mpglib$(PlatformArchitecture)st.lib;lame.lib;bjcommon_win.lib;bjcommon.lib;libsamplerate$(PlatformArchitecture)st.lib;wavplay.lib;winmm.lib;iir.lib;version.lib;gdi32.lib;comdlg32.lib</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
+		call copy_header.bat aux_classes $(MSBuildProjectDirectory)\sigproc\
+		call copy_header.bat psycon.yacc $(MSBuildProjectDirectory)\sigproc\
+	  </Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="$(SrcPath)auxcom.cpp" />

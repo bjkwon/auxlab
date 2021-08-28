@@ -37,7 +37,8 @@ int main(int argc, char **argv)
 	char estr[256], fname[256], fullmoduleName[256], module[256] = {};
 	char drive[256], dir[256], ext[256];
 	string strRead;
-	int val, fs;
+	int val, fs = CAstSig::DefaultFs;
+	CAstSigEnv* pglobalEnv = new CAstSigEnv(fs);
 	if (argc>1)
 		strcpy_s(module, argv[1]);
 
@@ -48,17 +49,19 @@ int main(int argc, char **argv)
 	sprintf_s(mainSpace.iniFile, "%s%s.ini", mainSpace.AppPath, fname);
 	CAstSigEnv::AppPath = mainSpace.AppPath;
 
-	int res = ReadINI(estr, fname, INI_HEAD_SRATE, strRead);
-	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF && val > 500)
-		fs = val;
+	int res = ReadINI(estr, mainSpace.iniFile, INI_HEAD_SRATE, strRead);
+	if (res == AUD_ERR_FILE_NOT_FOUND)
+		cout << "[warning] " << mainSpace.iniFile << " not found" << endl;
 	else
-		fs = CAstSig::DefaultFs;
-	CAstSigEnv* pglobalEnv = new CAstSigEnv(fs);
-	if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
-		pglobalEnv->SetPath(strRead.c_str());
-	else
-		cout << "PATH information not available in " << mainSpace.iniFile << endl;
-
+	{
+		if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF && val > 500)
+			fs = val;
+		if ((res = ReadINI(estr, mainSpace.iniFile, "PATH", strRead)) > 0)
+			pglobalEnv->SetPath(strRead.c_str());
+		else
+			cout << "PATH information not available in " << mainSpace.iniFile << endl;
+	}
+	res = 0;
 	char modname[256];
 	try {
 		if (argc > 1)
@@ -83,6 +86,7 @@ int main(int argc, char **argv)
 
 			if (!(cast.xtree = cast.parse_aux(modname, emsg, str_autocorrect)))
 			{
+				delete[] str_autocorrect;
 				throw emsg.c_str();
 			}
 			cast.statusMsg.clear();
@@ -94,7 +98,7 @@ int main(int argc, char **argv)
 	catch (const char *error)
 	{
 		if (strncmp(error, "Invalid", strlen("Invalid")))
-			cout << "ERROR: " << error << endl;
+			cout << "[error AUXLAB] " << error << endl;
 		else
 			cout << error << endl;
 	}
