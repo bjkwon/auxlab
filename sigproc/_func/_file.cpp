@@ -540,7 +540,10 @@ static void resample_if_fs_different(CAstSig* past, const AstNode* p)
 	else
 	{
 		past->pEnv->Fs = past->Sig.GetFs();
-		sformat(past->statusMsg, "(NOTE)Sample Rate of AUXLAB Environment is now set to %d Hz.", past->pEnv->Fs);
+		past->statusMsg = "(NOTE)Sample Rate of AUXLAB Environment is now set to ";
+		char temp[16];
+		sprintf_s(temp,"%d Hz.", past->pEnv->Fs);
+		past->statusMsg += temp;
 	}
 }
 

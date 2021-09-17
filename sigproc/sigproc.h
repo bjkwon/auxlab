@@ -211,9 +211,9 @@ public:
 	map<string, CVar*> static_vars;
 	CDebugStatus debug;
 	map<HWND, RECT> rt2validate;
-	const char* application;
+	string application;
 	bool repaint;
-	CUDF() {	application = nullptr;  nextBreakPoint = currentLine = -1; pLastRead = NULL; repaint = false;	};
+	CUDF() {	nextBreakPoint = currentLine = -1; pLastRead = NULL; repaint = false;	};
 	virtual ~CUDF() {};
 	AstNode *pLastRead; //used for isthisUDFscope only, to mark the last pnode processed in 
 };

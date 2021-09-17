@@ -16,10 +16,11 @@
 #endif
 
 
-AUXLIB_EXP int AUXNew(const int sample_rate, const char *auxpath);
-AUXLIB_EXP void AUXDelete(const int hAUX);
-AUXLIB_EXP int AUXEval(const int hAUX, const char *strIn, double **buffer, int *length);
-AUXLIB_EXP int AUXPlay(const int hAUX, const int DevID);
-AUXLIB_EXP int AUXWavwrite(const int hAUX, const char *filename);
+AUXLIB_EXP int AUXNew(int sample_rate, const char *auxpath);
+AUXLIB_EXP void AUXDelete(int hAUX);
+AUXLIB_EXP int AUXDef(int hAUX, const char* strIn);
+AUXLIB_EXP int AUXEval(int hAUX, const char *strIn, double **buffer, int *length);
+AUXLIB_EXP int AUXPlay(int hAUX, int DevID);
+AUXLIB_EXP int AUXWavwrite(int hAUX, const char *filename);
 AUXLIB_EXP const char *AUXGetErrMsg(void);
-AUXLIB_EXP int AUXGetInfo(const int hAUX, const char *name, void *output);
+AUXLIB_EXP int AUXGetInfo(int hAUX, const char *name, void *output);

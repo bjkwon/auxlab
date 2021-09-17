@@ -11,10 +11,26 @@ int main()
     std::cout << "Hello World!\n";
 
     int handle = AUXNew(44100, "");
+    char sbuf[16];
     double* buf;
     int len;
-    int res = AUXEval(handle, "tone([1000 2000],10000).ramp(50)@-20", &buf, &len);
-    AUXWavwrite(handle, "output.wav");
+    std::string auxcomd = "x=wave(\"c:\\temp\\";
+    auxcomd = auxcomd + "nfl1.wav";
+    auxcomd = auxcomd + "\"); ";
+    auto res = AUXDef(handle, auxcomd.c_str());
+    std::string strin = "val=0;startAt=33*1000;endAt=101*1000; y=x(startAt~endAt); y+= noise(y.dur).lpf(4000) @ y @ val;";
+    strin += " y.write(\"c:\\temp\\mix";
+    itoa(1, sbuf, 10);
+    strin += sbuf;
+    strin += ".wav\")";
+    res = AUXDef(handle, strin.c_str());
+//    AUXWavwrite(handle, "output.wav");
+    strin = "val=-5;startAt=33*1000;endAt=101*1000; y=x(startAt~endAt); y+= noise(y.dur).lpf(4000) @ y @ val;";
+    strin += " y.write(\"c:\\temp\\mix";
+    itoa(2, sbuf, 10);
+    strin += sbuf;
+    strin += ".wav\")";
+    res = AUXDef(handle, strin.c_str());
     AUXDelete(handle);
 
 }

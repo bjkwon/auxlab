@@ -1828,7 +1828,7 @@ vector<CVar *> CAstSig::Compute()
 		}
 		fBreak = false;
 		GfInterrupted = false;
-		if (xtree->type == N_BLOCK && u.application &&  !strcmp(u.application,"xcom")) {
+		if (xtree->type == N_BLOCK && ( u.application=="xcom" || u.application == "auxlib" ) ) {
 			AstNode *p = xtree->next;
 			while (p)
 			{

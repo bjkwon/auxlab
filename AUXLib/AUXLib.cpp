@@ -37,7 +37,7 @@ condition_variable cv_closeFig;
 HWND hwnd_AudioCapture = NULL;
 mutex mtx4PlotDlg;
 
-AUXLIB_EXP int AUXNew(const int sample_rate, const char *auxpath) // Returns new handle, which is 0 or positive, or -1 on error.
+AUXLIB_EXP int AUXNew(int sample_rate, const char *auxpath) // Returns new handle, which is 0 or positive, or -1 on error.
 {
 	int handle;
 	try {
@@ -46,6 +46,7 @@ AUXLIB_EXP int AUXNew(const int sample_rate, const char *auxpath) // Returns new
 			pglobalEnv->SetPath(auxpath);
 		pglobalEnv->InitBuiltInFunctions();
 		CAstSig *pAstSig = new CAstSig(pglobalEnv);
+		pAstSig->u.application = "auxlib";
 		if (GAstSigRecycle.empty()) {
 			handle = (int)GAstSigs.size();
 			GAstSigs.push_back(pAstSig);
@@ -74,8 +75,41 @@ AUXLIB_EXP void AUXDelete(const int hAUX) // Ignores invalid hAUX
 	}
 }
 
+AUXLIB_EXP int AUXDef(int hAUX, const char* strIn)
+{
+	try {
+		if (hAUX<0 || hAUX>(int)GAstSigs.size() - 1) {
+			strncpy(GAstErrMsg, "AUXLib error: Invalid handle.", MAX_AUX_ERR_MSG_LEN);
+			return -1;
+		}
+		CAstSig* pAstSig = GAstSigs[hAUX];
+		if (!pAstSig) {
+			strncpy(GAstErrMsg, "AUXLib error: Invalid handle - already deleted.", MAX_AUX_ERR_MSG_LEN);
+			return -1;
+		}
+		char* str_autocorrect = (char*)calloc(strlen(strIn) * 2, 1);
+		string emsg;
+		if (!(pAstSig->xtree = pAstSig->parse_aux(strIn, emsg, str_autocorrect)))
+		{
+			delete[] str_autocorrect;
+			throw emsg.c_str();
+		}
+		pAstSig->statusMsg.clear();
+		pAstSig->Compute();
+		delete[] str_autocorrect;
+		return 0;
+	}
+	catch (const char* errmsg) {
+		strncpy(GAstErrMsg, errmsg, MAX_AUX_ERR_MSG_LEN);
+		return -2;
+	}
+	catch (exception& e) {
+		strncpy(GAstErrMsg, e.what(), MAX_AUX_ERR_MSG_LEN);
+		return -3;
+	}
+}
 
-AUXLIB_EXP int AUXEval(const int hAUX, const char *strIn, double **buffer, int *length)
+AUXLIB_EXP int AUXEval(int hAUX, const char *strIn, double **buffer, int *length)
 // Returns the number of channels or
 //  0 : Empty result
 // -1 : Invalid hAUX
@@ -131,7 +165,7 @@ AUXLIB_EXP int AUXEval(const int hAUX, const char *strIn, double **buffer, int *
 }
 
 
-AUXLIB_EXP int AUXPlay(const int hAUX, const int DevID)
+AUXLIB_EXP int AUXPlay(int hAUX, const int DevID)
 {
 	char errstr[250];
 	if (hAUX<0 || hAUX>(int)GAstSigs.size()-1) {
@@ -152,7 +186,7 @@ AUXLIB_EXP int AUXPlay(const int hAUX, const int DevID)
 }
 
 
-AUXLIB_EXP int AUXWavwrite(const int hAUX, const char *filename)
+AUXLIB_EXP int AUXWavwrite(int hAUX, const char *filename)
 {
 	char errstr[250];
 	if (hAUX<0 || hAUX>(int)GAstSigs.size()-1) {
@@ -179,7 +213,7 @@ const char *AUXGetErrMsg(void) // Returns error message for the last AUX error.
 }
 
 
-AUXLIB_EXP int AUXGetInfo(const int hAUX, const char *name, void *output)
+AUXLIB_EXP int AUXGetInfo(int hAUX, const char *name, void *output)
 {
 	if (hAUX<0 || hAUX>(int)GAstSigs.size()-1) {
 		strncpy(GAstErrMsg, "AUXLib error: Invalid handle.", MAX_AUX_ERR_MSG_LEN);

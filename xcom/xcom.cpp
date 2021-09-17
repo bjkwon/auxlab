@@ -1236,7 +1236,7 @@ bool xcom::IsNowDebugging(CAstSig *pcast)
 {// Check if it is running on debugging mode
  // Assumption: pcast must be a part of vecast vector
  // if pcast is not the base instance, which isn't necessarily xscope.front()--because module such as auxcon may put its own as the front point right behind xcom front
-	if (!strcmp(pcast->u.application, "xcom"))
+	if (pcast->u.application == "xcom")
 		return xscope.front()!=pcast;
 	else
 		return (xscope.size() > 2);
