@@ -16,7 +16,6 @@
 #include <string.h>
 #include <process.h>
 #include <vector>
-//#include "sigproc.h"
 #include "audstr.h"
 #include "resource1.h"
 #include "showvar.h"
@@ -188,16 +187,21 @@ static WORD readINI_pos(const char *fname, CRect *rtMain, CRect *rtShowDlg, CRec
 	return ret;
 }
 
-static int readINI1(const char *fname, char *estr_dummy, int &fs)
+static int readINI1(const char *fname, vector<string> &extmodules, int &fs)
 {//in, in, out, in/out
+	char auxextdllname[256], estr_dummy[256];
 	string strRead;
-	int val;
 	int res = ReadINI (estr_dummy, fname, INI_HEAD_SRATE, strRead);
+	if (res == AUD_ERR_FILE_NOT_FOUND)
+	{
+		fs = CAstSig::DefaultFs;
+		return res;
+	}
+	int val;
 	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF && val > 500)
 		fs = val;
 	else
 		fs = CAstSig::DefaultFs;
-
 	double dval;
 	res = ReadINI (estr_dummy, fname, INI_HEAD_PLAYBLOCK, strRead);
 	if (res>0 && sscanf(strRead.c_str(), "%lf", &dval)!=EOF && dval > 20.)
@@ -211,6 +215,19 @@ static int readINI1(const char *fname, char *estr_dummy, int &fs)
 	res = ReadINI(estr_dummy, fname, INI_HEAD_RECBYTES, strRead);
 	if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF)
 		CAstSig::record_bytes = val;
+
+	res = ReadINI(estr_dummy, fname, INI_HEAD_EXTDLLS, strRead);
+	if (res)
+	{
+		vector<string> paths;
+		str2vector(paths, strRead, "\r\n \t,;");
+		for (auto str : paths)
+		{
+			strcpy(auxextdllname, mainSpace.AppPath);
+			strcat(auxextdllname, str.c_str());
+			extmodules.push_back(auxextdllname);
+		}
+	}
 	return 1;
 }
 
@@ -1565,8 +1582,6 @@ CAstSigEnv * initializeAUXLAB(vector<string>& extmodules, char *fname)
 	SetCurrentDirectory(mainSpace.AppPath);
 	sprintf(moduleName, "%s%s", fname, ext);
 	getVersionString(fullmoduleName, mainSpace.AppVersion, sizeof(mainSpace.AppVersion));
-	strcpy(auxextdllname, mainSpace.AppPath);
-	strcat(auxextdllname, AUX_EXT_NAME);
 #ifndef WIN64
 	sprintf(buf, "AUXLAB %s [AUdio syntaX Console]", mainSpace.AppVersion);
 	strcat(auxextdllname, "32");
@@ -1580,29 +1595,40 @@ CAstSigEnv * initializeAUXLAB(vector<string>& extmodules, char *fname)
 	GetComputerName(buf, &dw);
 	sprintf(mainSpace.iniFile, "%s%s_%s.ini", mainSpace.AppPath, fname, buf);
 	sprintf(mHistDlg.logfilename, "%s%s%s_%s.log", mainSpace.AppPath, fname, HISTORY_FILENAME, buf);
-	int res = readINI1(mainSpace.iniFile, buf, fs);
+	int res = readINI1(mainSpace.iniFile, extmodules, fs);
 	CAstSigEnv::AppPath = mainSpace.AppPath;
 	CAstSigEnv *pglobalEnv = new CAstSigEnv(fs);
 	assert(pglobalEnv);
-	extmodules.push_back(auxextdllname);
-	strcpy(auxextdllname, mainSpace.AppPath);
-	strcat(auxextdllname, "garminbmwscomp");
-	extmodules.push_back(auxextdllname);
+	if (res != AUD_ERR_FILE_NOT_FOUND)
+	{
+		char estr[256];
+		string strRead;
+		if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
+		{
+			vector<string> paths;
+			str2vector(paths, strRead, ";\r\n \t");
+			for (auto str : paths)
+			{
+				pglobalEnv->AddPath(str);
+			}
+		}
+		else
+			cout << "PATH information not available in " << mainSpace.iniFile << endl;
+	}
+	else
+		cout << "ini file not found. Default values used." << endl;
+
 	return pglobalEnv;
 }
 
-void initializeAUXLAB2(CAstSigEnv *pglobalEnv, const vector<string> &extmodules, char *fname)
+void initializeAUXLAB2(CAstSigEnv *pglobalEnv, const vector<string> &extmodules)
 {
-	char estr[256];
 	string strRead;
 	vector<string> tar;
 	pglobalEnv->InitBuiltInFunctions();
-	pglobalEnv->InitBuiltInFunctionsExt(extmodules);
-
-	if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
-		pglobalEnv->SetPath(strRead.c_str());
-	else
-		cout << "PATH information not available in " << mainSpace.iniFile << endl;
+	auto res = pglobalEnv->InitBuiltInFunctionsExt(extmodules);
+	for (auto line : res)
+		cout << line << endl;
 
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
@@ -1678,7 +1704,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	setHWNDEventLogger(hEventLogger);
 	sendtoEventLogger("AUXLAB begins.");
 
-	initializeAUXLAB2(pglobalEnv, extmodules, fname);
+	initializeAUXLAB2(pglobalEnv, extmodules);
 	CAstSig cast(pglobalEnv);
 	initializeAUXLAB3(&cast);
 

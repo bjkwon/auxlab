@@ -147,13 +147,12 @@ public:
 	void InitBuiltInFunctions();
 	void InitErrorCodes();
 	string path_delimited_semicolon();
-	void InitBuiltInFunctionsExt(const vector<string>& externalModules);
+	vector<string> InitBuiltInFunctionsExt(const vector<string>& externalModules);
 	map<string, Cfunction> builtin;
 
 	CAstSigEnv(const int fs = 1);
 	virtual ~CAstSigEnv();
 	CAstSigEnv& operator=(const CAstSigEnv& rhs);
-	int SetPath(const char *path);
 	void AddPath(string path);
 	AstNode* checkout_udf(const string& udf_filename, const string& filecontent);
 	AstNode* checkin_udf(const string& udf_filename, const string& fullpath, const string& filecontent, string& emsg);

@@ -19,6 +19,7 @@ map<double, FILE *> file_ids;
 #ifndef NO_FILES
 
 #include <algorithm>
+#include <cassert>
 #include "bjcommon.h"
 #include "audstr.h"
 #include "lame_bj.h"
@@ -559,7 +560,16 @@ void _wave(CAstSig *past, const AstNode *pnode)
 	past->checkString(pnode, past->Sig);
 	string filename = past->makefullfile(past->Sig.string(), ".wav");
 	char errStr[256];
-	if (!past->Sig.Wavread(filename.c_str(), errStr))
+	CVar start2read(0.), dur2read(-1.); // -1. to read the entire duration
+	if (p->next) {
+		start2read = past->Compute(p->next);
+		if (p->next->next) 
+			dur2read = past->Compute(p->next->next);
+	}
+	past->checkScalar(p, start2read);
+	
+	past->checkScalar(p, dur2read);
+	if (!past->Sig.Wavread(filename.c_str(), start2read.value(), dur2read.value(), errStr))
 		throw CAstException(USAGE, *past, p).proc(errStr);
 	resample_if_fs_different(past, p);
 }
@@ -656,7 +666,7 @@ void _file(CAstSig *past, const AstNode *pnode)
 		throw CAstException(FUNC_SYNTAX, *past, p).proc("cannot open file");
 }
 
-int CSignals::Wavread(const char* wavname, char* errstr)
+int CSignals::Wavread(const char* wavname, double beginMs, double durMs, char* errstr)
 {
 	SNDFILE* wavefileID;
 	SF_INFO sfinfo;
@@ -670,27 +680,154 @@ int CSignals::Wavread(const char* wavname, char* errstr)
 	if (sfinfo.channels > 2) { strcpy(errstr, "Up to 2 channels (L R) are allowed in AUX--we have two ears, dude!"); return NULL; }
 	Reset(sfinfo.samplerate);
 	SetNextChan(NULL); // Cleans up existing next
-	if (sfinfo.channels == 1)
+	if ((beginMs == 0. && durMs == -1.) || (sfinfo.format & SF_FORMAT_TYPEMASK) != SF_FORMAT_WAV) 
 	{
-		UpdateBuffer((int)sfinfo.frames);
-		count = sf_read_double(wavefileID, buf, sfinfo.frames);  // common.h
+		if (sfinfo.channels == 1)
+		{
+			UpdateBuffer((int)sfinfo.frames);
+			count = sf_read_double(wavefileID, buf, sfinfo.frames);  // common.h
+		}
+		else
+		{
+			double* buffer = new double[(unsigned int)sfinfo.channels * (int)sfinfo.frames];
+			count = sf_read_double(wavefileID, buffer, sfinfo.channels * sfinfo.frames);  // common.h
+			double(*buf3)[2];
+			next = new CSignals(sfinfo.samplerate);
+			int m(0);
+			buf3 = (double(*)[2]) & buffer[m++];
+			UpdateBuffer((int)sfinfo.frames);
+			for (unsigned int k = 0; k < sfinfo.frames; k++)			buf[k] = buf3[k][0];
+			buf3 = (double(*)[2]) & buffer[m++];
+			next->UpdateBuffer((int)sfinfo.frames);
+			for (unsigned int k = 0; k < sfinfo.frames; k++)			next->buf[k] = buf3[k][0];
+			delete[] buffer;
+		}
+		sf_close(wavefileID);
 	}
 	else
 	{
-		double* buffer = new double[(unsigned int)sfinfo.channels * (int)sfinfo.frames];
-		count = sf_read_double(wavefileID, buffer, sfinfo.channels * sfinfo.frames);  // common.h
-		double(*buf3)[2];
-		next = new CSignals(sfinfo.samplerate);
-		int m(0);
-		buf3 = (double(*)[2]) & buffer[m++];
-		UpdateBuffer((int)sfinfo.frames);
-		for (unsigned int k = 0; k < sfinfo.frames; k++)			buf[k] = buf3[k][0];
-		buf3 = (double(*)[2]) & buffer[m++];
-		next->UpdateBuffer((int)sfinfo.frames);
-		for (unsigned int k = 0; k < sfinfo.frames; k++)			next->buf[k] = buf3[k][0];
-		delete[] buffer;
+		int id1 = (int)(beginMs / 1000. * fs + .5);
+		int len = (int)(durMs / 1000. * fs + .5);
+		sf_count_t nFrames2Read = sfinfo.frames - id1;
+		if (nFrames2Read <= 0) return 1;
+		nFrames2Read = min(nFrames2Read, len);
+		uint8_t bytes = sfinfo.format & 0x0000000F;
+		if (bytes == SF_FORMAT_PCM_U8)
+			bytes = 1;
+		else if (bytes == SF_FORMAT_FLOAT)
+			bytes = 4;
+		else if (bytes == SF_FORMAT_DOUBLE)
+			bytes = 8;
+		size_t memsize = nFrames2Read * sfinfo.channels * bytes;
+		void *readBuffer = malloc(memsize);
+		FILE *fp = fopen(wavname, "rb"); // sf_open was success above; cannot be null 
+		char bufHeader[41];
+		size_t count = fread(bufHeader, 1, 40, fp);
+		assert(count == 40);
+		bufHeader[40] = 0;
+		assert(!strcmp(bufHeader + 36, "data"));
+//		fseek(fp, 40, SEEK_SET);
+		long dataChunkSize;
+		count = fread(&dataChunkSize, 1, sizeof(long), fp);
+		long skip = (long)(id1 * sfinfo.channels * bytes);
+		fseek(fp, skip, SEEK_CUR);
+		count = fread(readBuffer, 1, memsize, fp);
+		if (sfinfo.channels == 1)
+		{
+			UpdateBuffer((unsigned int)nFrames2Read);
+			switch (sfinfo.format & 0x0000000F)
+			{
+			case SF_FORMAT_PCM_S8:
+				for (int k = 0; k < nFrames2Read; k++)
+					buf[k] = ((char*)readBuffer)[k] / 128.;
+				break;
+			case SF_FORMAT_PCM_16:
+				for (int k = 0; k < nFrames2Read; k++)
+					buf[k] = ((int16_t*)readBuffer)[k] / 32768.;
+				break;
+			case SF_FORMAT_PCM_24:
+				for (int k = 0; k < nFrames2Read; k++)
+					buf[k] = ((int32_t*)readBuffer)[k] / 524288.;
+				break;
+			case SF_FORMAT_PCM_32:
+				for (int k = 0; k < nFrames2Read; k++)
+					buf[k] = ((int32_t*)readBuffer)[k] / 2147483648.;
+				break;
+			case SF_FORMAT_PCM_U8:
+				for (int k = 0; k < nFrames2Read; k++)
+					buf[k] = ((char*)readBuffer)[k] / 256. - .5;
+				break;
+			case SF_FORMAT_FLOAT:
+				for (int k = 0; k < nFrames2Read; k++)
+					buf[k] = ((float*)readBuffer)[k];
+				break;
+			case SF_FORMAT_DOUBLE:
+				for (int k = 0; k < nFrames2Read; k++)
+					buf[k] = ((double*)readBuffer)[k];
+				break;
+			}
+		}
+		else
+		{
+			UpdateBuffer((unsigned int)nFrames2Read);
+			next = new CSignals(sfinfo.samplerate);
+			next->UpdateBuffer((unsigned int)nFrames2Read);
+			len = (int)nFrames2Read * sfinfo.channels;
+			switch (sfinfo.format & 0x0000000F)
+			{
+			case SF_FORMAT_PCM_S8:
+				for (int k = 0; k < len; k += 2)
+				{
+					buf[k / 2] = ((char*)readBuffer)[k] / 128.;
+					next->buf[k / 2] = ((char*)readBuffer)[k + 1] / 128.;
+				}
+				break;
+			case SF_FORMAT_PCM_16:
+				for (int k = 0; k < len; k += 2)
+				{
+					buf[k / 2] = ((int16_t*)readBuffer)[k] / 32768.;
+					next->buf[k / 2] = ((int16_t*)readBuffer)[k + 1] / 32768.;
+				}
+				break;
+			case SF_FORMAT_PCM_24:
+				for (int k = 0; k < len; k += 2)
+				{
+					buf[k / 2] = ((int16_t*)readBuffer)[k] / 524288.;
+					next->buf[k / 2] = ((int16_t*)readBuffer)[k + 1] / 524288.;
+				}
+				break;
+			case SF_FORMAT_PCM_32:
+				for (int k = 0; k < len; k += 2)
+				{
+					buf[k / 2] = ((int16_t*)readBuffer)[k] / 524288.;
+					next->buf[k / 2] = ((int16_t*)readBuffer)[k + 1] / 2147483648.;
+				}
+				break;
+			case SF_FORMAT_PCM_U8:
+				for (int k = 0; k < len; k += 2)
+				{
+					buf[k / 2] = ((char*)readBuffer)[k] / 256. - .5;
+					next->buf[k / 2] = ((char*)readBuffer)[k + 1] / 256. - .5;
+				}
+				break;
+			case SF_FORMAT_FLOAT:
+				for (int k = 0; k < len; k += 2)
+				{
+					buf[k / 2] = ((float*)readBuffer)[k];
+					next->buf[k / 2] = ((float*)readBuffer)[k + 1];
+				}
+				break;
+			case SF_FORMAT_DOUBLE:
+				for (int k = 0; k < len; k += 2)
+				{
+					buf[k / 2] = ((double*)readBuffer)[k];
+					next->buf[k / 2] = ((double*)readBuffer)[k + 1];
+				}
+				break;
+			}
+			free(readBuffer);
+		}
 	}
-	sf_close(wavefileID);
 	return 1;
 }
 

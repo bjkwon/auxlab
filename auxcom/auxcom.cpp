@@ -57,7 +57,14 @@ int main(int argc, char **argv)
 		if (res > 0 && sscanf(strRead.c_str(), "%d", &val) != EOF && val > 500)
 			fs = val;
 		if ((res = ReadINI(estr, mainSpace.iniFile, "PATH", strRead)) > 0)
-			pglobalEnv->SetPath(strRead.c_str());
+		{
+			vector<string> paths;
+			str2vector(paths, strRead, ";\r\n \t");
+			for (auto str : paths)
+			{
+				pglobalEnv->AddPath(str);
+			}
+		}
 		else
 			cout << "PATH information not available in " << mainSpace.iniFile << endl;
 	}

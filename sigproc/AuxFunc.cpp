@@ -526,21 +526,36 @@ int findcol(AstNode *past, const char* pstr, int line)
 	return -1;
 }
 
-void CAstSigEnv::InitBuiltInFunctionsExt(const vector<string>& externalModules)
+vector<string> CAstSigEnv::InitBuiltInFunctionsExt(const vector<string>& externalModules)
 {
+	// If there's an error (including file not found), it's reported back to the caller.
+	vector<string> out;
+	char ext[256];
 	for (auto libname : externalModules)
 	{
-		HANDLE hLib = LoadLibrary(libname.c_str());
+		string fname = libname;
+		_splitpath(libname.c_str(), NULL, NULL, NULL, ext);
+		if (!strcmp(ext,""))
+			fname += ".dll";
+		HANDLE hLib = LoadLibrary(fname.c_str());
 		if (hLib)
 		{
 			auto pt = (map<string, Cfunction>(_cdecl*)()) GetProcAddress((HMODULE)hLib, (LPCSTR)MAKELONG(1, 0)); // Init()
-			map<string, Cfunction> res = pt();
-			for (auto it = res.begin(); it != res.end(); it++)
+			if (pt)
 			{
-				builtin[(*it).first] = (*it).second;
+				map<string, Cfunction> res = pt();
+				for (auto it = res.begin(); it != res.end(); it++)
+				{
+					builtin[(*it).first] = (*it).second;
+				}
 			}
+			else
+				out.push_back(fname + string(" does not have Init()."));
 		}
+		else
+			out.push_back(fname + string(" not found."));
 	}
+	return out;
 }
 void CAstSigEnv::InitBuiltInFunctions()
 {
@@ -590,8 +605,8 @@ void CAstSigEnv::InitBuiltInFunctions()
 
 	name = "wave";
 	ft.alwaysstatic = true;
-	ft.funcsignature = "(filename)";
-	ft.narg1 = 1;	ft.narg2 = 1;
+	ft.funcsignature = "(filename,starttime_ms[=0],dur2read_ms[=entire_dur])";
+	ft.narg1 = 1;	ft.narg2 = 3;
 	ft.func =  &_wave;
 	builtin[name] = ft;
 

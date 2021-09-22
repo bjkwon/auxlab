@@ -3162,7 +3162,7 @@ CSignals::CSignals(const char* wavname)
 	:next(NULL)
 {
 	char errstr[256];
-	Wavread(wavname, errstr);
+	Wavread(wavname, 0, -1, errstr);
 }
 
 #endif // NO_SF

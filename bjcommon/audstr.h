@@ -92,7 +92,7 @@ int str2array(T* out, int maxSize_x, const char *str, const char *deliminators)
 }
 
 template <class T>
-int str2array(T* out, int maxSize_x, string str, const char *deliminators)
+int str2array(T* out, int maxSize_x, const string &str, const char *deliminators)
 {
 	char *newBuffer = new char[str.length()+2];
 	strcpy (newBuffer, str.c_str());

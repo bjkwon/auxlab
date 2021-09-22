@@ -80,6 +80,7 @@ void trim(string& str, char delim);
 void trim(string& str, char* delim);
 int sformat(string& out, const char* format, ...);
 int sformat(string& out, size_t nLengthMax, const char* format, ...);
+int str2vector(vector<string>& out, const string& in, const string& delim_chars);
 
 void ReplaceStr(string &str, const string& from, const string& to);
 void splitevenindices(vector<unsigned int> &out, unsigned int nTotals, unsigned int nGroups);

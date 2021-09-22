@@ -13,6 +13,7 @@
 #include <exception>
 #include <vector>
 #include <queue>
+#include "bjcommon.h"
 #include "sigproc.h"
 #include "wavplay.h"
 #include "AUXLib.h"
@@ -43,7 +44,14 @@ AUXLIB_EXP int AUXNew(int sample_rate, const char *auxpath) // Returns new handl
 	try {
 		pglobalEnv = (sample_rate > 1) ? new CAstSigEnv(sample_rate) : new CAstSigEnv();
 		if (auxpath)
-			pglobalEnv->SetPath(auxpath);
+		{
+			vector<string> paths;
+			str2vector(paths, auxpath, ";\r\n \t");
+			for (auto str : paths)
+			{
+				pglobalEnv->AddPath(str);
+			}
+		}
 		pglobalEnv->InitBuiltInFunctions();
 		CAstSig *pAstSig = new CAstSig(pglobalEnv);
 		pAstSig->u.application = "auxlib";

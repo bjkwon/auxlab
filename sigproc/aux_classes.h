@@ -546,7 +546,7 @@ public:
 	CSignals(const char* wavname);
 	int Wavwrite(const char *wavname, char *errstr, std::string wavformat = "");
 	int mp3write(const char *filename, char *errstr, std::string wavformat = "");
-	int Wavread(const char *wavname, char *errstr);
+	int Wavread(const char *wavname, double beginMs, double durMs, char *errstr);
 #endif // NO_SF
 #endif //_WINDOWS
 

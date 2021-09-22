@@ -3090,28 +3090,6 @@ void CAstSigEnv::AddPath(string path)
 	}
 }
 
-int CAstSigEnv::SetPath(const char *path)
-{
-	string _path = path;
-	size_t pos = _path.find_first_of(';');
-	size_t off = 0;
-	string pcs;
-	int count = 0;
-	while (1)
-	{
-		if (pos == string::npos)
-			pcs = _path.substr(off);
-		else
-			pcs = _path.substr(off, pos - off);
-		AddPath(pcs);
-		count++;
-		if (pos == string::npos) break;
-		off = pos + 1;
-		pos = _path.find_first_of(';', off);
-	}
-	return count;
-}
-
 #if !defined(MAX_PATH)
 #define MAX_PATH          260
 #endif
