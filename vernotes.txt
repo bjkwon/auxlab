@@ -9,3 +9,6 @@
 [policy] .ini header "EXT MODULES" lists additional extension dlls 
 [fcn feat] wave(filename,readfrom_ms[=0],dur2read_ms[=-1;read_til_end])
 [dev notes] str2vector introduced in bjcommon
+[bug fx] Crashes when AUXPlay is called 
+[bug fx] Plays twices when AUXPlay is called
+[Release Build] Debugging enabled in the release build

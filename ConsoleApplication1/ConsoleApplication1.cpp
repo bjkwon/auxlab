@@ -18,20 +18,25 @@ int main()
     auxcomd = auxcomd + "nfl1.wav";
     auxcomd = auxcomd + "\"); ";
     auto res = AUXDef(handle, auxcomd.c_str());
-    std::string strin = "val=0;startAt=33*1000;endAt=101*1000; y=x(startAt~endAt); y+= noise(y.dur).lpf(4000) @ y @ val;";
-    strin += " y.write(\"c:\\temp\\mix";
-    itoa(1, sbuf, 10);
-    strin += sbuf;
-    strin += ".wav\")";
+    std::string strin = "val=0;startAt=43*1000;endAt=101*1000; y=x(startAt~endAt); y+= noise(y.dur).lpf(4000) @ y @ val;";
+    //strin += " y.write(\"c:\\temp\\mix";
+    //itoa(1, sbuf, 10);
+    //strin += sbuf;
+    //strin += ".wav\")";
     res = AUXDef(handle, strin.c_str());
-//    AUXWavwrite(handle, "output.wav");
+    res = AUXPlay(handle, 0);
+    //    AUXWavwrite(handle, "output.wav");
     strin = "val=-5;startAt=33*1000;endAt=101*1000; y=x(startAt~endAt); y+= noise(y.dur).lpf(4000) @ y @ val;";
     strin += " y.write(\"c:\\temp\\mix";
     itoa(2, sbuf, 10);
     strin += sbuf;
     strin += ".wav\")";
     res = AUXDef(handle, strin.c_str());
-    AUXDelete(handle);
+    for (int64_t k = 0; k > 0; k++)
+    {
+        if (k == k / 1000 * 1000) printf("k\n", k);
+    }
+ //   AUXDelete(handle);
 
 }
 

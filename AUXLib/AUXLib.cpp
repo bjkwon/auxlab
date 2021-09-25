@@ -185,7 +185,7 @@ AUXLIB_EXP int AUXPlay(int hAUX, const int DevID)
 		strncpy(GAstErrMsg, "AUXLib error: Invalid handle - already deleted.", MAX_AUX_ERR_MSG_LEN);
 		return 0;
 	}
-	auto res = PlayCSignals(pAstSig->Sig, 0, 0, NULL, &CAstSig::play_block_ms, errstr, 2);
+	auto res = PlayCSignals(pAstSig->Sig, 0, 0, NULL, &CAstSig::play_block_ms, errstr, 1);
 	if (res==NULL) {
 		strncpy(GAstErrMsg, errstr, MAX_AUX_ERR_MSG_LEN);
 		return 0;
