@@ -570,7 +570,7 @@ void _wave(CAstSig *past, const AstNode *pnode)
 	
 	past->checkScalar(p, dur2read);
 	if (!past->Sig.Wavread(filename.c_str(), start2read.value(), dur2read.value(), errStr))
-		throw CAstException(USAGE, *past, p).proc(errStr);
+		throw CAstException(ERR_POST_FNC, *past, p).proc(string("wave"), string(errStr));
 	resample_if_fs_different(past, p);
 }
 
@@ -623,7 +623,7 @@ void _file(CAstSig *past, const AstNode *pnode)
 			if (nChans > 1)
 				past->Sig.SetNextChan(&past->Sig);
 			if (!read_mp3(&len, past->Sig.buf, (nChans > 1) ? past->Sig.next->buf : NULL, &ffs, fullpath.c_str(), errStr))
-				throw CAstException(FUNC_SYNTAX, *past, p).proc(errStr);
+				throw CAstException(ERR_POST_FNC, *past, p).proc(string("file"), string(errStr));
 			resample_if_fs_different(past, p);
 		}
 		else if (GetFileText(fullpath.c_str(), "rb", content))
@@ -663,7 +663,7 @@ void _file(CAstSig *past, const AstNode *pnode)
 		}
 	}
 	else
-		throw CAstException(FUNC_SYNTAX, *past, p).proc("cannot open file");
+		throw CAstException(ERR_POST_FNC, *past, p).proc(string("file"), string(" : Unable to open audio file : ") + past->ComputeString(p));
 }
 
 int CSignals::Wavread(const char* wavname, double beginMs, double durMs, char* errstr)
@@ -673,7 +673,8 @@ int CSignals::Wavread(const char* wavname, double beginMs, double durMs, char* e
 	sf_count_t count;
 	if ((wavefileID = sf_open(wavname, SFM_READ, &sfinfo)) == NULL)
 	{
-		sprintf(errstr, "Unable to open audio file '%s'\n", wavname);
+		auto errlibsndfile = sf_strerror(wavefileID);
+		sprintf(errstr, "Unable to open audio file '%s' -- %s\n", wavname, errlibsndfile);
 		sf_close(wavefileID);
 		return NULL;
 	}

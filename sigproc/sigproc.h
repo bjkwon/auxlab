@@ -71,6 +71,8 @@ enum EXCEPTIONTYPE
 	RANGE,
 	ARGS,
 	INTERNAL,
+	ERR_POST_FNC,
+	UNDEFINED_TID,
 };
 
 //End of Used for communication bet sigproc and xcom (i.e., AstSig.cpp and showvar.cpp)
@@ -399,6 +401,7 @@ class CAstException
 public:
 	CAstException(EXCEPTIONTYPE extp, const CAstSig &base, const AstNode *pnode);
 	CAstException &proc(const char * _basemsg, const char * tidname = "", string extra = ""); //FUNC_SYNTAX; INTERNAL; invalid usage
+	CAstException& proc(const string &tidstr, const string &errmsg); //Error post func
 	CAstException &proc(const char * _basemsg, const char * varname, int indexSpecified, int indexSpecifiedCell); //range
 	CAstException &proc(const char * _basemsg, const char * funcname, int argIndex); // arg
 	CAstException() {

@@ -71,8 +71,7 @@ AUXLIB_EXP int AUXNew(int sample_rate, const char *auxpath) // Returns new handl
 	return handle;
 }
 
-
-AUXLIB_EXP void AUXDelete(const int hAUX) // Ignores invalid hAUX
+AUXLIB_EXP void AUXDelete(int hAUX) // Ignores invalid hAUX
 {
 	if (hAUX<0 || hAUX>(int)GAstSigs.size()-1)
 		return;
@@ -214,7 +213,7 @@ AUXLIB_EXP int AUXWavwrite(int hAUX, const char *filename)
 }
 
 
-const char *AUXGetErrMsg(void) // Returns error message for the last AUX error.
+AUXLIB_EXP const char *AUXGetErrMsg(void) // Returns error message for the last AUX error.
 {
 	GAstErrMsg[MAX_AUX_ERR_MSG_LEN-1] = '\0';
 	return GAstErrMsg;

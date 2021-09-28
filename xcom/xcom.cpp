@@ -217,7 +217,7 @@ static int readINI1(const char *fname, vector<string> &extmodules, int &fs)
 		CAstSig::record_bytes = val;
 
 	res = ReadINI(estr_dummy, fname, INI_HEAD_EXTDLLS, strRead);
-	if (res)
+	if (res > 0)
 	{
 		vector<string> paths;
 		str2vector(paths, strRead, "\r\n \t,;");

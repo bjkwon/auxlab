@@ -2256,9 +2256,9 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 						if (ptree->type == N_STRUCT) varname = '.';
 						varname += ptree->str;
 						if (strlen(ptree->str) < 256)
-							throw CAstException(USAGE, *this, ptree).proc(ex_msg.c_str(), varname.c_str());
+							throw CAstException(UNDEFINED_TID, *this, ptree).proc(ex_msg.c_str(), varname.c_str());
 						else
-							throw CAstException(USAGE, *this, ptree).proc(ex_msg.c_str(), varname.c_str(), string("A UDF name cannot be longer than 255 characters."));
+							throw CAstException(UNDEFINED_TID, *this, ptree).proc(ex_msg.c_str(), varname.c_str(), string("A UDF name cannot be longer than 255 characters."));
 					}
 					else
 						throw CAstException(USAGE, *this, ptree).proc(emsg.c_str());

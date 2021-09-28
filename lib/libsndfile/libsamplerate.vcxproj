@@ -199,7 +199,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ENABLE_SINC_MEDIUM_CONVERTER;HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -229,7 +229,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ENABLE_SINC_MEDIUM_CONVERTER;HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -268,7 +268,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ENABLE_SINC_MEDIUM_CONVERTER;HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -306,7 +306,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ENABLE_SINC_MEDIUM_CONVERTER;HAVE_STDBOOL_H;WIN64;NDEBUG;_WINDOWS;_USRDLL;LIBSAMPLERATE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

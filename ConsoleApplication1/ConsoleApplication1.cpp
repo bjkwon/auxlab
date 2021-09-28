@@ -32,11 +32,7 @@ int main()
     strin += sbuf;
     strin += ".wav\")";
     res = AUXDef(handle, strin.c_str());
-    for (int64_t k = 0; k > 0; k++)
-    {
-        if (k == k / 1000 * 1000) printf("k\n", k);
-    }
- //   AUXDelete(handle);
+    AUXDelete(handle);
 
 }
 
