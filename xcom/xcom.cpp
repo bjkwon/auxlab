@@ -228,6 +228,9 @@ static int readINI1(const char *fname, vector<string> &extmodules, int &fs)
 			extmodules.push_back(auxextdllname);
 		}
 	}
+	else if (res == AUD_ERR_HEADING_NOT_FOUND)
+		printfINI(estr_dummy, fname, INI_HEAD_EXTDLLS, "%s", "");
+
 	return 1;
 }
 
@@ -1603,7 +1606,7 @@ CAstSigEnv * initializeAUXLAB(vector<string>& extmodules, char *fname)
 	{
 		char estr[256];
 		string strRead;
-		if (ReadINI(estr, mainSpace.iniFile, "PATH", strRead) > 0)
+		if ((res=ReadINI(estr, mainSpace.iniFile, "PATH", strRead)) > 0)
 		{
 			vector<string> paths;
 			str2vector(paths, strRead, ";\r\n \t");
@@ -1612,8 +1615,8 @@ CAstSigEnv * initializeAUXLAB(vector<string>& extmodules, char *fname)
 				pglobalEnv->AddPath(str);
 			}
 		}
-		else
-			cout << "PATH information not available in " << mainSpace.iniFile << endl;
+		else if (res == AUD_ERR_HEADING_NOT_FOUND)
+			printfINI(estr, mainSpace.iniFile, "PATH", "%s", "");
 	}
 	else
 		cout << "ini file not found. Default values used." << endl;

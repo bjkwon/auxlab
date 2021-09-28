@@ -157,10 +157,7 @@ AUXLIB_EXP int AUXEval(int hAUX, const char *strIn, double **buffer, int *length
 		else
 			return 0;
 		if (buffer) 
-		{
-//			if (GSigs[hAUX].next) 	GSigs[hAUX] += GSigs[hAUX].next;	// concatenation
 			*buffer = GSigs[hAUX].buf;
-		}
 		return nChannel;
 	} catch (const char *errmsg) {
 		strncpy(GAstErrMsg, errmsg, MAX_AUX_ERR_MSG_LEN);
@@ -170,7 +167,14 @@ AUXLIB_EXP int AUXEval(int hAUX, const char *strIn, double **buffer, int *length
 		return -3;
 	}
 }
-
+// If Sig is stereo, use this function to retrieve the second channel buf
+AUXLIB_EXP int AUXEval2(int hAUX, const char* strIn, double** buffer1, double** buffer2, int* length)
+{
+	int res = AUXEval(hAUX, strIn, buffer1, length);
+	if (res > 0 && GSigs[hAUX].next && buffer2)
+		*buffer2 = GSigs[hAUX].next->buf;
+	return res;
+}
 
 AUXLIB_EXP int AUXPlay(int hAUX, const int DevID)
 {

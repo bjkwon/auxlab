@@ -1,39 +1,23 @@
 // ConsoleApplication1.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+using namespace std;
+
 #include <iostream>
-
 #include "AUXLib.h"
-
 
 int main()
 {
     std::cout << "Hello World!\n";
 
-    int handle = AUXNew(44100, "");
-    char sbuf[16];
-    double* buf;
+    int handle = AUXNew(1000, "");
+    double *buf1, *buf2;
     int len;
-    std::string auxcomd = "x=wave(\"c:\\temp\\";
-    auxcomd = auxcomd + "nfl1.wav";
-    auxcomd = auxcomd + "\"); ";
-    auto res = AUXDef(handle, auxcomd.c_str());
-    std::string strin = "val=0;startAt=43*1000;endAt=101*1000; y=x(startAt~endAt); y+= noise(y.dur).lpf(4000) @ y @ val;";
-    //strin += " y.write(\"c:\\temp\\mix";
-    //itoa(1, sbuf, 10);
-    //strin += sbuf;
-    //strin += ".wav\")";
-    res = AUXDef(handle, strin.c_str());
-    res = AUXPlay(handle, 0);
-    //    AUXWavwrite(handle, "output.wav");
-    strin = "val=-5;startAt=33*1000;endAt=101*1000; y=x(startAt~endAt); y+= noise(y.dur).lpf(4000) @ y @ val;";
-    strin += " y.write(\"c:\\temp\\mix";
-    itoa(2, sbuf, 10);
-    strin += sbuf;
-    strin += ".wav\")";
-    res = AUXDef(handle, strin.c_str());
+    auto res = AUXEval(handle, "x=[noise(20); tone(100,30)];", &buf1, &len);
+    if (res < 0) cout << AUXGetErrMsg() << endl;
+    res = AUXEval2(handle, "x", &buf1, &buf2, &len);
+    if (res < 0) cout << AUXGetErrMsg() << endl;
     AUXDelete(handle);
-
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
