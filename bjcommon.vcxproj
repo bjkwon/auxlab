@@ -110,10 +110,10 @@
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command>copy_header.bat audstr $(MSBuildProjectDirectory)bjcommon\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\</Command>
+      <Command>copy_header.bat psycon.yacc $(MSBuildProjectDirectory)sigproc\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -136,10 +136,10 @@
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command>copy_header.bat audstr $(MSBuildProjectDirectory)bjcommon\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\</Command>
+      <Command>copy_header.bat psycon.yacc $(MSBuildProjectDirectory)sigproc\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -165,10 +165,10 @@
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command>copy_header.bat audstr $(MSBuildProjectDirectory)bjcommon\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\</Command>
+      <Command>copy_header.bat psycon.yacc $(MSBuildProjectDirectory)sigproc\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -195,10 +195,10 @@
       <AdditionalDependencies>ws2_32.lib</AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_header.bat audstr $(AuxlabRepoDir)bjcommon\</Command>
+      <Command>copy_header.bat audstr $(MSBuildProjectDirectory)\bjcommon\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy_header.bat psycon.yacc $(AuxlabRepoDir)sigproc\</Command>
+      <Command>copy_header.bat psycon.yacc $(MSBuildProjectDirectory)\sigproc\</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

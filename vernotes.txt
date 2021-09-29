@@ -1,0 +1,20 @@
+1.709
+[bug fx] set path dialogbox not closed after "OK" pressed
+[bug fx] sample rate not saved into .ini
+[policy] TSEQ objects arithmetic operations conditions polished 
+   when x and y are TSEQ objects, a is a non-TSEQ scalar
+   * x + a or x * a makes a TSEQ object
+   * x + y or x * y makes sense only if time grids of x and y are the same
+[policy] If a stereo TSEQ object is chainless and symmetrical (i.e., left and right the same), the object discards tmark and becomes a non-TSEQ scalar object, when it is an operand of operations or an argument of a function.
+[policy] .ini header "EXT MODULES" lists additional extension dlls 
+[fcn feat] wave(filename,readfrom_ms[=0],dur2read_ms[=-1;read_til_end])
+[dev notes] str2vector introduced in bjcommon
+[bug fx] AUXLib:Crashes when AUXPlay is called 
+[bug fx] AUXLib:Plays twices when AUXPlay is called
+[Release Build] AUXLib:Debugging enabled in the release build
+[AUXLAB feat] Improvement in the error message display. Fixed unnecessary "Usage: ..." for example,
+    1) Built-in func call with proper syntax/usage(e.g., wave calling with an unavailable file)
+	   --> enum ERR_POST_FNC type added for CAstException
+    2) Undefined variable 
+       --> enum UNDEFINED_TID added 
+	   
