@@ -31,7 +31,6 @@
     <ClCompile Include="$(SrcPath)utils.cpp" />
     <ClCompile Include="$(SrcPath)xcom.cpp" />
     <ClCompile Include="$(SrcPath)echo.cpp" />
-    <ClCompile Include="xcom\args.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(SrcPath)audio_capture_status.h" />
@@ -154,6 +153,7 @@
 	  call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
 		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
+		call copy_header.bat AUXLib AUXLib\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -177,6 +177,7 @@
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
 		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
+		call copy_header.bat AUXLib AUXLib\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -202,10 +203,11 @@
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
 		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
+		call copy_header.bat AUXLib AUXLib\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj </Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj AUXLib</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -224,6 +226,7 @@
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PreLinkEvent>
       <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib </Command>
@@ -232,10 +235,11 @@
       <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
 		call copy_header.bat graffy2 graffy\
 		call copy_header.bat audstr bjcommon\
+		call copy_header.bat AUXLib AUXLib\
 		call copy_header.bat lame_bj lame\</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj </Command>
+      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj AUXLib</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

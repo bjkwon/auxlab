@@ -174,7 +174,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='st-release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)..\$(Platform)\</OutDir>
     <IntDir>$(OutDir)$(ProjectName)\</IntDir>
     <TargetName>$(ProjectName)$(PlatformArchitecture)st</TargetName>
   </PropertyGroup>

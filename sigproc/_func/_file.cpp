@@ -674,7 +674,10 @@ int CSignals::Wavread(const char* wavname, double beginMs, double durMs, char* e
 	if ((wavefileID = sf_open(wavname, SFM_READ, &sfinfo)) == NULL)
 	{
 		auto errlibsndfile = sf_strerror(wavefileID);
-		sprintf(errstr, "Unable to open audio file '%s' -- %s\n", wavname, errlibsndfile);
+		sprintf(errstr, "Unable to open audio file '%s' -- %s", wavname, errlibsndfile);
+		if (errstr[strlen(errstr) - 2] != '\r' && errstr[strlen(errstr) - 2] != '\n' &&
+			errstr[strlen(errstr) - 1] != '\r' && errstr[strlen(errstr) - 1] != '\n')
+			strcat(errstr, "\n");
 		sf_close(wavefileID);
 		return NULL;
 	}
