@@ -925,7 +925,6 @@ yy_top_state() shouldn't be assumed to be PARENTH
 #include <string.h>
 #include "psycon.yacc.h"
 #include "psycon.tab.h"
-#define strdup _strdup
 #define LEX_STRING_MAX_INITIAL 1024
 
 int LexStringLen = 0, LexStringMax = 0;
@@ -946,7 +945,7 @@ int auto_comp = 0;
 
 #define TSEQ 6
 
-#line 950 "psycon.yy.c"
+#line 949 "psycon.yy.c"
 
 /* Macros after this point can all be overridden by user definitions in
  * section 1.
@@ -1100,13 +1099,13 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
 
-#line 46 "psycon.l"
+#line 45 "psycon.l"
 
 
 	yylloc.first_line = yylloc.last_line;
 	yylloc.first_column = yylloc.last_column;
 
-#line 1110 "psycon.yy.c"
+#line 1109 "psycon.yy.c"
 
 	if ( yy_init )
 		{
@@ -1192,12 +1191,12 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 51 "psycon.l"
+#line 50 "psycon.l"
 ; /*To ignore a line of empty content in a udf*/
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 52 "psycon.l"
+#line 51 "psycon.l"
 {
 	yylloc.last_column += yyleng;
 	yylval.dval = strtod(yytext, NULL);
@@ -1207,7 +1206,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 58 "psycon.l"
+#line 57 "psycon.l"
 {		/* opening bracket */
 	yylloc.last_column += yyleng;
 	yy_push_state(BRACKET);
@@ -1216,7 +1215,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 63 "psycon.l"
+#line 62 "psycon.l"
 {
 	++yylloc.last_line;
 	yylloc.last_column = 1;
@@ -1224,7 +1223,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 67 "psycon.l"
+#line 66 "psycon.l"
 {
 	yylloc.last_column += yyleng;
 	yylval.dval = strtod(yytext, NULL);
@@ -1233,7 +1232,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 72 "psycon.l"
+#line 71 "psycon.l"
 {
 	++yylloc.last_line;
 	yylloc.last_column = 1;
@@ -1243,7 +1242,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 78 "psycon.l"
+#line 77 "psycon.l"
 {	/* closing bracket */
 	yylloc.last_column += yyleng;
 	yy_pop_state();
@@ -1252,7 +1251,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 83 "psycon.l"
+#line 82 "psycon.l"
 {	/* opening parenthesis 8 */
 	yylloc.last_column += yyleng;
 	yy_push_state(PARENTH);
@@ -1262,7 +1261,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 89 "psycon.l"
+#line 88 "psycon.l"
 {
 	yylloc.last_column += yyleng;
 	return T_ENDPOINT;
@@ -1270,7 +1269,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 93 "psycon.l"
+#line 92 "psycon.l"
 { /* Auto-complete parenthesis*/
 	yylloc.last_column += yyleng;
     if (yy_top_state()==PARENTH)
@@ -1283,7 +1282,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 102 "psycon.l"
+#line 101 "psycon.l"
 {	/* closing parenthesis 11 */
 	yylloc.last_column += yyleng;
     if (str_mirror) strcat(str_mirror, ")");
@@ -1295,7 +1294,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 110 "psycon.l"
+#line 109 "psycon.l"
 {	/* opening brace */
 	yylloc.last_column += yyleng;
 	yy_push_state(BRACE);
@@ -1304,7 +1303,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 115 "psycon.l"
+#line 114 "psycon.l"
 { /* Auto-complete brace*/
 	yylloc.last_column += yyleng;
 	yy_pop_state();
@@ -1313,7 +1312,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 120 "psycon.l"
+#line 119 "psycon.l"
 {	/* closing brace */
 	yylloc.last_column += yyleng;
 	yy_pop_state();
@@ -1322,7 +1321,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 125 "psycon.l"
+#line 124 "psycon.l"
 {	/* opening tseq */
 	yylloc.last_column += yyleng;
 	yy_push_state(TSEQ);
@@ -1331,7 +1330,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 130 "psycon.l"
+#line 129 "psycon.l"
 {	/* closing tseq 16 */
 	yylloc.last_column += yyleng;
 	yy_pop_state();
@@ -1340,7 +1339,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 135 "psycon.l"
+#line 134 "psycon.l"
 {
 	yylloc.last_column += yyleng;
     if (str_mirror) strcat(str_mirror, yytext);
@@ -1349,10 +1348,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 140 "psycon.l"
+#line 139 "psycon.l"
 {
 	yylloc.last_column += yyleng;
-	yylval.str = strdup(yytext);
+	yylval.str = (char*)calloc(strlen(yytext)+2, 1);
+	strcpy(yylval.str, yytext);
     if (str_mirror) strcat(str_mirror, yytext);
 	return T_ID;
 	}
@@ -1410,13 +1410,14 @@ YY_RULE_SETUP
     if (yy_top_state()==PARENTH)
         unput(')');
 	yy_pop_state();
-	yylval.str = strdup(LexString);
+	yylval.str = (char*)calloc(strlen(LexString)+1, 1);
+	strcpy(yylval.str, LexString);
 	return T_STRING;
 	}
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 179 "psycon.l"
+#line 180 "psycon.l"
 {
 	yylloc.last_column += yyleng;
 	yyleng = 1;
@@ -1427,23 +1428,24 @@ YY_RULE_SETUP
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 186 "psycon.l"
+#line 187 "psycon.l"
 {	/* end of a string 26 */
 	yylloc.last_column += yyleng;
 	yy_pop_state();
-	yylval.str = strdup(LexString);
+	yylval.str = (char*)calloc(strlen(LexString)+1, 1);
+	strcpy(yylval.str, LexString);
     if (str_mirror) strcat(str_mirror, "\"");
 	return T_STRING;
 	}
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 193 "psycon.l"
+#line 195 "psycon.l"
 ; /* Now all command line input has this string at the end. Without this rule, syntax error will occur with a correct statement.*/
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 194 "psycon.l"
+#line 196 "psycon.l"
 {
 	yylloc.last_column += yyleng;
     if (str_mirror) strcat(str_mirror, yytext);
@@ -1452,10 +1454,10 @@ YY_RULE_SETUP
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 199 "psycon.l"
+#line 201 "psycon.l"
 ECHO;
 	YY_BREAK
-#line 1459 "psycon.yy.c"
+#line 1461 "psycon.yy.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(STR):
 case YY_STATE_EOF(STR2):
@@ -2349,7 +2351,7 @@ int main()
 	return 0;
 	}
 #endif
-#line 199 "psycon.l"
+#line 201 "psycon.l"
 
 int appendLexString(void)
 {
@@ -2359,7 +2361,7 @@ int appendLexString(void)
 		if (LexString == NULL)
 			return 2;
 	}
-	strncpy_s(LexString+LexStringLen, LexStringMax-LexStringLen, yytext, yyleng);
+	strncpy(LexString+LexStringLen, yytext, yyleng);
 	LexStringLen += yyleng;
 	LexString[LexStringLen] = '\0';
 	return 0;

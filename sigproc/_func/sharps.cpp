@@ -2,7 +2,7 @@
 
 void _imaginary_unit(CAstSig* past, const AstNode* pnode)
 {
-	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->pseudo_vars.find(pnode->str))).second.alwaysstatic);
 	complex<double> x(0, 1);
 	past->Sig.SetValue(x);
 }

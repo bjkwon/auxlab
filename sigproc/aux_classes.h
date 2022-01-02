@@ -311,7 +311,6 @@ public:
 	CTimeSeries * BreakChain(CTimeSeries *chainedout);
 	CTimeSeries & MergeChains();
 	CTimeSeries & ConnectChains();
-	CTimeSeries & MC(CTimeSeries &out, std::vector<double> tmarks, int  id1, int  id2);
 	CTimeSeries & reciprocal(void);	// Multiplicative inverse
 	CTimeSeries & timeshift(double tp_ms);
 	CTimeSeries & removeafter(double timems);

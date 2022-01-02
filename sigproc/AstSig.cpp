@@ -1163,7 +1163,7 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 	if (tempX)
 	{
 		qscope.xtree = tempX;
-		char *newname = (char*)malloc(strlen(qscope.xtree->str) + 1);
+		char *newname = (char*)malloc(strlen(qscope.xtree->str) + 2);
 		newname[0] = '?';
 		strcpy(newname + 1, qscope.xtree->str);
 		free(qscope.xtree->str);

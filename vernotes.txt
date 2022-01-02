@@ -18,3 +18,7 @@
     2) Undefined variable 
        --> enum UNDEFINED_TID added 
 	   
+12:07 AM 12/13/2021
+[bug fx] [$i 5] crashes. Show_WS_CommandPrompt edited inside the block, if (p->str && ((AstNode*)p->str)->type == N_VECTOR); add: if (pcast->lhs)
+[bug fx] past->pEnv->builtin.find to be changed to past->pEnv->pseudo_vars.find in sharps.cpp (but get_first_arg is no longer needed in these functions)
+[bug found] [x -y] computes to a scalar x-y, not a two-element array

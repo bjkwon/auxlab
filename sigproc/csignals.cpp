@@ -1851,46 +1851,6 @@ CTimeSeries& CTimeSeries::MergeChains()
 	return *this;
 }
 
-CTimeSeries& CTimeSeries::MC(CTimeSeries &out, vector<double> tmarks, int id1, int id2)
-{
-	CTimeSeries parts;
-	double tp1 = ((double)id1 / fs)*1000.;
-	double tp2 = ((double)id2 / fs)*1000.;
-	for (vector<double>::reverse_iterator iter = tmarks.rbegin(); iter != tmarks.rend(); iter += 2)
-	{
-		int idtmark = (int)round((*iter*fs) / 1000.);
-		int idendt = (int)round((*(iter + 1)*fs) / 1000.);
-		if (id1 > idendt) continue;
-		vector<double>::reverse_iterator it = iter + 2;
-		if (it != tmarks.rend() && tp2 > *it)
-		{// id2 over-reaches beyond the block, we need to limit in within a block
-			if (out.nSamples == 0 && out.tmark == 0)
-				MC(out, tmarks, idtmark, idendt);
-			else
-			{
-				MC(out, tmarks, idtmark, idendt);
-				//			out.AddChain(out);
-			}
-		}
-		else // if it does not over-reach
-		{
-			int iBegin = max(idtmark, id1);
-			int iEnd = min(id2, idendt) - 1;
-			if (iEnd < iBegin)
-				return out; // both two points in the null interval
-			int count = iEnd - iBegin + 1;
-			parts.Reset(fs);
-			parts.UpdateBuffer(count);
-			memcpy(parts.buf, buf + iBegin, sizeof(double)*count);
-			parts.tmark = ((double)iBegin / fs)*1000.;
-			if (out.nSamples == 0 && out.tmark == 0) out = parts;
-			else out.AddChain(parts);
-			return out;
-		}
-	}
-	return *this = out;
-}
-
 CTimeSeries& CTimeSeries::LogOp(CTimeSeries &rhs, int type)
 {
 	for (CTimeSeries *p = this; p; p = p->chain)

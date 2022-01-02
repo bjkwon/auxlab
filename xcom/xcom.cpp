@@ -1397,12 +1397,13 @@ void xcom::ShowWS_CommandPrompt(CAstSig *pcast, bool success)
 			{
 				AstNode* q = (pcast->xtree->type == N_BLOCK) ? pcast->xtree->next : pcast->xtree;
 				q = (AstNode*)q->str;
-				for (q = q->alt; q; q = q->next)
-				{
-					if (plotable(pcast->Vars[q->str]))
-						vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
-				}
-				mShowDlg.OnVarChanged(vars2plot_update);
+				if (pcast->lhs) // for the case of [a,b]=min(...); not for [a b]; this causes a crash [$i anythng] 12/12/2021
+					for (q = q->alt; q; q = q->next)
+					{
+						if (plotable(pcast->Vars[q->str]))
+							vars2plot_update.push_back(q->str); // at this point, a variable named p->str exists in Vars
+					}
+					mShowDlg.OnVarChanged(vars2plot_update);
 			}
 			else
 			{
@@ -1578,6 +1579,9 @@ CAstSigEnv * initializeAUXLAB(vector<string>& extmodules, char *fname)
 
 	hE = CreateEvent(NULL, 0, 0, "showvarThreadCreation");
 
+	CVar x(.54);
+
+
 	HMODULE h = HMODULE_THIS;
 	GetModuleFileName(h, fullmoduleName, MAX_PATH);
 	_splitpath(fullmoduleName, drive, dir, fname, ext);
@@ -1690,6 +1694,7 @@ int initializeAUXLAB3(CAstSig *pcast)
 }
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
+
 	char buf[256], fname[256];
 	vector<string> extmodules;
 	CAstSigEnv *pglobalEnv = initializeAUXLAB(extmodules, fname);

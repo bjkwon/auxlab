@@ -198,6 +198,7 @@ public:
 	CTick xtick; // How do I pass the argument for instantiation of these objects?
 	CTick ytick; // CTick xtick(this) didn't work..... Maybe during instantiation of CAxes set xtick.m_dlg = this...
 	vector<CLine*> m_ln;
+	vector<CLine*> m_ln2; // ultra-downsampled version of m_ln for fast plotting
 //	vector<CPatch*> m_pat;
 	bool xlimfixed, ylimfixed;
 	bool xTimeScale, belowMouse;

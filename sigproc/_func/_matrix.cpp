@@ -137,16 +137,19 @@ void _ungroup(CAstSig* past, const AstNode* pnode)
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("argument must be an integer.");
 	auto type = past->Sig.type();
 	auto overlap = (int)_overlap;
+	if (_overlap > 0. && overlap > past->Sig.Len())
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Overlap cannot exceed the size on the row/group.");
 	if (past->Sig.IsAudio() || (type & 0x0003) <= 2) // audio, vector or constant
 	{
 		CVar out(past->Sig.GetFs());
-		out.UpdateBuffer(past->Sig.nSamples);
+		out.UpdateBuffer(past->Sig.nSamples - overlap * (past->Sig.nGroups - 1));
 		auto blocklen = past->Sig.Len();
 		int id = 0;
 		int nMoves = blocklen;
 		for (unsigned int k = 0, id2 = 0; k < past->Sig.nGroups; k++)
 		{
 			if (k>0) nMoves = blocklen - overlap;
+			nMoves = min(nMoves, out.nSamples - id);
 			memmove(out.buf + id, past->Sig.buf + id2, past->Sig.bufBlockSize * nMoves);
 			id += nMoves;
 			id2 += nMoves;
@@ -154,7 +157,6 @@ void _ungroup(CAstSig* past, const AstNode* pnode)
 			for (int m = 0; m < overlap && id2 < past->Sig.nSamples; m++)
 				out.buf[id++] += past->Sig.buf[id2++];
 		}
-		out.nSamples = id;
 		past->Sig = out;
 	}
 	else

@@ -17,8 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "psycon.yacc.h"
-#include "show_node.c"
-#define strdup _strdup
 #define YYPRINT(file, type, value) print_token_value (file, type, value)
 /*#define DEBUG*/
 
@@ -118,7 +116,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s);
 
 %{
 AstNode *newAstNode(int type, YYLTYPE loc);
-AstNode *makeFunctionCall(char *name, AstNode *first, AstNode *second, YYLTYPE loc);
+AstNode *makeFunctionCall(const char *name, AstNode *first, AstNode *second, YYLTYPE loc);
 AstNode *makeBinaryOpNode(int op, AstNode *first, AstNode *second, YYLTYPE loc);
 void print_token_value(FILE *file, int type, YYSTYPE value);
 char *getT_ID_str(AstNode *p);
@@ -491,7 +489,13 @@ initcell: '{' arg_list '}'
 	}
 ;
 
-condition: exp '<' exp
+condition: '(' condition ')'
+	{
+		$$ = $2;
+		$$->line = @$.first_line;
+		$$->col = @$.first_column;
+	}
+	| exp '<' exp
 	{ $$ = makeBinaryOpNode('<', $1, $3, @$);}
 	| exp '>' exp
 	{ $$ = makeBinaryOpNode('>', $1, $3, @$);}
@@ -503,12 +507,6 @@ condition: exp '<' exp
 	{ $$ = makeBinaryOpNode(T_LOGIC_GE, $1, $3, @$);}
 	| exp T_LOGIC_LE exp
 	{ $$ = makeBinaryOpNode(T_LOGIC_LE, $1, $3, @$);}
-	| '(' condition ')'
-	{
-		$$ = $2;
-		$$->line = @$.first_line;
-		$$->col = @$.first_column;
-	}
 	| '!' expcondition %prec T_LOGIC_NOT
 	{
 		$$ = newAstNode(T_LOGIC_NOT, @$);
@@ -650,25 +648,29 @@ compop: "+="
 	| "->="
 	{
 		$$ = newAstNode(T_ID, @$);
-		$$->str = strdup("movespec");
+		$$->str = (char*)calloc(16, 1);
+		strcpy($$->str, "movespec");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "~="
 	{
 		$$ = newAstNode(T_ID, @$);
-		$$->str = strdup("respeed");
+		$$->str = (char*)calloc(16, 1);
+		strcpy($$->str, "respeed");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "<>="
 	{
 		$$ = newAstNode(T_ID, @$);
-		$$->str = strdup("timestretch");
+		$$->str = (char*)calloc(16, 1);
+		strcpy($$->str, "timestretch");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 	| "#="
 	{
 		$$ = newAstNode(T_ID, @$);
-		$$->str = strdup("pitchscale");
+		$$->str = (char*)calloc(16, 1);
+		strcpy($$->str, "pitchscale");
 		$$->tail = $$->alt = newAstNode(N_ARGS, @$);
 	}
 ;
@@ -752,7 +754,8 @@ varblock:	 T_ID
 	| '$' varblock
 	{
 		$$ = newAstNode(N_HOOK, @$);
-		$$->str = strdup($2->str);
+		$$->str = (char*)calloc(1, strlen($2->str)+1);
+		strcpy($$->str, $2->str);
 		$$->alt = $2->alt;
 	}
 ;
@@ -845,7 +848,7 @@ tid: varblock
 	| '[' matrix ']' '[' vector ']'
 	{
 		$$ = newAstNode(N_TSEQ, @$);
-		$$->str = malloc(8);
+		$$->str = (char*)malloc(8);
 		strcpy($$->str, "R");
 		$$->child = $2;
 		$$->child->next = $5;
@@ -853,7 +856,7 @@ tid: varblock
 	| '[' matrix ']' '[' matrix ']'
 	{
 		$$ = newAstNode(N_TSEQ, @$);
-		$$->str = malloc(8);
+		$$->str = (char*)malloc(8);
 		strcpy($$->str, "R");
 		$$->child = $2;
 		$$->child->next = $5;
@@ -1010,9 +1013,9 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s)
   char msgbuf[ERRMSG_MAX], *p;
   size_t msglen;
 
-  sprintf_s(msgbuf, ERRMSG_MAX, "Invalid syntax: Line %d, Col %d: %s.\n", yylloc.first_line, yylloc.first_column, s + (strncmp(s, "syntax error, ", 14) ? 0 : 14));
+  sprintf(msgbuf, "Invalid syntax: Line %d, Col %d: %s.\n", yylloc.first_line, yylloc.first_column, s + (strncmp(s, "syntax error, ", 14) ? 0 : 14));
   if ((p=strstr(msgbuf, "$undefined"))) {
-	sprintf_s(p, 10, "'%c'(%d)", yychar, yychar);
+	sprintf(p, "'%c'(%d)", yychar, yychar);
     strcpy(p+strlen(p), p+10);
   }
   if ((p=strstr(msgbuf, "end of text or ")))
@@ -1023,7 +1026,7 @@ void yyerror (AstNode **pproot, char **errmsg, char const *s)
   if (ErrorMsg == NULL)
     errmsg_len = 0;
   ErrorMsg = (char *)realloc(ErrorMsg, errmsg_len+msglen+1);
-  strcpy_s(ErrorMsg+errmsg_len, msglen+1, msgbuf);
+  strcpy(ErrorMsg+errmsg_len, msgbuf);
   errmsg_len += msglen;
   *errmsg = ErrorMsg;
 }
@@ -1066,52 +1069,52 @@ char *getAstNodeName(AstNode *p)
 	return NULL;
   switch (p->type) {
   case '=':
-    sprintf_s(buf, N_NAME_MAX, "[%s=]", p->str);
+    sprintf(buf, "[%s=]", p->str);
     break;
   case T_ID:
-    sprintf_s(buf, N_NAME_MAX, "[%s]", p->str);
+    sprintf(buf, "[%s]", p->str);
     break;
   case T_STRING:
-    sprintf_s(buf, N_NAME_MAX, "\"%s\"", p->str);
+    sprintf(buf, "\"%s\"", p->str);
     break;
   case N_CALL:
-    sprintf_s(buf, N_NAME_MAX, "%s()", p->str);
+    sprintf(buf, "%s()", p->str);
     break;
   case N_CELL:
-    sprintf_s(buf, N_NAME_MAX, "%s()", p->str);
+    sprintf(buf, "%s()", p->str);
     break;
   case T_NUMBER:
-    sprintf_s(buf, N_NAME_MAX, "%.1f", p->dval);
+    sprintf(buf, "%.1f", p->dval);
     break;
   case N_BLOCK:
-    sprintf_s(buf, N_NAME_MAX, "BLOCK");
+    sprintf(buf, "BLOCK");
     break;
   case N_ARGS:
-    sprintf_s(buf, N_NAME_MAX, "ARGS");
+    sprintf(buf, "ARGS");
     break;
   case N_MATRIX:
-    sprintf_s(buf, N_NAME_MAX, "MATRIX");
+    sprintf(buf, "MATRIX");
     break;
   case N_VECTOR:
-    sprintf_s(buf, N_NAME_MAX, "VECTOR");
+    sprintf(buf, "VECTOR");
     break;
   case N_IDLIST:
-    sprintf_s(buf, N_NAME_MAX, "ID_LIST");
+    sprintf(buf, "ID_LIST");
     break;
   case N_TIME_EXTRACT:
-    sprintf_s(buf, N_NAME_MAX, "TIME_EXTRACT");
+    sprintf(buf, "TIME_EXTRACT");
     break;
   case N_CELLASSIGN:
-    sprintf_s(buf, N_NAME_MAX, "INITCELL");
+    sprintf(buf, "INITCELL");
     break;
   case N_IXASSIGN:
-    sprintf_s(buf, N_NAME_MAX, "ASSIGN1");
+    sprintf(buf, "ASSIGN1");
     break;
   default:
     if (YYTRANSLATE(p->type) == 2)
-      sprintf_s(buf, N_NAME_MAX, "[%d]", p->type);
+      sprintf(buf, "[%d]", p->type);
     else
-      sprintf_s(buf, N_NAME_MAX, "%s", yytname[YYTRANSLATE(p->type)]);
+      sprintf(buf, "%s", yytname[YYTRANSLATE(p->type)]);
   }
   return buf;
 }
@@ -1124,12 +1127,13 @@ or possibly other things.
 The only downside from this change is, during debugging, the last argument is not seen at the top node where several nodes are cascaded: e.g., a+b+c
 */
 
-AstNode *makeFunctionCall(char *name, AstNode *first, AstNode *second, YYLTYPE loc)
+AstNode *makeFunctionCall(const char *name, AstNode *first, AstNode *second, YYLTYPE loc)
 {
 	AstNode *node;
 
 	node = newAstNode(T_ID, loc);
-	node->str = strdup(name);
+	node->str = (char*)calloc(1, strlen(name)+1);
+	strcpy(node->str, name);
 	node->tail = node->alt = newAstNode(N_ARGS, loc);
 	node->alt->child = first;
 	first->next = second;
