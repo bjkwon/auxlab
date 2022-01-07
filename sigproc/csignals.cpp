@@ -141,14 +141,15 @@ body& body::operator=(const body & rhs)
 		{
 			if (!ghost && buf)
 				delete[] buf;
-			if (!rhs.ghost)
+			// If both LHS and RHS were already ghost, keep both ghosts
+			// otherwise, ghost on RHS cannot be transferred to ghost on the LHS. 1/6/2022
+			if (!ghost || !rhs.ghost)
 				logbuf = new bool[reqBufSize];
 		}
-		ghost = rhs.ghost;
-		if (!rhs.ghost)
-			memcpy(buf, rhs.buf, nSamples*bufBlockSize);
-		else
+		if (ghost && rhs.ghost)
 			buf = rhs.buf;// shallow (ghost) copy
+		else
+			memcpy(buf, rhs.buf, nSamples*bufBlockSize);
 //		resOutput = move(rhs.resOutput); // Cannot move because it is const... Then how? 11/29/2019
 	}
 	return *this;

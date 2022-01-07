@@ -3010,9 +3010,9 @@ CAstSig * CAstSig::SetVarwithIndex(const CSignal& indices, CVar *psig, CVar *pBa
 	return this;
 }
 
-CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
-// To do--chanage CVar *psig to const CVar &tsig and make sure the second arg is the const, target signal to use
-//to do so, improve the case of psig->GetFs() == 3, so that psig is not changed, let's think about it how.
+CAstSig &CAstSig::SetVar(const char *name, CVar *prhs, CVar *pBase)
+// To do--chanage CVar *prhs to const CVar &tsig and make sure the second arg is the const, target signal to use
+//to do so, improve the case of prhs->GetFs() == 3, so that prhs is not changed, let's think about it how.
 //11/6/2019
 {// NULL pBase --> name will be the variable in the workspace.
  //non-NULL pBase --> pBase is a class variable. name will be a member variable under pBase.
@@ -3020,48 +3020,48 @@ CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
 	{
 		map<string, CVar>::iterator it = Vars.find(name);
 		map<string, vector<CVar*>>::iterator jt = GOvars.find(name);
-		if (psig->IsGO()) // name and psig should be fed to GOvars
+		if (prhs->IsGO()) // name and prhs should be fed to GOvars
 		{
 			//gca, gcf shouldn't be "push_backed" but instead replaced.
 			if (!strcmp(name, "gca") || !strcmp(name, "gcf"))
 				GOvars[name].clear();
 			if (jt != GOvars.end())  GOvars.erase(jt);
-			if (psig->GetFs() == 3)
+			if (prhs->GetFs() == 3)
 			{
-				if (psig->nSamples == 1)
+				if (prhs->nSamples == 1)
 				{
-					psig = (CVar*)(INT_PTR)psig->value();
-					GOvars[name].push_back(psig);
+					prhs = (CVar*)(INT_PTR)prhs->value();
+					GOvars[name].push_back(prhs);
 				}
 				else
-					for (unsigned int k = 0; k < psig->nSamples; k++)
-						GOvars[name].push_back((CVar*)(INT_PTR)psig->buf[k]);
+					for (unsigned int k = 0; k < prhs->nSamples; k++)
+						GOvars[name].push_back((CVar*)(INT_PTR)prhs->buf[k]);
 			}
 			else
-				GOvars[name].push_back(psig);
+				GOvars[name].push_back(prhs);
 			if (it != Vars.end()) Vars.erase(it);
 		}
-		else // name and psig should be fed to Var
+		else // name and prhs should be fed to Var
 		{
-			Vars[name] = *psig;
+			Vars[name] = *prhs;
 			if (jt != GOvars.end())  GOvars.erase(jt);
 		}
 	}
 	else
 	{
-		if (psig->IsGO()) // name and psig should be fed to struts
+		if (prhs->IsGO()) // name and prhs should be fed to struts
 		{
 			// Previous one should be cleared.
 			// I wonder if this clear() would cause an issue
 			// What has the SetVar convention been for GO 1/3/2021
 			pBase->struts[name].clear();
-			pBase->struts[name].push_back(psig);
+			pBase->struts[name].push_back(prhs);
 			auto it = pBase->strut.find(name);
 			if (it != pBase->strut.end()) pBase->strut.clear();
 		}
-		else // name and psig should be fed to strut
+		else // name and prhs should be fed to strut
 		{
-			pBase->strut[name] = *psig;
+			pBase->strut[name] = *prhs;
 			auto jt = pBase->struts.find(name);
 			if (jt != pBase->struts.end())  pBase->struts[name].clear();
 		}
