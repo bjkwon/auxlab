@@ -454,6 +454,7 @@ void _wavwrite(CAstSig *past, const AstNode *pnode)
 
 	string fullfilename = past->makefullfile(filename, ".wav");
 	char errStr[256];
+	past->Sig.MakeChainless();
 	if (!past->Sig.Wavwrite(fullfilename.c_str(), errStr, option))
 		throw CAstException(USAGE, *past, p).proc(errStr);
 }
