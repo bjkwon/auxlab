@@ -584,7 +584,6 @@ void _file(CAstSig *past, const AstNode *pnode)
 	char fname[MAX_PATH], ext[MAX_PATH], errStr[256] = { 0 };
 	FILE *fp(NULL);
 	int res;
-	HANDLE hFile = INVALID_HANDLE_VALUE;
 	fp = past->fopen_from_path(past->ComputeString(p), "", fullpath);
 	_splitpath(past->ComputeString(p).c_str(), NULL, NULL, fname, ext);
 	if (fp)
@@ -600,7 +599,7 @@ void _file(CAstSig *past, const AstNode *pnode)
 		{
 			int len, ffs, nChans;
 			read_mp3_header(fullpath.c_str(), &len, &nChans, &ffs, errStr);
-			past->Sig.SetFs(ffs);
+			past->Sig.Reset(ffs);
 			if (len < 0) len = 0xffffffff;
 			past->Sig.UpdateBuffer(len);
 			if (nChans > 1)
@@ -619,7 +618,7 @@ void _file(CAstSig *past, const AstNode *pnode)
 		{
 			int len, ffs, nChans;
 			read_aiff_header(fullpath.c_str(), &len, &nChans, &ffs, errStr);
-			past->Sig.SetFs(ffs);
+			past->Sig.Reset(ffs);
 			past->Sig.UpdateBuffer(len);
 			if (nChans > 1)
 				past->Sig.SetNextChan(&past->Sig);

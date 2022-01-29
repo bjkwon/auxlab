@@ -1697,7 +1697,13 @@ CTimeSeries& CTimeSeries::AddChain(const CTimeSeries &sec)
 	if (nSamples == 0)
 		return *this = sec;
 	if (chain == NULL)
-		return *(chain = new CTimeSeries(sec));
+	{
+		if (1000. * nSamples / fs >= sec.tmark)
+			operate(sec, '+');
+		else
+			return *(chain = new CTimeSeries(sec));
+		return *this;
+	}
 	else
 		return chain->AddChain(sec);
 }
