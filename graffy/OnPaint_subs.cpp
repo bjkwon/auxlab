@@ -63,15 +63,6 @@ vector<POINT> CPlotDlg::drawCLine(CDC &dc, CLine * const pline, vector<POINT> & 
 	CAxes* pax = (CAxes*)pline->hPar;
 	CPen* pPenOld = NULL;
 	int nDraws = 0, estCount = 1;
-
-	//Calculate ddens here
-	// ddens should be constant across m_ln-- no need to be inside of the for loop below
-	// Based on ddens, m_ln2 may be prepared
-	// inside data2points2, m_ln2 is used if qualified based on ddens
-
-	// Or, maybe let's not think about m_ln2
-
-
 	double xSpacingPP = (double)pax->rct.Width();
 	for (CTimeSeries *p = &(pline->sig); p; p = p->chain)
 	{

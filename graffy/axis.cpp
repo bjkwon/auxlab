@@ -487,8 +487,6 @@ GRAPHY_EXPORT CLine * CAxes::plot(double *xdata, const CTimeSeries &ydata, const
 		in->color = col;
 	in->lineStyle = ls;
 	m_ln.push_back(in);
-	CLine *in_ultra = new CLine(m_dlg, this);
-	m_ln2.push_back(in_ultra);
 	if (xdata)
 		in->xdata = vector<double>(xdata, xdata + ydata.nSamples);
 	in->strut["xdata"] = CVar(CSignals(CSignal(in->xdata)));
@@ -782,23 +780,6 @@ vector<POINT> CAxes::plot_points_compact(int count, LONG px1, LONG px2, vector<d
 	}
 	return out;
 }
-static vector<POINT> plot_points_compact2_ultra(int count, LONG px1, LONG px2, int ibegin, double tbegin, const CRect& rct, double* ylim, double* const buf, double nData_p_pixel)
-{
-	int idataCount_per_pixel = (int)nData_p_pixel;
-	vector<POINT> out;
-	POINT pt;
-	double* buf_pos = buf + ibegin;
-	int id = 0;
-	for (LONG k = px1; k <= px2; k++, id++)
-	{
-		pt.x = k;
-		pt.y = getpointy(buf_pos[id], rct, ylim);
-		out.push_back(pt);
-		pt.y = getpointy(-buf_pos[id], rct, ylim);
-		out.push_back(pt);
-	}
-	return out;
-}
 
 static vector<POINT> plot_points_compact2(int count, LONG px1, LONG px2, int ibegin, double tbegin, const CRect &rct, double * ylim, double* const buf, double nData_p_pixel)
 { // temporal 
@@ -998,29 +979,16 @@ vector<POINT> CAxes::data2points2(const CSignal& p, int begin, double& xSpacingP
 	int id1, id2;
 	count = get_plot_range_from_tmark(p, xlim, xlim1, xlim2, id1, id2);
 	if (count <= 0) return out; // if data to plot is out of xlim, return empty
-	auto pp = &p;
 	double t1 = p.tmark / 1000. + (double)id1 / p.GetFs();
 	double t2 = p.tmark / 1000. + (double)id2 / p.GetFs();
 	double dataCount_per_pixel = 1;
 	px1 = getpointx(t1, rct, xlim);
 	px2 = getpointx(t2, rct, xlim);
-	int nXPixels = px2 - px1 + 1;
-	dataCount_per_pixel = (px1 == px2) ? .001 : (double)count / nXPixels;
+	dataCount_per_pixel = (px1 == px2) ? .001 : (double)count / (px2 - px1);
 	xSpacingPP = 1. / dataCount_per_pixel;
 	if (dataCount_per_pixel > 4)
 	{// points are closed to each other enough to treat them as a chunk
-		// Make ultra-downsampled version of p
-		// its fs is original fs divided by 
-		m_ln2[0]->sig = CTimeSeries(1);
-		m_ln2[0]->sig.UpdateBuffer(nXPixels);
-		for (unsigned int k = 0; k < nXPixels; k++)
-		{
-			auto val2 = m_ln[0]->sig.RMS(dataCount_per_pixel*k, dataCount_per_pixel);
-			auto val = pow(10, val2 / 30);
-			m_ln2[0]->sig.buf[k] = val;
-		}
-		out = plot_points_compact2_ultra(count, px1, px2, id1, t1, rct, ylim, m_ln2[0]->sig.buf + begin, dataCount_per_pixel);
-//		out = plot_points_compact2(count, px1, px2, id1, t1, rct, ylim, buf, dataCount_per_pixel);
+		out = plot_points_compact2(count, px1, px2, id1, t1, rct, ylim, buf, dataCount_per_pixel);
 		for (auto p : out)
 			out_cumular.push_back(p);
 		return out;
