@@ -95,7 +95,9 @@ void CNodeProbe::insertreplace(const AstNode *pnode, CVar &sec, CVar &indsig)
 					return;
 				}
 				else
+				{
 					eval_indexing(pnode->child->next, isig2);
+				}
 			}
 			if (pnode->type == N_ARGS || (pnode->next && pnode->next->type == N_CALL))
 			{
@@ -262,7 +264,9 @@ CVar * CNodeProbe::TID_indexing(const AstNode* pnode, AstNode *pLHS, AstNode *pR
 			throw CAstException(USAGE, *pbase, pnode).proc("First arg should be either 1 (left chan) or 2 (right chan).");
 	}
 	else
+	{
 		eval_indexing(pLHS->child, isig);
+	}
 	//Check if index is within range 
 	if (isig._max() > psigBase->nSamples)
 		throw CAstException(RANGE, *pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
@@ -381,6 +385,9 @@ CVar * CNodeProbe::TID_assign(const AstNode *pnode, AstNode *p, AstNode *pRHS)
 			}
 			else if (p == pnode)
 			{	//top-level: SetVar
+				// [DUPLICATE FOUND] if this is for LHS update after a call to a UDF, 
+				//  p->str should have been already updated inside of PrepareAndCallUDF 
+				//  Do something if this is a problem 1/29/2022
 				if (p->suppress != -1) // for the case of (recorder).start--we should keep RHS from affecting the LHS
 				{
 					if (psigRHS->IsGO() && psigRHS->GetFs()!=3)
@@ -462,17 +469,20 @@ CVar * CNodeProbe::TimeExtract(const AstNode *pnode, AstNode *p)
 		throw CAstException(INTERNAL,*pbase, pnode).proc("TimeExtract(): null psigBase");
 	pbase->checkAudioSig(pnode, *psigBase);
 
+	double endpoint;
 	CTimeSeries *pts = psigBase;
 	for (; pts; pts = pts->chain)
-		pbase->endpoint = pts->CSignal::endt();
+		endpoint = pts->CSignal::endt(0, pts->nSamples);
 	if (psigBase->next)
 	{
 		pts = psigBase->next;
-		pbase->endpoint = max(pbase->endpoint, pts->CSignal::endt());
+		endpoint = max(endpoint, pts->CSignal::endt());
 	}
+	pbase->ends.push_back(endpoint);
 	vector<double> tpoints = pbase->gettimepoints(pnode, p);
 	CVar out(*psigBase);
 	out.Crop(tpoints[0], tpoints[1]);
+	pbase->ends.pop_back();
 	return &(pbase->Sig = out);
 }
 
@@ -538,7 +548,7 @@ CVar &CNodeProbe::ExtractByIndex(const AstNode *pnode, AstNode *p)
 		eval_indexing(p->child, isig);
 		if (!(isig.type() & 1)) // has more than one element. 
 			lhsref_single = false;
-		if (isig._max() > pbase->Sig.nSamples) // can be replaced with psigBase->nSamples
+		if (isig._max() > psigBase->nSamples) // can be replaced with psigBase->nSamples
 			throw CAstException(RANGE, *pbase, pnode).proc("", varname.c_str(), (int)isig._max(), -1);
 		pbase->Sig = extract(pnode, isig);
 	}
@@ -685,16 +695,16 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 
 	// process the first index
 	unsigned int len;
-	pbase->prepare_endpoint(pInd, psigBase);
+	pbase->ends.push_back(pbase->find_endpoint(pInd, psigBase));
 	try {
 		CAstSig tp(pbase);
 		if (pInd->type == T_FULLRANGE)
 		{ // x(:,ids) or x(:)
-			isig.UpdateBuffer((unsigned int)pbase->endpoint);
+			isig.UpdateBuffer((unsigned int)pbase->ends.back());
 			for (int k = 0; k < (int)isig.nSamples; k++)	isig.buf[k] = k + 1;
 		}
 		else
-			isig = tp.Compute(pInd);
+			isig = pbase->Compute(pInd);
 		if (isig.IsLogical()) pbase->index_array_satisfying_condition(isig);
 		// process the second index, if it exists
 		if (pInd->next)
@@ -711,9 +721,10 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 			}
 			else // x(ids1,ids2)
 			{
-				//endpoint for the second arg in 2D is determined here.
-				tp.endpoint = (double)psigBase->Len();
-				isig2 = tp.Compute(p);
+				//endpoint for the second arg in 2D is determined here
+				pbase->ends.push_back((double)psigBase->Len());
+				isig2 = pbase->Compute(p);
+				pbase->ends.pop_back(); // pop 2-D end value from the stack here
 			}
 			auto mx = isig2._max();
 			auto nx = psigBase->Len();
@@ -726,6 +737,7 @@ CVar &CNodeProbe::eval_indexing(const AstNode *pInd, CVar &isig)
 	catch (const CAstException &e) {
 		throw CAstException(USAGE, *pbase, pInd).proc(e.getErrMsg().c_str());
 	}
+	pbase->ends.pop_back();
 	return isig;
 }
 

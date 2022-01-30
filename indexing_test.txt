@@ -1,0 +1,29 @@
+1.7.0.91
+
+eval_indexing appears in 
+
+* TID_indexing
+case 1
+	a=(1:24).group(4); k=1:size(a,1); 
+	a(k%2==0,:)=5
+	a([2 end],[1 4 end]) = -..
+case 2
+	a=1:10
+	a(3:5)=[6 1 8]
+
+* ExtractByIndex
+	a=1:10
+	b=a(8:end)
+
+* TID_condition
+I thought TID_condition would be used here
+	a=rand(10)
+	b=a(a>.5)
+	a(a>.5)=0
+but it's not. what's going on? When is TID_condition used?
+	
+* insertreplace
+eval_indexing appears here, but this is not a core (just added to cover an unexpected case, not part of the central flow)
+Clean up later
+
+

@@ -212,7 +212,7 @@ CAstSig::CAstSig(const CAstSig *src)
 	} else
 		pEnv = new CAstSigEnv(DefaultFs);
 	xtree = src->xtree;
-	endpoint = src->endpoint;
+	ends = src->ends;
 	pgo = src->pgo;
 	Script = src->Script;
 	pLast = src->pLast;
@@ -229,7 +229,7 @@ CAstSig::CAstSig(const char *str, const CAstSig *src)
 		Vars = src->Vars;
 		u = src->u;
 		fpmsg = src->fpmsg;
-		endpoint = src->endpoint;
+		ends = src->ends;
 		inTryCatch = src->inTryCatch;
 	}
 	else
@@ -1382,12 +1382,12 @@ CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 	return &Sig;
 }
 
-void CAstSig::prepare_endpoint(const AstNode *p, CVar *pvar)
+double CAstSig::find_endpoint(const AstNode *p, CVar *pvar)
 {  // p is the node the indexing starts (e.g., child of N_ARGS... wait is it also child of conditional p?
 	if (p->next) // first index in 2D
-		endpoint = (double)pvar->nGroups;
+		return (double)pvar->nGroups;
 	else
-		endpoint = (double)pvar->nSamples;
+		return (double)pvar->nSamples;
 }
 
 void CAstSig::interweave_indices(CVar &isig, CVar &isig2, unsigned int len)
@@ -2604,7 +2604,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_REPLICA:
 		return TID((AstNode*)pnode, NULL, &replica); //Make sure replica has been prepared prior to this
 	case T_ENDPOINT:
-		tsig.SetValue(endpoint);
+		tsig.SetValue(ends.back());
 		return TID((AstNode*)pnode, NULL, &tsig); //Make sure endpoint has been prepared prior to this
 	case '+':
 	case '-':

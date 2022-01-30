@@ -1,0 +1,10 @@
+10:01 PM 1/29/2022
+1.709
+Title: end_corruption
+When x is audio and a is scalar
+x(a(1)~end) should be whatever value of a til the end of x.
+But, "end" which is supposed to be x.dur is corrupted and updated to 1 because that's the end of a, while t1 and t2 in x(t1~t2) were processed
+Another example with a non-audio x
+x=1:10
+a=8
+x(a(1):end)
