@@ -8,3 +8,33 @@ Another example with a non-audio x
 x=1:10
 a=8
 x(a(1):end)
+
+
+============================== 2:40 PM 2/7/2022
+fd=fopen("file","rb")
+x=fd.fread("uint8")
+fd.fclose
+fd=fopen("file2","wb")
+fd.fwrite(x,"uint8")
+fd.fclose
+fd=fopen("file","rb")
+x2=fd.fread("uint8")
+fd.fclose
+
+x and x2 are not the same (off by one)
+
+FIXED -- bug was due to minus one from uint8 to double and double to uint8
+
+============================== 3:40 PM 2/7/2022
+FIXED: nargin was one off for udf if used in dot func format
+
+==============================11:40 PM 2/7/2022
+a=1:10
+a([2 4 9]).sqrt --> correctly 1.414 2 3 but
+a udf like this
+function y=sqtest(x)
+y=x.sqrt
+
+sqtest(a[2 4 9]) --> correctly 1.414 2 3
+a([2 4 9]).sqtest won't return the correct value
+it just returned a.sqtest

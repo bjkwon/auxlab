@@ -765,13 +765,18 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	// input parameter binding
 	pa = pCalling->alt;
 	//If the line invoking the udf res = udf(arg1, arg2...), pa points to arg1 and so on
-	if (pa && pa->type == N_ARGS)
-		pa = pa->child;
+	son->u.nargin = 0;
+	if (pa) {
+		if (pa->type == N_ARGS)
+			pa = pa->child;
+		else if (pa->type == N_STRUCT) // if it is a dot function call, make son->u.nargin 1
+			son->u.nargin = 1;
+	}
 	//If the line invoking the udf res = var.udf(arg1, arg2...), binding of the first arg, var, is done separately via pBase. The rest, arg1, arg2, ..., are done below with pf->next
 	pf = son->u.t_func->child->child;
 	if (pBase) { son->SetVar(pf->str, pBase); pf = pf->next; }
 	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
-	for (son->u.nargin = 0; pa && pf; pa = pa->next, pf = pf->next, son->u.nargin++)
+	for (; pa && pf; pa = pa->next, pf = pf->next, son->u.nargin++)
 	{
 		CVar tsig = Compute(pa);
 		if (tsig.IsGO())

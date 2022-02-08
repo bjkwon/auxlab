@@ -259,8 +259,11 @@ void _fwrite(CAstSig *past, const AstNode *pnode)
 	}
 	else if (prec == "uint8")
 	{
-		uint8_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
+		uint64_t factor = 1;
+		uint8_t var;
+		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
+		[&var, bytes, factor, file](double v) { var = (uint8_t)v; fwrite(&var, bytes, 1, file); });
+		res = past->Sig.nSamples;
 	}
 	else if (prec == "int16")
 	{
@@ -362,10 +365,18 @@ void _fread(CAstSig *past, const AstNode *pnode)
 	past->Sig.UpdateBuffer((unsigned int)nItems);
 	if (!strcmp(addarg, "audio") || !strcmp(addarg, "a") || !strcmp(addarg, "audio2") || !strcmp(addarg, "a2"))
 		past->Sig.SetFs(past->pEnv->Fs);
-	if (prec == "int8" || prec == "uint8")
+	if (prec == "int8")
 	{
 		int8_t temp = 0;
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x80);
+	}
+	else if (prec == "uint8")
+	{
+		uint8_t temp = 0;
+		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
+			[&temp, bytes, file](double& v) { 
+				fread(&temp, bytes, 1, file); 
+				v = temp >= 0 ? temp : temp + 256; });
 	}
 	else if (prec == "int16" || prec == "uint16")
 	{
