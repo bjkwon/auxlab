@@ -38,3 +38,5 @@ y=x.sqrt
 sqtest(a[2 4 9]) --> correctly 1.414 2 3
 a([2 4 9]).sqtest won't return the correct value
 it just returned a.sqtest
+FIXED   12:06 AM 2/8/2022
+=========================================

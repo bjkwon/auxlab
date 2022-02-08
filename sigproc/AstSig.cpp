@@ -2234,7 +2234,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 					// if static function, np.psigBase must be NULL
 					if (t_func->suppress == 3 && np.psigBase)
 						throw CAstException(USAGE, *this, t_func).proc("Function declared as static cannot be called as a member function.", ptree->str);
-						if (PrepareAndCallUDF(ptree, np.psigBase)) // this probably won't return false
+						if (PrepareAndCallUDF(ptree, &Sig)) // this probably won't return false
 					{// if a function call follows N_ARGS, skip it for next_parsible_node
 						np.psigBase = &Sig;
 						if (ptree->alt && (ptree->alt->type == N_ARGS || IsConditional(ptree->alt)))
