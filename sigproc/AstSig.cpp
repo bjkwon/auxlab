@@ -2894,9 +2894,11 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 	Compute(p);
 	uint16_t a = tsig.type();
 	uint16_t b = Sig.type();
-	if (a & TYPEBIT_CELL)
+	if (a & TYPEBIT_CELL || !(b & TYPEBIT_CELL))
+		throw CAstException(USAGE, *this, p).proc("RHS is cell; LHS is not.");
+	if (b & TYPEBIT_CELL)
 	{
-		if (b & TYPEBIT_CELL)
+		if (a & TYPEBIT_CELL)
 		{
 			for (size_t k = 0; k < tsig.cell.size(); k++)
 				Sig.cell.push_back(tsig.cell[(int)k]);
