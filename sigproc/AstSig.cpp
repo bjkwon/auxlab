@@ -217,6 +217,8 @@ CAstSig::CAstSig(const CAstSig *src)
 	Script = src->Script;
 	pLast = src->pLast;
 	inTryCatch = src->inTryCatch;
+	level = src->level;
+	pLast = src->pLast;
 }
 // Lateral copy (level not increased); used in eval_include.cpp
 CAstSig::CAstSig(const char *str, const CAstSig *src)
@@ -694,7 +696,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
 	// Checking the number of input args used in the call
-	size_t nargs = 0;
+	size_t nargs = pCalling->type == N_STRUCT ? 1 : 0;
     if (pCalling->alt)
         for (auto pp = pCalling->alt->child; pp; pp = pp->next)
             nargs++;
@@ -769,20 +771,21 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	if (pa) {
 		if (pa->type == N_ARGS)
 			pa = pa->child;
-		else if (pa->type == N_STRUCT) // if it is a dot function call, make son->u.nargin 1
+		if (pCalling->type == N_STRUCT) // if it is a dot function call, make son->u.nargin 1
 			son->u.nargin = 1;
 	}
 	//If the line invoking the udf res = var.udf(arg1, arg2...), binding of the first arg, var, is done separately via pBase. The rest, arg1, arg2, ..., are done below with pf->next
 	pf = son->u.t_func->child->child;
-	if (pBase) { son->SetVar(pf->str, pBase); pf = pf->next; }
+	if (pBase && pCalling->type == N_STRUCT) { son->SetVar(pf->str, pBase); pf = pf->next; }
 	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
-	for (; pa && pf; pa = pa->next, pf = pf->next, son->u.nargin++)
+	for (; pa && pf; pa = pa->next, pf = pf->next)
 	{
 		CVar tsig = Compute(pa);
 		if (tsig.IsGO())
 			son->SetVar(pf->str, pgo); // variable pf->str is created in the context of son
 		else
 			son->SetVar(pf->str, &tsig); // variable pf->str is created in the context of son
+		son->u.nargin++;
 	}
 	if (nargs > son->u.nargin)
 	{
