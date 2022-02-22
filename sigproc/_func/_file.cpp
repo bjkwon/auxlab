@@ -150,7 +150,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, int &
 	if (!past->Sig.IsString())
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(estr.c_str());
 	prec = past->Sig.string();
-	if (prec == "int8" || prec == "uint8" || prec == "char")
+	if (prec == "int8" || prec == "uint8" || prec == "char" || prec == "void")
 		bytes = 1;
 	else if (prec == "int16" || prec == "uint16")
 		bytes = 2;
@@ -242,7 +242,11 @@ void _fwrite(CAstSig *past, const AstNode *pnode)
 	size_t res;
 	FILE * file = __freadwrite(past, pnode, p, bytes, prec);
 	past->Compute(p);
-	if (prec == "char")
+	if (prec == "void")
+	{
+		res = fwrite(past->Sig.strbuf, 1, past->Sig.nSamples, file);
+	}
+	else if (prec == "char")
 	{
 		if (past->Sig.IsString())
 			res = fwrite(past->Sig.strbuf, 1, past->Sig.nSamples, file);
@@ -348,7 +352,7 @@ void _fread(CAstSig *past, const AstNode *pnode)
 	fseek(file, 0L, SEEK_SET);
 
 	size_t nItems = sz / bytes;
-	if (prec == "char")
+	if (prec == "char" || prec == "void")
 	{ // Treat it separately just to make the code neat.
 		past->Sig.SetString('\0');
 		past->Sig.UpdateBuffer((unsigned int)nItems);
