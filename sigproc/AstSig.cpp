@@ -2897,19 +2897,7 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 	Compute(p);
 	uint16_t a = tsig.type();
 	uint16_t b = Sig.type();
-	if (a & TYPEBIT_CELL || !(b & TYPEBIT_CELL))
-		throw CAstException(USAGE, *this, p).proc("RHS is cell; LHS is not.");
-	if (b & TYPEBIT_CELL)
-	{
-		if (a & TYPEBIT_CELL)
-		{
-			for (size_t k = 0; k < tsig.cell.size(); k++)
-				Sig.cell.push_back(tsig.cell[(int)k]);
-		}
-		else
-			Sig.cell.push_back(tsig);
-	}
-	else
+	if (!(a & TYPEBIT_CELL) && !(b & TYPEBIT_CELL))
 	{
 		if (b > 0 && a >> 2 != b >> 2)
 			throw CAstException(USAGE, *this, p).proc("Different object type between LHS and RHS. Can't concatenate.");
@@ -2929,8 +2917,8 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 			for (unsigned int k, kk = 0; kk < Sig.nGroups; kk++)
 			{
 				k = Sig.nGroups - kk - 1;
-				memcpy(Sig.buf + len1 * k, Sig.buf + len0 * k, sizeof(double)*len0);
-				memcpy(Sig.buf + len1 * k + len0, tsig.buf + lent * k, sizeof(double)*lent);
+				memcpy(Sig.buf + len1 * k, Sig.buf + len0 * k, sizeof(double) * len0);
+				memcpy(Sig.buf + len1 * k + len0, tsig.buf + lent * k, sizeof(double) * lent);
 			}
 		}
 		else
@@ -2938,6 +2926,21 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 			if (Sig.nGroups > 1) Sig.nGroups += tsig.nGroups;
 			Sig += &tsig;
 			Sig.MergeChains();
+		}
+	}
+	else
+	{
+		if (a & TYPEBIT_CELL || !(b & TYPEBIT_CELL))
+			throw CAstException(USAGE, *this, p).proc("2nd op is cell; 1st op is not.");
+		if (b & TYPEBIT_CELL)
+		{
+			if (a & TYPEBIT_CELL)
+			{
+				for (size_t k = 0; k < tsig.cell.size(); k++)
+					Sig.cell.push_back(tsig.cell[(int)k]);
+			}
+			else
+				Sig.cell.push_back(tsig);
 		}
 	}
 }
