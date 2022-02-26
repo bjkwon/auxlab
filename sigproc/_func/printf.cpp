@@ -27,8 +27,8 @@ void _sprintf(CAstSig* past, const AstNode* pnode)
 	REParseError status = regexp.Parse("%([-+ #0]+)?({\\z|\\*})?(\\.{\\z|\\*})?[hlL]?{[cuoxXideEgGfs]}");
 	if (status != REPARSE_ERROR_OK)
 		throw CAstException(INTERNAL, *past, pnode).proc("_sprintf()--RegExp.Parse( ) failed.");
-	past->Sig.Reset(2);	// to get the output string
-	CAstSig tast(past);	// to preserve this->Sig
+	past->Sig.Reset(2);	// to make the output string
+	CAstSig tast(past);	// to keep past->Sig as string and for the output; all Compute() calls should be done not bothering past->Sig
 	CAtlREMatchContext<> mcFormat;
 	string fmtstring = tast.ComputeString(p);
 	processEscapes(fmtstring);

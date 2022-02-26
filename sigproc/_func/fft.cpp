@@ -117,7 +117,8 @@ CSignal CSignal::iFFT(unsigned int id0, unsigned int len, void *parg) const
 	{
 		double* out = (double*)fftw_malloc(sizeof(double) * fftsize);
 		in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * fftRealsize);
-		memcpy(in, cbuf + id0, sizeof(fftw_complex) * fftsize / 2);
+		auto halfsize = fftsize / 2 + 1;
+		memcpy(in, cbuf + id0, sizeof(fftw_complex) * halfsize);
 		if (fftsize % 2 == 0)
 			memcpy(&in[fftsize / 2], &cbuf[fftsize / 2], sizeof(*cbuf));
 		p = fftw_plan_dft_c2r_1d(fftsize, in, out, FFTW_ESTIMATE);

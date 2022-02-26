@@ -273,7 +273,7 @@ public:
 	static const int DefaultFs = 22050;
 	int inTryCatch;
 	CVar replica;
-	double endpoint;
+	vector<double> ends;
 	bool fExit, fContinue;
 	char callbackIdentifer[LEN_CALLBACKIDENTIFIER];
 	goaction setgo;
@@ -289,7 +289,7 @@ private:
 	AstNode *searchtree(AstNode *pp, int type);
 	bool checkcond(const AstNode *p);
 	void hold_at_break_point(const AstNode *pnode);
-	void prepare_endpoint(const AstNode *p, CVar *pvar);
+	double find_endpoint(const AstNode *p, CVar *pvar);
 	bool builtin_func_call(CNodeProbe &diggy, AstNode *p);
 	void Concatenate(const AstNode *pnode, AstNode *p);
 	AstNode *read_node(CNodeProbe &diggy, AstNode *pn, AstNode *pPrev, bool &RHSpresent);

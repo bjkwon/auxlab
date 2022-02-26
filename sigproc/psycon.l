@@ -23,7 +23,6 @@ yy_top_state() shouldn't be assumed to be PARENTH
 #include <string.h>
 #include "psycon.yacc.h"
 #include "psycon.tab.h"
-#define strdup _strdup
 #define LEX_STRING_MAX_INITIAL 1024
 
 int LexStringLen = 0, LexStringMax = 0;
@@ -139,7 +138,8 @@ if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|stati
 	}
 {ID}	{
 	yylloc.last_column += yyleng;
-	yylval.str = strdup(yytext);
+	yylval.str = (char*)calloc(strlen(yytext)+2, 1);
+	strcpy(yylval.str, yytext);
     if (str_mirror) strcat(str_mirror, yytext);
 	return T_ID;
 	}
@@ -173,7 +173,8 @@ if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|stati
     if (yy_top_state()==PARENTH)
         unput(')');
 	yy_pop_state();
-	yylval.str = strdup(LexString);
+	yylval.str = (char*)calloc(strlen(LexString)+1, 1);
+	strcpy(yylval.str, LexString);
 	return T_STRING;
 	}
 <STR>\"\"	{
@@ -186,7 +187,8 @@ if|else|elseif|end|while|for|break|continue|switch|case|otherwise|function|stati
 <STR>\"	{	/* end of a string 26 */
 	yylloc.last_column += yyleng;
 	yy_pop_state();
-	yylval.str = strdup(LexString);
+	yylval.str = (char*)calloc(strlen(LexString)+1, 1);
+	strcpy(yylval.str, LexString);
     if (str_mirror) strcat(str_mirror, "\"");
 	return T_STRING;
 	}
@@ -205,7 +207,7 @@ int appendLexString(void)
 		if (LexString == NULL)
 			return 2;
 	}
-	strncpy_s(LexString+LexStringLen, LexStringMax-LexStringLen, yytext, yyleng);
+	strncpy(LexString+LexStringLen, yytext, yyleng);
 	LexStringLen += yyleng;
 	LexString[LexStringLen] = '\0';
 	return 0;

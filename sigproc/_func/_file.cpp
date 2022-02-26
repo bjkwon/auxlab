@@ -150,7 +150,7 @@ FILE * __freadwrite(CAstSig *past, const AstNode *pnode, const AstNode *p, int &
 	if (!past->Sig.IsString())
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc(estr.c_str());
 	prec = past->Sig.string();
-	if (prec == "int8" || prec == "uint8" || prec == "char")
+	if (prec == "int8" || prec == "uint8" || prec == "char" || prec == "void")
 		bytes = 1;
 	else if (prec == "int16" || prec == "uint16")
 		bytes = 2;
@@ -228,7 +228,7 @@ size_t fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uin
 				[pvar, bytes, factor, file](double v) { *pvar = (T)(factor * v - .5); fwrite(pvar, bytes, 1, file); });
 		else
 			for_each(sig.buf, sig.buf + sig.nSamples,
-				[pvar, bytes, factor, file](double v) { *pvar = (T)(v - .5); fwrite(pvar, bytes, 1, file); });
+				[pvar, bytes, factor, file](double v) { *pvar = (T)(v); fwrite(pvar, bytes, 1, file); });
 	}
 	return sig.nSamples;
 }
@@ -242,7 +242,11 @@ void _fwrite(CAstSig *past, const AstNode *pnode)
 	size_t res;
 	FILE * file = __freadwrite(past, pnode, p, bytes, prec);
 	past->Compute(p);
-	if (prec == "char")
+	if (prec == "void")
+	{
+		res = fwrite(past->Sig.strbuf, 1, past->Sig.nSamples, file);
+	}
+	else if (prec == "char")
 	{
 		if (past->Sig.IsString())
 			res = fwrite(past->Sig.strbuf, 1, past->Sig.nSamples, file);
@@ -252,15 +256,10 @@ void _fwrite(CAstSig *past, const AstNode *pnode)
 			res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 		}
 	}
-	else if (prec == "int8")
+	else if (prec == "int8" || prec == "uint8")
 	{
 		int8_t temp = 0;
 		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x80);
-	}
-	else if (prec == "uint8")
-	{
-		uint8_t temp = 0;
-		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 	}
 	else if (prec == "int16")
 	{
@@ -345,7 +344,7 @@ void _fread(CAstSig *past, const AstNode *pnode)
 	fseek(file, 0L, SEEK_SET);
 
 	size_t nItems = sz / bytes;
-	if (prec == "char")
+	if (prec == "char" || prec == "void")
 	{ // Treat it separately just to make the code neat.
 		past->Sig.SetString('\0');
 		past->Sig.UpdateBuffer((unsigned int)nItems);
@@ -362,12 +361,36 @@ void _fread(CAstSig *past, const AstNode *pnode)
 	past->Sig.UpdateBuffer((unsigned int)nItems);
 	if (!strcmp(addarg, "audio") || !strcmp(addarg, "a") || !strcmp(addarg, "audio2") || !strcmp(addarg, "a2"))
 		past->Sig.SetFs(past->pEnv->Fs);
-	if (prec == "int8" || prec == "uint8")
+	if (prec == "int8")
 	{
 		int8_t temp = 0;
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x80);
 	}
-	else if (prec == "int16" || prec == "uint16")
+	else if (prec == "uint8")
+	{
+		uint8_t temp = 0;
+		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
+			[&temp, bytes, file](double& v) { 
+				fread(&temp, bytes, 1, file); 
+				v = temp >= 0 ? temp : temp + 0x80; });
+	}
+	else if (prec == "uint16")
+	{
+		uint16_t temp = 0;
+		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
+			[&temp, bytes, file](double& v) {
+				fread(&temp, bytes, 1, file);
+				v = temp >= 0 ? temp : temp + 0x8000; });
+	}
+	else if (prec == "uint32")
+	{
+		uint32_t temp = 0;
+		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
+			[&temp, bytes, file](double& v) {
+				fread(&temp, bytes, 1, file);
+				v = temp >= 0 ? temp : temp + 0x80000000; });
+	}
+	else if (prec == "int16" )
 	{
 		int16_t temp = 0;
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x8000);
@@ -377,7 +400,7 @@ void _fread(CAstSig *past, const AstNode *pnode)
 		int32_t temp = 0; // in24_t doesn't exist
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x80000000); // check
 	}
-	else if (prec == "int32" || prec == "uint32")
+	else if (prec == "int32")
 	{
 		int32_t temp = 0;
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x80000000);
@@ -454,6 +477,7 @@ void _wavwrite(CAstSig *past, const AstNode *pnode)
 
 	string fullfilename = past->makefullfile(filename, ".wav");
 	char errStr[256];
+	past->Sig.MakeChainless();
 	if (!past->Sig.Wavwrite(fullfilename.c_str(), errStr, option))
 		throw CAstException(USAGE, *past, p).proc(errStr);
 }
@@ -583,7 +607,6 @@ void _file(CAstSig *past, const AstNode *pnode)
 	char fname[MAX_PATH], ext[MAX_PATH], errStr[256] = { 0 };
 	FILE *fp(NULL);
 	int res;
-	HANDLE hFile = INVALID_HANDLE_VALUE;
 	fp = past->fopen_from_path(past->ComputeString(p), "", fullpath);
 	_splitpath(past->ComputeString(p).c_str(), NULL, NULL, fname, ext);
 	if (fp)
@@ -599,7 +622,7 @@ void _file(CAstSig *past, const AstNode *pnode)
 		{
 			int len, ffs, nChans;
 			read_mp3_header(fullpath.c_str(), &len, &nChans, &ffs, errStr);
-			past->Sig.SetFs(ffs);
+			past->Sig.Reset(ffs);
 			if (len < 0) len = 0xffffffff;
 			past->Sig.UpdateBuffer(len);
 			if (nChans > 1)
@@ -618,7 +641,7 @@ void _file(CAstSig *past, const AstNode *pnode)
 		{
 			int len, ffs, nChans;
 			read_aiff_header(fullpath.c_str(), &len, &nChans, &ffs, errStr);
-			past->Sig.SetFs(ffs);
+			past->Sig.Reset(ffs);
 			past->Sig.UpdateBuffer(len);
 			if (nChans > 1)
 				past->Sig.SetNextChan(&past->Sig);

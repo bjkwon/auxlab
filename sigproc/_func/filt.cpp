@@ -211,7 +211,7 @@ CSignal& CSignal::filtfilt(unsigned int id0, unsigned int len, void *parg)
 	temp += &temp2;
 	temp.filter(id0, temp.nSamples, parg);
 	temp.ReverseTime();
-	temp.filter(id0, temp.nSamples);
+	temp.filter(id0, temp.nSamples, parg);
 	temp.ReverseTime();
 	out.UpdateBuffer(nSamples);
 	memcpy(out.buf, temp.buf + nfact, sizeof(double) * nSamples);

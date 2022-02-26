@@ -1,15 +1,15 @@
 // AUXLAB 
 //
-// Copyright (c) 2009-2018 Bomjun Kwon (bjkwon at gmail)
+// Copyright (c) 2009-2020 Bomjun Kwon (bjkwon at gmail)
 // Licensed under the Academic Free License version 3.0
 //
 // Project: audfret
 // Miscellaneous Support Library
 // 
 // 
-// Version: 1.4951
-// Date: 12/14/2018
-// Change from 1.495: CString, CRect not used-->no need to include wxx_wincore.h
+// Version: 1.7
+// Date: 5/21/2020
+
 #ifndef BJTOOLS_WIN
 #define BJTOOLS_WIN
 
@@ -67,7 +67,7 @@ int spyWindowMessageExc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam, char
 int SpyGetMessage(MSG msg, char* const fname, vector<UINT> msg2show, char* const tagstr);
 int SpyGetMessageExc(MSG msg, char* const fname, vector<UINT> msg2excl, char* const tagstr);
 void setHWNDEventLogger(HWND hEL);
-void sendtoEventLogger(char *str, FILETIME * pout=NULL);
+void sendtoEventLogger(const char* format, ...);
 bool IsEventLoggerReady();
 
 #ifdef __cplusplus

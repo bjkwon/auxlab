@@ -212,11 +212,13 @@ CAstSig::CAstSig(const CAstSig *src)
 	} else
 		pEnv = new CAstSigEnv(DefaultFs);
 	xtree = src->xtree;
-	endpoint = src->endpoint;
+	ends = src->ends;
 	pgo = src->pgo;
 	Script = src->Script;
 	pLast = src->pLast;
 	inTryCatch = src->inTryCatch;
+	level = src->level;
+	pLast = src->pLast;
 }
 // Lateral copy (level not increased); used in eval_include.cpp
 CAstSig::CAstSig(const char *str, const CAstSig *src)
@@ -229,7 +231,7 @@ CAstSig::CAstSig(const char *str, const CAstSig *src)
 		Vars = src->Vars;
 		u = src->u;
 		fpmsg = src->fpmsg;
-		endpoint = src->endpoint;
+		ends = src->ends;
 		inTryCatch = src->inTryCatch;
 	}
 	else
@@ -694,7 +696,7 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	// Check if the same udf is called during debugging... in that case Script shoudl be checked and handled...
 
 	// Checking the number of input args used in the call
-	size_t nargs = 0;
+	size_t nargs = pCalling->type == N_STRUCT ? 1 : 0;
     if (pCalling->alt)
         for (auto pp = pCalling->alt->child; pp; pp = pp->next)
             nargs++;
@@ -765,19 +767,25 @@ bool CAstSig::PrepareAndCallUDF(const AstNode *pCalling, CVar *pBase, CVar *pSta
 	// input parameter binding
 	pa = pCalling->alt;
 	//If the line invoking the udf res = udf(arg1, arg2...), pa points to arg1 and so on
-	if (pa && pa->type == N_ARGS)
-		pa = pa->child;
+	son->u.nargin = 0;
+	if (pa) {
+		if (pa->type == N_ARGS)
+			pa = pa->child;
+		if (pCalling->type == N_STRUCT) // if it is a dot function call, make son->u.nargin 1
+			son->u.nargin = 1;
+	}
 	//If the line invoking the udf res = var.udf(arg1, arg2...), binding of the first arg, var, is done separately via pBase. The rest, arg1, arg2, ..., are done below with pf->next
 	pf = son->u.t_func->child->child;
-	if (pBase) { son->SetVar(pf->str, pBase); pf = pf->next; }
+	if (pBase && pCalling->type == N_STRUCT) { son->SetVar(pf->str, pBase); pf = pf->next; }
 	//if this is for udf object function call, put that psigBase for pf->str and the rest from pa
-	for (son->u.nargin = 0; pa && pf; pa = pa->next, pf = pf->next, son->u.nargin++)
+	for (; pa && pf; pa = pa->next, pf = pf->next)
 	{
 		CVar tsig = Compute(pa);
 		if (tsig.IsGO())
 			son->SetVar(pf->str, pgo); // variable pf->str is created in the context of son
 		else
 			son->SetVar(pf->str, &tsig); // variable pf->str is created in the context of son
+		son->u.nargin++;
 	}
 	if (nargs > son->u.nargin)
 	{
@@ -1163,7 +1171,7 @@ string CAstSig::LoadPrivateUDF(HMODULE h, int id, string &emsg)
 	if (tempX)
 	{
 		qscope.xtree = tempX;
-		char *newname = (char*)malloc(strlen(qscope.xtree->str) + 1);
+		char *newname = (char*)malloc(strlen(qscope.xtree->str) + 2);
 		newname[0] = '?';
 		strcpy(newname + 1, qscope.xtree->str);
 		free(qscope.xtree->str);
@@ -1382,12 +1390,12 @@ CVar * CAstSig::SetLevel(const AstNode *pnode, AstNode *p)
 	return &Sig;
 }
 
-void CAstSig::prepare_endpoint(const AstNode *p, CVar *pvar)
+double CAstSig::find_endpoint(const AstNode *p, CVar *pvar)
 {  // p is the node the indexing starts (e.g., child of N_ARGS... wait is it also child of conditional p?
 	if (p->next) // first index in 2D
-		endpoint = (double)pvar->nGroups;
+		return (double)pvar->nGroups;
 	else
-		endpoint = (double)pvar->nSamples;
+		return (double)pvar->nSamples;
 }
 
 void CAstSig::interweave_indices(CVar &isig, CVar &isig2, unsigned int len)
@@ -2229,7 +2237,7 @@ AstNode *CAstSig::read_node(CNodeProbe &np, AstNode* ptree, AstNode *ppar, bool&
 					// if static function, np.psigBase must be NULL
 					if (t_func->suppress == 3 && np.psigBase)
 						throw CAstException(USAGE, *this, t_func).proc("Function declared as static cannot be called as a member function.", ptree->str);
-						if (PrepareAndCallUDF(ptree, np.psigBase)) // this probably won't return false
+						if (PrepareAndCallUDF(ptree, &Sig)) // this probably won't return false
 					{// if a function call follows N_ARGS, skip it for next_parsible_node
 						np.psigBase = &Sig;
 						if (ptree->alt && (ptree->alt->type == N_ARGS || IsConditional(ptree->alt)))
@@ -2604,7 +2612,7 @@ CVar * CAstSig::Compute(const AstNode *pnode)
 	case T_REPLICA:
 		return TID((AstNode*)pnode, NULL, &replica); //Make sure replica has been prepared prior to this
 	case T_ENDPOINT:
-		tsig.SetValue(endpoint);
+		tsig.SetValue(ends.back());
 		return TID((AstNode*)pnode, NULL, &tsig); //Make sure endpoint has been prepared prior to this
 	case '+':
 	case '-':
@@ -2889,17 +2897,7 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 	Compute(p);
 	uint16_t a = tsig.type();
 	uint16_t b = Sig.type();
-	if (a & TYPEBIT_CELL)
-	{
-		if (b & TYPEBIT_CELL)
-		{
-			for (size_t k = 0; k < tsig.cell.size(); k++)
-				Sig.cell.push_back(tsig.cell[(int)k]);
-		}
-		else
-			Sig.cell.push_back(tsig);
-	}
-	else
+	if (!(a & TYPEBIT_CELL) && !(b & TYPEBIT_CELL))
 	{
 		if (b > 0 && a >> 2 != b >> 2)
 			throw CAstException(USAGE, *this, p).proc("Different object type between LHS and RHS. Can't concatenate.");
@@ -2919,8 +2917,8 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 			for (unsigned int k, kk = 0; kk < Sig.nGroups; kk++)
 			{
 				k = Sig.nGroups - kk - 1;
-				memcpy(Sig.buf + len1 * k, Sig.buf + len0 * k, sizeof(double)*len0);
-				memcpy(Sig.buf + len1 * k + len0, tsig.buf + lent * k, sizeof(double)*lent);
+				memcpy(Sig.buf + len1 * k, Sig.buf + len0 * k, sizeof(double) * len0);
+				memcpy(Sig.buf + len1 * k + len0, tsig.buf + lent * k, sizeof(double) * lent);
 			}
 		}
 		else
@@ -2928,6 +2926,21 @@ void CAstSig::Concatenate(const AstNode *pnode, AstNode *p)
 			if (Sig.nGroups > 1) Sig.nGroups += tsig.nGroups;
 			Sig += &tsig;
 			Sig.MergeChains();
+		}
+	}
+	else
+	{
+		if (a & TYPEBIT_CELL || !(b & TYPEBIT_CELL))
+			throw CAstException(USAGE, *this, p).proc("2nd op is cell; 1st op is not.");
+		if (b & TYPEBIT_CELL)
+		{
+			if (a & TYPEBIT_CELL)
+			{
+				for (size_t k = 0; k < tsig.cell.size(); k++)
+					Sig.cell.push_back(tsig.cell[(int)k]);
+			}
+			else
+				Sig.cell.push_back(tsig);
 		}
 	}
 }
@@ -3010,9 +3023,9 @@ CAstSig * CAstSig::SetVarwithIndex(const CSignal& indices, CVar *psig, CVar *pBa
 	return this;
 }
 
-CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
-// To do--chanage CVar *psig to const CVar &tsig and make sure the second arg is the const, target signal to use
-//to do so, improve the case of psig->GetFs() == 3, so that psig is not changed, let's think about it how.
+CAstSig &CAstSig::SetVar(const char *name, CVar *prhs, CVar *pBase)
+// To do--chanage CVar *prhs to const CVar &tsig and make sure the second arg is the const, target signal to use
+//to do so, improve the case of prhs->GetFs() == 3, so that prhs is not changed, let's think about it how.
 //11/6/2019
 {// NULL pBase --> name will be the variable in the workspace.
  //non-NULL pBase --> pBase is a class variable. name will be a member variable under pBase.
@@ -3020,48 +3033,48 @@ CAstSig &CAstSig::SetVar(const char *name, CVar *psig, CVar *pBase)
 	{
 		map<string, CVar>::iterator it = Vars.find(name);
 		map<string, vector<CVar*>>::iterator jt = GOvars.find(name);
-		if (psig->IsGO()) // name and psig should be fed to GOvars
+		if (prhs->IsGO()) // name and prhs should be fed to GOvars
 		{
 			//gca, gcf shouldn't be "push_backed" but instead replaced.
 			if (!strcmp(name, "gca") || !strcmp(name, "gcf"))
 				GOvars[name].clear();
 			if (jt != GOvars.end())  GOvars.erase(jt);
-			if (psig->GetFs() == 3)
+			if (prhs->GetFs() == 3)
 			{
-				if (psig->nSamples == 1)
+				if (prhs->nSamples == 1)
 				{
-					psig = (CVar*)(INT_PTR)psig->value();
-					GOvars[name].push_back(psig);
+					prhs = (CVar*)(INT_PTR)prhs->value();
+					GOvars[name].push_back(prhs);
 				}
 				else
-					for (unsigned int k = 0; k < psig->nSamples; k++)
-						GOvars[name].push_back((CVar*)(INT_PTR)psig->buf[k]);
+					for (unsigned int k = 0; k < prhs->nSamples; k++)
+						GOvars[name].push_back((CVar*)(INT_PTR)prhs->buf[k]);
 			}
 			else
-				GOvars[name].push_back(psig);
+				GOvars[name].push_back(prhs);
 			if (it != Vars.end()) Vars.erase(it);
 		}
-		else // name and psig should be fed to Var
+		else // name and prhs should be fed to Var
 		{
-			Vars[name] = *psig;
+			Vars[name] = *prhs;
 			if (jt != GOvars.end())  GOvars.erase(jt);
 		}
 	}
 	else
 	{
-		if (psig->IsGO()) // name and psig should be fed to struts
+		if (prhs->IsGO()) // name and prhs should be fed to struts
 		{
 			// Previous one should be cleared.
 			// I wonder if this clear() would cause an issue
 			// What has the SetVar convention been for GO 1/3/2021
 			pBase->struts[name].clear();
-			pBase->struts[name].push_back(psig);
+			pBase->struts[name].push_back(prhs);
 			auto it = pBase->strut.find(name);
 			if (it != pBase->strut.end()) pBase->strut.clear();
 		}
-		else // name and psig should be fed to strut
+		else // name and prhs should be fed to strut
 		{
-			pBase->strut[name] = *psig;
+			pBase->strut[name] = *prhs;
 			auto jt = pBase->struts.find(name);
 			if (jt != pBase->struts.end())  pBase->struts[name].clear();
 		}

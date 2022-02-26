@@ -1,3 +1,16 @@
+1.7092
+[bug fx] ifft bug fixed for even length
+[bug fx] audio(2 by N vector) making ghost (soon-to-be corrupted) array for stereo signal
+[bug fx] wavwrite with chain
+[bug fx] filtfilt, AddChain, printf 
+[bug fx] end corruption
+[bug fx] fwrite with uint8/uin16/uint32, fread, not the same as original
+[bug fx] incorrect nargin when used with dot func for udf
+[bug fx] length(cell_obj)
+[bug fx] cell_obj ++= RHS
+[bug fx] Concatenate() falsely thinks non-cell as a cell
+[new feature] fread/fwrite  with "void" type for data block read/write
+
 1.709
 [bug fx] set path dialogbox not closed after "OK" pressed
 [bug fx] sample rate not saved into .ini
@@ -16,5 +29,9 @@
     1) Built-in func call with proper syntax/usage(e.g., wave calling with an unavailable file)
 	   --> enum ERR_POST_FNC type added for CAstException
     2) Undefined variable 
-       --> enum UNDEFINED_TID added 
+       --> enum UNDEFINED_TID added
 	   
+12:07 AM 12/13/2021
+[bug fx] [$i 5] crashes. Show_WS_CommandPrompt edited inside the block, if (p->str && ((AstNode*)p->str)->type == N_VECTOR); add: if (pcast->lhs)
+[bug fx] past->pEnv->builtin.find to be changed to past->pEnv->pseudo_vars.find in sharps.cpp (but get_first_arg is no longer needed in these functions)
+[bug found] [x -y] computes to a scalar x-y, not a two-element array

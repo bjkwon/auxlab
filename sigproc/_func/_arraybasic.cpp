@@ -31,7 +31,10 @@ void _arraybasic(CAstSig* past, const AstNode* pnode)
 		else
 		{
 			if (!past->Sig.cell.empty())
+			{
 				past->Sig.SetValue((double)past->Sig.cell.size());
+				past->Sig.cell.clear();
+			}
 			else if (!past->Sig.chain)
 				past->Sig = past->Sig.fp_getval(&CSignal::length);
 			else if (past->Sig.IsTimeSignal())
