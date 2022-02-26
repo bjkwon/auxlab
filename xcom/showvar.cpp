@@ -415,7 +415,7 @@ void CShowvarDlg::plotvar(const vector<CSignals*>& psigs, const vector<string>& 
 		//For the global variable $gcf, updated whether or not this is named plot.
 		xscope.at(res)->SetVar("?foc", cfig);
 		plotDlgList.push_back(cfig->m_dlg->hDlg);
-	//	if (psigs.size()==1 && psig->type() & TYPEBIT_TEMPORAL && psig->next)	On_F2(hDlg, pcast);
+		if (psigs.size()==1 && psig->type() & TYPEBIT_TEMPORAL && psig->next)	On_F2(hDlg, pcast);
 		// To set the position of a named plot, do it here
 		//CRect rt;
 		cfig->m_dlg->ShowWindow(SW_SHOW);
@@ -470,7 +470,7 @@ LRESULT CALLBACK HookProc(int code, WPARAM wParam, LPARAM lParam)
 					if (nAxes == 2 || (nAxes == 1 && nLines == 2))
 					{
 						LRESULT res = mShowDlg.SendDlgItemMessage(IDC_DEBUGSCOPE, CB_GETCURSEL);
-				//		On_F2(pmsg->hwnd, xscope.front());
+						On_F2(pmsg->hwnd, xscope.front());
 					}
 				}
 			}
