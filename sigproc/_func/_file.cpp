@@ -228,7 +228,7 @@ size_t fwrite_general(T var, CVar &sig, string prec, FILE * file, int bytes, uin
 				[pvar, bytes, factor, file](double v) { *pvar = (T)(factor * v - .5); fwrite(pvar, bytes, 1, file); });
 		else
 			for_each(sig.buf, sig.buf + sig.nSamples,
-				[pvar, bytes, factor, file](double v) { *pvar = (T)(v - .5); fwrite(pvar, bytes, 1, file); });
+				[pvar, bytes, factor, file](double v) { *pvar = (T)(v); fwrite(pvar, bytes, 1, file); });
 	}
 	return sig.nSamples;
 }
@@ -256,18 +256,10 @@ void _fwrite(CAstSig *past, const AstNode *pnode)
 			res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x100);
 		}
 	}
-	else if (prec == "int8")
+	else if (prec == "int8" || prec == "uint8")
 	{
 		int8_t temp = 0;
 		res = fwrite_general(temp, past->Sig, prec, file, bytes, 0x80);
-	}
-	else if (prec == "uint8")
-	{
-		uint64_t factor = 1;
-		uint8_t var;
-		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
-		[&var, bytes, factor, file](double v) { var = (uint8_t)v; fwrite(&var, bytes, 1, file); });
-		res = past->Sig.nSamples;
 	}
 	else if (prec == "int16")
 	{
@@ -380,9 +372,25 @@ void _fread(CAstSig *past, const AstNode *pnode)
 		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
 			[&temp, bytes, file](double& v) { 
 				fread(&temp, bytes, 1, file); 
-				v = temp >= 0 ? temp : temp + 256; });
+				v = temp >= 0 ? temp : temp + 0x80; });
 	}
-	else if (prec == "int16" || prec == "uint16")
+	else if (prec == "uint16")
+	{
+		uint16_t temp = 0;
+		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
+			[&temp, bytes, file](double& v) {
+				fread(&temp, bytes, 1, file);
+				v = temp >= 0 ? temp : temp + 0x8000; });
+	}
+	else if (prec == "uint32")
+	{
+		uint32_t temp = 0;
+		for_each(past->Sig.buf, past->Sig.buf + past->Sig.nSamples,
+			[&temp, bytes, file](double& v) {
+				fread(&temp, bytes, 1, file);
+				v = temp >= 0 ? temp : temp + 0x80000000; });
+	}
+	else if (prec == "int16" )
 	{
 		int16_t temp = 0;
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x8000);
@@ -392,7 +400,7 @@ void _fread(CAstSig *past, const AstNode *pnode)
 		int32_t temp = 0; // in24_t doesn't exist
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x80000000); // check
 	}
-	else if (prec == "int32" || prec == "uint32")
+	else if (prec == "int32")
 	{
 		int32_t temp = 0;
 		fread_general(temp, past->Sig, file, bytes, addarg, 0x80000000);
