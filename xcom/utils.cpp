@@ -178,3 +178,21 @@ BOOL CALLBACK AuxPathDlgProc(HWND hDlg, UINT umsg, WPARAM wParam, LPARAM lParam)
 	}
 	return 0;
 }
+
+string get_current_dir()
+{
+	size_t tbufferLen = MAX_PATH;
+	char* tbuffer = new char[tbufferLen];
+	tbuffer[0] = 0;
+	DWORD count = GetCurrentDirectory(tbufferLen, tbuffer);
+	while (count > tbufferLen)
+	{
+		tbufferLen *= 2;
+		delete[] tbuffer;
+		tbuffer = new char[tbufferLen];
+		count = GetCurrentDirectory(tbufferLen, tbuffer);
+	}
+	string out = tbuffer;
+	delete[] tbuffer;
+	return out;
+}

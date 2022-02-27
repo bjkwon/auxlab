@@ -135,8 +135,6 @@ void _dir(CAstSig* past, const AstNode* pnode)
 				char currentDir[MAX_PATH];
 				_splitpath(past->pEnv->CAstSigEnv::AppPath.c_str(), curDirPath, currentDir, NULL, NULL);
 				strcat(curDirPath, currentDir);
-//				if (curDirPath[strlen(curDirPath) - 1] != '\\') strcat(curDirPath, "\\");
-//				strcat(curDirPath, dir);
 			}
 		}
 		else
@@ -151,7 +149,6 @@ void _dir(CAstSig* past, const AstNode* pnode)
 			}
 		}
 	}
-#ifdef _WINDOWS
 	while (strcmp(ls.cFileName, ".") && ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 	{ // the first find is a directory, need to update curDirPath
 		if (specified_arg_is_directory)
@@ -176,16 +173,7 @@ void _dir(CAstSig* past, const AstNode* pnode)
 				if (pt) *(pt+1) = 0;
 				pathonly_corrected_dotdot = true;
 			}
-			else if (arg.size() > 0 && arg.front() == '\\')
-			{
-				// if arg begins with \ , 
-				auto pt = strchr(curDirPath, '\\');
-				if (pt) *pt = 0;
-				pathonly_corrected_dotdot = true;
-			}
 			update_dir_info2CVar(past->Sig, ls, fname, ext, curDirPath);
 		}
 	} while (FindNextFile(hFind, &ls));
-#elif
-#endif
 }
