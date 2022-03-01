@@ -122,6 +122,23 @@ unsigned long GetTickCount0()
 
 #ifndef GRAFFY
 
+// 3/1/2022
+// This works... except for the case of N_VECTOR... Do it
+const AstNode* CAstSig::find_parent(const AstNode* p, const AstNode* a)
+{ // search a from nodes begining at p
+	if (p->child == a) return p;
+	if (p->alt == a) return p;
+	if (p->next == a) return p;
+	const AstNode* q = NULL;
+	if (p->child)
+		if (q = find_parent(p->child, a)) return q;
+	if (p->alt)
+		if (q = find_parent(p->alt, a)) return q;
+	if (p->next)
+		if (q = find_parent(p->next, a)) return q;
+	return NULL;
+}
+
 const AstNode* CAstSig::findDadNode(const AstNode* p, const AstNode* pME)
 {
 	if (!p) return NULL;

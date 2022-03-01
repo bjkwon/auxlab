@@ -243,6 +243,7 @@ public:
 	static CVar *HandleSig(CVar *ptarget, CVar *pGraffyobj);
 	static const AstNode* findParentNode(const AstNode* p, const AstNode* pME, bool altonly = false);
 	static const AstNode* findDadNode(const AstNode *p, const AstNode *pME);
+	static const AstNode* find_parent(const AstNode* p, const AstNode* a);
 	static char *showGraffyHandle(char *out, CVar *pvar);
 #endif //GRAFFY
 	int level;
