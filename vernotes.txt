@@ -1,2 +1,8 @@
 1.7093
 [bug fx] dir("\temp\") did not correctly show path of each file
+
+11:05 AM 2/28/2022
+When building after cloning github, (Debug), initially bjcommon.lib and sndlib1.0.28_st.lib not found error,
+but a successive build (F7) worked
+
+[bug fx] After [x,y,z]=max(something) gives an error, a subsequent call [x]=max(something) crashes

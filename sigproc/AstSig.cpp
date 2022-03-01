@@ -641,15 +641,18 @@ void CAstSig::outputbinding(const AstNode *plhs)
 	else
 	{
 		vector<unique_ptr<CVar*>>::iterator it = Sigs.begin();
-		for (AstNode *p = ((AstNode *)plhs->str)->alt; p; p = p->next)
+		for (AstNode* p = ((AstNode*)plhs->str)->alt; p; p = p->next)
 		{
 			auto pp = *it->release();
 			bind_psig(p, pp);
-			if (it != Sigs.begin()) 
+			if (it != Sigs.begin())
 				delete pp; // most likely pp was created in _func() in _functions
 			it++;
-			if (it==Sigs.end() && p->next)
+			if (it == Sigs.end() && p->next)
+			{
+				Sigs.clear(); // without this, a subsequent call to this function has invalid elements of SigExt *it->release() will crash.
 				throw CAstException(USAGE, *this, p).proc("Too many output arguments.");
+			}
 		}
 	}
 }
