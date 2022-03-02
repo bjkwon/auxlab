@@ -16,6 +16,7 @@
 #include <string.h>
 #include <process.h>
 #include <vector>
+#include <direct.h>
 #include "audstr.h"
 #include "resource1.h"
 #include "showvar.h"
@@ -866,46 +867,18 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	}
 	else if (HookName == "cd")
 	{
-		size_t res = str2vect(tar, argstr, " ");
-		if (!strcmp(argstr, ".."))
+		auto cx = chdir(argstr);
+		if (cx)
 		{
-			char *pos_backslash = strrchr(AppPath,'\\');
-			if (strlen(AppPath) > 1 && AppPath[strlen(AppPath) - 1] == '\\') AppPath[strlen(AppPath) - 1] = 0;
-			pos_backslash = strrchr(AppPath, '\\');
-			if (pos_backslash)
-			{
-				*(pos_backslash+1) = 0;
-				ast->pEnv->AppPath = AppPath;
-				printf("changed to %s\n", AppPath);
-			}
-			SetCurrentDirectory(AppPath);
+			printf("Invalid directory %s\n", argstr);
 		}
 		else
 		{
-			WIN32_FIND_DATA ls;
-			// see argstr is an absolute path
-			if (!strchr(argstr,':') && argstr[0] != '\\')
-				strcpy(buffer, AppPath);
-			strcat(buffer, argstr);
-			if (buffer[strlen(buffer) - 1] == '\\') buffer[strlen(buffer) - 1] = 0;
-			HANDLE hFind = FindFirstFile(buffer, &ls);
-			if (hFind == INVALID_HANDLE_VALUE)
-			{
-				printf("no directory %s found.\n", argstr);
-			}
-			else
-			{
-				if (ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-				{
-					if (buffer[strlen(buffer) - 1] != '\\') strcat(buffer, "\\");
-					strcpy(AppPath, buffer);
-					ast->pEnv->AppPath = AppPath;
-					printf("changed to %s\n", AppPath);
-					SetCurrentDirectory(AppPath);
-				}
-				else
-					printf("invalid directory %s\n", argstr);
-			}
+			GetCurrentDirectory(sizeof(buffer), buffer);
+			strcpy(AppPath, buffer);
+			if (AppPath[strlen(AppPath) - 1] != '\\') strcat(AppPath, "\\");
+			ast->pEnv->AppPath = AppPath;
+			printf("changed to %s\n", AppPath);
 		}
 	}
 	else if (HookName == "dir" || HookName == "ls")
@@ -933,7 +906,7 @@ int xcom::hook(CAstSig *ast, string HookName, const char* argstr)
 	else if (HookName == "pwd")
 	{
 		GetCurrentDirectory(sizeof(buffer), buffer);
-		printf("%s\n", ast->pEnv->AppPath.c_str());
+		printf("%s\n", buffer);
 	}
 	else if (HookName=="quit")
 	{

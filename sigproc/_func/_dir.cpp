@@ -1,4 +1,5 @@
 #include "sigproc.h"
+#include <direct.h>
 
 /* Use cases:
 1)  dir
@@ -64,7 +65,7 @@ static void update_dir_info2CVar(CVar& out, const WIN32_FIND_DATA& ls, const cha
 void _dir(CAstSig* past, const AstNode* pnode)
 {
 	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
-	string arg;
+	string arg0, arg;
 	bool arg_ending_back_slash = false;
 	if (p)
 	{
@@ -72,108 +73,60 @@ void _dir(CAstSig* past, const AstNode* pnode)
 		past->Compute(p);
 		if (!past->Sig.IsString())
 			throw CAstException(FUNC_SYNTAX, *past, p).proc("argument must be a string.");
-		arg = past->Sig.string();
+		arg0 = past->Sig.string();
 	}
-	if (arg.empty()) arg += ".";
-	bool dot_or_dotdot = false;
-	if (arg == "." || "..") dot_or_dotdot = true;
+	char dir_org[256] = { 0 };
+	char dir_new[256] = { 0 };
+	DWORD count = GetCurrentDirectory(256, dir_org);
+	if (dir_org[strlen(dir_org) - 1] != '\\') strcat(dir_org, "\\");
+	//First, is the argument a file or directory
+	WIN32_FIND_DATA ls;
+	arg = arg0;
+	if (arg0.empty()) arg = ".";
 	if (arg.back() == '\\')
 	{
 		arg_ending_back_slash = true;
-		arg += ".";
+		arg += "*.*";
 	}
-	if (arg == "..") arg += "\\.";
-	WIN32_FIND_DATA ls;
+	if (arg == "..") arg += "\\*.*";
 	HANDLE hFind = FindFirstFile(arg.c_str(), &ls);
-	char curDirPath[MAX_PATH]; // where the FindFirstFile operation is based
-
-	char drive[MAX_PATH], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH], pathonly[MAX_PATH] = {};
-	_splitpath(arg.c_str(), drive, dir, fname, ext);
-	// if dir begins with \ --> absolute path 
-	//          if drive is empty, get current drive (from pEnv->CAstSigEnv::AppPath) and make curDirPath
-	//          otherwise, make curDirPath from drive, dir
-	// otherwise (relative path)
-	//          if both drive and dir are empty, curDirPath is pEnv->CAstSigEnv::AppPath
-	//          if only drive is empty, get current drive (from pEnv->CAstSigEnv::AppPath) followed by dir
-	//          if only dir is empty, drive followed by current directory of the folder using GetFullPathName
-	// In addition, if arg ends with \ and ls indicates a file, 
-	// make that statement illegal (that's the behavior in the Windows cmd).
-	// for example, dir ("name\") is called when name is a file, not a directory
-	auto bb = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
-	bool path3;
-	if (hFind == INVALID_HANDLE_VALUE || (arg_ending_back_slash  && !(ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)))
+	arg = arg0;
+	if (hFind != INVALID_HANDLE_VALUE)
+	{
+		auto specified_arg_is_directory = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+		if (specified_arg_is_directory)
+		{
+			auto cx = chdir(arg.c_str());
+			if (!cx) {
+				char tbuf[256] = { 0 };
+				count = GetCurrentDirectory(256, tbuf);
+				strcpy(dir_new, tbuf);
+				if (dir_new[strlen(dir_new) - 1] != '\\') strcat(dir_new, "\\");
+				arg = "*.*";
+			}
+		}
+	}
+	else
 	{
 		// no file found. return NULL
 		past->Sig.Reset(1);
 		return;
-	}	
-	auto specified_arg_is_directory = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && !dot_or_dotdot;
-	if (dir[0] && dir[0] == '\\') // absolute path
-	{
-		if (!drive[0]) // drive empty
-		{
-			_splitpath(past->pEnv->CAstSigEnv::AppPath.c_str(), curDirPath, NULL, NULL, NULL);
-			strcat(curDirPath, dir);
-		}
-		else
-		{
-			strcpy(curDirPath, drive);
-			strcat(curDirPath, dir);
-		}
 	}
-	else // relative path
+	hFind = FindFirstFile(arg.c_str(), &ls);
+	if (hFind != INVALID_HANDLE_VALUE)
 	{
-		if (!drive[0]) // drive empty
-		{
-			if (!dir[0]) // dir empty
-			{
-				strcpy(curDirPath, past->pEnv->CAstSigEnv::AppPath.c_str());
-				if (curDirPath[strlen(curDirPath) - 1] != '\\') strcat(curDirPath, "\\");
-			}
+		char drive[MAX_PATH], dir[MAX_PATH], fname[MAX_PATH], ext[MAX_PATH], pathonly[MAX_PATH] = {};
+		past->Sig.Reset();
+		do {
+			auto specified_arg_is_directory = ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+			if (specified_arg_is_directory && !strcmp(ls.cFileName, ".")) continue;
+			if (specified_arg_is_directory && !strcmp(ls.cFileName, "..")) continue;
+			_splitpath(ls.cFileName, drive, dir, fname, ext);
+			if (dir_new[0])
+				update_dir_info2CVar(past->Sig, ls, fname, ext, dir_new);
 			else
-			{
-				char currentDir[MAX_PATH];
-				_splitpath(past->pEnv->CAstSigEnv::AppPath.c_str(), curDirPath, currentDir, NULL, NULL);
-				strcat(curDirPath, currentDir);
-			}
-		}
-		else
-		{
-			path3 = true;
-			if (!dir[0]) // dir empty
-			{
-				strcpy(curDirPath, drive);
-				char** pt = { NULL };
-				GetFullPathName(drive, sizeof(dir), dir, pt);
-				strcpy(curDirPath, dir);
-			}
-		}
+				update_dir_info2CVar(past->Sig, ls, fname, ext, dir_org);
+		} while (FindNextFile(hFind, &ls));
 	}
-	while (strcmp(ls.cFileName, ".") && ls.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-	{ // the first find is a directory, need to update curDirPath
-		if (specified_arg_is_directory)
-		{
-			strcat(curDirPath, ls.cFileName);
-			strcat(curDirPath, "\\");
-		}
-		arg += "\\*.*";
-		hFind = FindFirstFile(arg.c_str(), &ls);
-	}
-	past->Sig.Reset();
-	bool pathonly_corrected_dotdot = false;
-	do {
-		_splitpath(ls.cFileName, NULL, NULL, fname, ext);
-		if (strcmp(ls.cFileName, ".") && strcmp(ls.cFileName, ".."))
-		{
-			if (!pathonly_corrected_dotdot && arg.size() > 1 && arg.substr(0, 2) == "..")
-			{
-				// if arg begins with dotdot .. , curDirPath should be go up by one
-				if (curDirPath[strlen(curDirPath) - 1] == '\\') curDirPath[strlen(curDirPath) - 1] = 0;
-				auto pt = strrchr(curDirPath, '\\');
-				if (pt) *(pt+1) = 0;
-				pathonly_corrected_dotdot = true;
-			}
-			update_dir_info2CVar(past->Sig, ls, fname, ext, curDirPath);
-		}
-	} while (FindNextFile(hFind, &ls));
+	auto cx = chdir(dir_org);
 }
