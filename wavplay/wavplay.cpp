@@ -102,6 +102,7 @@ public:
 	int				fading;
 	int				nFadeOutSamples;
 	int				nFadingBlocks; // The number of blocks for fading.
+	int				segbr; // segment break; if 1, playback pauses when an item in nextPlay is done playing
 	VOID*			playBuffer;
 	void*			doomedPt;
 	list<NP>		nextPlay;
@@ -130,7 +131,7 @@ vector<CWavePlay*> pWlist;
 	SetFilePointer(hf, NULL,NULL, FILE_END); WriteFile(hf, fout, strlen(fout), &dw, NULL); CloseHandle(hf);}
 
 CWavePlay::CWavePlay()
-	: playBuffer(NULL), hThread(NULL), playcount(1), fading(0), lastPt(0), playedCount(0), doomedPt(NULL), fadeoutEnv(NULL), passing(true)
+	: playBuffer(NULL), hThread(NULL), playcount(1), fading(0), lastPt(0), playedCount(0), doomedPt(NULL), fadeoutEnv(NULL), passing(true), segbr(0)
 {
 	threadID = GetCurrentThreadId();
 	wfx.wFormatTag = WAVE_FORMAT_PCM;
@@ -288,6 +289,8 @@ int CWavePlay::OnBlockDone(WAVEHDR* lpwh)
 					lastPt = 0; // Resetting for setPlayPoint
 					passing = true;
 				}
+				if (segbr)
+					rc = waveOutPause(hwo);
 			}
 		}
 		else
@@ -658,12 +661,45 @@ bool PauseResumePlay(INT_PTR pHandle, bool fOnOff)
 	CWavePlay *pWP = (CWavePlay *)((AUD_PLAYBACK *)pHandle)->pWavePlay;
 	int rc;
 	if (fOnOff)
+	{
 		rc = waveOutRestart(pWP->hwo);
+		pWP->segbr--;
+		pWP->hPlayStruct.sig.strut["segs"].SetValue(pWP->segbr);
+	}
 	else
 		rc = waveOutPause(pWP->hwo);
 	if (rc == MMSYSERR_NOERROR) return true;
 	MMERRRETURNFALSE("waveOutRestart or waveOutPause")
 }
+
+bool SegmentBreak(INT_PTR pHandle, int nSegments)
+{ // nSegments > 0: add segbr, nSegments = 0: clear all segbr, nSegments < 0: decrement segbr 
+	if (pHandle == NULL) return false;
+	if (!FindCWavePlay(pHandle)) return false;
+	CWavePlay* pWP = (CWavePlay*)((AUD_PLAYBACK*)pHandle)->pWavePlay;
+	int rc = 0;
+	if (!nSegments)
+		pWP->segbr = 0;
+	else
+		pWP->segbr += nSegments;
+	pWP->segbr = max(0, pWP->segbr);
+	auto nBuffers = pWP->hPlayStruct.sig.strut["buffers"].value();
+	pWP->segbr = min(nBuffers, pWP->segbr);
+	auto vv = pWP->hPlayStruct.sig.strut["segs"];
+	pWP->hPlayStruct.sig.strut["segs"].SetValue(pWP->segbr);
+	return true;
+}
+
+bool Rewind(INT_PTR pHandle, int time2rewind)
+{
+	if (pHandle == NULL) return false;
+	if (!FindCWavePlay(pHandle)) return false;
+	CWavePlay* pWP = (CWavePlay*)((AUD_PLAYBACK*)pHandle)->pWavePlay;
+	int back = (int)(.001 * time2rewind * pWP->wfx.nSamplesPerSec);
+	pWP->lastPt -= back;
+	return true;
+}
+
 
 int GetDevCaps(UINT_PTR id)
 {

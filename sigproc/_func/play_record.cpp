@@ -178,6 +178,7 @@ void _play(CAstSig *past, const AstNode *pnode)
 					(*it).second.strut["durTotal"].SetValue(sig.strut["durTotal"].value()+ audio.alldur()*nRepeats / 1000);
 					past->Sig = (*it).second;
 				}
+				((AUD_PLAYBACK*)h)->sig.strut["buffers"].SetValue(sig.strut["buffers"].value() + 1);
 			}
 		}
 	}
@@ -209,6 +210,8 @@ void _play(CAstSig *past, const AstNode *pnode)
 			p->sig.strut.insert(pair<string, CVar>("type", string("audio_playback")));
 			p->sig.strut.insert(pair<string, CVar>("devID", CVar((double)devID)));
 			p->sig.strut.insert(pair<string, CVar>("durTotal", CVar(addtime)));
+			p->sig.strut.insert(pair<string, CVar>("buffers", CVar(0.))); // number of items to play (how many times .play was issued for this handle)
+			p->sig.strut.insert(pair<string, CVar>("segs", CVar(0.))); // among those buffers, how many are broken
 			if (p->sig.strut.find("durLeft") == p->sig.strut.end())
 				p->sig.strut.insert(pair<string, CVar>("durLeft", CVar(addtime)));
 			else
@@ -268,6 +271,34 @@ void _pause_resume(CAstSig *past, const AstNode *pnode)
 	}
 	else
 		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("pause() or resume() applies only to audio_playback or audio_record.");
+}
+
+void _segbr(CAstSig* past, const AstNode* pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+	CVar sig = past->Sig;
+	if (!sig.IsScalar())
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Argument must be a scalar.");
+	past->Compute(p);
+	if (!SegmentBreak((INT_PTR)sig.value(), (int)past->Sig.value()))
+	{
+		past->Sig.strut.clear();
+		past->Sig.SetValue(-1.);
+	}
+}
+
+void _rewind(CAstSig* past, const AstNode* pnode)
+{
+	const AstNode* p = get_first_arg(pnode, (*(past->pEnv->builtin.find(pnode->str))).second.alwaysstatic);
+	CVar sig = past->Sig;
+	if (!sig.IsScalar())
+		throw CAstException(FUNC_SYNTAX, *past, pnode).proc("Argument must be a scalar.");
+	past->Compute(p);
+	if (!Rewind((INT_PTR)sig.value(), (int)past->Sig.value()))
+	{
+		past->Sig.strut.clear();
+		past->Sig.SetValue(-1.);
+	}
 }
 
 #endif // NO_PLAYSND

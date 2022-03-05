@@ -66,6 +66,8 @@ void TerminatePlay(int quick=1);
 bool StopPlay(INT_PTR pWavePlay, bool quick);
 bool PauseResumePlay(INT_PTR pWavePlay, bool fOnOff);
 bool StopRecord(int recID, char *errstr);
+bool SegmentBreak(INT_PTR pWavePlay, int fOnOff);
+bool Rewind(INT_PTR pWavePlay, int time2rewind);
 void SetHWND_WAVPLAY(HWND hAppl);
 HWND GetHWND_WAVPLAY();
 int WinMMGetVolume(INT_PTR pWavePlay, DWORD &vol, char *errstr);

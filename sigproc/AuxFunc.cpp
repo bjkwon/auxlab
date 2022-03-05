@@ -134,7 +134,9 @@ void _randperm(CAstSig* past, const AstNode* pnode);
 void _sprintf(CAstSig* past, const AstNode* pnode);
 void _record(CAstSig* past, const AstNode* pnode);
 void _play(CAstSig* past, const AstNode* pnode);
+void _rewind(CAstSig* past, const AstNode* pnode);
 void _pause_resume(CAstSig* past, const AstNode* pnode);
+void _segbr(CAstSig* past, const AstNode* pnode);
 void _stop(CAstSig* past, const AstNode* pnode);
 void _inputdlg(CAstSig* past, const AstNode* pnode);
 void aux_input(CAstSig* past, const AstNode* pnode);
@@ -989,6 +991,14 @@ void CAstSigEnv::InitBuiltInFunctions()
 	builtin[name] = ft;
 	name = "qstop";
 	ft.func = &_stop;
+	builtin[name] = ft;
+	name = "rewind";
+	ft.funcsignature = "(audio_handle, time_ms_to_rewind)";
+	ft.narg1 = 2;	ft.narg2 = 2;
+	ft.func = &_rewind;
+	builtin[name] = ft;
+	name = "segbr";
+	ft.func = &_segbr;
 	builtin[name] = ft;
 
 	ft.funcsignature = "(audio_signal [, repeat=1]) or (audio_handle, audio_signal [, repeat=1])";
