@@ -3,8 +3,10 @@
 static int countVectorItems(const AstNode* pnode)
 {
 	if (pnode->type != N_VECTOR) return 0;
-	AstNode* p = ((AstNode*)pnode->str)->alt;
 	int res = 0;
+	AstNode* p = ((AstNode*)pnode)->alt;
+	if (pnode->str)
+		p = ((AstNode*)pnode->str)->alt;
 	for (; p; p = p->next)
 		res++;
 	return res;
