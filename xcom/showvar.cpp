@@ -654,7 +654,7 @@ void CShowvarDlg::OnVarChanged(const char *varname)
 		if (scopename != pcast->u.title) continue; // skip if not in the same scope
 		if (figdlg->namedvar.find("Figure ")==0) continue; //skip numbered window
 		figdlg->pcast = pcast; // need to update; figdlg->pcast might be obsolete lingering from the last udf call
-		if (find(figdlg->varnames.begin(), figdlg->varnames.end(), varname) != figdlg->varnames.end())
+		if (!varname || find(figdlg->varnames.begin(), figdlg->varnames.end(), varname) != figdlg->varnames.end())
 		{
 			PostThreadMessage(figdlg->threadID, WM__VAR_CHANGED, (WPARAM)figdlg, 0);
 			return;
