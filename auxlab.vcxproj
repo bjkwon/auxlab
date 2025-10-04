@@ -60,6 +60,7 @@
     <Image Include="xcom\refresh.bmp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)'==''">10.0</WindowsTargetPlatformVersion>
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{3929F163-CEC0-40EB-B0F9-BFB302611DDC}</ProjectGuid>
     <RootNamespace>xcom</RootNamespace>
@@ -146,15 +147,20 @@
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)lib\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib libmp3lame$(PlatformArchitecture)st.lib mpglib$(PlatformArchitecture)st.lib </Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_lib_files.bat" "$(MSBuildProjectDirectory)\lib\$(Platform)" "$(OutDir)." libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib libmp3lame$(PlatformArchitecture)st.lib mpglib$(PlatformArchitecture)st.lib
+if errorlevel 1 exit /b 1</Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>
-	  call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
-		call copy_header.bat graffy2 graffy\
-		call copy_header.bat audstr bjcommon\
-		call copy_header.bat AUXLib AUXLib\
-		call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon wavplay qlparse sigproc graffy
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" AUXLib "$(MSBuildProjectDirectory)\AUXLib\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -171,14 +177,20 @@
       <ImportLibrary>$(OutDir)$(TargetName)IMP.lib</ImportLibrary>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)lib\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib libmp3lame$(PlatformArchitecture)st.lib mpglib$(PlatformArchitecture)st.lib </Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_lib_files.bat" "$(MSBuildProjectDirectory)\lib\$(Platform)" "$(OutDir)." libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib libmp3lame$(PlatformArchitecture)st.lib mpglib$(PlatformArchitecture)st.lib
+if errorlevel 1 exit /b 1</Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
-		call copy_header.bat graffy2 graffy\
-		call copy_header.bat audstr bjcommon\
-		call copy_header.bat AUXLib AUXLib\
-		call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon wavplay qlparse sigproc graffy
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" AUXLib "$(MSBuildProjectDirectory)\AUXLib\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -197,18 +209,21 @@
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib </Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_lib_files.bat" "$(MSBuildProjectDirectory)\lib\$(Platform)" "$(OutDir)." libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib
+if errorlevel 1 exit /b 1</Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
-		call copy_header.bat graffy2 graffy\
-		call copy_header.bat audstr bjcommon\
-		call copy_header.bat AUXLib AUXLib\
-		call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon wavplay qlparse sigproc graffy
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" AUXLib "$(MSBuildProjectDirectory)\AUXLib\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
-    <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj AUXLib</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -229,18 +244,21 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PreLinkEvent>
-      <Command>copy_lib_files.bat $(SolutionDir)LIB\$(Platform) $(TargetDir) libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib </Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_lib_files.bat" "$(MSBuildProjectDirectory)\lib\$(Platform)" "$(OutDir)." libsamplerate$(PlatformArchitecture)st.lib sndfile1.0.28_$(PlatformArchitecture)st.lib fftw3.3.9_$(PlatformArchitecture)st.lib
+if errorlevel 1 exit /b 1</Command>
     </PreLinkEvent>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon wavplay qlparse sigproc graffy
-		call copy_header.bat graffy2 graffy\
-		call copy_header.bat audstr bjcommon\
-		call copy_header.bat AUXLib AUXLib\
-		call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon wavplay qlparse sigproc graffy
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" AUXLib "$(MSBuildProjectDirectory)\AUXLib\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
-    <PostBuildEvent>
-      <Command>delete_headers.bat bjcommon_win bjcommon audstr wavplay qlparse sigproc aux_classes caux psycon.yacc graffy graffy2 lame_bj AUXLib</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)'==''">10.0</WindowsTargetPlatformVersion>
     <ProjectGuid>{8CF1562D-8918-46EC-B0C2-A41C3A87D448}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>sigproc</RootNamespace>
@@ -117,12 +118,18 @@
       <AdditionalLibraryDirectories>mpglib-static.lib;libmp3lame-static.lib;lame.lib;</AdditionalLibraryDirectories>
     </Lib>
     <PreBuildEvent>
-      <Command> call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
-	  call copy_header.bat graffy2 graffy\
-	  call copy_header.bat psycon.yacc sigproc\
-	  call copy_header.bat audstr bjcommon\
-	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon graffy wavplay sigproc
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" psycon.yacc "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" aux_classes "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -147,12 +154,18 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
-	  call copy_header.bat graffy2 graffy\
-	  call copy_header.bat psycon.yacc sigproc\
-	  call copy_header.bat audstr bjcommon\
-	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon graffy wavplay sigproc
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" psycon.yacc "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" aux_classes "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -176,12 +189,18 @@
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
     </Link>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
-	  call copy_header.bat graffy2 graffy\
-	  call copy_header.bat psycon.yacc sigproc\
-	  call copy_header.bat audstr bjcommon\
-	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon graffy wavplay sigproc
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" psycon.yacc "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" aux_classes "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -210,12 +229,18 @@
       </AdditionalDependencies>
     </Lib>
     <PreBuildEvent>
-      <Command>call copy_headers.bat bjcommon_win bjcommon graffy wavplay sigproc
-	  call copy_header.bat graffy2 graffy\
-	  call copy_header.bat psycon.yacc sigproc\
-	  call copy_header.bat audstr bjcommon\
-	  call copy_header.bat aux_classes sigproc\
-	  call copy_header.bat lame_bj lame\</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" bjcommon_win bjcommon graffy wavplay sigproc
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" graffy2 "$(MSBuildProjectDirectory)\graffy\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" psycon.yacc "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" audstr "$(MSBuildProjectDirectory)\bjcommon\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" aux_classes "$(MSBuildProjectDirectory)\sigproc\."
+if errorlevel 1 exit /b 1
+call "$(MSBuildProjectDirectory)\copy_header.bat" lame_bj "$(MSBuildProjectDirectory)\lame\."
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

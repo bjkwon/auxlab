@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)'==''">10.0</WindowsTargetPlatformVersion>
     <ProjectGuid>{E9095213-F9BB-4EAF-9358-0905EBC3865C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>bjcommon_win</RootNamespace>

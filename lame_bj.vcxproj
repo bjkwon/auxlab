@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)'==''">10.0</WindowsTargetPlatformVersion>
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{4F6374F8-E7E4-4C92-A14D-171869C19798}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>

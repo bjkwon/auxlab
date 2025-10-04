@@ -3,11 +3,11 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
     <SrcPath>$(MSBuildProjectDirectory)\$(RootNamespace)\</SrcPath>
-    <BuildDir>c:\devploy\auxlab\</BuildDir>
+    <BuildDir Condition="'$(BuildDir)'==''">$(MSBuildThisFileDirectory)artifacts\</BuildDir>
     <TargetDir>$(BuildDir)</TargetDir>
   </PropertyGroup>
   <PropertyGroup>
-  <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+  <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)'==''">10.0</WindowsTargetPlatformVersion>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <SourcePath>$(SourcePath)</SourcePath>
     <IntDir>$(Configuration)\$(ProjectName)\</IntDir>
@@ -18,7 +18,7 @@
       <DisableSpecificWarnings>4477;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)lib\$(Platform);$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
     </Link>
   </ItemDefinitionGroup>

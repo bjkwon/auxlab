@@ -1,0 +1,15 @@
+Continue the legacy AUXLAB maintenance work started on my Mac.
+
+Read MAINTENANCE_SCOPE.md and docs/WINDOWS_BASELINE.md.
+Preserve the existing uncommitted changes.
+
+Work package A is underway. Build paths, SDK selection, copying,
+and library lookup were updated. tools/qualify_windows.py prepares
+Windows build qualification. Four portable tests passed on macOS;
+four Windows-only tests were skipped. No Windows build or runtime
+qualification has happened yet.
+
+Inspect the installed Windows toolchain, run the qualification
+runner using v142 and an installed Windows SDK, and fix failures
+within the maintenance scope. Preserve logs and update the baseline
+record. Complete work package A before starting recording refactoring.

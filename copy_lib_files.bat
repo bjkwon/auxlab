@@ -1,5 +1,15 @@
-if not exist %2%3 copy %1\%3 %2%3
-if not exist %2%4 copy %1\%4 %2%4
-if not exist %2%5 copy %1\%5 %2%5
-if not exist %2%6 copy %1\%6 %2%6
-if not exist %2%7 copy %1\%7 %2%7
+@echo off
+setlocal
+if "%~1"=="" exit /b 1
+if "%~2"=="" exit /b 1
+set "AUXLAB_COPY_SOURCE=%~1"
+set "AUXLAB_COPY_DEST=%~2"
+if not exist "%AUXLAB_COPY_DEST%\" mkdir "%AUXLAB_COPY_DEST%" || exit /b 1
+shift
+shift
+:next
+if "%~1"=="" exit /b 0
+copy /y "%AUXLAB_COPY_SOURCE%\%~1" "%AUXLAB_COPY_DEST%\%~1" >nul
+if errorlevel 1 exit /b 1
+shift
+goto next

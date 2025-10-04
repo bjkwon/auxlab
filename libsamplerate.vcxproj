@@ -19,11 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)'==''">10.0</WindowsTargetPlatformVersion>
     <ProjectGuid>{39579B43-E4ED-473C-86B5-692F2D77BF71}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>libsamplerate</RootNamespace>
     <ProjectName>libsamplerate</ProjectName>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -106,7 +106,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" sigproc
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -126,7 +127,8 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" sigproc
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -147,7 +149,8 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" sigproc
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -171,7 +174,8 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Lib>
     <PreBuildEvent>
-      <Command>copy_headers.bat sigproc</Command>
+      <Command>call "$(MSBuildProjectDirectory)\copy_headers.bat" sigproc
+if errorlevel 1 exit /b 1</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

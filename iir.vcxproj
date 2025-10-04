@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)'==''">10.0</WindowsTargetPlatformVersion>
     <ProjectGuid>{B46F0059-DC4E-447E-8406-36A75E31F16A}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>sigproc</RootNamespace>

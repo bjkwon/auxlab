@@ -33,13 +33,12 @@ Tutorial videos on YouTube--> [link](https://www.youtube.com/playlist?list=PL3oV
   
 # How to compile and link  
   
-This repository has all files necessary for you to build the package with Visual Studio 2017. The only step to do is to edit auxlab.props--go to line 6.  
-  
-```sh  
-6: <BuildDir>_________</BuildDir>  
-```  
-Specify the build directory on line 6. Now you are ready to build the application.  
-  
+Maintenance builds retain the Visual Studio projects and v142 toolset. Output defaults to
+`artifacts/`; pass `/p:BuildDir=...` to override it (include a trailing backslash).
+See [the Windows baseline procedure](docs/WINDOWS_BASELINE.md) for exact commands,
+dependency inventory, and qualification status. Windows build and runtime validation
+of the maintenance changes is pending.
+
 # Projects  
 # Internal Projects (developed by Bomjun Kwon)  
 | project name | description | Win API dependent |  
