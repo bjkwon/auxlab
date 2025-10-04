@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <vector>
+#include <stack>
 #include <algorithm>
 
 #include "bjcommon.h"
@@ -822,53 +823,56 @@ body &body::insert(body &sec, int id)
 	return *this;
 }
 
-int migra(int input, int nGroup, int nSamples)
-{
-	int x1 = nGroup * (input - 1) + 1;
-	int additional(0);
-	while (x1 > nSamples)
-	{
-		x1 -= nSamples;
-		additional++;
-	}
-	return x1 + additional;
-}
+body& body::transpose() {
+	int   rows = nGroups;                 // # of rows
+	int   cols = nSamples / nGroups;      // # of cols
+	int   N = nSamples;
+	vector<char> done(N, 0);
+	int nextID = 1;
 
-body &body::transpose()
-{
-	if (nSamples < 2) return *this;
-	double tp1, tp2;
-	int next, id;
-	unsigned int counter(0);
-	unsigned char *check = new unsigned char[nSamples];
-	memset(check, 0, nSamples);
-	check[1] = 1;
-	int lasttrace = migra(2, nGroups, nSamples);
-	for (unsigned int trace = 2; counter < nSamples - 2; trace++)
-	{
-		if (check[trace - 1]) continue;
-		id = trace;
-		next = migra(id, nGroups, nSamples);
-		tp1 = buf[id - 1];
-		while ((next = migra(id, nGroups, nSamples)) != trace)
-		{
-			tp2 = buf[next - 1];
-			buf[next - 1] = tp1;
-			check[next - 1] = 1;
-			counter++;
-			tp1 = tp2;
-			id = next;
+	auto index_to_rc = [&](int idx, int& r, int& c) {
+		r = idx / cols;
+		c = idx % cols;
+	};
+	auto rc_to_index = [&](int r, int c) {
+		return r * rows + c;
+	};
+	auto next_unmarked = [&]() -> int {
+		for (int k = nextID; k < N - 1; ++k) {
+			if (!done[k]) return k;
 		}
-		buf[next - 1] = tp1;
-		check[next - 1] = 1;
-		counter++;
+		return -1;  // nothing left
+	};
+
+	while (1) {
+		int startID = next_unmarked();
+		if (startID < 0) break;          // all non-diagonal entries done
+
+		// start a new cycle
+		double cache = buf[startID];
+		int curr = startID;
+		done[curr] = 1; // this is not "done" in a strict sense until the cycle is closed, without this marking, it gets tricky. Safe to mark it done, because it comes back to this for sure,
+
+		// follow the cycle
+		while (1) {
+			int r, c;
+			index_to_rc(curr, r, c);
+			nextID = rc_to_index(c, r);
+			if (nextID == startID) {
+				// close the cycle
+				buf[startID] = cache;
+				break;
+			}
+			std::swap(cache, buf[nextID]);
+			curr = nextID;
+			done[curr] = 1; // this is "done" in a strict sense.
+		}
 	}
-	nGroups = nSamples / nGroups;
-	delete[] check;
+
+	// update for next operations
+	nGroups = cols;
 	return *this;
 }
-
-
 body & body::interp1(body &that, body &qx)
 {
 	vector<double> v1 = ToVector();

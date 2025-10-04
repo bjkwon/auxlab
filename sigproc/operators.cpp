@@ -24,7 +24,10 @@ int CSignal::operator_prep(const CSignal& sec, unsigned int &idx4op1, unsigned i
 {//The case of scalar sec is handled separately. Here we only separately allow the case of *this scalar.
 	if (nSamples > 1 && fs != sec.fs) throw "Both operands must have the same fs.";
 	// if this and sec are do not overlap, return here
-	if (sec.grid().first > grid().second || sec.grid().second < grid().first)
+	auto gr = grid();
+	auto gr_sec = sec.grid();
+	// Even if the two don't overlap, if the two grids are adjacent, it should be treated as if they overlapped.
+	if (gr_sec.first > gr.second + 1 || gr_sec.second + 1 < gr.first)
 		return 0;
 	auto i1 = grid().first;
 	auto i2 = sec.grid().first;
